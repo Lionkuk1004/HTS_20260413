@@ -19,7 +19,7 @@
 //
 //  [Layer 2] HTS_Engine (PC 시뮬레이션 전용)
 //   — LTE HARQ 시뮬레이션, Text Codec, CRC16, Tensor FEC
-//   — ARM 빌드에서는 이 네임스페이스를 사용하지 마십시오
+//   — ARM 빌드에서는 이 네임스페이스를 사용하지 마십시오  
 //   — #if !defined(HTS_3D_ARM_EXCLUDE) 가드로 ARM 노출 차단
 //
 //  [사용법 — HTS16_DIOC_Core]       
