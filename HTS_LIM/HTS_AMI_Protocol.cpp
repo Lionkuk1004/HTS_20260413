@@ -580,7 +580,7 @@ namespace ProtectedEngine {
         switch (svc) {
         case DLMS_Service::GET_REQUEST:
             impl->Handle_Get_Request(effective_apdu, effective_len);
-            break;
+            break; 
         case DLMS_Service::SET_REQUEST:
             // TODO: SET handling (future: meter configuration)
             break;
@@ -604,4 +604,4 @@ namespace ProtectedEngine {
         return reinterpret_cast<const Impl*>(impl_buf_)->state;
     }
 
-} // namespace ProtectedEngine
+} // namespace ProtectedEngine   
