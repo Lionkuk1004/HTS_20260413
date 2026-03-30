@@ -54,9 +54,6 @@
     <ClCompile Include="HTS_Auto_Rollback_Manager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Data_Loader.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="HTS_Dynamic_Config.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -87,22 +84,13 @@
     <ClCompile Include="HTS_Polymorphic_Shield.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Quantum_Decoy_VDF.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="HTS_Quantum_Key_Bridge.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Remote_Attestation.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Server_Stress_Test.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="HTS_Sparse_Recovery.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="HTS_Storage_Adapter.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Storage_Interface.cpp">
@@ -335,9 +323,6 @@
     <ClInclude Include="..\..\CORE\HTS_Antipodal_Core.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Data_Loader.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\CORE\HTS_Dynamic_Config.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -362,19 +347,10 @@
     <ClInclude Include="..\..\CORE\HTS_Polymorphic_Shield.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Quantum_Decoy_VDF.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\CORE\HTS_Quantum_Key_Bridge.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Server_Stress_Test.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="..\..\CORE\HTS_Sparse_Recovery.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Storage_Adapter.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="..\..\CORE\HTS_Storage_Interface.h">

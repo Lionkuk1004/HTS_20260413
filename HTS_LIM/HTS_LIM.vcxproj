@@ -166,7 +166,6 @@
     <ClCompile Include="HTS_Console_Manager.cpp" />
     <ClCompile Include="HTS_Crypto_KAT.cpp" />
     <ClCompile Include="HTS_CTR_DRBG.cpp" />
-    <ClCompile Include="HTS_Data_Loader.cpp" />
     <ClCompile Include="HTS_Device_Profile.cpp" />
     <ClCompile Include="HTS_Dynamic_Config.cpp" />
     <ClCompile Include="HTS_Dynamic_Key_Rotator.cpp" />
@@ -200,11 +199,9 @@
     <ClCompile Include="HTS_Rx_Matched_Filter.cpp" />
     <ClCompile Include="HTS_Rx_Sync_Detector.cpp" />
     <ClCompile Include="HTS_Security_Session.cpp" />
-    <ClCompile Include="HTS_Server_Stress_Test.cpp" />
     <ClCompile Include="HTS_Session_Gateway.cpp" />
     <ClCompile Include="HTS_SHA256_Bridge.cpp" />
     <ClCompile Include="HTS_Sparse_Recovery.cpp" />
-    <ClCompile Include="HTS_Storage_Adapter.cpp" />
     <ClCompile Include="HTS_Storage_Interface.cpp" />
     <ClCompile Include="HTS_TRNG_Collector.cpp" />
     <ClCompile Include="HTS_Tx_Scheduler.cpp" />
@@ -215,7 +212,6 @@
     <ClCompile Include="BB1_Core_Engine.cpp" />
     <ClCompile Include="HTS_ConstantTimeUtil.cpp" />
     <ClCompile Include="HTS_Crc32Util.cpp" />
-    <ClCompile Include="HTS_Quantum_Decoy_VDF.cpp" />
     <ClCompile Include="HTS_Anti_Debug.cpp" />
     <ClCompile Include="HTS_Anti_Glitch.cpp" />
     <ClCompile Include="HTS_Creator_Telemetry.cpp" />
@@ -295,7 +291,6 @@
     <ClInclude Include="..\..\CORE\HTS_Anchor_Vault.hpp" />
     <ClInclude Include="..\..\CORE\HTS_AntiAnalysis_Shield.h" />
     <ClInclude Include="..\..\CORE\HTS_Antipodal_Core.h" />
-    <ClInclude Include="..\..\CORE\HTS_Data_Loader.h" />
     <ClInclude Include="..\..\CORE\HTS_Dynamic_Config.h" />
     <ClInclude Include="..\..\CORE\HTS_Entropy_Arrow.hpp" />
     <ClInclude Include="..\..\CORE\HTS_Gyro_Engine.h" />
@@ -304,11 +299,8 @@
     <ClInclude Include="..\..\CORE\HTS_Orbital_Mapper.hpp" />
     <ClInclude Include="..\..\CORE\HTS_Physical_Entropy_Engine.h" />
     <ClInclude Include="..\..\CORE\HTS_Polymorphic_Shield.h" />
-    <ClInclude Include="..\..\CORE\HTS_Quantum_Decoy_VDF.h" />
     <ClInclude Include="..\..\CORE\HTS_Quantum_Key_Bridge.h" />
-    <ClInclude Include="..\..\CORE\HTS_Server_Stress_Test.h" />
     <ClInclude Include="..\..\CORE\HTS_Sparse_Recovery.h" />
-    <ClInclude Include="..\..\CORE\HTS_Storage_Adapter.hpp" />
     <ClInclude Include="..\..\CORE\HTS_Storage_Interface.h" />
     <ClInclude Include="..\..\CORE\HTS_Universal_API.h" />
     <ClInclude Include="..\..\CORE\BB1_Core_Engine.hpp" />

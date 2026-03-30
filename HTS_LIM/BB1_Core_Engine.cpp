@@ -53,7 +53,10 @@
 #include "HTS_Polymorphic_Shield.h"
 #include "HTS_Universal_API.h"
 #include "HTS_AntiAnalysis_Shield.h"
-#include "HTS_Quantum_Decoy_VDF.h"
+// [VDF 삭제] HTS_Quantum_Decoy_VDF.h 제거
+//  Execute_Time_Lock_Puzzle: 50,000회×64비트 = 119ms CPU 독점
+//  → DMA 타임슬롯 1ms의 119배 초과 → 패킷 100% 유실
+//  V400 Walsh 확산 + ARIA/LEA 암호화 + Polymorphic_Shield가 보안 담당
 #include "HTS_Orbital_Mapper.hpp"
 #include "HTS_Sparse_Recovery.h"
 #include "HTS_Holo_Tensor_Engine.h"
@@ -455,8 +458,7 @@ namespace ProtectedEngine {
 
         Sparse_Recovery_Engine::Generate_Interference_Pattern(
             tensor_data, elements, vs, fa32, is_test_mode);
-        Quantum_Decoy_VDF::Apply_Quantum_Decoy(
-            tensor_data, elements, vs);
+        // [VDF 삭제] Apply_Quantum_Decoy 제거 (119ms CPU 독점 → DMA 유실)
 
         Impl::Build_Map(m.shared.state_map, elements, fa32);  // [BUG-65] tx→shared
         for (size_t i = 0u; i < elements; ++i)
@@ -645,9 +647,7 @@ namespace ProtectedEngine {
             }
         }
 
-        // 4. 양자 디코이 역변환
-        Quantum_Decoy_VDF::Reverse_Quantum_Decoy(
-            damaged_tensor, elements, vs);
+        // 4. [VDF 삭제] Reverse_Quantum_Decoy 제거 (TX Apply와 대칭 삭제)
 
         // 5. 파일럿 복원
         if (fa > 0u) {
