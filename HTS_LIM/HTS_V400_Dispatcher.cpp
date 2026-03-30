@@ -64,23 +64,8 @@ namespace ProtectedEngine {
                 }
     }
 
-    static int8_t walsh_dec(const int16_t* I, const int16_t* Q, int n) noexcept {
-        // [BUG-49] static 제거 → 자동 저장소 (재진입성 보장)
-        // 512B 스택 추가 — Cortex-M4 스택 여유 내 허용
-        int32_t sI[64], sQ[64];
-        for (int i = 0; i < n; ++i) { sI[i] = I[i]; sQ[i] = Q[i]; }
-        fwht_raw(sI, n);
-        fwht_raw(sQ, n);
-        uint64_t best = 0u;
-        uint8_t dec = 0xFFu;
-        for (int m = 0; m < n; ++m) {
-            uint64_t e = static_cast<uint64_t>(
-                static_cast<int64_t>(sI[m]) * sI[m] +
-                static_cast<int64_t>(sQ[m]) * sQ[m]);
-            if (e > best) { best = e; dec = static_cast<uint8_t>(m); }
-        }
-        return (best == 0u) ? -1 : static_cast<int8_t>(dec);
-    }
+    // [FIX-STACK] static walsh_dec 삭제 — walsh_dec_full_(멤버) 통합
+    //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
 
     HTS_V400_Dispatcher::SymDecResult
         HTS_V400_Dispatcher::walsh_dec_full_(
@@ -113,6 +98,58 @@ namespace ProtectedEngine {
         };
     }
 
+    // ── I=Q 동일 모드 (재밍 방어) ──
+
+    // ── [적응형 I/Q] I/Q 독립 디코딩 ──────────────────────────
+    //  I 채널과 Q 채널을 분리하여 각각 FWHT 수행
+    //  한 칩 구간에서 2개 심볼 획득 → 처리량 2배
+    //  각 채널의 에너지는 I² 또는 Q² 단독 (합산하지 않음)
+    //  → I=Q 동일 대비 −3dB, 평시(NF<10dB) 충분
+    HTS_V400_Dispatcher::SymDecResultSplit
+        HTS_V400_Dispatcher::walsh_dec_split_(
+            const int16_t* I, const int16_t* Q, int n) noexcept {
+
+        // I 채널 FWHT
+        for (int i = 0; i < n; ++i) { dec_wI_[i] = I[i]; }
+        fwht_raw(dec_wI_, n);
+
+        // Q 채널 FWHT
+        for (int i = 0; i < n; ++i) { dec_wQ_[i] = Q[i]; }
+        fwht_raw(dec_wQ_, n);
+
+        const int bps = (n == 64) ? cur_bps64_ : 4;
+        const int valid = 1 << bps;
+        const int search = (valid < n) ? valid : n;
+
+        // I 채널 최대 에너지 빈 탐색
+        uint64_t bestI = 0u, secI = 0u;
+        uint8_t decI = 0xFFu;
+        for (int m = 0; m < search; ++m) {
+            uint64_t e = static_cast<uint64_t>(
+                static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m]);
+            if (e > bestI) { secI = bestI; bestI = e; decI = static_cast<uint8_t>(m); }
+            else if (e > secI) { secI = e; }
+        }
+
+        // Q 채널 최대 에너지 빈 탐색
+        uint64_t bestQ = 0u, secQ = 0u;
+        uint8_t decQ = 0xFFu;
+        for (int m = 0; m < search; ++m) {
+            uint64_t e = static_cast<uint64_t>(
+                static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m]);
+            if (e > bestQ) { secQ = bestQ; bestQ = e; decQ = static_cast<uint8_t>(m); }
+            else if (e > secQ) { secQ = e; }
+        }
+
+        return {
+            (bestI == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(decI),
+            (bestQ == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(decQ),
+            static_cast<uint32_t>(bestI >> 16u),
+            static_cast<uint32_t>(secI >> 16u),
+            static_cast<uint32_t>(bestQ >> 16u),
+            static_cast<uint32_t>(secQ >> 16u)
+        };
+    }
     static void walsh_enc(uint8_t sym, int n, int16_t amp,
         int16_t* oI, int16_t* oQ) noexcept {
         for (int j = 0; j < n; ++j) {
@@ -120,6 +157,21 @@ namespace ProtectedEngine {
                 static_cast<uint32_t>(j)) & 1u;
             int16_t ch = p ? static_cast<int16_t>(-amp) : amp;
             oI[j] = ch; oQ[j] = ch;
+        }
+    }
+
+    // ── [적응형 I/Q] I/Q 독립 모드 (평시 2배 처리량) ──
+    //  sym_I → I 채널, sym_Q → Q 채널에 독립 Walsh 인코딩
+    //  처리량 2배: 동일 칩 수로 2개 심볼 전송
+    static void walsh_enc_split(uint8_t sym_I, uint8_t sym_Q, int n,
+        int16_t amp, int16_t* oI, int16_t* oQ) noexcept {
+        for (int j = 0; j < n; ++j) {
+            uint32_t pI = popc32(static_cast<uint32_t>(sym_I) &
+                static_cast<uint32_t>(j)) & 1u;
+            uint32_t pQ = popc32(static_cast<uint32_t>(sym_Q) &
+                static_cast<uint32_t>(j)) & 1u;
+            oI[j] = pI ? static_cast<int16_t>(-amp) : amp;
+            oQ[j] = pQ ? static_cast<int16_t>(-amp) : amp;
         }
     }
 
@@ -173,9 +225,10 @@ namespace ProtectedEngine {
     //  [성능] UDIV(12) + MUL×2(2) = 14cyc (기존 400cyc → 28× 가속)
     //  [오차] ±1/256 ≈ 0.4% (소프트 클리퍼 근사 특성상 무해)
     // =====================================================================
-    static void soft_clip_iq(int16_t* I, int16_t* Q, int nc) noexcept {
+    static void soft_clip_iq(int16_t* I, int16_t* Q, int nc,
+        uint32_t* mags, uint32_t* sorted) noexcept {
         if (nc <= 0 || nc > 64) return;
-        uint32_t mags[64] = {}, sorted[64] = {};
+        for (int i = 0; i < nc; ++i) { mags[i] = 0u; sorted[i] = 0u; }
         for (int i = 0; i < nc; ++i) {
             mags[i] = fast_abs(static_cast<int32_t>(I[i])) +
                 fast_abs(static_cast<int32_t>(Q[i]));
@@ -195,21 +248,33 @@ namespace ProtectedEngine {
             static_cast<uint64_t>(65535u) * 4u * 256u < 0xFFFFFFFFULL,
             "clip << 8 overflows uint32_t");
 
-        const uint32_t clip8 = clip << 8u;  // Q8 스케일링 (UDIV 1회 공유)
+        const uint32_t clip8 = clip << 8u;
+        const uint32_t thresh = clip << 1u;
 
+        // [FIX-BRANCHLESS] 조건분기 제거 — 사이드채널 방어
+        //  항상 ratio 계산 + 비트마스크로 선택 (타이밍 일정)
         for (int i = 0; i < nc; ++i) {
-            if (mags[i] > (clip << 1u)) {
-                // [BUG-45] Q8 역수 곱셈: 64비트 나눗셈 0회
-                //  ratio_q8 = clip/m in Q8 → 항상 < 128
-                //  I × ratio_q8 → |32768 × 127| = 4.16M < INT32_MAX
-                const uint32_t ratio_q8 = clip8 / mags[i];
-                I[i] = static_cast<int16_t>(
-                    (static_cast<int32_t>(I[i]) *
-                        static_cast<int32_t>(ratio_q8)) >> 8);
-                Q[i] = static_cast<int16_t>(
-                    (static_cast<int32_t>(Q[i]) *
-                        static_cast<int32_t>(ratio_q8)) >> 8);
-            }
+            const uint32_t m = mags[i] | 1u;  // div-by-zero 방지 (branchless)
+            const uint32_t raw_ratio = clip8 / m;
+            // ratio 클램프: >255 → 255 (branchless, C4146 방지)
+            const int32_t diff256 = 255 - static_cast<int32_t>(raw_ratio);
+            const uint32_t over_mask = static_cast<uint32_t>(diff256 >> 31);
+            const uint32_t ratio_q8 = (raw_ratio | over_mask) & 0xFFu;
+
+            const int32_t cI = (static_cast<int32_t>(I[i]) *
+                static_cast<int32_t>(ratio_q8)) >> 8;
+            const int32_t cQ = (static_cast<int32_t>(Q[i]) *
+                static_cast<int32_t>(ratio_q8)) >> 8;
+
+            // mask = 0xFFFFFFFF if mags > thresh, 0 otherwise
+            const int32_t diff = static_cast<int32_t>(mags[i])
+                - static_cast<int32_t>(thresh) - 1;
+            const int32_t mask = ~(diff >> 31);
+
+            I[i] = static_cast<int16_t>(
+                (cI & mask) | (static_cast<int32_t>(I[i]) & ~mask));
+            Q[i] = static_cast<int16_t>(
+                (cQ & mask) | (static_cast<int32_t>(Q[i]) & ~mask));
         }
     }
 
@@ -219,20 +284,21 @@ namespace ProtectedEngine {
 
     void HTS_V400_Dispatcher::blackhole_(int16_t* I, int16_t* Q, int nc) noexcept {
         if (nc > 64) return;
-        uint32_t mags[64] = {}, sorted[64] = {};
+        // [FIX-STACK] 로컬 배열 제거 → 멤버 scratch 재활용
+        for (int i = 0; i < nc; ++i) { scratch_mag_[i] = 0u; scratch_sort_[i] = 0u; }
         for (int i = 0; i < nc; ++i) {
-            mags[i] = fast_abs(static_cast<int32_t>(I[i])) +
+            scratch_mag_[i] = fast_abs(static_cast<int32_t>(I[i])) +
                 fast_abs(static_cast<int32_t>(Q[i]));
-            sorted[i] = mags[i];
+            scratch_sort_[i] = scratch_mag_[i];
         }
         int q25 = nc >> 2;
         if (q25 < 1) q25 = 1;
-        uint32_t bl = nth_select(sorted, nc, q25 - 1);
+        uint32_t bl = nth_select(scratch_sort_, nc, q25 - 1);
         if (bl < 1u) bl = 1u;
         if (bl < k_BH_NOISE_FLOOR || bl > k_BH_SATURATION) return;
         uint32_t punch = bl << 3u;
         for (int i = 0; i < nc; ++i)
-            if (mags[i] > punch) { I[i] = 0; Q[i] = 0; }
+            if (scratch_mag_[i] > punch) { I[i] = 0; Q[i] = 0; }
     }
 
     // =====================================================================
@@ -268,34 +334,39 @@ namespace ProtectedEngine {
         const int32_t ja_I = corr_I >> 13;
         const int32_t ja_Q = corr_Q >> 13;
 
-        // Step 3: 가드 — 노이즈 수준이면 조기 반환
+        // Step 3: [FIX-BRANCHLESS] 노이즈 가드 — 비트마스크 (조기 반환 제거)
         static constexpr int32_t CW_CANCEL_NOISE_TH = 30;
-        if (fast_abs(ja_I) + fast_abs(ja_Q) <
-            static_cast<uint32_t>(CW_CANCEL_NOISE_TH)) {
-            return;
-        }
+        const uint32_t ja_sum = fast_abs(ja_I) + fast_abs(ja_Q);
+        // active = 0xFFFFFFFF if ja_sum >= TH, 0 if below (branchless)
+        const int32_t guard_diff = static_cast<int32_t>(ja_sum)
+            - CW_CANCEL_NOISE_TH;
+        const int32_t active = ~(guard_diff >> 31);
+        // 마스킹: 노이즈 수준이면 ja=0 → 제거량=0 (동작 동일, 타이밍 일정)
+        const int32_t m_ja_I = ja_I & active;
+        const int32_t m_ja_Q = ja_Q & active;
 
-        // Step 4: [BUG-44] AJC 프로파일 직접 시딩
-        // ja_I/ja_Q를 AJC에 전달하여 jprof_[]를 즉시 초기화합니다.
-        // 이렇게 하면 AJC는 Update_AJC()의 sym 판정 결과를 기다리지
-        // 않고도 첫 심볼부터 CW 파형을 알고 제거할 수 있습니다.
-        // ajc_enabled_ == false이면 시딩을 건너뛰어 벤치마크 분리 유지.
+        // Step 4: [BUG-44] AJC 프로파일 시딩 (active 시에만 유효 값 전달)
         if (ajc_enabled_) {
-            ajc_.Seed_CW_Profile(ja_I, ja_Q);
+            ajc_.Seed_CW_Profile(m_ja_I, m_ja_Q);
         }
 
-        // Step 5: CW 제거 — r[i] -= (ja × lut[i%8]) >> 8
+        // Step 5: CW 제거 — branchless 포화 클램프
         for (int i = 0; i < 64; ++i) {
             const int32_t lut = static_cast<int32_t>(k_cw_lut8[i & 7u]);
 
-            int32_t new_I = static_cast<int32_t>(I[i]) - ((ja_I * lut) >> 8);
-            if (new_I > INT16_MAX) new_I = INT16_MAX;
-            if (new_I < -INT16_MAX) new_I = -INT16_MAX;
+            int32_t new_I = static_cast<int32_t>(I[i]) - ((m_ja_I * lut) >> 8);
+            // branchless clamp to [-32767, 32767]
+            const int32_t hiI = (new_I - INT16_MAX) >> 31;
+            const int32_t loI = (new_I + INT16_MAX) >> 31;
+            new_I = (new_I & hiI) | (INT16_MAX & ~hiI);
+            new_I = (new_I & ~loI) | (static_cast<int32_t>(-INT16_MAX) & loI);
             I[i] = static_cast<int16_t>(new_I);
 
-            int32_t new_Q = static_cast<int32_t>(Q[i]) - ((ja_Q * lut) >> 8);
-            if (new_Q > INT16_MAX) new_Q = INT16_MAX;
-            if (new_Q < -INT16_MAX) new_Q = -INT16_MAX;
+            int32_t new_Q = static_cast<int32_t>(Q[i]) - ((m_ja_Q * lut) >> 8);
+            const int32_t hiQ = (new_Q - INT16_MAX) >> 31;
+            const int32_t loQ = (new_Q + INT16_MAX) >> 31;
+            new_Q = (new_Q & hiQ) | (INT16_MAX & ~hiQ);
+            new_Q = (new_Q & ~loQ) | (static_cast<int32_t>(-INT16_MAX) & loQ);
             Q[i] = static_cast<int16_t>(new_Q);
         }
     }
@@ -330,18 +401,12 @@ namespace ProtectedEngine {
     }
 
     HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
-        sec_wipe(&seed_, sizeof(seed_));
-        sec_wipe(&rx_, sizeof(rx_));
-        sec_wipe(v1_rx_, sizeof(v1_rx_));
-        sec_wipe(&wb_, sizeof(wb_));          // [BUG-52] 단일 wb_
-        sec_wipe(buf_I_, sizeof(buf_I_));
-        sec_wipe(buf_Q_, sizeof(buf_Q_));
-        sec_wipe(hdr_syms_, sizeof(hdr_syms_));
-        sec_wipe(orig_I_, sizeof(orig_I_));
-        sec_wipe(orig_Q_, sizeof(orig_Q_));
-        sec_wipe(&orig_acc_, sizeof(orig_acc_));
-        sec_wipe(&ajc_, sizeof(ajc_));
-        sec_wipe(harq_Q_, sizeof(g_harq_Q_ccm));  // [BUG-54] CCM Q채널 보안 소거
+        // [FIX-D4] 객체 전체 보안 소거 — 패딩 영역 평문 잔류 방지
+        //  개별 멤버 소거 → 컴파일러 패딩 사각지대 발생
+        //  this 전체 소거로 패딩 포함 100% 보안 소거
+        sec_wipe(this, sizeof(*this));
+        // CCM 영역 별도 소거 (this 범위 밖)
+        sec_wipe(harq_Q_, sizeof(g_harq_Q_ccm));
     }
 
     void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept { seed_ = s; }
@@ -351,6 +416,7 @@ namespace ProtectedEngine {
     PayloadMode HTS_V400_Dispatcher::Get_Mode()            const noexcept { return cur_mode_; }
     int         HTS_V400_Dispatcher::Get_Video_Fail_Count()const noexcept { return vid_fail_; }
     int         HTS_V400_Dispatcher::Get_Current_BPS64()   const noexcept { return cur_bps64_; }
+    IQ_Mode     HTS_V400_Dispatcher::Get_IQ_Mode()         const noexcept { return iq_mode_; }
 
     void HTS_V400_Dispatcher::Update_Adaptive_BPS(uint32_t nf) noexcept {
         const int new_bps = FEC_HARQ::bps_from_nf(nf);
@@ -358,6 +424,7 @@ namespace ProtectedEngine {
             new_bps <= FEC_HARQ::BPS64_MAX) {
             cur_bps64_ = new_bps;
         }
+        // IQ 모드 전환은 Tick_Adaptive_BPS()에서만 수행 (히스테리시스 보장)
     }
 
     void HTS_V400_Dispatcher::Set_RF_Metrics(
@@ -371,15 +438,47 @@ namespace ProtectedEngine {
     {
         if (p_metrics_ == nullptr) { return; }
 
-        // metrics.current_bps (컨트롤러가 갱신한 값)를 읽어 cur_bps64_에 반영
-        // acquire: HTS_Adaptive_BPS_Controller::Update의 release와 쌍을 이룸
         const uint8_t bps = p_metrics_->current_bps.load(
             std::memory_order_acquire);
 
-        // FEC_HARQ 유효 범위 검증 후 적용
         if (bps >= static_cast<uint8_t>(FEC_HARQ::BPS64_MIN) &&
             bps <= static_cast<uint8_t>(FEC_HARQ::BPS64_MAX)) {
             cur_bps64_ = static_cast<int>(bps);
+        }
+
+        // ── 적응형 I/Q 모드 전환 (히스테리시스) ──────────────
+        //  NF = ajc_nf (Adaptive_BPS_Controller가 갱신)
+        //  내리기(SAME):  NF ≥ SAME_TH(20dB) → 즉시 (안전 우선)
+        //  올리기(SPLIT): NF < SPLIT_TH(10dB) × 연속 8패킷 → 신중
+        //  핑퐁 방지: 히스테리시스 갭 10dB + 올리기 지연
+        const uint32_t nf = p_metrics_->ajc_nf.load(
+            std::memory_order_acquire);
+
+        if (nf >= NF_IQ_SAME_TH) {
+            // 재밍 감지 → 즉시 I=Q 동일 (안전 우선, 지연 0)
+            iq_mode_ = IQ_Mode::IQ_SAME;
+            iq_upgrade_count_ = 0u;
+            // 재밍 시 BPS도 최소로 복원
+            if (cur_bps64_ > FEC_HARQ::BPS64_MIN) {
+                cur_bps64_ = FEC_HARQ::BPS64_MIN;
+            }
+        }
+        else if (nf < NF_IQ_SPLIT_TH) {
+            // 평시 후보 → 연속 충족 카운터 증가
+            if (iq_upgrade_count_ < IQ_UPGRADE_GUARD) {
+                iq_upgrade_count_++;
+            }
+            // 연속 8패킷 유지 시 I/Q 독립 전환 + 평시 BPS
+            if (iq_upgrade_count_ >= IQ_UPGRADE_GUARD) {
+                iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
+                if (cur_bps64_ < IQ_BPS_PEACETIME) {
+                    cur_bps64_ = IQ_BPS_PEACETIME;
+                }
+            }
+        }
+        else {
+            // SPLIT_TH ≤ NF < SAME_TH: 현재 모드 유지 (히스테리시스 영역)
+            iq_upgrade_count_ = 0u;
         }
     }
 
@@ -450,8 +549,17 @@ namespace ProtectedEngine {
     bool HTS_V400_Dispatcher::parse_hdr_(PayloadMode& mode, int& plen) noexcept {
         uint16_t hdr = (static_cast<uint16_t>(hdr_syms_[0]) << 6u) |
             static_cast<uint16_t>(hdr_syms_[1]);
-        uint8_t mb = static_cast<uint8_t>((hdr >> 10u) & 0x03u);
-        plen = static_cast<int>(hdr & 0x03FFu);
+
+        // [적응형 I/Q] 헤더 포맷: [mode 2bit][IQ 1bit][plen 9bit]
+        //  프리앰블+헤더는 항상 I=Q 고정으로 디코딩 (블라인드 딜레마 해결)
+        //  bit9 = 0: I=Q 동일, bit9 = 1: I/Q 독립
+        const uint8_t mb = static_cast<uint8_t>((hdr >> 10u) & 0x03u);
+        const bool rx_iq_split = ((hdr & HDR_IQ_BIT) != 0u);
+        plen = static_cast<int>(hdr & 0x01FFu);  // 9bit payload_len (max 511)
+
+        // RX 측 IQ 모드 적용 (송신기가 보낸 모드로 디코딩)
+        iq_mode_ = rx_iq_split ? IQ_Mode::IQ_INDEPENDENT : IQ_Mode::IQ_SAME;
+
         switch (mb) {
         case 0u: mode = PayloadMode::VIDEO_1;  return (plen == FEC_HARQ::NSYM1);
         case 1u: mode = PayloadMode::VIDEO_16; return (plen == FEC_HARQ::NSYM16);
@@ -492,19 +600,21 @@ namespace ProtectedEngine {
             if (ajc_enabled_) {
                 ajc_.Process(buf_I_, buf_Q_, nc);
             }
-            soft_clip_iq(buf_I_, buf_Q_, nc);
+            soft_clip_iq(buf_I_, buf_Q_, nc, scratch_mag_, scratch_sort_);
 
             if (nc == 16) {
                 if (sym_idx_ < FEC_HARQ::NSYM16) {
                     // [BUG-51] sI/sQ 저장 삭제 → HARQ 즉시 누적
                     FEC_HARQ::Feed16_1sym(rx_.m16, buf_I_, buf_Q_, sym_idx_);
 
-                    // [BUG-53] orig_acc_ int8_t 양자화 (상위 8비트)
+                    // [FIX-4BIT] 4-bit delta packing (I|Q 각 상위 4비트)
                     for (int c = 0; c < nc; ++c) {
-                        orig_acc_.acc16.oI[sym_idx_][c] =
-                            static_cast<int8_t>(orig_I_[c] >> 8);
-                        orig_acc_.acc16.oQ[sym_idx_][c] =
-                            static_cast<int8_t>(orig_Q_[c] >> 8);
+                        const uint8_t hiI = static_cast<uint8_t>(
+                            (orig_I_[c] >> 12) & 0x0Fu);
+                        const uint8_t hiQ = static_cast<uint8_t>(
+                            (orig_Q_[c] >> 12) & 0x0Fu);
+                        orig_acc_.acc16.iq4[sym_idx_][c] =
+                            static_cast<uint8_t>((hiI << 4u) | hiQ);
                     }
                     sym_idx_++;
                 }
@@ -512,34 +622,87 @@ namespace ProtectedEngine {
             }
             else {
                 const int nsym64 = cur_nsym64_();
-                if (sym_idx_ < nsym64) {
-                    // [BUG-51] HARQ I채널 즉시 누적 (SRAM)
-                    for (int c = 0; c < nc; ++c) {
-                        rx_.m64_I.aI[sym_idx_][c] +=
-                            static_cast<int32_t>(buf_I_[c]);
-                    }
-                    // [BUG-54] HARQ Q채널 즉시 누적 (CCM)
-                    for (int c = 0; c < nc; ++c) {
-                        harq_Q_[sym_idx_][c] +=
-                            static_cast<int32_t>(buf_Q_[c]);
-                    }
 
-                    // [BUG-53] orig_acc_ int8_t 양자화 (상위 8비트)
-                    for (int c = 0; c < nc; ++c) {
-                        orig_acc_.acc64.oI[sym_idx_][c] =
-                            static_cast<int8_t>(orig_I_[c] >> 8);
-                        orig_acc_.acc64.oQ[sym_idx_][c] =
-                            static_cast<int8_t>(orig_Q_[c] >> 8);
+                if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT) {
+                    // ── [적응형 I/Q] I/Q 독립 RX: 칩슬롯당 2심볼 ──
+                    //  I 채널 → 짝수 sym_idx_, Q 채널 → 홀수 sym_idx_
+                    //  HARQ I 누적기: 짝수 심볼 전용
+                    //  HARQ Q 누적기: 홀수 심볼 전용
+                    const int si_I = sym_idx_;      // I 채널 심볼 인덱스
+                    const int si_Q = sym_idx_ + 1;  // Q 채널 심볼 인덱스
+
+                    if (si_Q < nsym64) {
+                        // I 채널 HARQ 누적 (짝수 심볼)
+                        for (int c = 0; c < nc; ++c) {
+                            rx_.m64_I.aI[si_I][c] +=
+                                static_cast<int32_t>(buf_I_[c]);
+                        }
+                        // Q 채널 HARQ 누적 (홀수 심볼)
+                        for (int c = 0; c < nc; ++c) {
+                            rx_.m64_I.aI[si_Q][c] +=
+                                static_cast<int32_t>(buf_Q_[c]);
+                        }
+
+                        // [FIX-4BIT] I/Q 독립: I심볼→iq4[si_I], Q심볼→iq4[si_Q]
+                        for (int c = 0; c < nc; ++c) {
+                            const uint8_t hiI = static_cast<uint8_t>(
+                                (orig_I_[c] >> 12) & 0x0Fu);
+                            orig_acc_.acc64.iq4[si_I][c] =
+                                static_cast<uint8_t>(hiI << 4u);
+                            const uint8_t hiQ = static_cast<uint8_t>(
+                                (orig_Q_[c] >> 12) & 0x0Fu);
+                            orig_acc_.acc64.iq4[si_Q][c] =
+                                static_cast<uint8_t>(hiQ << 4u);
+                        }
+                        sym_idx_ += 2;
+                        pay_recv_++;  // 칩슬롯 기준 카운트
                     }
-                    sym_idx_++;
+                    else { full_reset_(); return; }
                 }
-                else { full_reset_(); return; }
+                else {
+                    // ── I=Q 동일 모드 (기존) ──
+                    if (sym_idx_ < nsym64) {
+                        for (int c = 0; c < nc; ++c) {
+                            rx_.m64_I.aI[sym_idx_][c] +=
+                                static_cast<int32_t>(buf_I_[c]);
+                        }
+                        for (int c = 0; c < nc; ++c) {
+                            harq_Q_[sym_idx_][c] +=
+                                static_cast<int32_t>(buf_Q_[c]);
+                        }
+
+                        // [FIX-4BIT] I=Q 동일: I|Q 각 상위 4비트 패킹
+                        for (int c = 0; c < nc; ++c) {
+                            const uint8_t hiI = static_cast<uint8_t>(
+                                (orig_I_[c] >> 12) & 0x0Fu);
+                            const uint8_t hiQ = static_cast<uint8_t>(
+                                (orig_Q_[c] >> 12) & 0x0Fu);
+                            orig_acc_.acc64.iq4[sym_idx_][c] =
+                                static_cast<uint8_t>((hiI << 4u) | hiQ);
+                        }
+                        sym_idx_++;
+                    }
+                    else { full_reset_(); return; }
+                }
             }
 
-            SymDecResult r = walsh_dec_full_(buf_I_, buf_Q_, nc);
-            if (ajc_enabled_) {
-                ajc_.Update_AJC(orig_I_, orig_Q_,
-                    r.sym, r.best_e, r.second_e, nc);
+            // [적응형 I/Q] AJC 피드백: IQ 모드에 따라 디코딩 방식 분기
+            if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && nc == 64) {
+                // I/Q 독립: 각 채널 분리 FWHT → 2심볼 디코딩
+                SymDecResultSplit rs = walsh_dec_split_(buf_I_, buf_Q_, nc);
+                if (ajc_enabled_) {
+                    // I 채널 AJC 갱신 (I 심볼 기준)
+                    ajc_.Update_AJC(orig_I_, orig_Q_,
+                        rs.sym_I, rs.best_eI, rs.second_eI, nc);
+                }
+            }
+            else {
+                // I=Q 동일: 기존 결합 FWHT
+                SymDecResult r = walsh_dec_full_(buf_I_, buf_Q_, nc);
+                if (ajc_enabled_) {
+                    ajc_.Update_AJC(orig_I_, orig_Q_,
+                        r.sym, r.best_e, r.second_e, nc);
+                }
             }
         }
 
@@ -628,13 +791,16 @@ namespace ProtectedEngine {
                 ? sym_idx_ : FEC_HARQ::NSYM16;
             for (int s = 0; s < nsym; ++s) {
                 if (ajc_enabled_) {
-                    // [BUG-53] int8_t→int16_t 스택 복원 (AJC API 호환)
+                    // [FIX-4BIT] 4-bit → int16_t 복원 (AJC API 호환)
                     int16_t tmp_I[16], tmp_Q[16];
                     for (int c = 0; c < nc; ++c) {
-                        tmp_I[c] = static_cast<int16_t>(
-                            static_cast<int16_t>(orig_acc_.acc16.oI[s][c]) << 8);
-                        tmp_Q[c] = static_cast<int16_t>(
-                            static_cast<int16_t>(orig_acc_.acc16.oQ[s][c]) << 8);
+                        const uint8_t pk = orig_acc_.acc16.iq4[s][c];
+                        int32_t nI = static_cast<int32_t>((pk >> 4u) & 0x0Fu);
+                        nI -= ((nI & 0x8) << 1);
+                        tmp_I[c] = static_cast<int16_t>(nI << 12);
+                        int32_t nQ = static_cast<int32_t>(pk & 0x0Fu);
+                        nQ -= ((nQ & 0x8) << 1);
+                        tmp_Q[c] = static_cast<int16_t>(nQ << 12);
                     }
                     ajc_.Update_AJC(tmp_I, tmp_Q,
                         static_cast<int8_t>(correct_syms[s]),
@@ -651,15 +817,17 @@ namespace ProtectedEngine {
             const int nsym = (sym_idx_ < nsym64) ? sym_idx_ : nsym64;
             for (int s = 0; s < nsym; ++s) {
                 if (ajc_enabled_) {
-                    // [BUG-53] int8_t→int16_t 스택 복원 (AJC API 호환)
-                    int16_t tmp_I[64], tmp_Q[64];
+                    // [FIX-4BIT] 4-bit → int16_t 복원 (orig_I_/orig_Q_ 재활용)
                     for (int c = 0; c < nc; ++c) {
-                        tmp_I[c] = static_cast<int16_t>(
-                            static_cast<int16_t>(orig_acc_.acc64.oI[s][c]) << 8);
-                        tmp_Q[c] = static_cast<int16_t>(
-                            static_cast<int16_t>(orig_acc_.acc64.oQ[s][c]) << 8);
+                        const uint8_t pk = orig_acc_.acc64.iq4[s][c];
+                        int32_t nI = static_cast<int32_t>((pk >> 4u) & 0x0Fu);
+                        nI -= ((nI & 0x8) << 1);
+                        orig_I_[c] = static_cast<int16_t>(nI << 12);
+                        int32_t nQ = static_cast<int32_t>(pk & 0x0Fu);
+                        nQ -= ((nQ & 0x8) << 1);
+                        orig_Q_[c] = static_cast<int16_t>(nQ << 12);
                     }
-                    ajc_.Update_AJC(tmp_I, tmp_Q,
+                    ajc_.Update_AJC(orig_I_, orig_Q_,
                         static_cast<int8_t>(correct_syms[s]),
                         0xFFFFFFFFu, 0u, nc, true);
                 }
@@ -703,8 +871,15 @@ namespace ProtectedEngine {
         case PayloadMode::DATA:     mb = 3u; psyms = cur_nsym64_();     break;
         default: return 0;
         }
+
+        // [적응형 I/Q] 헤더: [mode 2bit][IQ 1bit][plen 9bit] = 12bit
+        //  프리앰블+헤더는 항상 I=Q 고정 (walsh_enc = oI=oQ)
+        //  IQ 비트는 뒤따르는 페이로드의 I/Q 모드를 수신기에 알림
+        const uint16_t iq_bit =
+            (iq_mode_ == IQ_Mode::IQ_INDEPENDENT) ? HDR_IQ_BIT : 0u;
         uint16_t hdr = (static_cast<uint16_t>(mb & 0x03u) << 10u) |
-            (static_cast<uint16_t>(psyms) & 0x03FFu);
+            iq_bit |
+            (static_cast<uint16_t>(psyms) & 0x01FFu);
         if (pos + 128 > max_c) return 0;
         walsh_enc(static_cast<uint8_t>((hdr >> 6u) & 0x3Fu), 64, amp,
             &oI[pos], &oQ[pos]); pos += 64;
@@ -735,11 +910,30 @@ namespace ProtectedEngine {
             const int nsym = cur_nsym64_();
             uint8_t syms[FEC_HARQ::NSYM64] = {};
             const int enc_n = FEC_HARQ::Encode64_A(
-                info, ilen, syms, il, cur_bps64_, wb_);  // [BUG-52]
+                info, ilen, syms, il, cur_bps64_, wb_);
             if (enc_n <= 0) return 0;
-            for (int s = 0; s < nsym; ++s) {
-                if (pos + 64 > max_c) return 0;
-                walsh_enc(syms[s], 64, amp, &oI[pos], &oQ[pos]); pos += 64;
+
+            if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT) {
+                // [적응형 I/Q] I/Q 독립: 2심볼/칩슬롯 → 칩 수 절반
+                //  짝수 인덱스 → I 채널, 홀수 인덱스 → Q 채널
+                for (int s = 0; s < nsym; s += 2) {
+                    if (pos + 64 > max_c) return 0;
+                    const uint8_t sI = syms[s];
+                    const uint8_t sQ = (s + 1 < nsym)
+                        ? syms[s + 1] : 0u;  // 홀수 심볼일 때 패딩
+                    walsh_enc_split(sI, sQ, 64, amp,
+                        &oI[pos], &oQ[pos]);
+                    pos += 64;
+                }
+            }
+            else {
+                // I=Q 동일: 기존 방식 (재밍 방어)
+                for (int s = 0; s < nsym; ++s) {
+                    if (pos + 64 > max_c) return 0;
+                    walsh_enc(syms[s], 64, amp,
+                        &oI[pos], &oQ[pos]);
+                    pos += 64;
+                }
             }
         }
         tx_seq_++;
@@ -752,15 +946,16 @@ namespace ProtectedEngine {
 
         if (phase_ == RxPhase::WAIT_SYNC) {
             if (buf_idx_ == 64) {
-                int16_t wI[64], wQ[64];
-                std::memcpy(wI, buf_I_, 64 * sizeof(int16_t));
-                std::memcpy(wQ, buf_Q_, 64 * sizeof(int16_t));
+                // [FIX-STACK] wI/wQ 로컬 제거 → orig_I_/orig_Q_ 재활용
+                std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
+                std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
 
-                cw_cancel_64_(wI, wQ);
-                if (ajc_enabled_) { ajc_.Process(wI, wQ, 64); }
-                soft_clip_iq(wI, wQ, 64);
+                cw_cancel_64_(orig_I_, orig_Q_);
+                if (ajc_enabled_) { ajc_.Process(orig_I_, orig_Q_, 64); }
+                soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
 
-                int8_t sym = walsh_dec(wI, wQ, 64);
+                SymDecResult r0 = walsh_dec_full_(orig_I_, orig_Q_, 64);
+                int8_t sym = r0.sym;
                 bool matched = false;
                 if (pre_phase_ == 0) {
                     if (sym == static_cast<int8_t>(PRE_SYM0)) {
@@ -797,15 +992,16 @@ namespace ProtectedEngine {
         }
         else if (phase_ == RxPhase::READ_HEADER) {
             if (buf_idx_ == 64) {
-                int16_t wI[64], wQ[64];
-                std::memcpy(wI, buf_I_, 64 * sizeof(int16_t));
-                std::memcpy(wQ, buf_Q_, 64 * sizeof(int16_t));
+                // [FIX-STACK] wI/wQ 로컬 제거 → orig_I_/orig_Q_ 재활용
+                std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
+                std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
 
-                cw_cancel_64_(wI, wQ);
-                if (ajc_enabled_) { ajc_.Process(wI, wQ, 64); }
-                soft_clip_iq(wI, wQ, 64);
+                cw_cancel_64_(orig_I_, orig_Q_);
+                if (ajc_enabled_) { ajc_.Process(orig_I_, orig_Q_, 64); }
+                soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
 
-                int8_t sym = walsh_dec(wI, wQ, 64);
+                SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64);
+                int8_t sym = rh.sym;
                 if (sym >= 0 && sym < 64) {
                     hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
                     hdr_count_++;

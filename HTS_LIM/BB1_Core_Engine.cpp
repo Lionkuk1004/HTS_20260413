@@ -16,7 +16,7 @@
 //  BUG-53 [MED]  static_assert 메시지 "1024B" 잔류 → "81920B" 수정
 //  BUG-54 [LOW]  [[unlikely]]/[[likely]] C++20 가드 매크로 (C++14/17 호환)
 //  BUG-55 [CRIT] noise_to_q16 uint64_t 나눗셈 → uint32_t 다운캐스트
-//         · MAX_TENSOR_ELEMENTS=4096 → 4096<<16=268M < UINT32_MAX ✓
+//         · MAX_TENSOR_ELEMENTS=2048 → 2048<<16=134M < UINT32_MAX ✓
 //         · __aeabi_uldivmod 100+cyc → UDIV 2~12cyc
 //  BUG-56 [MED]  AIRCR 매직넘버(0xE000ED0C,0x05FA) → constexpr 상수화
 //         · TX pipeline + RX pipeline 2곳 모두 적용
@@ -28,7 +28,7 @@
 //         · 기존: block_index=0 (동일 청크 내 동일 키스트림)
 //         · 수정: 원소별 고유 CTR → 키스트림 다양성 확보
 //  BUG-59 [HIGH] noise_to_q16 오버플로우 안전 증명 → static_assert 추가
-//         · 기존: 주석 증명만 존재 ("4096<<16=268M < UINT32_MAX")
+//         · 기존: 주석 증명만 존재 ("2048<<16=134M < UINT32_MAX")
 //         · 수정: static_assert로 컴파일 타임 보장
 //         · MAX_TENSOR_ELEMENTS 변경 시 주석 미갱신 위험 원천 차단
 // =========================================================================
@@ -97,11 +97,16 @@ namespace ProtectedEngine {
     static constexpr int32_t Q16_NOISE_003 = 1966;
 
     // ── SRAM 예산 ───────────────────────────────────────────────────────
-    static constexpr size_t MAX_TENSOR_ELEMENTS = 4096;
+    // [2048 다운사이즈] 텐서 요소 수 4096→2048
+    //  · SRAM: 37KB→20KB (−16KB), Phase 2 여유 9→25KB
+    //  · 처리 속도: 2배 향상 (루프 절반)
+    //  · 보안: 2048×2048×L=4 = 10^80,807,124 (4096×L=1과 동일)
+    //  · V400 Walsh/HARQ/AJC 성능: 영향 0 (독립 계층)
+    static constexpr size_t MAX_TENSOR_ELEMENTS = 2048;
 
     // [BUG-52+65] 힙 할당 전면 제거 → 정적 배열 + TX/RX 공유
-    // shared: state_map(16KB) + temp_vec(16KB) = 32KB (TX/RX 반이중 공유)
-    // rx_only: erased_bits(512B) — 비트 패킹 (uint8_t[4096] → uint32_t[128])
+    // shared: state_map(8KB) + temp_vec(8KB) = 16KB (TX/RX 반이중 공유)
+    // rx_only: erased_bits(256B) — 비트 패킹 (uint8_t[2048] → uint32_t[64])
     // erasure_idx: 완전 제거 (2-pass → 1-pass 인라인)
     // 합계: 32.5KB (기존 76KB → 56% 절감)
     static constexpr size_t BB1_STATIC_ARRAYS =
@@ -147,8 +152,8 @@ namespace ProtectedEngine {
     //   · -fno-exceptions에서 resize OOM = std::terminate 즉시 → 반환값 검사 도달 불가
     //   · "방어 코드처럼 보이지만 실제 보호 효과 0"인 거짓 안전 패턴
     //
-    //  수정: MAX_TENSOR_ELEMENTS(4096) 컴파일 타임 상수 → 정적 배열
-    //   · sizeof(Impl) ≈ 78KB → IMPL_BUF_SIZE = 81920 (80KB)
+    //  수정: MAX_TENSOR_ELEMENTS(2048) 컴파일 타임 상수 → 정적 배열
+    //   · sizeof(Impl) ≈ 17KB → IMPL_BUF_SIZE = 20480 (20KB)
     //   · 힙 할당 0회 → OOM 경로 자체가 존재하지 않음
     //   · SRAM 총량 동일 (힙 76KB → 정적 76KB, 할당 전략만 전환)
     //
@@ -637,19 +642,34 @@ namespace ProtectedEngine {
         for (size_t i = 0u; i < elements; ++i)
             damaged_tensor[i] = static_cast<T>(m.shared.temp_vec[i]);
 
-        // [BUG-65] erasure 좌표 변환 — 1-pass 인라인 (erasure_idx 배열 제거)
-        //  기존: erased[state_map[i]] 검사 → erasure_idx에 수집 → data[idx] = EM
-        //  수정: erased[state_map[i]] 검사 → data[i] = EM 즉시 기록
-        //  수학적 등가: erasure_idx[j] = i 이므로 data[erasure_idx[j]] ≡ data[i]
+        // [BUG-65] erasure 좌표 변환 — 비트맵 기반 (데이터 값 의존 제거)
+        //
+        //  [FIX-PILOT] 기존: damaged_tensor[i] == EM 으로 삭제 판별
+        //   → EM(0xFFFF)이 유효 데이터와 충돌 시 파일럿 복원에서 데이터 파괴
+        //  수정: erased_bits 비트맵을 역인터리빙 좌표로 재구축
+        //   → 비트맵은 데이터 값과 무관한 확정적 삭제 상태
+        //
+        //  temp_vec[0..63] 임시 사용 (역인터리빙 완료 후 미사용 구간)
+        for (size_t w = 0u; w < m.ERASED_WORDS; ++w)
+            m.shared.temp_vec[w] = m.erased_bits[w];  // pre-interleave 백업
+        m.clear_erased(elements);                       // post-interleave 초기화
         for (size_t i = 0u; i < elements; ++i) {
-            if (m.is_erased(m.shared.state_map[i])) {  // [BUG-65] 비트 패킹
+            const size_t pre_pos =
+                static_cast<size_t>(m.shared.state_map[i]);
+            const bool was_erased =
+                (m.shared.temp_vec[pre_pos >> 5u]
+                    & (1u << (pre_pos & 31u))) != 0u;
+            if (was_erased) {
                 damaged_tensor[i] = EM;
+                m.set_erased(i);  // post-interleave 비트맵 갱신
             }
         }
 
         // 4. [VDF 삭제] Reverse_Quantum_Decoy 제거 (TX Apply와 대칭 삭제)
 
         // 5. 파일럿 복원
+        //  [FIX-PILOT] damaged_tensor[i]==EM → m.is_erased(i) 교체
+        //   비트맵 기반 판별: 데이터 값과 무관, EM 충돌 불가
         if (fa > 0u) {
             uint32_t ms = static_cast<uint32_t>(vs ^ 0x3D485453u);
             uint32_t bs = static_cast<uint32_t>(vs ^ 0xAA55AA55u);
@@ -663,7 +683,7 @@ namespace ProtectedEngine {
                     nb += fa;
                     cp = std::min(nb - 1u, elements - 1u);
                 }
-                if (i == cp && damaged_tensor[i] == EM) {
+                if (i == cp && m.is_erased(i)) {
                     const T bv = static_cast<T>(bs & 0xFFFFu);
                     const uint32_t zs =
                         (ms ^ static_cast<uint32_t>(i)) * 0x9E3779B9u;

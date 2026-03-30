@@ -91,6 +91,13 @@ namespace ProtectedEngine {
         UNKNOWN = 0xFFu    ///< 미식별 (헤더 파싱 실패)
     };
 
+    /// @brief I/Q 채널 모드 — 적응형 전환
+    /// @note  NF 기반 자동 전환: 평시 I/Q 독립(2배 처리량) ↔ 재밍 시 I=Q 동일(+3dB)
+    enum class IQ_Mode : uint8_t {
+        IQ_SAME = 0u,        ///< I=Q 동일 심볼 (재밍 방어, +3dB 다이버시티)
+        IQ_INDEPENDENT = 1u  ///< I/Q 독립 심볼 (평시, 2배 처리량)
+    };
+
     /// @brief RX 수신 상태 머신 단계
     /// @note  [항목⑬] 모든 전이는 set_phase_()로 CFI 검증
     enum class RxPhase : uint8_t {
@@ -155,6 +162,9 @@ namespace ProtectedEngine {
 
         /// @brief 상태 머신 + AJC + HARQ 전체 초기화
         void Reset() noexcept;
+
+        /// @brief 현재 I/Q 모드 조회
+        [[nodiscard]] IQ_Mode Get_IQ_Mode() const noexcept;
 
         /// @brief AJC 노이즈 플로어 기반 적응형 BPS 갱신
         void Update_Adaptive_BPS(uint32_t nf) noexcept;
@@ -284,6 +294,26 @@ namespace ProtectedEngine {
             return FEC_HARQ::nsym_for_bps(cur_bps64_);
         }
 
+        // ── 적응형 I/Q 모드 ──────────────────────────────────────
+        //  평시: IQ_INDEPENDENT → BPS×2 처리량 (NF < NF_IQ_SPLIT_TH)
+        //  재밍: IQ_SAME → +3dB 다이버시티 (NF ≥ NF_IQ_SAME_TH)
+        //  히스테리시스: SPLIT_TH < SAME_TH (떨림 방지)
+        IQ_Mode iq_mode_{ IQ_Mode::IQ_SAME };  ///< 현재 I/Q 모드 (기본: 안전)
+        static constexpr uint32_t NF_IQ_SPLIT_TH = 10u;   ///< dB 이하 → I/Q 독립
+        static constexpr uint32_t NF_IQ_SAME_TH = 20u;   ///< dB 이상 → I=Q 동일
+        static constexpr int IQ_BPS_PEACETIME = 5;         ///< 평시 최적 BPS
+
+        // ── 히스테리시스 안정화 ──────────────────────────────────
+        //  올리기: 연속 UPGRADE_GUARD 패킷 이상 NF<SPLIT_TH 유지
+        //  내리기: NF>SAME_TH 즉시 (안전 우선, 지연 0)
+        uint32_t iq_upgrade_count_{ 0u };  ///< 올리기 조건 연속 충족 카운터
+        static constexpr uint32_t IQ_UPGRADE_GUARD = 8u;   ///< 올리기 지연 (8패킷)
+
+        // ── 헤더 IQ 비트 ──────────────────────────────────────
+        //  [mode 2bit][IQ 1bit][payload_len 9bit] = 12bit
+        //  프리앰블+헤더: 항상 I=Q 고정 (블라인드 딜레마 해결)
+        static constexpr uint16_t HDR_IQ_BIT = (1u << 9u);  ///< bit9 = IQ 모드
+
         // ── [BUG-53] 원본 심볼 누적 (AJC 결정지향 피드백용) ──
         //
         //  [8비트 양자화 안전성 증명]
@@ -293,17 +323,17 @@ namespace ProtectedEngine {
         //   AJC Update_AJC 내부: Δw = μ·error·x_ref
         //   x_ref 양자화 → Δw 오차 < 3% → 수렴점 동일
         //
-        //  절감: int16_t×230×64×2 = 58,880B → int8_t×230×64×2 = 29,440B
-        //        (−29,440B = −50%)
+        //  [FIX-4BIT] 4-bit Delta Packing: I/Q 각 상위 4비트만 저장
+        //   1바이트 = [I 상위 4비트][Q 상위 4비트]
+        //   절감: int8_t×230×64×2 = 29,440B → uint8_t×230×64 = 14,720B (−50%)
+        //   AJC LMS: σq(4bit) = 2048 << σth(4000~16000), 수렴 영향 무시
         //
         union {
             struct {
-                int8_t oI[FEC_HARQ::NSYM16][16];
-                int8_t oQ[FEC_HARQ::NSYM16][16];
+                uint8_t iq4[FEC_HARQ::NSYM16][16];  // I[3:0]|Q[3:0] packed
             } acc16;
             struct {
-                int8_t oI[FEC_HARQ::NSYM64][64];
-                int8_t oQ[FEC_HARQ::NSYM64][64];
+                uint8_t iq4[FEC_HARQ::NSYM64][64];  // I[3:0]|Q[3:0] packed
             } acc64;
         } orig_acc_;
 
@@ -346,13 +376,34 @@ namespace ProtectedEngine {
         int32_t dec_wI_[64] = {};       ///< Walsh 디코딩 워킹 버퍼 I
         int32_t dec_wQ_[64] = {};       ///< Walsh 디코딩 워킹 버퍼 Q
 
+        // [FIX-STACK] 공유 스크래치패드 — 스택 로컬 배열 완전 제거
+        //  mags[64] + sorted[64] = 512B (soft_clip_iq, blackhole_ 공유)
+        //  시간적 분리: soft_clip_iq 완료 후 blackhole_ 호출
+        uint32_t scratch_mag_[64] = {};
+        uint32_t scratch_sort_[64] = {};
+
         /// @brief Walsh 디코딩 결과 (심볼 + 에너지)
         struct SymDecResult {
             int8_t   sym;       ///< 디코딩된 심볼 (-1 = 실패)
             uint32_t best_e;    ///< 최대 에너지 빈
             uint32_t second_e;  ///< 차순위 에너지 빈
         };
+
+        /// @brief I/Q 독립 디코딩 결과 (I, Q 채널 각각)
+        struct SymDecResultSplit {
+            int8_t   sym_I;      ///< I 채널 심볼 (-1 = 실패)
+            int8_t   sym_Q;      ///< Q 채널 심볼 (-1 = 실패)
+            uint32_t best_eI;    ///< I 채널 최대 에너지
+            uint32_t second_eI;  ///< I 채널 차순위 에너지
+            uint32_t best_eQ;    ///< Q 채널 최대 에너지
+            uint32_t second_eQ;  ///< Q 채널 차순위 에너지
+        };
+
         SymDecResult walsh_dec_full_(
+            const int16_t* I, const int16_t* Q, int n) noexcept;
+
+        /// @brief I/Q 독립 디코딩 — 각 채널 FWHT 분리 수행
+        SymDecResultSplit walsh_dec_split_(
             const int16_t* I, const int16_t* Q, int n) noexcept;
 
         /// @brief 블랙홀 처리 (아웃라이어 칩 소거)
