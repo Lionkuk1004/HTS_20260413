@@ -7,7 +7,7 @@
 //  BUG-01~11 (이전 세션)
 //  BUG-12 [CRIT] unique_ptr + make_unique + try-catch(ctor) → placement new
 //         · impl_buf_[256] alignas(8) 정적 배치
-//           Impl = HTS_Sys_Config(32B) + vector(24B) ≈ 64B → 여유 충분
+//           Impl = HTS_Sys_Config(32B) + int32_t[64](256B) + ref_len(4B) ≈ 296B → 320B 확보
 //         · 생성자: impl_buf_ SecWipe → ::new Impl(tier) → impl_valid_=true
 //           Impl 생성자는 noexcept → 예외 없이 안전
 //         · 소멸자: = default 제거 → 명시적 p->~Impl() + Secure_Wipe_MF
@@ -22,8 +22,8 @@
 #include <climits>
 #include <cstddef>
 #include <cstdint>
+#include <cstring>   // [FIX-C] memcpy
 #include <new>
-#include <vector>
 
 namespace ProtectedEngine {
 
@@ -45,21 +45,27 @@ namespace ProtectedEngine {
 
     // =====================================================================
     //  Pimpl 구현 구조체
+    //  [FIX-C] std::vector<int32_t> → 정적 배열 (ARM 힙 할당 전면 제거)
+    //   Walsh-64 정합 필터: 최대 64 칩 참조 시퀀스
+    //   64 × 4B = 256B 정적 배열 → 힙 0, 파편화 0
     // =====================================================================
     struct HTS_Rx_Matched_Filter::Impl {
-        HTS_Sys_Config       current_config = {};
-        std::vector<int32_t> reference_sequence;
+        static constexpr size_t MAX_REF_SEQ = 64u;
+
+        HTS_Sys_Config current_config = {};
+        int32_t        reference_sequence[MAX_REF_SEQ] = {};
+        size_t         ref_len = 0u;
 
         explicit Impl(HTS_Sys_Tier tier) noexcept
             : current_config(
-                HTS_Sys_Config_Factory::Get_Tier_Profile(tier)) {
+                HTS_Sys_Config_Factory::Get_Tier_Profile(tier))
+            , ref_len(0u) {
         }
 
         ~Impl() noexcept {
-            if (!reference_sequence.empty()) {
-                Secure_Wipe_MF(reference_sequence.data(),
-                    reference_sequence.size() * sizeof(int32_t));
-            }
+            Secure_Wipe_MF(reference_sequence,
+                MAX_REF_SEQ * sizeof(int32_t));
+            ref_len = 0u;
         }
     };
 
@@ -69,7 +75,7 @@ namespace ProtectedEngine {
     HTS_Rx_Matched_Filter::Impl*
         HTS_Rx_Matched_Filter::get_impl() noexcept {
         static_assert(sizeof(Impl) <= IMPL_BUF_SIZE,
-            "Impl이 IMPL_BUF_SIZE(256B)를 초과합니다 — 버퍼 크기를 늘려주세요");
+            "Impl이 IMPL_BUF_SIZE(320B)를 초과합니다 — 버퍼 크기를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(8)을 초과합니다");
         return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
@@ -121,16 +127,17 @@ namespace ProtectedEngine {
             return false;
         }
 
-        // [BUG-13] try-catch 삭제 — 직접 실행
-        // Copy-and-Swap: 예외 안전성 유지 (vector swap = noexcept)
-        std::vector<int32_t> new_seq(seq_data, seq_data + size);
+        // [FIX-C] 정적 배열 경계 검사
+        if (size > Impl::MAX_REF_SEQ) { return false; }
 
-        if (!p->reference_sequence.empty()) {
-            Secure_Wipe_MF(p->reference_sequence.data(),
-                p->reference_sequence.size() * sizeof(int32_t));
-        }
+        // 기존 데이터 보안 소거
+        Secure_Wipe_MF(p->reference_sequence,
+            Impl::MAX_REF_SEQ * sizeof(int32_t));
 
-        p->reference_sequence.swap(new_seq);
+        // 복사 (zero-heap)
+        std::memcpy(p->reference_sequence, seq_data,
+            size * sizeof(int32_t));
+        p->ref_len = size;
         return true;
     }
 
@@ -161,14 +168,14 @@ namespace ProtectedEngine {
             return false;
         }
 
-        const auto& ref_seq = p->reference_sequence;
-        if (ref_seq.empty()) { return false; }
+        // [FIX-C] 정적 배열 참조
+        if (p->ref_len == 0u) { return false; }
 
-        const size_t seq_len = ref_seq.size();
+        const size_t seq_len = p->ref_len;
         if (rx_size < seq_len) { return false; }
 
         const size_t num_outputs = rx_size - seq_len + 1u;
-        const int32_t* __restrict ref = ref_seq.data();
+        const int32_t* __restrict ref = p->reference_sequence;
 
         static constexpr int64_t Q16_ROUND_BIAS = 0x8000LL;
 

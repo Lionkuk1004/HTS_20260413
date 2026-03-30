@@ -14,8 +14,8 @@
 //
 //  [메모리 요구량]
 //   sizeof(HTS_Rx_Matched_Filter) ≈ IMPL_BUF_SIZE + impl_valid_ + padding
-//   Impl: vector(24B) + HTS_Sys_Config(≈32B) ≈ 64B → IMPL_BUF_SIZE = 256B
-//   기준 시퀀스 데이터: vector 내부 힙 (예: 4096 × 4 = 16KB)
+//   Impl: HTS_Sys_Config(32B) + int32_t[64](256B) + ref_len(4B) ≈ 296B → IMPL_BUF_SIZE = 320B
+//   기준 시퀀스 데이터: int32_t[64] 정적 배열 (256B, 힙 0)
 //
 //  [보안 설계]
 //   기준 시퀀스: Set 교체 시 기존 소거 + 소멸자 소거
@@ -75,10 +75,10 @@ namespace ProtectedEngine {
             int32_t* __restrict out_correlation) noexcept;
 
     private:
-        // ── [BUG-12] Pimpl In-Place Storage (zero-heap) ──────────────
-        // Impl = HTS_Sys_Config(≈32B) + std::vector(24B) ≈ 64B
-        // 기준 시퀀스 데이터는 vector 내부 힙에 유지 (크기 가변)
-        static constexpr size_t IMPL_BUF_SIZE = 256u;
+        // ── [FIX-C] Pimpl In-Place Storage (zero-heap) ──────────────
+        // Impl = HTS_Sys_Config(≈32B) + int32_t[64](256B) + ref_len(4B) ≈ 296B
+        // vector 힙 할당 완전 제거 → 정적 배열 전환
+        static constexpr size_t IMPL_BUF_SIZE = 320u;
         static constexpr size_t IMPL_BUF_ALIGN = 8u;
 
         struct Impl;  ///< 기준 시퀀스 + 체급 설정 은닉

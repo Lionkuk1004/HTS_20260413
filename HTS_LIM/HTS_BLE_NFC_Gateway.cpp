@@ -436,6 +436,10 @@ namespace ProtectedEngine {
         impl->state = BLE_GW_State::OFFLINE;
         impl->ipc = nullptr;
         impl->~Impl();
+
+        // [FIX-D2] impl_buf_ 보안 소거 — 평문 데이터 잔류 방지
+        IPC_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
+
         initialized_.store(false, std::memory_order_release);
     }
 

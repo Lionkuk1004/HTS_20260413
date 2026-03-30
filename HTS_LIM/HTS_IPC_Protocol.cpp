@@ -1068,6 +1068,9 @@ namespace ProtectedEngine {
         // Explicit destructor call (placement new cleanup)
         impl->~Impl();
 
+        // [FIX-D2] impl_buf_ 보안 소거 — IPC 프레임 잔류 방지
+        IPC_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
+
         initialized_.store(false, std::memory_order_release);
     }
 

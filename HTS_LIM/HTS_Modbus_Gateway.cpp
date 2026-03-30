@@ -8,8 +8,23 @@
 #include "HTS_IPC_Protocol.h"
 #include <new>
 #include <atomic>
+#include <cstring>  // [FIX-D2] memset
 
 namespace ProtectedEngine {
+
+    // ============================================================
+    //  [FIX-D2] 보안 소거 — volatile + asm clobber + release fence
+    //  Modbus 평문 페이로드(tx_buf/rx_buf/gw_rsp_buf) 잔류 방지
+    // ============================================================
+    static void Modbus_Secure_Wipe(void* p, size_t n) noexcept {
+        if (p == nullptr || n == 0u) { return; }
+        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
+        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(p) : "memory");
+#endif
+        std::atomic_thread_fence(std::memory_order_release);
+    }
 
     // ============================================================
     //  Endian Helpers (Modbus uses big-endian for registers)
@@ -429,9 +444,8 @@ namespace ProtectedEngine {
         static_assert(sizeof(Impl) <= IMPL_BUF_SIZE,
             "HTS_Modbus_Gateway::Impl exceeds IMPL_BUF_SIZE");
 
-        for (uint32_t i = 0u; i < IMPL_BUF_SIZE; ++i) {
-            impl_buf_[i] = 0u;
-        }
+        // [OPT] byte loop → memset (LDMIA/STMIA burst)
+        std::memset(impl_buf_, 0, IMPL_BUF_SIZE);
     }
 
     HTS_Modbus_Gateway::~HTS_Modbus_Gateway() noexcept
@@ -486,6 +500,13 @@ namespace ProtectedEngine {
         impl->state = Modbus_State::OFFLINE;
         impl->ipc = nullptr;
         impl->~Impl();
+
+        // [FIX-D2] impl_buf_ 보안 소거 — 평문 Modbus 페이로드 잔류 방지
+        //  tx_buf(256B) + rx_buf(256B) + gw_rsp_buf(256B) = 768B 전체 소거
+        //  소멸자만 호출하면 데이터가 SRAM에 잔류 (Data Remanence)
+        //  → 메모리 덤프 공격 시 산업 제어 명령 노출
+        Modbus_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
+
         initialized_.store(false, std::memory_order_release);
     }
 

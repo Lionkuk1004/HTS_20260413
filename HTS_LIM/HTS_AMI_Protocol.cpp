@@ -67,6 +67,72 @@ namespace ProtectedEngine {
     }
 
     // ============================================================
+    //  [FIX-AMI-NV] 비휘발 부팅 카운터 — RTC Backup Register
+    //
+    //  STM32F407 BKP_DR0~DR19: VBAT 전원 유지 시 비휘발
+    //  전원 차단 후 재부팅 시 boot_count 단조증가 보장
+    //  → (device_id, boot_count, report_seq) 3중 키로 리플레이 공격 차단
+    //
+    //  [하드웨어 요건] VBAT 핀에 코인셀/슈퍼캡 연결 필수
+    //  VBAT 미연결 시 전원 차단 → boot_count 리셋 (경고 로그)
+    // ============================================================
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+    namespace NV {
+        // STM32F407 레지스터 주소 (constexpr 상수화)
+        static constexpr uintptr_t RCC_APB1ENR_ADDR = 0x40023840u;
+        static constexpr uint32_t  RCC_PWREN_BIT = (1u << 28u);
+        static constexpr uintptr_t PWR_CR_ADDR = 0x40007000u;
+        static constexpr uint32_t  PWR_CR_DBP_BIT = (1u << 8u);
+        static constexpr uintptr_t BKP_DR0_ADDR = 0x40002850u;  // boot_count
+        static constexpr uintptr_t BKP_DR1_ADDR = 0x40002854u;  // magic
+        static constexpr uint32_t  NV_MAGIC = 0x494E4F56u; // "INOV"
+
+        static uint32_t Read_Boot_Count() noexcept {
+            volatile uint32_t* dr0 =
+                reinterpret_cast<volatile uint32_t*>(BKP_DR0_ADDR);
+            volatile uint32_t* dr1 =
+                reinterpret_cast<volatile uint32_t*>(BKP_DR1_ADDR);
+
+            // 매직 검증 — VBAT 이력 확인
+            if (*dr1 != NV_MAGIC) { return 0u; }
+            return *dr0;
+        }
+
+        static void Write_Boot_Count(uint32_t count) noexcept {
+            // PWR 클록 활성화
+            volatile uint32_t* rcc_apb1 =
+                reinterpret_cast<volatile uint32_t*>(RCC_APB1ENR_ADDR);
+            *rcc_apb1 |= RCC_PWREN_BIT;
+
+            // Backup Domain 쓰기 허용 (DBP 비트)
+            volatile uint32_t* pwr_cr =
+                reinterpret_cast<volatile uint32_t*>(PWR_CR_ADDR);
+            *pwr_cr |= PWR_CR_DBP_BIT;
+
+            // 쓰기
+            volatile uint32_t* dr0 =
+                reinterpret_cast<volatile uint32_t*>(BKP_DR0_ADDR);
+            volatile uint32_t* dr1 =
+                reinterpret_cast<volatile uint32_t*>(BKP_DR1_ADDR);
+            *dr0 = count;
+            *dr1 = NV_MAGIC;
+
+            // DBP 비트 복원 (쓰기 보호)
+            *pwr_cr &= ~PWR_CR_DBP_BIT;
+
+            __asm__ __volatile__("dsb" ::: "memory");
+        }
+    } // namespace NV
+#else
+    // PC 시뮬레이션: 정적 변수 (테스트용)
+    namespace NV {
+        static uint32_t s_sim_boot = 0u;
+        static uint32_t Read_Boot_Count() noexcept { return s_sim_boot; }
+        static void Write_Boot_Count(uint32_t c) noexcept { s_sim_boot = c; }
+    }
+#endif
+
+    // ============================================================
     //  Impl Structure
     // ============================================================
     struct HTS_AMI_Protocol::Impl {
@@ -94,12 +160,19 @@ namespace ProtectedEngine {
         // --- Periodic Report ---
         uint32_t report_interval_ms;
         uint32_t last_report_tick;
+        uint32_t report_seq;        ///< [FIX-AMI] 세션 내 단조증가 시퀀스
+        uint32_t boot_count;        ///< [FIX-AMI-NV] 비휘발 부팅 카운터 (RTC BKP)
 
         // --- APDU Build Buffer ---
         uint8_t apdu_buf[AMI_MAX_APDU_SIZE];
 
         // --- [A2] Security Wrapped Buffer ---
         uint8_t secure_buf[AMI_MAX_SECURE_BUF];
+
+        // --- [FIX-STACK] RX 복호 버퍼 (스택→Impl 이동) ---
+        //  Process_Request에서 사용. 스택 48~1024B 점유 방지.
+        //  향후 AMI_MAX_APDU_SIZE 확장 시에도 스택 오버플로우 원천 차단.
+        uint8_t decrypt_buf[AMI_MAX_APDU_SIZE];
 
         // ============================================================
         //  CFI Transition
@@ -182,6 +255,21 @@ namespace ProtectedEngine {
             apdu_buf[pos++] = invoke_id;
             invoke_id = static_cast<uint8_t>(
                 (static_cast<uint32_t>(invoke_id) + 1u) & 0xFFu);
+
+            // [FIX-AMI-NV] 비휘발 부팅 카운터 — 리플레이 공격 차단
+            //  전원 차단 → 재부팅해도 boot_count 단조증가 (RTC BKP 저장)
+            //  공격자가 old 패킷을 리플레이해도 boot_count 불일치 → HES 폐기
+            apdu_buf[pos++] = static_cast<uint8_t>(boot_count >> 24u);
+            apdu_buf[pos++] = static_cast<uint8_t>(boot_count >> 16u);
+            apdu_buf[pos++] = static_cast<uint8_t>(boot_count >> 8u);
+            apdu_buf[pos++] = static_cast<uint8_t>(boot_count & 0xFFu);
+
+            // [FIX-AMI] 세션 내 시퀀스 — 동일 부팅 내 중복 방지
+            apdu_buf[pos++] = static_cast<uint8_t>(report_seq >> 24u);
+            apdu_buf[pos++] = static_cast<uint8_t>(report_seq >> 16u);
+            apdu_buf[pos++] = static_cast<uint8_t>(report_seq >> 8u);
+            apdu_buf[pos++] = static_cast<uint8_t>(report_seq & 0xFFu);
+            report_seq++;
             const uint32_t count_pos = pos;
             apdu_buf[pos++] = 0u;
 
@@ -343,6 +431,13 @@ namespace ProtectedEngine {
         impl->invoke_id = 0u;
         impl->report_interval_ms = 0u;
         impl->last_report_tick = 0u;
+        impl->report_seq = 0u;
+
+        // [FIX-AMI-NV] 비휘발 부팅 카운터: RTC BKP에서 읽기 → +1 → 쓰기
+        //  리플레이 공격 차단: 재부팅해도 boot_count 단조증가
+        //  (device_id, boot_count, report_seq) = 글로벌 유일 키
+        impl->boot_count = NV::Read_Boot_Count() + 1u;
+        NV::Write_Boot_Count(impl->boot_count);
         impl->obis_dict = nullptr;
         impl->security = nullptr;
 
@@ -456,26 +551,27 @@ namespace ProtectedEngine {
 
         // [A2] 수신 복호화 (security suite 등록 시)
         //  복호화 실패(MAC 불일치) → 폐기 (무응답 = 보안 정책)
+        //  [FIX-STACK] decrypt_buf: 스택→Impl 이동 (스택 오버플로우 방지)
         const uint8_t* effective_apdu = apdu;
         uint16_t effective_len = apdu_len;
-        uint8_t decrypt_buf[AMI_MAX_APDU_SIZE] = {};
+        std::memset(impl->decrypt_buf, 0, AMI_MAX_APDU_SIZE);
 
         if (impl->security != nullptr && impl->security->decrypt != nullptr) {
             uint16_t plain_len = 0u;
             if (!impl->security->decrypt(
                 apdu, apdu_len,
-                decrypt_buf, &plain_len,
+                impl->decrypt_buf, &plain_len,
                 static_cast<uint16_t>(AMI_MAX_APDU_SIZE))) {
                 // MAC 검증 실패 → 무응답 폐기 (보안 정책)
-                AMI_Secure_Wipe(decrypt_buf, AMI_MAX_APDU_SIZE);
+                AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
                 return;
             }
-            effective_apdu = decrypt_buf;
+            effective_apdu = impl->decrypt_buf;
             effective_len = plain_len;
         }
 
         if (!impl->Transition_State(AMI_State::PROCESSING)) {
-            AMI_Secure_Wipe(decrypt_buf, AMI_MAX_APDU_SIZE);
+            AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
             return;
         }
 
@@ -496,7 +592,7 @@ namespace ProtectedEngine {
         }
 
         // 복호 버퍼 보안 소거
-        AMI_Secure_Wipe(decrypt_buf, AMI_MAX_APDU_SIZE);
+        AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
 
         impl->Transition_State(AMI_State::IDLE);
     }

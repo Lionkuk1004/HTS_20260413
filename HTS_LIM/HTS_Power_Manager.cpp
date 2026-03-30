@@ -10,6 +10,17 @@
 
 namespace ProtectedEngine {
 
+    // [FIX-D2] 보안 소거 — volatile + asm clobber + release fence
+    static void Power_Secure_Wipe(void* p, size_t n) noexcept {
+        if (p == nullptr || n == 0u) { return; }
+        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
+        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(p) : "memory");
+#endif
+        std::atomic_thread_fence(std::memory_order_release);
+    }
+
     // ============================================================
     //  Impl Structure
     // ============================================================
@@ -326,6 +337,10 @@ namespace ProtectedEngine {
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->state = PowerState::UNINITIALIZED;
         impl->~Impl();
+
+        // [FIX-D2] impl_buf_ 보안 소거 — 평문 데이터 잔류 방지
+        Power_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
+
         initialized_.store(false, std::memory_order_release);
     }
 
