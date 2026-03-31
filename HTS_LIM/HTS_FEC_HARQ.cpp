@@ -82,8 +82,12 @@ namespace ProtectedEngine {
         uint8_t* out, int no, WorkBuf& wb) noexcept {
         if (!soft || !out || nc < 2 || no < 1) return;
 
-        const int T = nc / 2;
-        const int steps = (T < 256) ? T : 256;
+        // [⑨-FIX] /2 → >>1 (nc≥2 가드에 의해 양수 보장, ASR 안전)
+        const int T = nc >> 1;
+        // [BUG-FIX FATAL] 256 → VIT_STEPS(88): BUG-23에서 surv/tb 버퍼를 88로 축소
+        //  기존: steps ≤ 256 → surv[88]/tb[88] OOB → 스택 파괴 → HardFault
+        //  MSVC C6386/C6385 경고의 근본 원인
+        const int steps = (T < VIT_STEPS) ? T : VIT_STEPS;
 
         static constexpr int32_t DEAD_STATE = -1000000000;
 

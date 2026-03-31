@@ -1,6 +1,18 @@
 /// @file  HTS_Console_Manager.cpp
 /// @brief HTS Console Manager -- STM32 Implementation
 /// @note  ARM only. Pure ASCII. No PC/server code.
+///
+/// [양산 수정 이력]
+///  BUG-FIX ⑦  secure_boot_state 하드코딩 1u 제거
+///    · 런타임 도달 = POST 통과 확정, POST_Manager.h include 추가
+///  BUG-FIX-5 [FATAL] Initialize() TOCTOU Read-Before-Init 수정
+///    · 기존: CAS 성공 즉시 initialized_=true -> Impl 미생성 상태 노출
+///    · 수정: initializing_ CAS로 이중 진입 차단,
+///            initialized_.store(release)는 placement new + 전체 멤버 구성 완료 후
+///  BUG-FIX-6 [CRIT] channel_config Torn Read/Write 수정
+///    · Apply_Param + Set/Get_Channel_Config 동시 접근 구조체 찢어짐 차단
+///    · con_critical_enter/exit (PRIMASK) 3곳 적용, memcpy 원자적 복사
+///
 /// @author Lim Young-jun
 /// @copyright INNOViD 2026. All rights reserved.
 
@@ -8,6 +20,32 @@
 #include "HTS_IPC_Protocol.h"
 #include <new>        // placement new
 #include <atomic>
+#include <cstring>    // memcpy (channel_config 원자적 복사용)
+
+// ============================================================
+//  [BUG-FIX CRIT] channel_config Torn R/W 방어용 크리티컬 섹션
+//
+//  channel_config(ChannelConfig, ~28B)는 원자 타입이 아니므로
+//  Apply_Param(IPC ISR 경로) vs Set_Channel_Config(앱 태스크 경로)
+//  동시 접근 시 Torn Write 발생 가능.
+//  -> PRIMASK(ARM: __disable_irq/__enable_irq)로 인터럽트 차단,
+//     memcpy 단위로 원자적 복사 보장.
+//  ISR 내부에서는 중첩 진입 불가(재진입 없음) -> PRIMASK 안전.
+// ============================================================
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+static inline uint32_t con_critical_enter() noexcept {
+    uint32_t pm;
+    __asm__ volatile ("MRS %0, PRIMASK" : "=r"(pm));
+    __asm__ volatile ("CPSID I" ::: "memory");
+    return pm;
+}
+static inline void con_critical_exit(uint32_t pm) noexcept {
+    __asm__ volatile ("MSR PRIMASK, %0" :: "r"(pm) : "memory");
+}
+#else
+static inline uint32_t con_critical_enter() noexcept { return 0u; }
+static inline void con_critical_exit(uint32_t) noexcept {}
+#endif
 
 namespace ProtectedEngine {
 
@@ -245,6 +283,13 @@ namespace ProtectedEngine {
         // ============================================================
         void Apply_Param(ParamId pid, const uint8_t* val, uint8_t len) noexcept
         {
+            // [BUG-FIX CRIT] channel_config Torn Write 방어
+            //  Apply_Param은 IPC 수신 경로(Tick -> Process_IPC_Commands)에서 호출.
+            //  Set_Channel_Config는 앱 태스크 경로에서 호출.
+            //  두 경로가 channel_config 멤버를 바이트 단위로 동시 수정 시
+            //  Torn Write 발생 -> 트랜시버 오동작(엉뚱한 RF 주파수/변조).
+            //  -> PRIMASK 크리티컬 섹션으로 원자적 단일 파라미터 수정 보장.
+            const uint32_t pm = con_critical_enter();
             switch (pid) {
             case ParamId::BPS_MODE:
                 if (len >= 1u && val[0] < static_cast<uint8_t>(BpsLevel::LEVEL_COUNT)) {
@@ -314,6 +359,7 @@ namespace ProtectedEngine {
                 // Read-only or unknown param -- silently ignore
                 break;
             }
+            con_critical_exit(pm);  // [BUG-FIX CRIT] Torn Write 방어 크리티컬 섹션 해제
         }
 
         // ============================================================
@@ -508,20 +554,41 @@ namespace ProtectedEngine {
 
     IPC_Error HTS_Console_Manager::Initialize(HTS_IPC_Protocol* ipc) noexcept
     {
-        bool expected = false;
-        if (!initialized_.compare_exchange_strong(
-            expected, true, std::memory_order_acq_rel))
+        // [BUG-FIX FATAL] TOCTOU 레이스 컨디션 수정 (2단계 초기화 패턴)
+        //
+        //  기존 문제:
+        //    CAS(false->true) 성공 -> initialized_=true 즉시 공개
+        //    -> Tick() 등 소비자가 initialized_=true 보고 impl_buf_ 접근
+        //    -> 아직 placement new 미실행 -> 쓰레기 메모리 -> HardFault
+        //
+        //  수정 설계:
+        //    1) initializing_ CAS(false->true): 이중 진입 차단 (소비자 비가시)
+        //    2) ipc nullptr 검증
+        //    3) placement new + 전체 멤버 구성 완료
+        //    4) initialized_.store(true, release): 소비자에게 공개
+        //       -> 소비자가 acquire로 읽을 때 위 모든 쓰기 가시화 보장
+        //       -> Read-Before-Init 경로 원천 차단
+        bool init_expected = false;
+        if (!initializing_.compare_exchange_strong(
+            init_expected, true, std::memory_order_acq_rel))
         {
+            // 이미 초기화 중 또는 완료 -- 중복 호출 차단
             return IPC_Error::OK;
         }
 
+        // initializing_=true 획득: 이 스레드만 초기화 진행권 보유
+        // initialized_는 아직 false -> 소비자(Tick/Get*/Set*) 접근 차단됨
+
         if (ipc == nullptr) {
-            initialized_.store(false, std::memory_order_release);
+            // 파라미터 오류 -> initializing_ 해제 후 반환
+            initializing_.store(false, std::memory_order_release);
             return IPC_Error::NOT_INITIALIZED;
         }
 
+        // placement new -- Impl 생성자 호출
         Impl* impl = new (impl_buf_) Impl{};
 
+        // 전체 멤버 초기화 완료
         impl->ipc = ipc;
         impl->state = ConsoleState::OFFLINE;
         impl->init_tick = 0u;
@@ -540,6 +607,11 @@ namespace ProtectedEngine {
         impl->diag_cb.get_flash_crc = nullptr;
 
         impl->state = ConsoleState::ONLINE;
+
+        // [BUG-FIX FATAL] Impl 완전 구성 완료 후 initialized_ 공개 (release)
+        //  -> 소비자 acquire 로드와 release-acquire 쌍 형성
+        //  -> 위의 모든 쓰기가 소비자에게 가시화됨
+        initialized_.store(true, std::memory_order_release);
 
         return IPC_Error::OK;
     }
@@ -588,7 +660,11 @@ namespace ProtectedEngine {
             return;
         }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
-        out_config = impl->channel_config;
+        // [BUG-FIX CRIT] Torn Read 방어 -- channel_config 전체 복사를 원자적으로 수행
+        //  Apply_Param(IPC 경로)과 동시 실행 시 부분 읽기 방지
+        const uint32_t pm = con_critical_enter();
+        std::memcpy(&out_config, &impl->channel_config, sizeof(ChannelConfig));
+        con_critical_exit(pm);
     }
 
     IPC_Error HTS_Console_Manager::Set_Channel_Config(const ChannelConfig& config) noexcept
@@ -608,7 +684,12 @@ namespace ProtectedEngine {
             return IPC_Error::INVALID_CMD;
         }
 
-        impl->channel_config = config;
+        // [BUG-FIX CRIT] Torn Write 방어 -- channel_config 전체 덮어쓰기를 원자적으로 수행
+        //  Apply_Param(IPC 경로)과 동시 실행 시 구조체 찢어짐 방지
+        //  (RF 주파수 상위/하위 바이트가 각각 다른 설정에서 오는 현상 차단)
+        const uint32_t pm = con_critical_enter();
+        std::memcpy(&impl->channel_config, &config, sizeof(ChannelConfig));
+        con_critical_exit(pm);
         return IPC_Error::OK;
     }
 

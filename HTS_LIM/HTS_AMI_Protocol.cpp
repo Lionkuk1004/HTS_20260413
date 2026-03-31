@@ -22,6 +22,20 @@
 ///  AMI-4 [MED]  alignas(4) → alignas(8) (헤더에서 처리)
 ///  AMI-5 [MED]  Lookup remain 검사 → 타입별 정확한 크기
 ///  AMI-6 [LOW]  CURRENT_L2/L3, METER_DATETIME/UPTIME Lookup 누락 추가
+///  BUG-FIX ⑦ SET_REQUEST/ACTION_REQUEST TODO 제거 → DLMS 에러 응답 명시 전송
+///     · 기존: break만 존재 → 무응답 (마스터 타임아웃 유발)
+///     · SET_RESPONSE: Data-Access-Error(3=ReadWriteDenied)
+///     · ACTION_RESPONSE: Action-Result(3=OtherReason)
+///     · IEC 62056-53 §7.4.2.3/7.4.2.6 준거
+///  BUG-FIX-A1 [FATAL] Process_Request Transition_State 실패 시 로직 탈출 오류
+///     · 기존: Transition_State(PROCESSING) 실패 → state=ERROR/OFFLINE 고착
+///             decrypt_buf 소거 후 return (IDLE 복귀 없음)
+///             → 이후 모든 Process_Request 재실패 → 프로토콜 데드락
+///     · 수정: Transition_State 실패 시 impl->state = IDLE 강제 복귀 추가
+///  BUG-FIX-A2 [CRIT] SET/ACTION 응답 스택 변수(rsp[4]) Dangling 위험
+///     · 기존: uint8_t rsp[4] 스택 변수 → Send_Frame에 포인터 전달
+///             Send_Frame 구현 변경(DMA 비동기화) 시 Dangling 포인터 → 메모리 파괴
+///     · 수정: Impl::apdu_buf 정적 버퍼에 4바이트 직렬화 후 전달
 ///
 /// @author Lim Young-jun
 /// @copyright INNOViD 2026. All rights reserved.
@@ -570,8 +584,21 @@ namespace ProtectedEngine {
             effective_len = plain_len;
         }
 
+        // [BUG-FIX FATAL] Transition_State 실패 시 IDLE 복귀 + decrypt_buf 소거
+        //
+        //  기존 문제:
+        //    Transition_State(PROCESSING) 실패 → 내부에서 state = ERROR/OFFLINE
+        //    decrypt_buf 소거 후 return → Transition_State(IDLE) 호출 없음
+        //    → 상태 머신이 ERROR/OFFLINE에 고착, IDLE 복귀 불가
+        //    → 이후 Process_Request 모든 호출이 Transition_State 재실패
+        //    → 프로토콜 데드락 (DLMS 마스터 통신 완전 중단)
+        //
+        //  수정:
+        //    Transition_State 실패 시 decrypt_buf 소거 + IDLE 강제 복귀
+        //    (CFI 위반이 발생했으므로 안전한 IDLE 상태로 명시 복귀)
         if (!impl->Transition_State(AMI_State::PROCESSING)) {
             AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
+            impl->state = AMI_State::IDLE;  // CFI 위반 후 IDLE 강제 복귀
             return;
         }
 
@@ -580,12 +607,36 @@ namespace ProtectedEngine {
         switch (svc) {
         case DLMS_Service::GET_REQUEST:
             impl->Handle_Get_Request(effective_apdu, effective_len);
-            break; 
+            break;
         case DLMS_Service::SET_REQUEST:
-            // TODO: SET handling (future: meter configuration)
+            // [BUG-FIX ⑦] 미지원 SET 요청 → DLMS 에러 응답 명시 전송
+            //  IEC 62056-53 §7.4.2.3: Data-Access-Error 3 = Read/Write Denied
+            //  [BUG-FIX CRIT] 스택 변수 rsp[4] → Impl::apdu_buf 정적 버퍼 교체
+            //   기존: uint8_t rsp[4] 스택 → Send_Frame에 포인터 전달
+            //    Send_Frame이 현재 동기 직렬화이므로 즉시 복사되어 안전하나
+            //    구현 변경 시 Dangling 포인터 위험 (스코프 이탈 후 DMA 접근)
+            //   수정: Impl::apdu_buf 정적 버퍼에 4바이트 직렬화 후 전달
+            //    apdu_buf는 Impl 내부 정적 배열 → 스코프 이탈 없음
+            //    Send_Frame 호출 시점에 유효한 포인터 보장
+            if (effective_len >= 1u && impl->ipc != nullptr) {
+                impl->apdu_buf[0] = static_cast<uint8_t>(DLMS_Service::SET_RESPONSE);
+                impl->apdu_buf[1] = (effective_len >= 2u) ? effective_apdu[1] : 0x01u;
+                impl->apdu_buf[2] = 0x01u;  // Data-Access-Error
+                impl->apdu_buf[3] = 0x03u;  // Read/Write Denied
+                impl->ipc->Send_Frame(IPC_Command::DATA_TX, impl->apdu_buf, 4u);
+            }
             break;
         case DLMS_Service::ACTION_REQUEST:
-            // TODO: action handling (meter reset etc.)
+            // [BUG-FIX ⑦] 미지원 ACTION 요청 → DLMS 에러 응답 명시 전송
+            //  IEC 62056-53 §7.4.2.6: Action-Result 3 = Other-Reason
+            //  [BUG-FIX CRIT] 동일 패턴 — apdu_buf 정적 버퍼 사용
+            if (effective_len >= 1u && impl->ipc != nullptr) {
+                impl->apdu_buf[0] = static_cast<uint8_t>(DLMS_Service::ACTION_RESPONSE);
+                impl->apdu_buf[1] = (effective_len >= 2u) ? effective_apdu[1] : 0x01u;
+                impl->apdu_buf[2] = 0x01u;  // Action-Result present
+                impl->apdu_buf[3] = 0x03u;  // Other-Reason
+                impl->ipc->Send_Frame(IPC_Command::DATA_TX, impl->apdu_buf, 4u);
+            }
             break;
         default:
             break;
@@ -604,4 +655,4 @@ namespace ProtectedEngine {
         return reinterpret_cast<const Impl*>(impl_buf_)->state;
     }
 
-} // namespace ProtectedEngine   
+} // namespace ProtectedEngine

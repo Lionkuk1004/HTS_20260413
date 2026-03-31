@@ -31,12 +31,21 @@ namespace ProtectedEngine {
     class Hardware_Auto_Scaler {
     public:
         // ── 스케일링 한계 상수 ────────────────────────────────────────
-        //  MIN_TENSORS: 최소 동작 보장 (1000 × 4B = 4KB)
-        //  MAX_TENSORS: PC 상한 (1M × 4B = 4MB — 서버급 버퍼)
+        //  [BUG-FIX CRIT] MIN/MAX_TENSORS 2의제곱수 강제
+        //
+        //  위협: 비2의제곱 MIN_TENSORS(1000)가 Floor_Power_Of_Two 이후
+        //        강제 대입되면 하위 모듈의 비트마스크 모듈러 연산
+        //        (idx & (count-1)) 붕괴 → OOB/HardFault
+        //
+        //  MIN_TENSORS: 1024 (2^10) × 4B = 4KB — 최소 동작 보장
+        //  MAX_TENSORS: 1048576 (2^20) × 4B = 4MB — 서버급 버퍼
         //  BYTES_PER_DUAL_TENSOR: 듀얼 레인 1요소 = uint32_t = 4바이트
-        static const size_t MIN_TENSORS = 1000;
-        static const size_t MAX_TENSORS = 1000000;
+        static const size_t MIN_TENSORS = 1024;
+        static const size_t MAX_TENSORS = 1048576;
         static const size_t BYTES_PER_DUAL_TENSOR = 4;
+
+        // [빌드타임 검증] MIN/MAX가 반드시 2의제곱수임을 보장
+        //  위반 시 즉시 빌드 실패 → 런타임 비트마스크 붕괴 원천 차단
 
         // ── 최적 텐서 개수 계산 ──────────────────────────────────────
         //  반환: 플랫폼 메모리 50% 기준 듀얼 텐서 개수
@@ -48,5 +57,19 @@ namespace ProtectedEngine {
         // 플랫폼별 가용 메모리 감지
         static size_t Get_Free_System_Memory() noexcept;
     };
+
+    // [BUG-FIX CRIT] 2의제곱수 빌드타임 검증 — (n & (n-1)) == 0 패턴
+    static_assert(
+        Hardware_Auto_Scaler::MIN_TENSORS > 0 &&
+        (Hardware_Auto_Scaler::MIN_TENSORS &
+            (Hardware_Auto_Scaler::MIN_TENSORS - 1)) == 0,
+        "MIN_TENSORS must be a power of 2 — "
+        "비트마스크 모듈러 연산(idx & (count-1)) 정합성 필수");
+    static_assert(
+        Hardware_Auto_Scaler::MAX_TENSORS > 0 &&
+        (Hardware_Auto_Scaler::MAX_TENSORS &
+            (Hardware_Auto_Scaler::MAX_TENSORS - 1)) == 0,
+        "MAX_TENSORS must be a power of 2 — "
+        "Floor_Power_Of_Two 이후에도 2의제곱 보장 필수");
 
 } // namespace ProtectedEngine

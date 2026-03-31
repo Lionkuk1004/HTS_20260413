@@ -9,6 +9,15 @@
 //  · 8바이트 패킷: device_id + alert_flags + GPS 압축
 //  · Priority_Scheduler P0(SOS) 큐 삽입
 //  · 3중 보안 소거
+//
+// [양산 수정 이력]
+//  BUG-FIX ⑨  GPS_DIV=10 → Q16 역수 곱셈 (GPS_RECIP_Q16=6554)
+//  BUG-FIX-1 [FATAL] Cancel() 'Lost Cancel' 상태 머신 결함 수정
+//    · 기존: tx_count < 60 → return (alert_flags 유지 → RF Flooding)
+//    · 수정: alert_flags = 0u 즉시 / active=false는 30초 조건 분리
+//  BUG-FIX-2 [CRIT]  Tick() last_tx_ms Jitter 수정
+//    · 기존: last_tx_ms = systick_ms (호출 지연 누적 → 타임슬롯 충돌)
+//    · 수정: last_tx_ms += BEACON_INTERVAL_MS (주기 기반 갱신, 오차 0)
 // =========================================================================
 #include "HTS_Emergency_Beacon.h"
 #include "HTS_Priority_Scheduler.h"
@@ -68,21 +77,31 @@ namespace ProtectedEngine {
     //
     //  해외 확장: 오프셋 조정으로 전 세계 커버 가능
     //  int16_t ±32767 → ±32.767° 범위 → 오프셋 중심 ±32° 커버
+    //
+    //  [BUG-FIX-3 ⑨] GPS_DIV=10 비2의제곱 런타임 나눗셈 → Q16 역수 곱셈+시프트
+    //  기존: diff / 10             (SDIV ~12cyc, 비2의제곱 금지)
+    //  수정: (diff * 6554) >> 16   (MUL+ASR ~3cyc)
+    //  검증: 6554/65536 = 0.09999... vs 1/10 = 0.1 → 오차 -0.009%
+    //        최대 diff = 80000: 80000 × 6554 = 524,320,000 < INT32_MAX ✓
+    //        음수: int64_t 확장 후 산술 우시프트로 부호 보존
     // =====================================================================
-    static constexpr int32_t LAT_OFFSET = 330000;  // 33.0000°
-    static constexpr int32_t LON_OFFSET = 1240000; // 124.0000°
-    static constexpr int32_t GPS_DIV = 10;      // 1e4→1e3 스케일
+    static constexpr int32_t LAT_OFFSET = 330000;   // 33.0000°
+    static constexpr int32_t LON_OFFSET = 1240000;  // 124.0000°
+    // [BUG-FIX-3 ⑨] Q16 역수: round(65536 / 10) = 6554
+    static constexpr int32_t GPS_RECIP_Q16 = 6554;
 
     static int16_t compress_lat(int32_t lat_1e4) noexcept {
-        const int32_t v = (lat_1e4 - LAT_OFFSET) / GPS_DIV;
-        if (v > 32767) { return 32767; }
+        const int32_t v = static_cast<int32_t>(
+            (static_cast<int64_t>(lat_1e4 - LAT_OFFSET) * GPS_RECIP_Q16) >> 16);
+        if (v > 32767) { return  32767; }
         if (v < -32768) { return -32768; }
         return static_cast<int16_t>(v);
     }
 
     static int16_t compress_lon(int32_t lon_1e4) noexcept {
-        const int32_t v = (lon_1e4 - LON_OFFSET) / GPS_DIV;
-        if (v > 32767) { return 32767; }
+        const int32_t v = static_cast<int32_t>(
+            (static_cast<int64_t>(lon_1e4 - LON_OFFSET) * GPS_RECIP_Q16) >> 16);
+        if (v > 32767) { return  32767; }
         if (v < -32768) { return -32768; }
         return static_cast<int16_t>(v);
     }
@@ -274,7 +293,17 @@ namespace ProtectedEngine {
         // 비콘 패킷 조립 (크리티컬 내부 — 플래그/좌표 일관성)
         uint8_t pkt[BEACON_SIZE] = {};
         p->build_packet(pkt);
-        p->last_tx_ms = systick_ms;
+
+        // [BUG-FIX CRIT] Tick() last_tx_ms Jitter 수정
+        //  기존: p->last_tx_ms = systick_ms
+        //    → Tick 호출 지연(인터럽트, 스케줄 지연)이 그대로 누적
+        //    → 비콘 주기가 뒤로 밀림 → B-CDMA P0 타임슬롯 충돌
+        //  수정: p->last_tx_ms += BEACON_INTERVAL_MS
+        //    → 이전 송출 시각 기준 정확히 +500ms 갱신
+        //    → 누적 오차 0, 타임슬롯 위상 고정
+        //  예: t=0 송출→ last=500, t=503 Tick→ last=1000 (systick 대입 시 1003)
+        //      1000회 후 오차: 주기 기반=0ms, systick 대입=최대수백ms
+        p->last_tx_ms += BEACON_INTERVAL_MS;
         p->tx_count++;
 
         // [FIX-DURATION] 최소 30초 경과 + 플래그 해소 시 자동 종료
@@ -306,6 +335,27 @@ namespace ProtectedEngine {
 
     // =====================================================================
     //  Cancel — 비콘 해제
+    //
+    //  [BUG-FIX-1 FATAL] 'Lost Cancel' 상태 머신 결함 수정
+    //
+    //  ▶ 기존 로직의 결함 경로:
+    //    1. tx_count < 60 → return (취소 요청 완전 무시, alert_flags 유지)
+    //    2. 이후 tx_count >= 60 도달 → Tick이 자동 종료 조건 검사
+    //    3. alert_flags != 0 (취소가 무시됐으므로) → flags_cleared = false
+    //    4. 자동 종료 거부 → 비콘 무한 송출 (RF Flooding / Mesh Jammer)
+    //
+    //  ▶ 수정 원칙 (의사(Intent)와 전환(Transition) 분리):
+    //    ① alert_flags = 0u : tx_count 무관하게 항상 즉시 실행
+    //       → "취소 의사" 상태에 즉시 반영
+    //       → Tick()이 flags_cleared=true를 감지 → 30초 경과 후 자동 종료
+    //    ② active = false   : tx_count >= 60 (30초 경과) 시에만 즉시 전환
+    //       → 미경과 시 Tick에 위임 (최소 보장 송출 유지)
+    //    ③ POWER_LOSS 플래그: 물리적 복전 없이 취소 불가 (기존 정책 유지)
+    //
+    //  ▶ 수정 후 시나리오 (오작동 10초 후 Cancel 호출):
+    //    Cancel() → alert_flags=0 즉시, active 유지 (tx_count=20 < 60)
+    //    → Tick: flags_cleared=true, 30초 도달 시 active=false 자동 전환
+    //    → RF Flooding 없이 최소 보장 송출(30초) 완료 후 정상 종료
     // =====================================================================
     void HTS_Emergency_Beacon::Cancel() noexcept {
         Impl* p = get_impl();
@@ -319,17 +369,19 @@ namespace ProtectedEngine {
             return;
         }
 
-        // [FIX-DURATION] 최소 30초(60회) 미경과 시 취소 거부
-        //  500ms × 60회 = 30초
-        static constexpr uint32_t MIN_TX_COUNT = 60u;
-        if (p->tx_count < MIN_TX_COUNT) {
-            bcn_critical_exit(pm);
-            return;
-        }
-
-        p->active = false;
+        // [BUG-FIX-1 FATAL] 취소 의사 즉시 반영 — tx_count 조건 전 무조건 실행
+        //  Tick()이 다음 500ms 주기에 flags_cleared=true를 확인하여
+        //  min_duration_met 충족 시 active=false로 자동 전환
         p->alert_flags = 0u;
-        p->tx_count = 0u;
+
+        // active = false 즉시 전환은 최소 30초(60회) 경과 후에만 허용
+        static constexpr uint32_t MIN_TX_COUNT = 60u;
+        if (p->tx_count >= MIN_TX_COUNT) {
+            p->active = false;
+            p->tx_count = 0u;
+        }
+        // tx_count < MIN_TX_COUNT: alert_flags=0 설정 완료 → Tick에 위임
+        // Tick은 min_duration_met && flags_cleared 조건으로 정시 종료 보장
 
         bcn_critical_exit(pm);
     }

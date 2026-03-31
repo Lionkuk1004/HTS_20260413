@@ -168,10 +168,17 @@ namespace ProtectedEngine {
         struct Impl;
 
         alignas(4) uint8_t impl_buf_[IMPL_BUF_SIZE];
+        // [BUG-FIX FATAL] 2단계 초기화 플래그 분리
+        //  initializing_: CAS로 이중 진입 차단 (true = 초기화 진행 중)
+        //  initialized_:  placement new + 전체 멤버 설정 완료 후 release store
+        //  → Tick() 등 소비자는 initialized_=true 를 보는 시점에
+        //    Impl 객체가 완전히 구성됨을 보장 (TOCTOU 제거)
+        std::atomic<bool>  initializing_{ false };
         std::atomic<bool>  initialized_{ false };
     };
 
     // SRAM 예산: 192KB, Console Manager <= 2KB (1.0%)
+    // [BUG-FIX FATAL] initializing_(1B) 추가 → sizeof 1025B + padding, 2048 이내 유지
     static_assert(sizeof(HTS_Console_Manager) <= 2048u,
         "HTS_Console_Manager exceeds 2KB SRAM budget -- "
         "reduce IMPL_BUF_SIZE");

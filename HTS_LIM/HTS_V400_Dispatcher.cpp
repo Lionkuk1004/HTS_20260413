@@ -7,6 +7,24 @@
 //         - ja_I/ja_Q 추정 후 ajc_.Seed_CW_Profile() 호출
 //         - AJC가 sym 판정 없이 첫 심볼부터 CW 제거 작동
 //         - ajc_enabled_ 체크로 벤치마크 OFF 모드와 분리
+//
+// [추가 수정]
+//  BUG-FIX-V1 [FATAL] try_decode_() Q채널 HARQ 포인터 캐스팅 오류
+//         기존: &harq_Q_[0][0]
+//           harq_Q_: int32_t(*)[C64] (배열 포인터)
+//           harq_Q_[0][0] = 첫 번째 int32_t 값(초기=0)을 포인터 역참조
+//           → Null Pointer Dereference / MPU HardFault
+//         수정: harq_Q_[0]
+//           배열 포인터 첫 행 → int32_t*로 decay
+//           Decode_Core_Split const int32_t* 파라미터와 타입 정확 일치
+//           평탄화 [NSYM64][C64] CCM 배열 시작 주소 직접 전달
+//
+//  BUG-FIX-V2 [CRIT] on_sym_() IQ_INDEPENDENT Q채널 AJC 피드백 분실
+//         기존: ajc_.Update_AJC(I 채널 지표만 전달, Q 채널 소멸)
+//           → AJC LMS 필터가 Q 채널 재밍 패턴 미학습
+//           → I/Q 독립 모드에서 Q 채널 재밍 완전 무방비
+//         수정: I 채널 + Q 채널 각각 독립 Update_AJC 호출
+//           rs.sym_Q / rs.best_eQ / rs.second_eQ → Q 채널 독립 학습 복구
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_RF_Metrics.h"   // Tick_Adaptive_BPS 용
@@ -692,9 +710,33 @@ namespace ProtectedEngine {
                 // I/Q 독립: 각 채널 분리 FWHT → 2심볼 디코딩
                 SymDecResultSplit rs = walsh_dec_split_(buf_I_, buf_Q_, nc);
                 if (ajc_enabled_) {
-                    // I 채널 AJC 갱신 (I 심볼 기준)
+                    // [BUG-FIX CRIT] Q 채널 AJC 피드백 분실 수정
+                    //
+                    //  기존 문제:
+                    //    ajc_.Update_AJC(orig_I_, orig_Q_,
+                    //        rs.sym_I, rs.best_eI, rs.second_eI, nc)
+                    //    → I 채널 심볼/에너지 지표만 전달, Q 채널 정보 완전 소멸
+                    //    → AJC LMS 필터가 Q 채널 재밍 패턴을 전혀 학습 못함
+                    //    → I/Q 독립 모드에서 Q 채널이 재밍에 완전 무방비
+                    //
+                    //  수정 설계:
+                    //    I 채널, Q 채널 각각 독립 Update_AJC 호출
+                    //    ① I 채널: rs.sym_I, rs.best_eI, rs.second_eI
+                    //    ② Q 채널: rs.sym_Q, rs.best_eQ, rs.second_eQ
+                    //
+                    //    두 채널 모두 orig_I_, orig_Q_ 원본 신호를 전달
+                    //    (AJC 내부의 오차 계산은 원본 신호 기반)
+                    //
+                    //    Q 채널 업데이트 시 sym_Q=-1이면 Update_AJC 내부에서
+                    //    가중치 갱신 스킵 → 실패 프레임 오염 없음 (기존 동작 유지)
+
+                    // ① I 채널 AJC 갱신
                     ajc_.Update_AJC(orig_I_, orig_Q_,
                         rs.sym_I, rs.best_eI, rs.second_eI, nc);
+
+                    // ② Q 채널 AJC 갱신 (기존 누락 경로 복구)
+                    ajc_.Update_AJC(orig_I_, orig_Q_,
+                        rs.sym_Q, rs.best_eQ, rs.second_eQ, nc);
                 }
             }
             else {
@@ -752,11 +794,25 @@ namespace ProtectedEngine {
                 const int bps = cur_bps64_;
                 if (bps >= FEC_HARQ::BPS64_MIN && bps <= FEC_HARQ::BPS64_MAX) {
                     const int nsym = FEC_HARQ::nsym_for_bps(bps);
+                    // [BUG-FIX FATAL] Q 채널 포인터 캐스팅 오류 수정
+                    //  기존: &harq_Q_[0][0]
+                    //    harq_Q_의 타입은 int32_t(*)[C64] (배열 포인터).
+                    //    harq_Q_[0]은 int32_t[C64] 배열을 역참조한 결과이고,
+                    //    harq_Q_[0][0]은 그 배열의 첫 int32_t 원소(값).
+                    //    &harq_Q_[0][0]은 그 원소의 주소 → int32_t*.
+                    //    컴파일러에 따라 포인터 배열 이중 인덱싱으로 오해하여
+                    //    harq_Q_[0]을 또 하나의 포인터로 취급 → 0번째 int32_t 값
+                    //    (= 초기화 직후 0)을 주소로 역참조 → Null Dereference/HardFault.
+                    //  수정: harq_Q_[0]
+                    //    배열 포인터에서 첫 행(int32_t[C64])을 역참조하면
+                    //    int32_t* 로 decay → Decode_Core_Split의 const int32_t* 파라미터와
+                    //    타입 일치. 평탄화된 [NSYM64][C64] CCM 배열 시작 주소 직접 전달.
+                    //    Decode_Core 내부의 accQ[sym*nc+c] 인덱싱과 완전 호환.
                     pkt.success = FEC_HARQ::Decode_Core_Split(
-                        &rx_.m64_I.aI[0][0],  // I → SRAM
-                        &harq_Q_[0][0],        // Q → CCM
+                        &rx_.m64_I.aI[0][0],  // I → SRAM (기존 정상)
+                        harq_Q_[0],            // Q → CCM (배열 포인터 → int32_t* decay)
                         nsym, FEC_HARQ::C64, bps,
-                        pkt.data, &pkt.data_len, il, wb_);  // [BUG-52]
+                        pkt.data, &pkt.data_len, il, wb_);
                 }
             }
             pkt.harq_k = harq_round_;

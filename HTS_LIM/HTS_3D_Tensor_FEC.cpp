@@ -15,6 +15,9 @@
 //         · make_unique 예외 경로 및 try-catch 완전 제거
 //         · 생성자: ::new(impl_buf_) Impl() 후 arx_state 초기화
 //         · 소멸자: = default 제거 → 명시적 p->~Impl() + SecWipe_DIOC
+//  BUG-FIX ① Secure_Wipe_DIOC 배리어 seq_cst → release
+//         · 소거 완료 가시화 목적 → release fence로 충분
+//         · 프로젝트 보안 소거 배리어 정책 통일
 //
 // =========================================================================
 #include "HTS_3D_Tensor_FEC.h"
@@ -548,8 +551,11 @@ namespace HTS_Engine {
 namespace ProtectedEngine {
 
     // =====================================================================
-    //  보안 메모리 소거 (volatile + asm clobber + seq_cst 3중 보호)
+    //  보안 메모리 소거 (volatile + asm clobber + release fence 3중 보호)
     //  [BUG-12] pragma O0 삭제 완료 버전 — Strict Aliasing 규칙 준수
+    //  [BUG-FIX ①] seq_cst → release: 소거 완료를 후속 읽기에 가시화하는 것이
+    //               목적이므로 release fence로 충분. seq_cst의 전역 순서화 오버헤드
+    //               불필요 (프로젝트 배리어 정책 통일).
     // =====================================================================
     static void Secure_Wipe_DIOC(void* ptr, size_t size) noexcept {
         if (ptr == nullptr || size == 0u) { return; }
@@ -559,7 +565,7 @@ namespace ProtectedEngine {
 #if defined(__GNUC__) || defined(__clang__)
         __asm__ __volatile__("" : : "r"(ptr) : "memory");
 #endif
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        std::atomic_thread_fence(std::memory_order_release);
     }
 
     // ── PSL=4 최적 균형 코드북 (전수탐색 2^16, weight=8) ──
@@ -878,4 +884,4 @@ namespace ProtectedEngine {
         return static_cast<int16_t>(decoded_data);
     }
 
-} // namespace ProtectedEngine 
+} // namespace ProtectedEngine

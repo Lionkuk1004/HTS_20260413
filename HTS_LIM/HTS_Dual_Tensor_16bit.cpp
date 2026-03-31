@@ -291,6 +291,7 @@ namespace ProtectedEngine {
         // ── ❶ 민감 데이터 선언 + RAII 바인딩 ──
         uint64_t crypto_state_A = 0u;
         uint64_t crypto_state_B = 0u;
+        uint64_t crypto_stream_cache = 0u;   // [BUG-FIX CRIT] PRNG 캐시 (4×16비트)
         uint32_t fec_seed = 0u;
 
         uint8_t fec_master_seed_buf[MAX_SEED_SIZE] = {};
@@ -306,13 +307,15 @@ namespace ProtectedEngine {
         RAII_Secure_Wiper wipe_master(master_seed_buf, sizeof(master_seed_buf));
         RAII_Secure_Wiper wipe_cA(&crypto_state_A, sizeof(crypto_state_A));
         RAII_Secure_Wiper wipe_cB(&crypto_state_B, sizeof(crypto_state_B));
+        RAII_Secure_Wiper wipe_cache(&crypto_stream_cache, sizeof(crypto_stream_cache));
         RAII_Secure_Wiper wipe_fseed(&fec_seed, sizeof(fec_seed));
         RAII_Secure_Wiper wipe_workA(impl.work_A, sizeof(impl.work_A));
         RAII_Secure_Wiper wipe_workB(&impl.work_B, sizeof(impl.work_B));
         RAII_Secure_Wiper wipe_tsec(impl.temp_sec, sizeof(impl.temp_sec));
 
         // ── ② 16비트 → 32비트 패킹 (정적 temp_sec) ──
-        size_t packed_len = (process_len + 1u) / 2u;
+        // [⑨-FIX] /2u → >>1u (2의제곱 시프트 전환)
+        size_t packed_len = (process_len + 1u) >> 1u;
         if (packed_len > Impl::MAX_SEC_WORDS) {
             packed_len = Impl::MAX_SEC_WORDS;
         }
@@ -370,7 +373,8 @@ namespace ProtectedEngine {
 
         // intlv(int8_t) → uint32 패킹 (temp_sec 재사용)
         const size_t interleaved_bits = intlv_len;
-        const size_t fec_words = (interleaved_bits + 31u) / 32u;
+        // [⑨-FIX] /32u → >>5u (2의제곱 시프트 전환)
+        const size_t fec_words = (interleaved_bits + 31u) >> 5u;
         if (fec_words > Impl::MAX_SEC_WORDS) { return false; }
 
         for (size_t i = 0u; i < fec_words; ++i) {
@@ -415,16 +419,53 @@ namespace ProtectedEngine {
         mseed_len = Session_Gateway::Get_Master_Seed_Raw(
             master_seed_buf, sizeof(master_seed_buf));
 
-        crypto_state_A = 0x3D4854539E3779B9ULL
-            ^ static_cast<uint64_t>(tx_len);
-        crypto_state_B = 0xC2B2AE3585EBCA6BULL;
-
-        if (mseed_len >= 16u) {
-            std::memcpy(&crypto_state_A, master_seed_buf, 8u);
-            std::memcpy(&crypto_state_B, master_seed_buf + 8u, 8u);
+        // ─────────────────────────────────────────────────────────────
+        //  [BUG-FIX FATAL] Zero-Key Fallback 취약점 차단 (Fail-Closed)
+        //
+        //  위협: mseed_len < 16 시 하드코딩 상수(0x3D48…/0xC2B2…) 유지
+        //    → 모든 패킷이 동일 Xoroshiro128++ 초기 상태로 시작
+        //    → 동일 키스트림 반복 생성 (Many-Time Pad)
+        //    → 공격자가 두 패킷 XOR → 평문⊕평문 즉시 복원
+        //
+        //  수정: 128비트(16바이트) 시드 미확보 → 즉시 false (암호화 거부)
+        //    · Xoroshiro128++ 내부 상태 = 128비트 → 최소 16바이트 엔트로피 필수
+        //    · Session_Gateway 미초기화 상태 → 상위 레이어가 세션 재설립 수행
+        //    · 불충분 시드(8~15B)로 암호화 강행 = 보안 게이트 무력화와 동치
+        //
+        //  기존 폴백 상수(0x3D48…) 완전 제거:
+        //    packet_nonce XOR만으로는 Xoroshiro 상태 공간 불충분
+        //    (32비트 nonce → 2^32 전탐색 가능 → 양자/GPU 수 초 내 파쇄)
+        // ─────────────────────────────────────────────────────────────
+        if (mseed_len < 16u) {
+            return false;  // Fail-Closed: 엔트로피 불충분 → 패킷 전송 거부
         }
+        std::memcpy(&crypto_state_A, master_seed_buf, 8u);
+        std::memcpy(&crypto_state_B, master_seed_buf + 8u, 8u);
         crypto_state_A ^=
             (static_cast<uint64_t>(packet_nonce) << 32u) | packet_nonce;
+
+        // ─────────────────────────────────────────────────────────────
+        //  [BUG-FIX CRIT] Xoroshiro128++ 64비트 전량 소비 (4×16비트)
+        //
+        //  ★★★ TX/RX 암호학적 동기화 계약 (절대 변경 금지) ★★★
+        //
+        //  (1) PRNG 갱신: 매 4샘플마다 1회 (stream_phase==0 일 때)
+        //  (2) 16비트 추출 순서: MSB-first
+        //       phase 0 → [63:48], phase 1 → [47:32],
+        //       phase 2 → [31:16], phase 3 → [15:0]
+        //  (3) 위상 카운터: 루프 시작 시 0으로 초기화
+        //  (4) RX 디코더는 반드시 동일한 (1)~(3) 규약으로 키스트림 재생
+        //      이 규약을 위반하면 TX/RX 키스트림 위상이 영구 이탈하여
+        //      전체 패킷 디코딩이 100% 실패함
+        //
+        //  효과:
+        //   · PRNG 갱신 횟수: dl_len → dl_len/4 (75% 연산 감소)
+        //   · 64비트 전량 활용 → 16비트 편향 없이 균일 분포
+        //   · TX/RX 위상 계약 코드-수준 명시 → 독립 최적화 시 파괴 방지
+        // ─────────────────────────────────────────────────────────────
+        // [BUG-FIX CRIT] 상단 선언 + RAII 바인딩 완료 → 루프 진입 시 리셋만
+        crypto_stream_cache = 0u;
+        uint32_t stream_phase = 0u;
 
         for (size_t i = 0u; i < dl_len; ++i) {
             if ((i & 0x3FFu) == 0u &&
@@ -454,17 +495,25 @@ namespace ProtectedEngine {
                 ? static_cast<uint16_t>(encrypted_32bit >> 16u)
                 : static_cast<uint16_t>(encrypted_32bit & 0xFFFFu);
 
-            const uint64_t s0 = crypto_state_A;
-            uint64_t s1 = crypto_state_B;
-            const uint64_t crypto_stream =
-                RotL64(s0 + s1, 17u) + s0;
+            // [계약 §1] 매 4샘플마다 Xoroshiro128++ 1회 갱신
+            if (stream_phase == 0u) {
+                const uint64_t s0 = crypto_state_A;
+                uint64_t s1 = crypto_state_B;
+                crypto_stream_cache = RotL64(s0 + s1, 17u) + s0;
 
-            s1 ^= s0;
-            crypto_state_A = RotL64(s0, 49u) ^ s1 ^ (s1 << 21u);
-            crypto_state_B = RotL64(s1, 28u);
+                s1 ^= s0;
+                crypto_state_A = RotL64(s0, 49u) ^ s1 ^ (s1 << 21u);
+                crypto_state_B = RotL64(s1, 28u);
+            }
 
+            // [계약 §2] MSB-first 16비트 추출: 48→32→16→0
+            const uint32_t shift = (3u - stream_phase) << 4u;
             const uint16_t stealth_sec = sec_16bit
-                ^ static_cast<uint16_t>(crypto_stream >> 48u);
+                ^ static_cast<uint16_t>(
+                    (crypto_stream_cache >> shift) & 0xFFFFu);
+
+            // [계약 §3] 위상 카운터 순환: 0→1→2→3→0
+            stream_phase = (stream_phase + 1u) & 3u;
 
             impl.dual_lane_buffer[i] =
                 (static_cast<uint32_t>(tx_16bit) << 16u) | stealth_sec;

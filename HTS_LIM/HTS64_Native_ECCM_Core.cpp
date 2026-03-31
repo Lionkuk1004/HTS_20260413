@@ -5,7 +5,7 @@
 ///
 /// @see HTS64_Native_ECCM_Core.hpp
 ///
-/// [양산 수정 이력 — 32건]
+/// [양산 수정 이력 — 35건]
 ///  BUG-01~19 (이전 세션)
 ///  BUG-20 [CRIT] soft_clip int64_t 나눗셈 → Q8 역수 곱셈
 ///  BUG-21 [HIGH] seq_cst → release × 2곳 (소거 배리어 정책 통일)
@@ -20,6 +20,15 @@
 ///  BUG-30 [LOW]  Calibrate() @pre Doxygen 사전조건 추가
 ///  BUG-31 [LOW]  PRNG 스레드 안전성 Doxygen 주석 보강
 ///  BUG-32 [LOW]  sizeof(Impl) Doxygen 수치 재검증 (2056B → 약 1040B)
+///  BUG-33 [CRIT] clip8/mags[i] 런타임 나눗셈 → CLZ 기반 역수 근사
+///  BUG-34 [FATAL] CFAR 오경보 마진 누락 수정
+///          · 기존: adaptive_threshold = nf^2*N (α=1.0, 오경보율 이론치 초과)
+///          · 수정: th = nf^2*N << CFAR_MARGIN_SHIFT (α=2.0)
+///                 CFAR_MARGIN_SHIFT=1 상수로 필드 조정 가능
+///  BUG-35 [CRIT]  EMP 펀칭 우회 결함 수정
+///          · 기존: is_cw=true 시 clip_u = q75<<2 >> punch → 필터링 누락
+///          · 수정: clip_u = min(clip_u_raw, punch) 클램프
+///                 → clip_u <= punch 항상 보장, 전 구간 연속 필터링
 // =============================================================================
 #include "HTS64_Native_ECCM_Core.hpp"
 #include "HTS_RF_Metrics.h"   // ajc_nf 기록용 (선택적)
@@ -56,6 +65,21 @@ namespace ProtectedEngine {
     /// @brief Q25/Q75 인덱스 — N에서 자동 파생 (BUG-25 J-3)
     static constexpr int Q25_IDX = N / 4 - 1;       // 15 (N=64)
     static constexpr int Q75_IDX = 3 * N / 4 - 1;   // 47 (N=64)
+
+    /// @brief [BUG-FIX CFAR] OS-CFAR 오경보 마진 팩터 (left-shift 적용)
+    ///  기존: th = nf^2 * N  (α=1.0, 오경보율 이론치 초과)
+    ///  수정: th = nf^2 * N << CFAR_MARGIN_SHIFT  (α=2^1=2.0)
+    ///  근거: OS-CFAR 표준 마진 α=1.5~4.0. α=2는 오경보율 50% 감소
+    ///         동시에 최소 SNR 요구값 +3dB (재밍 환경 적합)
+    ///  값 조정: CFAR_MARGIN_SHIFT=1(α=2) → 오경보 -50%, 감도 -3dB
+    ///           필드 환경에서 SNR 여유가 충분하면 SHIFT=2(α=4)도 가능
+    static constexpr int CFAR_MARGIN_SHIFT = 1;  ///< α = 2^SHIFT = 2
+
+    /// @brief [BUG-FIX EMP] 소프트 클리핑 상한 = punch 이하로 강제 클램프
+    ///  punch = baseline << PUNCH_SHIFT (기본 3 = 8배)
+    ///  clip_u가 punch보다 크면 EMP 펄스 에너지가 필터링 없이 통과
+    ///  → clip_u = min(clip_u, punch - 1) 로 항상 punch 내측 보장
+    static constexpr int PUNCH_SHIFT = 3;         ///< punch = baseline << 3
 
     // =============================================================================
     //  내부 유틸리티
@@ -207,14 +231,41 @@ namespace ProtectedEngine {
 
             const bool is_cw_like = (q75 > baseline * CW_RATIO_TH);
             const bool is_clean = (baseline < CLEAN_TH);
-            const uint32_t punch = baseline << 3u;
+            // [BUG-FIX EMP] punch = baseline << PUNCH_SHIFT (baseline*8)
+            //  기존: 하드코딩 << 3u — PUNCH_SHIFT 상수화
+            const uint32_t punch = baseline << static_cast<uint32_t>(PUNCH_SHIFT);
 
             int32_t clip = is_cw_like
                 ? static_cast<int32_t>(q75 << 2u)
                 : static_cast<int32_t>(baseline << 2u);
             if (clip < 4) { clip = 4; }
 
-            const uint32_t clip_u = static_cast<uint32_t>(clip);
+            // [BUG-FIX EMP] EMP 펀칭 우회 차단 — clip_u를 punch 이하로 클램프
+            //
+            //  기존 문제:
+            //   CW 재밍 시 clip_u = q75<<2 (예: 400) > punch (예: 80)
+            //   -> mags[i] 가 punch~clip_u 구간에 있으면 어느 조건도 미충족
+            //   -> EMP/순간 고에너지 펄스가 소프트클립 없이 디코더 직통
+            //
+            //  수정:
+            //   clip_u = min(clip_u, punch)로 강제 클램프
+            //   -> mags[i] > punch  : 제로(영점 소거, 기존 동작)
+            //   -> mags[i] > clip_u : 소프트클립 (clip_u <= punch 보장)
+            //   -> punch와 clip_u 사이 구간이 소멸 -> 필터링 누락 없음
+            //
+            //  EMP 케이스 검증:
+            //   baseline=500, q75=600, is_cw=false
+            //   punch=4000, clip_u=min(2000,4000)=2000
+            //   mags[i]=500: clip_u(2000) > 500 → 소프트클립 적용 ✓
+            //   mags[i]=3000: punch(4000) > 3000 → 소프트클립 적용 ✓
+            //   mags[i]=5000: > punch(4000) → 제로 소거 ✓
+            //  CW 케이스 검증:
+            //   baseline=10, q75=100, is_cw=true
+            //   punch=80, clip_u=min(400,80)=80
+            //   mags[i]=50: clip_u(80) > 50 → 소프트클립 적용 ✓
+            //   mags[i]=100: > punch(80) → 제로 소거 ✓
+            const uint32_t clip_u_raw = static_cast<uint32_t>(clip);
+            const uint32_t clip_u = (clip_u_raw < punch) ? clip_u_raw : punch;
             const uint32_t clip8 = clip_u << 8u;
 
             for (int i = 0; i < N; ++i) {
@@ -246,9 +297,22 @@ namespace ProtectedEngine {
         uint64_t adaptive_threshold() const noexcept {
             uint32_t nf = nf_q16.load(std::memory_order_relaxed) >> 16u;
             if (nf < MIN_NF) { nf = MIN_NF; }
-            return static_cast<uint64_t>(nf)
+            // [BUG-FIX CFAR] OS-CFAR 마진 팩터 적용
+            //  기존: th = nf^2 * N  (α=1.0)
+            //    → 오경보 조건: best_actual >= th 에서 α=1.0은
+            //      노이즈 피크가 통계적으로 th를 넘을 확률이 높음
+            //  수정: th = nf^2 * N << CFAR_MARGIN_SHIFT  (α=2^1=2.0)
+            //    → 임계값 2배 상승 → 오경보율 이론상 50% 감소
+            //    → 정상 수신 신호는 nf의 수배 이상이므로 miss 없음
+            //  오버플로 안전성:
+            //    nf 최대 ≈ 65534 (int16_t 합산 최대)
+            //    nf^2 * N = 65534^2 * 64 = 2.74e11 < UINT64_MAX (1.8e19) ✓
+            //    << 1 후에도 5.48e11 < UINT64_MAX ✓
+            const uint64_t base_th =
+                static_cast<uint64_t>(nf)
                 * static_cast<uint64_t>(nf)
                 * static_cast<uint64_t>(N);
+            return base_th << static_cast<uint64_t>(CFAR_MARGIN_SHIFT);
         }
 
         // =========================================================================

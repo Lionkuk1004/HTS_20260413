@@ -23,6 +23,11 @@
 #include <cstring>
 #include <new>
 
+// [BUG-FIX CRIT] C++20 std::rotl 사용을 위한 조건부 포함
+#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+#include <bit>
+#endif
+
 namespace ProtectedEngine {
     // [FIX-WIPE] 3중 방어 보안 소거 — impl_buf_ 전체 파쇄
     static void Key_Rotator_Secure_Wipe(void* p, size_t n) noexcept {
@@ -45,14 +50,22 @@ namespace ProtectedEngine {
     static inline uint32_t RotL32(uint32_t x, uint32_t r) noexcept {
         r &= 31u;
         if (r == 0u) { return x; }
+        // [BUG-FIX CRIT] C++20 std::rotl 가드 (RotL64 패턴 통일)
+        //  기존: 32u-r 잠재적 UB → 정적 분석기 경고
+        //  수정: C++20에서 std::rotl 사용 (UB 원천 불가)
+#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+        return std::rotl(x, static_cast<int>(r));
+#else
         return (x << r) | (x >> (32u - r));
+#endif
     }
 
     static uint32_t Murmur3_Mix(
         const uint8_t* data, size_t len, uint32_t seed) noexcept {
 
         uint32_t h = seed;
-        const size_t nblocks = len / 4u;
+        // [⑨-FIX] /4u → >>2u (2의제곱 시프트 전환)
+        const size_t nblocks = len >> 2u;
 
         for (size_t i = 0u; i < nblocks; ++i) {
             uint32_t k = 0u;
@@ -219,10 +232,29 @@ namespace ProtectedEngine {
         }
 
         // [FIX-RACE] Spinlock 획득 — 단일 Writer 진입 강제
-        //  LDREX/STREX: ISR 선점 시 STREX 실패 → 재시도 (데드락 불가)
+        // ─────────────────────────────────────────────────────────────
+        //  [BUG-FIX FATAL] spin_lock → PRIMASK 크리티컬 섹션 (ARM)
+        //
+        //  위협: 단일코어 Cortex-M4에서 atomic_flag spinlock은 데드락 확정
+        //    메인루프가 lock 보유 중 ISR 발생 → ISR이 동일 lock spin
+        //    → ISR이 CPU 점유 → 메인루프 영원히 복귀 불가 → 즉사(Deadlock)
+        //
+        //  수정: ARM — PRIMASK로 인터럽트 차단/복원 (ISR 선점 자체를 차단)
+        //        PC  — atomic_flag 유지 (멀티스레드 테스트 환경)
+        //        A55 — atomic_flag 유지 (멀티코어 Linux)
+        // ─────────────────────────────────────────────────────────────
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+        // Cortex-M4: PRIMASK 인터럽트 차단 (cpsid i)
+        uint32_t primask_saved;
+        __asm__ __volatile__("mrs %0, primask\n\t"
+            "cpsid i"
+            : "=r"(primask_saved) :: "memory");
+#else
+        // PC / A55: atomic_flag spinlock (멀티스레드 안전)
         while (p->spin_lock.test_and_set(std::memory_order_acquire)) {
-            // Cortex-M4: 단일코어, ISR 선점만 가능 → 짧은 스핀
+            // 멀티코어: 짧은 스핀 (임계구간 ~100 사이클 이내)
         }
+#endif
 
         uint8_t* seed = p->currentSeed;
         const size_t seed_len = p->seed_len;
@@ -235,7 +267,8 @@ namespace ProtectedEngine {
 
         // 2단계: Murmur3 기반 전체 시드 비가역 혼합
         uint32_t running_hash = blockIndex ^ 0x5BD1E995u;
-        size_t num_passes = (seed_len + 3u) / 4u;
+        // [⑨-FIX] /4u → >>2u (2의제곱 시프트 전환)
+        size_t num_passes = (seed_len + 3u) >> 2u;
         if (num_passes == 0u) { num_passes = 1u; }
 
         for (size_t pass = 0u; pass < num_passes; ++pass) {
@@ -263,8 +296,14 @@ namespace ProtectedEngine {
         const size_t copy_len = (out_len < seed_len) ? out_len : seed_len;
         std::memcpy(out_buf, seed, copy_len);
 
-        // [FIX-RACE] Spinlock 해제 — memcpy 완료 후
+        // [BUG-FIX FATAL] 임계 구역 종료 — PRIMASK 복원 (ARM) / flag 해제 (PC)
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+        // Cortex-M4: PRIMASK 이전 상태 복원
+        __asm__ __volatile__("msr primask, %0" :: "r"(primask_saved) : "memory");
+#else
+        // PC / A55: atomic_flag 해제
         p->spin_lock.clear(std::memory_order_release);
+#endif
 
         return true;
     }

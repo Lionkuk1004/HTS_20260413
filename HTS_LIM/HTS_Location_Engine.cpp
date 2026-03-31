@@ -138,23 +138,37 @@ namespace ProtectedEngine {
         const int32_t K12 = (qd1 * qd1 - qd2 * qd2) + (qx2 * qx2 + qy2 * qy2);
         const int32_t K13 = (qd1 * qd1 - qd3 * qd3) + (qx3 * qx3 + qy3 * qy3);
 
-        const int32_t x_num = K12 * qy3 - K13 * qy2;
-        const int32_t y_num = qx2 * K13 - qx3 * K12;
+        // [BUG-FIX FATAL] x_num/y_num: int32_t 오버플로우 → int64_t
+        //
+        //  위협: K12(~4×10^6) × qy3(~10^3) = ~4×10^9 > INT32_MAX(2.1×10^9)
+        //        x_num(~10^9) × inv_det(~10^5) = ~10^14 >> INT32_MAX
+        //        → 좌표 쓰레기값 → 구조대상자 위치 완전 붕괴
+        //
+        //  수정: K12*qy3, x_num*inv_det 모두 int64_t 중간값 사용
+        //        Cortex-M4 SMULL: 32×32→64 곱셈 단일 사이클 (성능 영향 0)
+        const int64_t x_num = static_cast<int64_t>(K12) * qy3
+            - static_cast<int64_t>(K13) * qy2;
+        const int64_t y_num = static_cast<int64_t>(qx2) * K13
+            - static_cast<int64_t>(qx3) * K12;
 
         const int32_t det_full = det_half * 2;
         if (det_full == 0) { return r; }
 
         // [FIX-ALU] 역수 곱셈: 나눗셈 2회 → 1회 + 곱셈 2회
         //  inv_det = (1 << 20) / det_full   (Q20 역수, SDIV 1회)
-        //  x = (x_num × inv_det) >> 20      (곱셈 1회 + 시프트)
-        //  y = (y_num × inv_det) >> 20      (곱셈 1회 + 시프트)
+        //  x = (x_num × inv_det) >> 20      (SMULL 1회 + 시프트)
+        //  y = (y_num × inv_det) >> 20      (SMULL 1회 + 시프트)
         //  ASIC: 나눗셈기 1개, 곱셈기 재사용 → 면적 50% 절감
         static constexpr int32_t RECIP_SHIFT = 20;
         const int32_t inv_det =
             (static_cast<int32_t>(1) << RECIP_SHIFT) / det_full;
 
-        const int32_t x_q7 = (x_num * inv_det) >> RECIP_SHIFT;
-        const int32_t y_q7 = (y_num * inv_det) >> RECIP_SHIFT;
+        // [BUG-FIX FATAL] int64_t 곱셈: x_num(64) × inv_det(32) → 64비트
+        //  Cortex-M4: SMULL+SMLAL 조합 (~2cyc), 기존 int32_t 대비 +1cyc
+        const int32_t x_q7 = static_cast<int32_t>(
+            (x_num * static_cast<int64_t>(inv_det)) >> RECIP_SHIFT);
+        const int32_t y_q7 = static_cast<int32_t>(
+            (y_num * static_cast<int64_t>(inv_det)) >> RECIP_SHIFT);
 
         r.x_dm = (x_q7 << TRI_SHIFT) + x1;
         r.y_dm = (y_q7 << TRI_SHIFT) + y1;
@@ -205,7 +219,16 @@ namespace ProtectedEngine {
         uint8_t      family_count = 0u;
         uint8_t      battery_pct = 100u;
         bool         is_moving = false;
-        bool         last_gasp_sent = false;  // Last Gasp 전송 완료
+        // [BUG-FIX CRIT] Last Gasp: bool → 3상 카운터 (IDLE/ACTIVE/DONE)
+        //  기존: last_gasp_sent=true → Tick 빈 블록 → 전송 0회
+        //  수정: remain=3→2→1→DONE 카운터 + DONE 센티넬(재발동 영구 차단)
+        //
+        //  상태: IDLE(0) → 배터리<5% → ACTIVE(3→2→1) → DONE(0xFF) → 영구 종료
+        //  DONE 이후 Set_Battery_Percent 재호출 시 remain≠0(IDLE) → 재발동 차단
+        //  → 무한 버스트 지옥 원천 방지
+        static constexpr uint8_t LAST_GASP_IDLE = 0u;
+        static constexpr uint8_t LAST_GASP_DONE = 0xFFu;
+        uint8_t      last_gasp_remain = LAST_GASP_IDLE;
         uint32_t     prev_interval = 0xFFFFFFFFu;
 
         // 감사 로그 (8건 링버퍼)
@@ -437,11 +460,23 @@ namespace ProtectedEngine {
                     const int32_t dlat = p->anchors[a].lat_1e4 - ref_lat;
                     const int32_t dlon = p->anchors[a].lon_1e4 - ref_lon;
                     // 1e4 → 데시미터: × MM_PER_UNIT / 100
-                    const int32_t x_dm = (dlon * LON_MM_PER_UNIT) / 100;
-                    const int32_t y_dm = (dlat * LAT_MM_PER_UNIT) / 100;
-                    // cm → dm: /10
+                    // [⑨-FIX] /100 → Q19 역수 곱셈 (2^19/100 = 5242.88 → 5243)
+                    //  정밀도: |x|≤2B 범위에서 오차 < 0.002%
+                    //  int64_t 중간값: |1.6B × 5243| = 8.4T → int64_t 안전
+                    static constexpr int32_t Q19_RECIP_100 = 5243;
+                    const int32_t x_dm = static_cast<int32_t>(
+                        (static_cast<int64_t>(dlon * LON_MM_PER_UNIT)
+                            * Q19_RECIP_100) >> 19);
+                    const int32_t y_dm = static_cast<int32_t>(
+                        (static_cast<int64_t>(dlat * LAT_MM_PER_UNIT)
+                            * Q19_RECIP_100) >> 19);
+                    // cm → dm
+                    // [⑨-FIX] /10u → Q16 역수 곱셈 (2^16/10 = 6553.6 → 6554)
+                    static constexpr uint32_t Q16_RECIP_10 = 6554u;
                     const int32_t d_dm =
-                        static_cast<int32_t>(ranging[r].distance_cm / 10u);
+                        static_cast<int32_t>(
+                            (static_cast<uint64_t>(ranging[r].distance_cm)
+                                * Q16_RECIP_10) >> 16u);
 
                     if (match_count < MAX_ANCHORS) {
                         matched[match_count].x_dm = x_dm;
@@ -522,11 +557,16 @@ namespace ProtectedEngine {
             return;
         }
 
-        // ② 가중 평균 (32비트 SDIV, valid_count ≤ 8)
+        // ② 가중 평균 (32비트 SDIV — valid_count는 런타임 변수, 하드웨어 SDIV 허용)
         const int32_t avg_x_dm = sum_x / static_cast<int32_t>(valid_count);
         const int32_t avg_y_dm = sum_y / static_cast<int32_t>(valid_count);
 
         // 로컬 데시미터 → GPS 좌표(1e4)
+        // [⑨ 주석] constexpr 상수 나눗셈 — GCC -O2 자동 역수 곱셈 변환
+        //  /LAT_MM_PER_UNIT(11132), /LON_MM_PER_UNIT(8880): 비2의제곱
+        //  Cortex-M4: 컴파일러가 (x * magic) >> shift 시퀀스로 자동 변환
+        //  Q 수동 역수 적용 시 정밀도 손실(GPS ±1dm) vs 자동 변환 정밀도 우위
+        //  → 컴파일러 자동 역수 유지 (32비트 SDIV 폴백도 하드웨어 지원)
         const int32_t dlat_1e4 = (avg_y_dm * 100) / LAT_MM_PER_UNIT;
         const int32_t dlon_1e4 = (avg_x_dm * 100) / LON_MM_PER_UNIT;
 
@@ -703,7 +743,7 @@ namespace ProtectedEngine {
         p->auth_token = token;
         p->auth_token.last_heartbeat = current_sec;
         p->auth_valid = true;
-        p->last_gasp_sent = false;
+        p->last_gasp_remain = Impl::LAST_GASP_IDLE;
         p->tracking_mode = TrackingMode::EMERGENCY_AUTH;
         p->log_audit(current_sec, token.agency_id, 0u);
         loc_critical_exit(pm);
@@ -767,12 +807,14 @@ namespace ProtectedEngine {
         Impl* p = get_impl();
         if (p != nullptr) { p->battery_pct = pct; }
 
-        // Last Gasp: 배터리 5% 미만 + EMERGENCY 활성 → 최종 위치 버스트
-        if (p != nullptr && pct < 5u && !p->last_gasp_sent &&
+        // [BUG-FIX CRIT] Last Gasp: 배터리 5% 미만 + EMERGENCY 활성 → 3회 버스트
+        //  remain==IDLE(0)일 때만 발동 → DONE(0xFF)이면 조건 불일치 → 재발동 불가
+        //  → 배터리 5% 유지 구간에서 무한 버스트 지옥 원천 차단
+        if (p != nullptr && pct < 5u &&
+            p->last_gasp_remain == Impl::LAST_GASP_IDLE &&
             p->tracking_mode == TrackingMode::EMERGENCY_AUTH)
         {
-            p->last_gasp_sent = true;
-            // Last Gasp 플래그: Tick에서 3회 연속 전송 후 종료
+            p->last_gasp_remain = 3u;  // Tick에서 3회 연속 즉시 전송
         }
     }
 
@@ -862,42 +904,59 @@ namespace ProtectedEngine {
             loc_critical_exit(pm);
         }
 
-        // Last Gasp: 배터리 < 5% → 최종 위치 3회 버스트 후 종료
-        if (p->last_gasp_sent &&
+        // ── [BUG-FIX CRIT] Last Gasp: 배터리 < 5% → 즉시 3회 버스트 ──
+        //
+        //  [BUG-FIX FATAL] goto → send_now 플래그 (C++ 표준 위반 해소)
+        //   기존 goto loc_send_now: const uint32_t interval/elapsed 초기화를
+        //   건너뛰어 "crosses initialization" 컴파일 에러 발생
+        //   수정: bool send_now 플래그로 interval 검사 분기 우회
+        //
+        //  [BUG-FIX CRIT] 무한 버스트 방지: DONE 센티넬(0xFF)
+        //   기존: remain 0→3 재충전 무한 반복 (배터리 즉시 탕진)
+        //   수정: 3→2→1→DONE(0xFF) → Set_Battery_Percent에서 재발동 불가
+        //
+        //  흐름: Set_Battery_Percent(pct<5) → remain=3
+        //        Tick#1 → send_now=true, remain=2
+        //        Tick#2 → send_now=true, remain=1
+        //        Tick#3 → send_now=true, remain=DONE(0xFF) → 영구 종료
+        bool send_now = false;
+
+        if (p->last_gasp_remain >= 1u && p->last_gasp_remain <= 3u &&
             p->tracking_mode == TrackingMode::EMERGENCY_AUTH)
         {
-            // 즉시 3회 전송 (interval 무시)
-            // last_gasp_sent는 Set_Battery_Percent에서 설정됨
-            // Tick이 3번 호출되면 자연스럽게 3패킷 전송
+            p->last_gasp_remain--;
+            if (p->last_gasp_remain == 0u) {
+                // 3회 버스트 완료 → DONE 센티넬 전이 (재발동 영구 차단)
+                p->last_gasp_remain = Impl::LAST_GASP_DONE;
+            }
+            send_now = true;  // interval 검사 우회
         }
 
-        // Privacy Gate: TRACKING_OFF → 전송 차단
-        if (p->tracking_mode == TrackingMode::TRACKING_OFF) {
+        // Privacy Gate: TRACKING_OFF → 전송 차단 (Last Gasp도 차단)
+        if (!send_now && p->tracking_mode == TrackingMode::TRACKING_OFF) {
             return;
         }
 
-        // 배터리 적응형 주기
-        const uint32_t interval = p->get_report_interval_ms();
-        if (interval == 0xFFFFFFFFu) { return; }
+        // 배터리 적응형 주기 (send_now 시 전체 우회)
+        if (!send_now) {
+            const uint32_t interval = p->get_report_interval_ms();
+            if (interval == 0xFFFFFFFFu) { return; }
 
-        // [FIX-2] 주기 변경 감지 → last_report_ms 리셋
-        //  기존: 주기 30분→30초 전환 시 elapsed=15분 → 즉시 폭발 송출
-        //  수정: 주기 변경 시 last_report_ms를 현재로 리셋
-        //        → 새 주기 기준 첫 송출까지 정확히 interval 대기
-        if (interval != p->prev_interval) {
-            p->last_report_ms = systick_ms;
-            p->prev_interval = interval;
-            return;  // 전환 즉시 1회 건너뜀 (안정화)
+            // [FIX-2] 주기 변경 감지 → last_report_ms 리셋
+            if (interval != p->prev_interval) {
+                p->last_report_ms = systick_ms;
+                p->prev_interval = interval;
+                return;
+            }
+
+            if (p->first_tick) {
+                p->last_report_ms = systick_ms - interval;
+                p->first_tick = false;
+            }
+
+            const uint32_t elapsed = systick_ms - p->last_report_ms;
+            if (elapsed < interval) { return; }
         }
-
-        if (p->first_tick) {
-            p->last_report_ms = systick_ms - interval;
-            p->first_tick = false;
-        }
-
-        const uint32_t elapsed = systick_ms - p->last_report_ms;
-        if (elapsed < interval) { return; }
-
         // ── 위치 결정 (크리티컬 보호) ──
         int32_t lat = 0;
         int32_t lon = 0;

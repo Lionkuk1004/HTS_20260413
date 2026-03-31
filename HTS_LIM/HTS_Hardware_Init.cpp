@@ -90,14 +90,22 @@ namespace ProtectedEngine {
         //  DEMCR   : 0xE000EDFC (bit24 = TRCENA)
         //  DWT_CTRL: 0xE0001000 (bit0 = CYCCNTENA)
         //  DWT_CYCCNT: 0xE0001004 (32-bit cycle counter)
-        volatile uint32_t* DEMCR = reinterpret_cast<volatile uint32_t*>(0xE000EDFCu);
-        volatile uint32_t* DWT_CTRL = reinterpret_cast<volatile uint32_t*>(0xE0001000u);
-        volatile uint32_t* DWT_CYCCNT = reinterpret_cast<volatile uint32_t*>(0xE0001004u);
+        //
+        // [J-3 FIX] 매직넘버 → constexpr 상수화 (HW 레지스터 주소/비트)
+        static constexpr uintptr_t ADDR_DEMCR = 0xE000EDFCu;  ///< Debug Exception & Monitor Control
+        static constexpr uintptr_t ADDR_DWT_CTRL = 0xE0001000u;  ///< DWT Control Register
+        static constexpr uintptr_t ADDR_DWT_CYCCNT = 0xE0001004u;  ///< DWT Cycle Count Register
+        static constexpr uint32_t  DEMCR_TRCENA = (1u << 24);   ///< Trace Enable bit
+        static constexpr uint32_t  DWT_CYCCNTENA = (1u << 0);    ///< Cycle Counter Enable bit
 
-        *DEMCR |= (1u << 24);   // TRCENA 활성화
-        *DWT_CYCCNT = 0;        // 카운터 리셋
-        *DWT_CTRL |= (1u << 0); // CYCCNTENA 활성화
-        HW_ISB();                // 설정 즉시 반영 보장
+        volatile uint32_t* DEMCR = reinterpret_cast<volatile uint32_t*>(ADDR_DEMCR);
+        volatile uint32_t* DWT_CTRL = reinterpret_cast<volatile uint32_t*>(ADDR_DWT_CTRL);
+        volatile uint32_t* DWT_CYCCNT = reinterpret_cast<volatile uint32_t*>(ADDR_DWT_CYCCNT);
+
+        *DEMCR |= DEMCR_TRCENA;    // TRCENA 활성화
+        *DWT_CYCCNT = 0;            // 카운터 리셋
+        *DWT_CTRL |= DWT_CYCCNTENA; // CYCCNTENA 활성화
+        HW_ISB();                    // 설정 즉시 반영 보장
 #endif
         // PC (Windows/Linux/Mac): no-op
     }
@@ -112,10 +120,30 @@ namespace ProtectedEngine {
     // =====================================================================
     void Hardware_Init_Manager::Kick_Watchdog() noexcept {
 #ifdef HTS_TARGET_ARM_BAREMETAL
-        volatile uint32_t* wdt_feed = reinterpret_cast<volatile uint32_t*>(
-            static_cast<uintptr_t>(WDT_FEED_REG));
+        // [BUG-FIX FATAL] WDT 킥 DSE/LICM 방어 (3중 보장)
+        //
+        //  위협: 공격적 최적화(-O3/LTO)가 volatile 쓰기를 LICM로 루프 외부 이동
+        //        또는 연속 호출 시 중간 쓰기를 DSE로 제거할 가능성
+        //        → WDT 타임아웃 → 무한 리셋 루프 → 시스템 영구 불능
+        //
+        //  방어 1: volatile 포인터 → C++ 표준 관찰가능 부수효과 (DSE 금지)
+        //  방어 2: HW_BARRIER (dmb sy + "memory" 클로버) → LICM 차단
+        //  방어 3: asm 직접 STR → 컴파일러 코드 생성 완전 우회
+        //
+        //  [J-3] 매직넘버 constexpr 상수화
+        static constexpr uint32_t WDT_FEED_VALUE = 0xAA55u;
+
         HW_BARRIER();
-        *wdt_feed = 0xAA55u;
+        // [방어 3] asm 직접 STR: 컴파일러 최적화 경로 완전 우회
+        //  volatile 쓰기를 compiler에 위임하지 않고, 기계어 직접 발행
+        //  → -O3, LTO, PGO 어떤 조합에서도 이 STR 명령어 제거 불가
+        __asm__ __volatile__(
+            "str %1, [%0]"
+            :
+        : "r"(static_cast<uintptr_t>(WDT_FEED_REG)),
+            "r"(WDT_FEED_VALUE)
+            : "memory"
+            );
         HW_BARRIER();
 #endif
     }

@@ -11,6 +11,22 @@
 //    · 3중 보안 소거 (volatile + asm clobber + release fence)
 //    · OTP 타임아웃 가드 (무한 루프 방지)
 //    · 디버그 포트 잠금 (RDP Level 2)
+//
+//  BUG-FIX-4 [FATAL] Zero-Key Fallback 취약점 수정
+//    기존: Destroy_Key()가 OTP_KEY_ADDR만 소각, OTP_MAGIC_ADDR 유지
+//          → 재부팅 후 key_destroyed=false, otp_check_magic()=true
+//          → Read_Master_Key()가 0x00 키를 정상 키로 반환 (백도어)
+//    수정: 키 소각 후 OTP_MAGIC_ADDR도 zero_block으로 물리적 소각
+//          → 재부팅 후 otp_check_magic()=false → Is_Provisioned=false
+//          → Zero-Key Fallback Attack 원천 차단
+//
+//  BUG-FIX-5 [CRIT] RDP Lock 상태 하드웨어 확인 누락 수정
+//    기존: debug_locked = RAM 플래그 → 재부팅 후 false로 초기화
+//          → Lock_Debug_Port 재호출 시 RDP Level2 상태에서 OPTCR 재쓰기
+//          → STM32 아키텍처 상 HardFault / PGERR / Brick 발생
+//    수정: set_rdp_level2() 호출 전 FLASH_OPTCR 레지스터 직접 읽어
+//          현재 RDP = 0xCC(Level2)이면 즉시 ALREADY_DONE 반환
+//          → 이중 잠금 시도 원천 차단
 // =========================================================================
 #include "HTS_Key_Provisioning.h"
 
@@ -465,11 +481,41 @@ namespace ProtectedEngine {
 
     // =====================================================================
     //  Lock_Debug_Port — JTAG/SWD 영구 잠금
+    //
+    //  [BUG-FIX CRIT] RDP 하드웨어 상태 확인 누락 수정
+    //
+    //  기존 문제:
+    //    p->debug_locked(RAM) 만 검사 → 재부팅 시 false 초기화
+    //    → 이미 RDP Level2 상태에서 set_rdp_level2() 재호출
+    //    → FLASH_OPTCR 접근 → HardFault 또는 PGERR 무한루프 → Brick
+    //
+    //  수정:
+    //    set_rdp_level2() 호출 전 FLASH_OPTCR 레지스터를 직접 읽어
+    //    현재 RDP 값이 이미 0xCC(Level 2)이면 ALREADY_DONE 즉시 반환
+    //    → 하드웨어 실제 상태 기반 방어 (RAM 플래그 의존 제거)
     // =====================================================================
     KeyProvResult HTS_Key_Provisioning::Lock_Debug_Port() noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return KeyProvResult::NULL_INPUT; }
+
+        // [BUG-FIX CRIT] 하드웨어 레지스터에서 현재 RDP 레벨 직접 확인
+        //  RAM 플래그(p->debug_locked)는 재부팅 시 초기화되므로 신뢰 불가
+        //  → FLASH_OPTCR[15:8] = RDP 바이트 직접 읽기
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+        {
+            // FLASH_OPTCR 주소: FLASH_BASE(0x40023C00) + 오프셋(0x14)
+            const uint32_t cur_optcr = *flash_reg(FLASH_OPTCR_OFFSET);
+            const uint32_t cur_rdp = (cur_optcr & RDP_MASK) >> 8u;
+            if (cur_rdp == RDP_LEVEL_2) {
+                // 이미 Level 2 잠금 완료 — 재접근 시도 차단 (Brick 방지)
+                p->debug_locked = true;  // RAM 플래그 동기화
+                return KeyProvResult::ALREADY_DONE;
+            }
+        }
+#else
+        // PC 시뮬레이션: RAM 플래그로 fallback
         if (p->debug_locked) { return KeyProvResult::ALREADY_DONE; }
+#endif
 
         if (!set_rdp_level2()) {
             return KeyProvResult::LOCK_FAIL;
@@ -484,7 +530,8 @@ namespace ProtectedEngine {
         static constexpr uint32_t AIRCR_ADDR = 0xE000ED0Cu;
         static constexpr uint32_t AIRCR_VECTKEY = 0x05FA0000u;
         static constexpr uint32_t AIRCR_SYSRESET = 0x00000004u;
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        // [BUG-FIX ①] seq_cst → release: 선행 소거 가시화 목적
+        std::atomic_thread_fence(std::memory_order_release);
         *reinterpret_cast<volatile uint32_t*>(AIRCR_ADDR) =
             AIRCR_VECTKEY | AIRCR_SYSRESET;
         // 이 아래 코드는 도달 불가 (리셋 즉시 실행)
@@ -494,20 +541,46 @@ namespace ProtectedEngine {
     }
 
     // =====================================================================
-    //  Destroy_Key — 마스터 키 무효화 (논리적)
+    // =====================================================================
+    //  Destroy_Key — 마스터 키 + 프로비저닝 매직 물리적 소각
+    //
+    //  [BUG-FIX FATAL] Zero-Key Fallback Attack 차단
+    //
+    //  기존 문제:
+    //    OTP_KEY_ADDR (키 32B) 만 0x00 소각
+    //    → OTP_MAGIC_ADDR("KEY1") 유지
+    //    → 재부팅: key_destroyed(RAM) = false 초기화
+    //              Is_Provisioned() = true (매직 유효)
+    //    → Read_Master_Key() → 0x00 키를 정상 키로 반환
+    //    → 해커가 All-Zero Key로 암호화 무력화 (백도어)
+    //
+    //  수정:
+    //    키 소각 직후 OTP_MAGIC_ADDR도 0x00 블록으로 덮어씀
+    //    → 재부팅 후 Is_Provisioned() = false (매직 무효)
+    //    → Read_Master_Key() → provisioned=false → 반환 차단
+    //    → 하드웨어 레벨에서 프로비저닝 상태 자체 무효화 (비가역)
     // =====================================================================
     void HTS_Key_Provisioning::Destroy_Key() noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
 
-        // [FIX-FORENSIC] OTP 키 영역 물리적 소각
-        //  OTP 특성: 1→0 쓰기만 가능 (0→1 불가)
-        //  0x00 블록 덮어쓰기 → 모든 비트를 0으로 태움
-        //  → 전원 사이클 후에도 키 복구 불가 (비가역)
+        // 1단계: 마스터 키 물리 소각
+        //  OTP 특성: 1→0 쓰기만 가능 (비가역)
+        //  0x00 덮어쓰기 → 모든 비트를 0으로 태움
         const uint8_t zero_block[MASTER_KEY_SIZE] = {};
         otp_write_block(OTP_KEY_ADDR, zero_block, MASTER_KEY_SIZE);
 
+        // 2단계: [BUG-FIX FATAL] 프로비저닝 매직도 함께 물리 소각
+        //  sizeof(PROV_MAGIC) = 4B → 4바이트 영역 소각
+        //  재부팅 후 Is_Provisioned() = false 보장
+        //  (매직 불일치 → provisioned=false → Read_Master_Key 반환 차단)
+        const uint8_t zero_magic[sizeof(PROV_MAGIC)] = {};
+        otp_write_block(OTP_MAGIC_ADDR,
+            zero_magic, static_cast<uint32_t>(sizeof(PROV_MAGIC)));
+
+        // 3단계: RAM 플래그 갱신 (현재 세션 즉시 차단)
         p->key_destroyed = true;
+        p->provisioned = false;  // RAM 상태도 동기화
     }
 
     // =====================================================================

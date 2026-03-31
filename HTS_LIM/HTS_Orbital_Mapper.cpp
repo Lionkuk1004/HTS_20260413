@@ -76,7 +76,9 @@ namespace ProtectedEngine {
             }
 
             // [BUG-03] 결정적 Fisher-Yates (std::shuffle 대체)
+            // [BUG-FIX FATAL] n≤1 가드: n=0 → i=UINT32_MAX underflow → 무한루프
             void fisher_yates(uint32_t* arr, uint32_t n) noexcept {
+                if (n <= 1u) { return; }  // 0 또는 1 요소 → 셔플 불필요
                 for (uint32_t i = n - 1; i > 0; --i) {
                     uint32_t j = static_cast<uint32_t>(next() % (i + 1));
                     uint32_t tmp = arr[i];
@@ -99,7 +101,8 @@ namespace ProtectedEngine {
         static constexpr size_t BITMAP_WORDS = MAX_PERM_N / 32u;  // 256
 
         static inline void bmp_clear(uint32_t* bmp, size_t n_bits) noexcept {
-            const size_t words = (n_bits + 31u) / 32u;
+            // [⑨-FIX] /32u → >>5u (2의제곱 시프트 전환)
+            const size_t words = (n_bits + 31u) >> 5u;
             std::memset(bmp, 0, words * sizeof(uint32_t));
         }
         static inline bool bmp_test(const uint32_t* bmp, size_t idx) noexcept {
@@ -207,7 +210,16 @@ namespace ProtectedEngine {
         static constexpr uint32_t MAX_H = 256u;
         const uint32_t H = static_cast<uint32_t>(
             (tensor_size + W - 1u) / W);
-        if (H > MAX_H) return state_map;  // 텐서 크기 초과 → 항등 지도
+        if (H > MAX_H) {
+            // [BUG-FIX FATAL] 항등 지도 폴백 — 전-零 벡터 반환 방지
+            //  기존: return state_map (= 0으로 초기화 → 모든 인덱스→0 매핑)
+            //  → 호출부에서 사용 시 데이터 전체가 index[0] 값으로 붕괴
+            //  수정: 항등 치환(identity permutation) 채운 후 반환
+            for (size_t i = 0u; i < tensor_size; ++i) {
+                state_map[i] = static_cast<uint32_t>(i);
+            }
+            return state_map;
+        }
 
         // [BUG-14] 정적 배열 (힙 0회)
         static uint32_t block_shuffle[MAX_H];

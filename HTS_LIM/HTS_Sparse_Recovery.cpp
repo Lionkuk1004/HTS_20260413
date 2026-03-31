@@ -4,10 +4,11 @@
 // Target: STM32F407 (Cortex-M4, 168MHz)
 // =========================================================================
 #include "HTS_Sparse_Recovery.h"
-#include <climits>   // INT32_MAX (BUG-12 static_assert)
+#include <climits>       // INT32_MAX (BUG-12 static_assert)
+#include <type_traits>   // std::is_unsigned (Safe_Obfuscate static_assert)
 
-// [양산 수정 이력 — 10건]
-//  BUG-01 [MED]  double noise_ratio 유지 (API 호환)
+// [양산 수정 이력 — 10건 + 추가 3건]
+//  BUG-01 [MED]  double noise_ratio 유지 (API 호환) → ④-FIX: Q16 전환
 //  BUG-03 [MED]  j % anchor_interval → j == block_start
 //  BUG-04 [HIGH] 중력 보간 왼쪽 탐색: block_start 경계 제한
 //  BUG-06 [MED]  [[nodiscard]] 추가
@@ -16,35 +17,117 @@
 //  BUG-09 [HIGH] strict_mode: unrecoverable 통계 누락 + ERASURE_MARKER 잔존
 //  BUG-10 [MED]  음수 반올림 절사 → 부호 기반 대칭 반올림
 //  BUG-11 [CRIT] ARM double 나눗셈 제거 (항목④ 위반)
-//         · ARM: noise_ratio → 0.0 상수 대입 (__aeabi_dmul 200cyc 제거)
-//         · PC: 기존 호환 유지
 //  BUG-12 [CRIT] 중력 보간 int64_t 나눗셈 병목 완전 제거
-//         · sizeof(T) ≤ 2: int32_t SDIV 완결 (2~12cyc, 64비트 0회)
-//           mass 최대 65535, dist 최대 20 → numerator < INT32_MAX
-//         · sizeof(T) > 2: 역수 Q16 곱셈 (UDIV 12cyc + SMULL 1cyc = 13cyc)
-//           기존 __aeabi_ldivmod ~200cyc 대비 15× 가속
-//         · dist_L/R: uint64_t → uint32_t (블록 내 거리 최대 ~40)
+//
+//  [BUG-FIX FATAL] anchor_interval==1 전 데이터 파괴 방어
+//         · interval=1 → 모든 요소가 앵커 → 내부 루프 미진입 → parity=0
+//         · 원본 데이터가 ANCHOR_MASK로 100% 덮어써짐 → 비가역 손실
+//         · 수정: interval≤1 → 0으로 강제 (순수 난독화 폴백)
+//
+//  [BUG-FIX CRIT] Safe_Obfuscate/Safe_Deobfuscate 가역적 모듈러 연산
+//         · 기존: 단순 XOR → interference 편향 시 평문 패턴 부분 노출
+//         · 수정: XOR + 홀수 곱셈(×3) → 비트 확산(Diffusion) 추가
+//         · 역변환: ×INV3 (3의 모듈러 역수) + XOR → 수학적 완벽 가역
 
 namespace ProtectedEngine {
 
-    // [BUG-11] noise_ratio 연산: ARM/A55 = double 0회, PC = 기존 호환
-    // ARM/A55에서 noise_ratio double 필드의 유일한 소비자였던
-    // BB1_Core_Engine::noise_ratio_to_q16는 BUG-50에서
-    // 정수 기반 noise_to_q16(destroyed_count, total_elements)로 교체됨.
-    // → ARM/A55에서 noise_ratio 필드는 더 이상 읽히지 않음.
-    // A55는 FPU 있으나, double 연산 불필요 → 통일 (0.0 대입)
-    static double compute_noise_ratio(
+    // =====================================================================
+    //  가역적 모듈러 난독화 / 역난독화 (Safe_Obfuscate / Safe_Deobfuscate)
+    //
+    //  수학적 보증:
+    //   Forward:  y = (x ^ interference) × 3        mod 2^N
+    //   Reverse:  x = (y × INV3) ^ interference     mod 2^N
+    //   여기서 3 × INV3 ≡ 1 (mod 2^N) — 모든 unsigned N 비트폭에서 성립
+    //
+    //  INV3 산출:  (~T(0) / 3) × 2 + 1
+    //   8비트: 0xAB, 16비트: 0xAAAB, 32비트: 0xAAAAAAAB, 64비트: 0xAAAAAAAAAAAAAAAB
+    //   빌드타임 static_assert: 3 × INV3 ≡ 1 (mod 2^N) 검증
+    //
+    //  XOR 단독 대비:
+    //   · 곱셈이 비트 확산(Diffusion) 제공 → interference 편향 시에도 평문 패턴 차단
+    //   · 가역성 수학적 보장 (홀수 곱셈은 모듈러 산술에서 항상 전단사 함수)
+    //   · Cortex-M4 MUL 1사이클 추가 (무시 가능)
+    //
+    //  [BUG-FIX FATAL] ERASURE_MARKER 전단사 충돌 — 평문단 사전 탐지 교정
+    //
+    //   문제: 출력단 y^=1 이격 시 INV3 곱셈 나비효과
+    //     0xFFFE × INV3(0xAAAB) mod 2^16 = 0xAAAA (21845 오차 = 33%!)
+    //     → "1-LSB 오차" 주장 완전 붕괴
+    //
+    //   수정: 평문(x) 자체를 사전에 1-LSB 이격
+    //     · 위험 평문(bad_x) = obfuscate 결과가 MARKER인 유일한 x를 사전 계산
+    //     · bad_x 감지 시 x ^= 1 (평문 도메인 이격)
+    //     · RX에서 INV3 역변환 후 평문이 정확히 1-LSB 차이만 발생
+    //     · UDIV 0회, MUL 0회 추가 (비교 + XOR만)
+    //
+    //   추가: plaintext == MARKER 자체도 방어 (RX 파손 오인 차단)
+    // =====================================================================
+    template <typename T>
+    static T Safe_Obfuscate(T plaintext, T interference) noexcept {
+        static_assert(std::is_unsigned<T>::value,
+            "Safe_Obfuscate: unsigned 타입만 허용");
+
+        const T MARKER = Get_Erasure_Marker<T>();
+
+        // ① 평문 자체가 MARKER이면 RX에서 파손 오인 → 1-LSB 이격
+        if (plaintext == MARKER) {
+            plaintext ^= static_cast<T>(1u);
+        }
+
+        // ② 위험 평문 사전 탐지: (bad_x ^ I) * 3 ≡ MARKER (mod 2^N)
+        //    bad_x ^ I = MARKER * INV3 = ~INV3 + 1  (모듈러 산술)
+        //    bad_x = (~INV3 + 1) ^ I
+        static constexpr T INV3 = static_cast<T>(
+            static_cast<T>(static_cast<T>(~static_cast<T>(0)) / static_cast<T>(3))
+            * static_cast<T>(2) + static_cast<T>(1));
+        const T neg_inv3 = static_cast<T>(~INV3 + static_cast<T>(1u));
+        const T bad_plaintext = static_cast<T>(neg_inv3 ^ interference);
+
+        if (plaintext == bad_plaintext) {
+            plaintext ^= static_cast<T>(1u);
+            // 1-LSB 이격 결과가 MARKER와 우연히 겹치면 2-LSB로 회피
+            if (plaintext == MARKER) {
+                plaintext ^= static_cast<T>(2u);
+            }
+        }
+
+        // UDIV 0회 — 안전하고 빠른 가역 난독화
+        return static_cast<T>(
+            static_cast<T>(plaintext ^ interference) * static_cast<T>(3u));
+    }
+
+    template <typename T>
+    static T Safe_Deobfuscate(T obfuscated, T interference) noexcept {
+        static_assert(std::is_unsigned<T>::value,
+            "Safe_Deobfuscate: unsigned 타입만 허용");
+        // 3의 모듈러 역수: (~T(0) / 3) × 2 + 1
+        static constexpr T INV3 = static_cast<T>(
+            static_cast<T>(static_cast<T>(~static_cast<T>(0)) / static_cast<T>(3))
+            * static_cast<T>(2) + static_cast<T>(1));
+        // 빌드타임 가역성 검증: 3 × INV3 ≡ 1 (mod 2^N)
+        static_assert(static_cast<T>(static_cast<T>(3) * INV3) == static_cast<T>(1),
+            "Modular inverse verification failed: 3 * INV3 != 1");
+        return static_cast<T>(
+            static_cast<T>(obfuscated * INV3) ^ interference);
+    }
+
+    // [④-FIX] noise_ratio: double → uint32_t Q16 (0~65536 = 0.0~1.0)
+    //  ARM/A55: double 연산 0회 (기존 동일)
+    //  PC: (destroyed << 16) / total (정수 연산, double 제거)
+    static uint32_t compute_noise_ratio_q16(
         size_t destroyed, size_t total) noexcept {
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH) || \
     defined(__aarch64__)
         (void)destroyed;
         (void)total;
-        return 0.0;  // 상수 대입: FPU 미사용, double 연산 0회
+        return 0u;  // ARM/A55: 상수 대입, FPU 미사용
 #else
-        // PC 개발빌드: 디버그/테스트용 실제 비율 계산
-        if (total == 0u) return 0.0;
-        return static_cast<double>(destroyed) / static_cast<double>(total);
+        // PC 개발빌드: Q16 정수 비율 계산
+        if (total == 0u) return 0u;
+        // destroyed ≤ total 이므로 (destroyed << 16) ≤ (total << 16) → 오버플로 안전
+        return static_cast<uint32_t>(
+            (static_cast<uint64_t>(destroyed) << 16u) / total);
 #endif
     }
 
@@ -91,6 +174,12 @@ namespace ProtectedEngine {
         if (!tensor_block || elements == 0) return;
 
         // 오토 튜닝 및 상용망 규격 락다운
+        // [BUG-FIX FATAL] anchor_interval==1 방어:
+        //  interval=1 → 모든 요소=앵커 → 내부 루프 미진입 → parity=0
+        //  → 원본 데이터 100% ANCHOR_MASK 덮어쓰기 (비가역 파괴)
+        //  최소 2 이상 (앵커 1개 + 데이터 1개) 필요
+        if (anchor_interval == 1u) { anchor_interval = 0u; }
+
         if (!is_test_mode) {
             if (anchor_interval == 0 || anchor_interval > 6) {
                 anchor_interval = (anchor_interval != 0) ? 6 : 0;
@@ -112,19 +201,19 @@ namespace ProtectedEngine {
                 for (size_t j = i + 1; j < end_idx; ++j) {
                     parity ^= tensor_block[j]; // 1. 원본 페이로드 패리티 누적
 
-                    // 2. 일반 데이터 난독화 동시 진행
+                    // 2. 가역적 모듈러 난독화 (XOR + ×3 Diffusion)
                     T interference = Make_Interference<T>(master_seed, static_cast<uint32_t>(j));
-                    tensor_block[j] ^= interference;
+                    tensor_block[j] = Safe_Obfuscate(tensor_block[j], interference);
                 }
-                // 3. 앵커 위치에 패리티 삽입 및 특수 마스크 씌우기
-                tensor_block[i] = parity ^ ANCHOR_MASK;
+                // 3. 앵커: 패리티 + 마스크 (Safe_Obfuscate로 MARKER 충돌 방어)
+                tensor_block[i] = Safe_Obfuscate(parity, ANCHOR_MASK);
             }
         }
         else {
             // 앵커 미사용 시 순수 난독화만 고속 진행
             for (size_t i = 0; i < elements; ++i) {
                 T interference = Make_Interference<T>(master_seed, static_cast<uint32_t>(i));
-                tensor_block[i] ^= interference;
+                tensor_block[i] = Safe_Obfuscate(tensor_block[i], interference);
             }
         }
     }
@@ -138,6 +227,9 @@ namespace ProtectedEngine {
 
         out_stats = RecoveryStats();
         out_stats.total_elements = elements;
+
+        // [BUG-FIX FATAL] anchor_interval==1 방어 (TX와 동일)
+        if (anchor_interval == 1u) { anchor_interval = 0u; }
 
         if (!is_test_mode) {
             if (anchor_interval == 0 || anchor_interval > 6) {
@@ -158,14 +250,20 @@ namespace ProtectedEngine {
         // 1단계: 동적 간격에 맞춘 패턴 해제 (Erasure Aware)
         if (anchor_interval > 0) {
             for (size_t i = 0; i < elements; i += anchor_interval) {
-                if (damaged_tensor[i] != ERASURE_MARKER) damaged_tensor[i] ^= ANCHOR_MASK;
-                else total_destroyed++;
+                // [BUG-FIX] 앵커 복원: Safe_Deobfuscate (TX Safe_Obfuscate와 대칭)
+                if (damaged_tensor[i] != ERASURE_MARKER) {
+                    damaged_tensor[i] = Safe_Deobfuscate(damaged_tensor[i], ANCHOR_MASK);
+                }
+                else {
+                    total_destroyed++;
+                }
 
                 size_t end_idx = (i + anchor_interval < elements) ? (i + anchor_interval) : elements;
                 for (size_t j = i + 1; j < end_idx; ++j) {
                     if (damaged_tensor[j] != ERASURE_MARKER) {
+                        // [BUG-FIX CRIT] 가역적 모듈러 역난독화 (×INV3 + XOR)
                         T interference = Make_Interference<T>(master_seed, static_cast<uint32_t>(j));
-                        damaged_tensor[j] ^= interference;
+                        damaged_tensor[j] = Safe_Deobfuscate(damaged_tensor[j], interference);
                     }
                     else {
                         total_destroyed++;
@@ -176,21 +274,22 @@ namespace ProtectedEngine {
         else {
             for (size_t i = 0; i < elements; ++i) {
                 if (damaged_tensor[i] != ERASURE_MARKER) {
+                    // [BUG-FIX CRIT] 가역적 모듈러 역난독화
                     T interference = Make_Interference<T>(master_seed, static_cast<uint32_t>(i));
-                    damaged_tensor[i] ^= interference;
+                    damaged_tensor[i] = Safe_Deobfuscate(damaged_tensor[i], interference);
                 }
                 else {
                     total_destroyed++;
                 }
             }
             out_stats.destroyed_count = total_destroyed;
-            out_stats.noise_ratio = compute_noise_ratio(total_destroyed, elements);
+            out_stats.noise_ratio_q16 = compute_noise_ratio_q16(total_destroyed, elements);
             return true;
         }
 
         out_stats.destroyed_count = total_destroyed;
         if (total_destroyed == 0) {
-            out_stats.noise_ratio = 0.0;
+            out_stats.noise_ratio_q16 = 0u;
             return true;
         }
 
@@ -362,7 +461,7 @@ namespace ProtectedEngine {
             }
         }
 
-        out_stats.noise_ratio = compute_noise_ratio(out_stats.destroyed_count, elements);
+        out_stats.noise_ratio_q16 = compute_noise_ratio_q16(out_stats.destroyed_count, elements);
         return is_reconstruction_successful;
     }
 

@@ -133,33 +133,36 @@ namespace ProtectedEngine {
     //  1. 플랫폼 가용 메모리 감지
     //  2. 50% HTS 엔진 할당
     //  3. 4바이트(듀얼 텐서)로 나누기
-    //  4. [MIN_TENSORS, MAX_TENSORS] 클리핑
+    //  4. [MIN_TENSORS, MAX_TENSORS] 클리핑 (두 값 모두 2의제곱)
     //  5. [BUG-04] 2의 제곱수 내림 정렬 (DMA 버스트 최적)
     //
     //  [STM32F407 결과]
-    //  128KB → 64KB → 16384 → clip[1000, 1M] = 16384 → pow2 = 16384 (2^14) ✓
+    //  128KB → 64KB → 16384 → clip[1024, 2^20] = 16384 → pow2 = 16384 (2^14) ✓
     //
     //  [PC 16GB 결과]
-    //  16GB → 8GB → 2G → clip[1000, 1M] = 1000000 → pow2 = 524288 (2^19)
+    //  16GB → 8GB → 2G → clip[1024, 2^20] = 1048576 → pow2 = 1048576 (2^20) ✓
     // =====================================================================
     size_t Hardware_Auto_Scaler::Calculate_Optimal_Tensor_Count() noexcept {
         size_t free_mem = Get_Free_System_Memory();
 
         // 전체 가용 메모리의 50%만 HTS 엔진에 할당
-        size_t allocatable_mem = free_mem / 2;
+        // [⑨-FIX] /2 → >>1u (2의제곱 시프트 전환)
+        size_t allocatable_mem = free_mem >> 1u;
 
         // 듀얼 텐서(4바이트) 단위 개수 산출
-        size_t optimal_tensors = allocatable_mem / BYTES_PER_DUAL_TENSOR;
+        // [⑨-FIX] /BYTES_PER_DUAL_TENSOR(=4) → >>2u
+        size_t optimal_tensors = allocatable_mem >> 2u;
 
-        // 안전 클리핑 [MIN, MAX]
+        // 안전 클리핑 [MIN, MAX] — 두 값 모두 2의제곱수 (헤더 static_assert)
         if (optimal_tensors < MIN_TENSORS) optimal_tensors = MIN_TENSORS;
         if (optimal_tensors > MAX_TENSORS) optimal_tensors = MAX_TENSORS;
 
         // [BUG-04] 2의 제곱수 내림 (DMA 버스트 + 모듈러 연산 최적)
-        // MIN_TENSORS(1000)이 이미 비2의제곱이므로,
-        // 클리핑 후 floor_pow2가 MIN 이하로 떨어질 수 있음 → 재클리핑
+        // [BUG-FIX CRIT] MIN/MAX가 2의제곱이므로:
+        //   Floor(optimal) ≥ MIN 항상 성립 (optimal ≥ MIN이고 MIN=2^k)
+        //   재클리핑은 EMI 비트플립 방어용 방어적 코드
         size_t aligned = Floor_Power_Of_Two(optimal_tensors);
-        if (aligned < MIN_TENSORS) aligned = MIN_TENSORS;
+        if (aligned < MIN_TENSORS) aligned = MIN_TENSORS;  // 방어: MIN도 2의제곱
 
         return aligned;
     }

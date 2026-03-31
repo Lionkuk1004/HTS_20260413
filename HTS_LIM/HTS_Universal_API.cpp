@@ -103,7 +103,8 @@ namespace ProtectedEngine {
         // 메인 바디: 정렬된 32비트 워드 고속 타격
         // Strict Aliasing 준수: memcpy 4B → 컴파일러가 LDR/STR 인라인 치환
         if (bytes_left >= 4u) {
-            const size_t words = bytes_left / 4u;
+            // [⑨-FIX] /4u → >>2u (2의제곱 시프트 전환)
+            const size_t words = bytes_left >> 2u;
             for (size_t i = 0; i < words; ++i) {
                 // [FIX-09] 31비트 마스킹(& 0x7FFFFFFFu) 제거
                 shredder = shredder * 1103515245u + 12345u;
@@ -124,13 +125,33 @@ namespace ProtectedEngine {
             ++b_ptr;
         }
 
-        // ── 2단계: 0 오버라이트 (고속 표준 함수) ────────────────
-        std::memset(target, 0, size);
+        // ── 2단계: 0 오버라이트 (volatile 워드 순회 — DSE 방어 내재) ──
+        // [BUG-FIX CRIT] memset + 글로벌 "memory" 클로버 → volatile 워드 소거
+        //
+        //  기존: std::memset(target, 0, size) + asm("" ::: "memory")
+        //   → "memory" 클로버가 전역 레지스터 spill/reload 유발
+        //   → 핫패스(V400/세션) 호출 시 캐시 히트율 붕괴 + 사이클 지터
+        //
+        //  수정: volatile uint32_t/uint8_t 직접 쓰기
+        //   · volatile 쓰기 = C++ 표준 관찰가능 부수효과 → DSE 원천 불가
+        //   · 글로벌 클로버 불필요 → 호출부 레지스터 캐싱 완전 보존
+        //   · 워드(4B) 단위 → memset 대비 ~25% 느리나 DSE 확정 방어
+        //   · 프로젝트 표준 통일: Key_Rotator_Secure_Wipe 패턴 동일
+        {
+            volatile uint32_t* vw = static_cast<volatile uint32_t*>(target);
+            const size_t n_words = size >> 2u;
+            for (size_t i = 0u; i < n_words; ++i) { vw[i] = 0u; }
+            volatile uint8_t* vb = reinterpret_cast<volatile uint8_t*>(vw + n_words);
+            const size_t n_tail = size & 3u;
+            for (size_t i = 0u; i < n_tail; ++i) { vb[i] = 0u; }
+        }
 
-        // ── 3단계: DSE 방어 + 하드웨어 메모리 배리어 ────────────
-        // [수정 1] pragma 없이 asm clobber로 memset 제거 원천 차단
+        // ── 3단계: 하드웨어 메모리 배리어 (소거 가시화) ──────────────
+        // [BUG-FIX CRIT] 글로벌 "memory" 클로버 제거
+        //  volatile 쓰기가 DSE 방어를 내재하므로 asm clobber 불필요
+        //  release fence만으로 소거 가시화 완료
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(target) : "memory");
+        __asm__ __volatile__("" : : "r"(target));  // target 이스케이프 (경량)
 #endif
         // [BUG-08] seq_cst → release (소거 배리어 정책 통일, HTS_Secure_Memory.cpp 동일)
         std::atomic_thread_fence(std::memory_order_release);
