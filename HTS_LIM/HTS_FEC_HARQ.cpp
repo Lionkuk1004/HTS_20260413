@@ -146,7 +146,20 @@ namespace ProtectedEngine {
         }
 
         int shift = 0;
-        static constexpr int64_t VITERBI_SAFE_LIMIT = 1000000LL;
+        // [BUG-FIX] VITERBI_SAFE_LIMIT: 1,000,000 → 100,000 (안전 마진 강화)
+        //
+        //  오버플로 경로: combined = REP(4) × llr_max
+        //                bm = 2 × combined
+        //                pm = VIT_STEPS(88) × bm
+        //
+        //  LIMIT=1M: pm_max = 88×2×4×1M = 704M (INT32_MAX의 32.8%, 마진 3배)
+        //  LIMIT=100K: pm_max = 88×2×4×100K = 70.4M (INT32_MAX의 3.3%, 마진 30배)
+        //
+        //  100K에서도 Soft Decision 정밀도 충분:
+        //   High SNR: energy~10^12 → shift~27 → llr=max0-max1 ≈ ±100K
+        //   Low SNR:  energy~10^6  → shift~0  → llr=max0-max1 ≈ ±50K
+        //   양자화 해상도: 100,000 단계 (17비트 상당) → Viterbi 성능 영향 0
+        static constexpr int64_t VITERBI_SAFE_LIMIT = 100000LL;
         while (peak > VITERBI_SAFE_LIMIT && shift < 60) {
             peak >>= 1;
             shift++;

@@ -144,8 +144,11 @@ namespace ProtectedEngine {
             "1: b 1b             \n\t"
             : "+r"(aircr_addr), "+r"(aircr_val)
             :
+            // [BUG-FIX FATAL] "lr" 클로버 삭제
+            //  GCC/Clang: lr(r14)는 프롤로그/에필로그 관리 레지스터
+            //  클로버 선언 시 Register Allocator 충돌 → 빌드 에러/기형 코드
             : "r2", "r3", "r4", "r5", "r6", "r7",
-            "r8", "r9", "r10", "r11", "r12", "lr", "memory"
+            "r8", "r9", "r10", "r11", "r12", "memory"
         );
 #endif
 
@@ -164,7 +167,15 @@ namespace ProtectedEngine {
             reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
         const uint32_t val = *dhcsr;
 
-        if (val & DHCSR_DEBUG_MASK) {
+        // [BUG-FIX CRIT] DHCSR 교차 검증 복원 (BUG-07)
+        //  기존: if (val & DHCSR_DEBUG_MASK) → ANY 1비트 세트 시 탐지 → EMI 오탐
+        //  수정: C_DEBUGEN(bit0) 필수 AND (C_HALT OR S_HALT) 동시 세트
+        //  EMI 노이즈: 1비트 무작위 플립 → 교차 조건 불충족 → 오탐 차단
+        //  실제 JTAG: C_DEBUGEN=1 AND (C_HALT=1 OR S_HALT=1) → 교차 확인 → 탐지
+        const bool c_debugen = (val & DHCSR_C_DEBUGEN) != 0u;
+        const bool halted = (val & (DHCSR_C_HALT | DHCSR_S_HALT)) != 0u;
+
+        if (c_debugen && halted) {
             forceHalt(
                 "SECURITY ALERT: JTAG/SWD Debugger"
                 " (Halt or Attach) detected!");

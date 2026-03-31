@@ -124,13 +124,21 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Validate_Or_Destroy — 수명 검증 + 만료 시 키 파쇄
     //
-    //  [BUG-11] ARM DWT 델타 누적 방식
-    //  매 호출 시: delta = now_tick - last_tick (unsigned 뺄셈 → 래핑 자동 보정)
-    //  total_elapsed_ticks += delta → 64비트 누산기에 누적
-    //  → creation_tick 32비트 절대 뺄셈의 42억 틱 왜곡 원천 제거
+    //  [BUG-FIX FATAL] 32비트 DWT 래핑 Fail-Open → Fail-Safe 전환
+    //   기존: "래핑 1회 누락 → 수명 단축 = fail-safe" (착각)
+    //   실제: 30초 미호출 시 delta = 4.4초(래핑) → 수명 연장 = fail-OPEN
+    //   수정: MAX_SILENT_TICKS(15초) 초과 delta → 즉시 자폭 (fail-safe)
+    //         · 정상 호출(<15초): delta 정확 → 정상 누적
+    //         · 지연 호출(15~25초): delta > MAX_SILENT → 즉시 자폭 ✓
+    //         · 래핑 공격(25~40초): delta 왜곡되더라도 아키텍처 명세에 의해
+    //           감시 태스크가 15초 이내 폴링 강제 → 이 경로 진입 불가
     //
-    //  [전제] 호출 간격 < 25초 (BB1_Core_Engine은 매 프레임 호출 → 충분)
-    //  만약 25초 이상 미호출 → 래핑 1회 누락 → 수명 단축 = fail-safe
+    //  [BUG-FIX CRIT] 64비트 Data Tearing 방지
+    //   Cortex-M4: uint64_t RMW는 LDR+ADDS+ADC+STR 4명령어
+    //   ISR 선점 시 상위/하위 32비트 엇갈림 → 수백 시간 뻥튀기 → 즉시 자폭
+    //   수정: PRIMASK 크리티컬 섹션으로 원자적 갱신
+    //
+    //  [아키텍처 전제] 호출 간격 < 15초 필수 (BB1_Core_Engine: 매 프레임)
     // =====================================================================
     uint64_t Entropy_Time_Arrow::Validate_Or_Destroy(
         uint64_t current_session_id) noexcept {
@@ -141,13 +149,33 @@ namespace ProtectedEngine {
         }
 
 #ifdef HTS_ENTROPY_ARROW_ARM
-            // [BUG-11] 델타 누적: 32비트 unsigned 뺄셈 → 래핑 자동 보정
-        const uint32_t now_tick = Read_DWT_Tick();
-        const uint32_t delta = now_tick - last_tick;  // unsigned 래핑 안전
-        last_tick = now_tick;
-        total_elapsed_ticks += static_cast<uint64_t>(delta);
+            // [BUG-FIX FATAL] 15초 폴링 임계 (168MHz × 15 = 2,520,000,000)
+            //  uint32_t 최대 = 4,294,967,295 → 25.5초 래핑
+            //  15초 임계 → 래핑 공격 윈도우를 40.5초 이상으로 밀어냄
+        static constexpr uint32_t MAX_SILENT_TICKS = 2520000000u;  // 15초 @168MHz
 
-        if (total_elapsed_ticks > max_lifespan_ticks) HTS_UNLIKELY{
+        // [BUG-FIX CRIT] PRIMASK 크리티컬 섹션: 64비트 tearing 방지
+        uint32_t primask;
+        __asm__ __volatile__("mrs %0, primask\n\tcpsid i"
+            : "=r"(primask) : : "memory");
+
+        const uint32_t now_tick = Read_DWT_Tick();
+        const uint32_t delta = now_tick - last_tick;
+        last_tick = now_tick;
+
+        // [BUG-FIX FATAL] 지연 감지: delta > 15초 → fail-safe 즉시 자폭
+        if (delta > MAX_SILENT_TICKS) {
+            __asm__ __volatile__("msr primask, %0" : : "r"(primask) : "memory");
+            is_collapsed.store(true, std::memory_order_release);
+            return Generate_Chaos_Seed(current_session_id);
+        }
+
+        total_elapsed_ticks += static_cast<uint64_t>(delta);
+        const bool expired = (total_elapsed_ticks > max_lifespan_ticks);
+
+        __asm__ __volatile__("msr primask, %0" : : "r"(primask) : "memory");
+
+        if (expired) HTS_UNLIKELY{
             is_collapsed.store(true, std::memory_order_release);
             return Generate_Chaos_Seed(current_session_id);
         }

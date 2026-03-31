@@ -686,31 +686,14 @@ namespace ProtectedEngine {
 
         // 4. [VDF 삭제] Reverse_Quantum_Decoy 제거 (TX Apply와 대칭 삭제)
 
-        // 5. 파일럿 복원
-        //  [FIX-PILOT] damaged_tensor[i]==EM → m.is_erased(i) 교체
-        //   비트맵 기반 판별: 데이터 값과 무관, EM 충돌 불가
-        if (fa > 0u) {
-            uint32_t ms = static_cast<uint32_t>(vs ^ 0x3D485453u);
-            uint32_t bs = static_cast<uint32_t>(vs ^ 0xAA55AA55u);
-            if (bs == 0u) { bs = 0xDEADBEEFu; }
-            size_t nb = fa;
-            size_t cp = std::min(fa - 1u, elements - 1u);
-            for (size_t i = 0u; i < elements; ++i) {
-                // [BUG-51] FIX-09 전파: 31비트 마스킹 제거
-                bs = bs * 1103515245u + 12345u;
-                while (i >= nb) {
-                    nb += fa;
-                    cp = std::min(nb - 1u, elements - 1u);
-                }
-                if (i == cp && m.is_erased(i)) {
-                    const T bv = static_cast<T>(bs & 0xFFFFu);
-                    const uint32_t zs =
-                        (ms ^ static_cast<uint32_t>(i)) * 0x9E3779B9u;
-                    damaged_tensor[i] =
-                        bv ^ static_cast<T>((zs >> 5) | (zs << 27));
-                }
-            }
-        }
+        // [BUG-FIX FATAL] "5. 파일럿 복원" 유령 로직 물리 삭제
+        //
+        //  삭제 사유:
+        //   (a) TX에 대응하는 파일럿 주입 로직이 존재하지 않음 (TX는 0x7FFF 앵커만)
+        //   (b) 역 인터리빙 완료 후 실행 → 인터리빙 간격(cp)과 현재 인덱스(i) 비교 무의미
+        //   (c) ERASURE_MARKER(EM)를 PRNG 쓰레기로 덮어씀 → L1 복구 엔진이
+        //       파괴 위치를 인식 불가 → 복구 100% 실패
+        //   (d) VDF/Decoy 기능 삭제 시 잔존한 유령 코드 (Dead Code)
 
         m.Wipe_RX();
 
@@ -720,7 +703,16 @@ namespace ProtectedEngine {
             damaged_tensor, elements, vs, fa32,
             is_test_mode, strict_mode, temp_stats);
 
-        m.stats_seq.fetch_add(1u, std::memory_order_release);
+        // [BUG-FIX CRIT] SeqLock Writer: 첫 번째 증가 release → acq_rel
+        //  기존: release만 → 데이터 쓰기(B)가 시퀀스 증가(A) 위로 재배치 가능
+        //        → Reader가 짝수 seq 보고 안전 판단 → 반쯤 쓰인 데이터 읽기(Tearing)
+        //  수정: acq_rel → acquire가 (B)의 상방 재배치 차단
+        //        release가 이전 연산의 하방 재배치 차단 → 완전한 SeqLock 성립
+        //
+        //  (A) seq++ [acq_rel] — 데이터 쓰기가 여기 위로 올라갈 수 없음
+        //  (B) last_stats = temp_stats — 데이터 쓰기
+        //  (C) seq++ [release]  — 데이터 쓰기가 여기 아래로 내려갈 수 없음
+        m.stats_seq.fetch_add(1u, std::memory_order_acq_rel);
         m.last_stats = temp_stats;
         m.stats_seq.fetch_add(1u, std::memory_order_release);
 

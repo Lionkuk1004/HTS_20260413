@@ -141,23 +141,53 @@ namespace ProtectedEngine {
         HW_NOP();
         fail_acc |= (dummy ^ ALU_CANARY);  // 정상이면 0
 
-        // ★ 단일 분기 — 공격 포인트 1개 ★
-        // 글리치로 이 분기를 스킵하면 → fall-through → halt 경로
-        // (방어 코드를 if 밖이 아니라 if 안에 두면, 스킵 시 정상 경로로 빠지는
-        //  문제가 있으므로, 정상 경로를 if 안에, halt를 if 밖에 배치)
+        // ★ [BUG-FIX FATAL] 3중 방어 + VRP 차단 Permission Gate ★
+        //
+        //  1차 수정: 3중 분기 (permission + fail_acc 재검증)
+        //  문제: 컴파일러 VRP(Value Range Propagation)가 Path A에서
+        //        fail_acc==0 확정 → Gate 3(fail_acc!=0) 데드코드 삭제
+        //        → 단일 BNE 글리치로 3중 방어 전부 무력화
+        //
+        //  최종 수정:
+        //   (a) Gate 3 앞에 asm volatile "+r" (레지스터 세탁)
+        //       → 컴파일러가 fail_acc 값을 추적 불가 → Gate 3 삭제 불가
+        //   (b) permission은 volatile → VRP가 UNLOCKED 전파 불가
+        //   (c) HW_NOP 분산 → 글리치 타이밍 윈도우 분리
+        //
+        //  [분기 1] fail_acc → permission 게이트 설정
+        volatile uint32_t permission = LOCKED;  // 기본: 차단 (Fall-through=HALT)
         if (fail_acc == 0u) {
-            return;  // ✅ 정상 — 엔진 가동 허가
+            permission = UNLOCKED;  // 통과 시에만 해제
+        }
+        HW_NOP(); HW_NOP();  // 글리치 타이밍 윈도우 분산
+
+        //  [분기 2] permission 재검증 (volatile → VRP 차단)
+        //   분기1 글리치 시: permission은 LOCKED 유지 → 여기서 HALT
+        if (permission != UNLOCKED) {
+            Auto_Rollback_Manager::Execute_Self_Healing(GLITCH_HEAL_CODE);
+            while (true) { HW_NOP(); }
+        }
+        HW_NOP();
+
+        //  [분기 3] fail_acc 원본 재검증 (VRP 차단: asm volatile 레지스터 세탁)
+        //
+        //  핵심: "+r"(fail_acc) → 컴파일러에게 "fail_acc 레지스터가
+        //        이 asm 블록에서 읽히고 쓰였다"고 거짓 통보
+        //        → Path A에서 fail_acc==0 확정이었어도, asm 이후에는
+        //          "값이 변경되었을 수 있다"로 추적 리셋
+        //        → Gate 3의 (fail_acc != 0u) 비교가 삭제 불가능
+        //
+        //  GCC/Clang -O2/-O3 + VRP + Jump Threading 모두 무력화
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : "+r"(fail_acc));  // VRP 차단: 값 추적 리셋
+#endif
+        if (fail_acc != 0u) {
+            Auto_Rollback_Manager::Execute_Self_Healing(GLITCH_HEAL_CODE);
+            while (true) { HW_NOP(); }
         }
 
-        // ── 여기 도달 = 글리치 탐지 또는 잠금 상태 ──
-        // 자가 치유 트리거 (펌웨어 복원 시도)
-        Auto_Rollback_Manager::Execute_Self_Healing(
-            GLITCH_HEAL_CODE);
-
-        // WDT 리셋 대기 — HW_NOP()으로 컴파일러의 루프 제거 차단
-        while (true) {
-            HW_NOP();
-        }
+        // ✅ 3중 분기 모두 통과 → 정상 리턴
+        return;
     }
 
 } // namespace ProtectedEngine

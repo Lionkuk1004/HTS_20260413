@@ -67,6 +67,21 @@ namespace ProtectedEngine {
     //  [BUG-10] uint64_t → uint32_t (ARM 32비트 DWT CYCCNT 직접 사용)
     // =====================================================================
     static uint32_t Run_Timing_Probe() noexcept {
+        // [BUG-FIX FATAL] ISR 선점에 의한 타이밍 오탐 방지
+        //  기존: start/end 사이 ISR 발생 → 수백 사이클 뻥튀기
+        //        → baseline × 10 초과 → 디버거 오탐 → 정상 펌웨어 자폭
+        //  수정: PRIMASK로 start~end 구간 인터럽트 완전 차단
+        //  영향: ~200사이클 (PROBE_ITERATIONS=100) ≈ 1.2µs@168MHz
+        //        ISR 지연 1.2µs → 통신 영향 없음 (UART 바이트 간격 ~60µs)
+
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+        // ARM: PRIMASK 크리티컬 섹션 (ISR 완전 차단)
+        uint32_t primask;
+        __asm__ __volatile__("mrs %0, primask\n\tcpsid i"
+            : "=r"(primask) : : "memory");
+#endif
+
         const uint32_t start = static_cast<uint32_t>(
             Hardware_Bridge::Get_Physical_CPU_Tick());
 
@@ -77,20 +92,21 @@ namespace ProtectedEngine {
         }
 
         // [BUG-13] 루프 삭제(DCE) 완전 차단
-        // volatile만으로는 공격적 최적화기(-O3)가 "결과 미사용 dead store"로
-        // 루프를 통째로 증발시킬 위험 있음.
-        // asm volatile + memory clobber로 컴파일러가 dummy에 대해
-        // "외부에서 관측 가능한 사이드 이펙트"가 있다고 강제 인식.
 #if defined(__GNUC__) || defined(__clang__)
         __asm__ __volatile__("" : : "r"(static_cast<uint32_t>(dummy)) : "memory");
 #elif defined(_MSC_VER)
-        // MSVC: volatile 읽기 자체가 side effect — 추가 방어
         volatile uint32_t sink = dummy;
         (void)sink;
 #endif
 
         const uint32_t end = static_cast<uint32_t>(
             Hardware_Bridge::Get_Physical_CPU_Tick());
+
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+        // PRIMASK 복원 (이전 인터럽트 상태로 복귀)
+        __asm__ __volatile__("msr primask, %0" : : "r"(primask) : "memory");
+#endif
 
         if (end == start) return 0u;
         return end - start;

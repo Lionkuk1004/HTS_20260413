@@ -59,7 +59,8 @@ namespace ProtectedEngine {
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0; i < size; ++i) p[i] = 0;
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
+        // [BUG-FIX CRIT] "memory" → 경량 "r" 이스케이프 (프로젝트 표준 통일)
+        __asm__ __volatile__("" : : "r"(ptr));
 #endif
         // [BUG] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
@@ -99,8 +100,15 @@ namespace ProtectedEngine {
     // =====================================================================
 
     uint64_t Dynamic_Key_Rotator::Get_Current_Key_And_Rotate() noexcept {
-        operation_count++;
-
+        // [BUG-FIX FATAL] Off-By-One 해소: 회전 검사 → 카운트 증가 순서 교정
+        //  기존: count++ 선행 → 첫 키 K0가 (interval-1)회만 사용 → TX/RX 키 엇갈림
+        //  수정: 회전 검사 먼저, 카운트 증가 후행 → 모든 키 정확히 interval회 사용
+        //
+        //  흐름 (interval=1024):
+        //   Call 1:    count=0 → 0<1024 → count++=1 → return K0
+        //   Call 1024: count=1023 → 1023<1024 → count++=1024 → return K0
+        //   Call 1025: count=1024 → 1024≥1024 → 회전→K1, count=0 → count++=1 → return K1
+        //   → K0: 1024회, K1: 1024회 (대칭 ✓)
         if (operation_count >= rotation_interval) {
             // ── LCG 상태 전이 (은닉된 internal_state만 전진) ─────────
             uint64_t lcg_state = internal_state;
@@ -113,12 +121,11 @@ namespace ProtectedEngine {
             // ── [BUG-12] 단방향 키 파생 (Forward/Backward Secrecy) ───
             uint64_t new_key = Murmur3_Fmix64(lcg_state) ^ lcg_state;
 
-            // 이전 키 소거: new_key 덮어쓰기 자체가 물리적 소거
-            // (소멸자 Secure_Wipe는 별도 유지)
             current_key = new_key;
             operation_count = 0;
         }
 
+        operation_count++;
         return current_key;
     }
 

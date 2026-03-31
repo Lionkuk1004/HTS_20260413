@@ -32,7 +32,8 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) q[i] = 0u;
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        // [BUG-FIX CRIT] "memory" → 경량 "r" 이스케이프 (프로젝트 표준)
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -147,14 +148,21 @@ namespace ProtectedEngine {
         }
     }
 
-    // Multiply by x in GF(2^8)
+    // Multiply by x in GF(2^8) — [BUG-FIX HIGH] Constant-Time
+    //  기존: if (hi) a ^= 0x1B / if (b & 1) p ^= a → 데이터 의존 분기
+    //  수정: 비트 마스크로 분기 완전 제거 → 타이밍 사이드채널 차단
+    //  원리: 0 - bit = 0x00(bit=0) / 0xFF(bit=1) → AND 마스크
     static constexpr uint8_t gmul(uint8_t a, uint8_t b) noexcept {
         uint8_t p = 0;
         for (int i = 0; i < 8; ++i) {
-            if (b & 1u) p ^= a;
-            const uint8_t hi = static_cast<uint8_t>(a & 0x80u);
+            // if (b & 1) p ^= a → 상수 시간
+            p ^= static_cast<uint8_t>(a & static_cast<uint8_t>(
+                0u - static_cast<uint8_t>(b & 1u)));
+            const uint8_t hi = static_cast<uint8_t>(a >> 7u);
             a = static_cast<uint8_t>(a << 1u);
-            if (hi) a ^= 0x1Bu;
+            // if (hi) a ^= 0x1B → 상수 시간 (부호 확장 마스크)
+            a ^= static_cast<uint8_t>(
+                static_cast<uint8_t>(0u - hi) & 0x1Bu);
             b = static_cast<uint8_t>(b >> 1u);
         }
         return p;
@@ -362,10 +370,10 @@ namespace ProtectedEngine {
             return false;
         }
 
-        if (input_16bytes == output_16bytes) {
-            AES_Secure_Zero(output_16bytes, 16);
-            return false;
-        }
+        // [BUG-FIX FATAL] In-Place 차단 로직 삭제
+        //  기존: input==output → AES_Secure_Zero(output) → 원본 데이터 파괴
+        //  실제: AES_Encrypt/Decrypt_Block은 내부 state[16] 스택 복사 후 연산
+        //        → input==output여도 메모리 오버랩 이슈 없음 (In-place 안전)
 
         if (is_encrypt) {
             AES_Encrypt_Block(input_16bytes, output_16bytes, round_keys, num_rounds);
