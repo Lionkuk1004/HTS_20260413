@@ -31,6 +31,9 @@
 #include <cstdint>
 #include <cstring>
 #include <new>
+#if defined(_MSC_VER)
+#include <intrin.h>             // _BitScanReverse (CLZ 등가)
+#endif
 
 // ── 플랫폼 검증 (BUG-03: 헤더→.cpp 이동) ──────────────────────────
 static_assert(sizeof(int32_t) == 4,
@@ -126,10 +129,11 @@ namespace ProtectedEngine {
     // =====================================================================
     HTS_Rx_Sync_Detector::~HTS_Rx_Sync_Detector() noexcept {
         Impl* p = get_impl();
-        if (p != nullptr) { p->~Impl();
-        // [FIX-WIPE] impl_buf_ 전체 3중 방어 소거
-        Rx_Sync_Detector_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-    }
+        if (p != nullptr) {
+            p->~Impl();
+            // [FIX-WIPE] impl_buf_ 전체 3중 방어 소거
+            Rx_Sync_Detector_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
+        }
         SecWipe_Sync(impl_buf_, sizeof(impl_buf_));
         impl_valid_ = false;
     }
@@ -268,10 +272,16 @@ namespace ProtectedEngine {
             // shift = 33 - CLZ(hi) → nf_num >> shift ≤ INT32_MAX
 #if defined(__GNUC__) || defined(__clang__)
             // ARM Cortex-M4: CLZ = 1사이클 하드웨어 명령어
-            // x86(PC 시뮬레이션): BSR로 자동 치환 — 동일 1사이클
             shift = 33u - static_cast<uint32_t>(__builtin_clz(hi));
+#elif defined(_MSC_VER)
+            // [FIX-MSVC] _BitScanReverse: 1사이클 (while 루프 제거)
+            //  idx = MSB 위치 (0~31), CLZ = 31 - idx
+            //  shift = 33 - (31 - idx) = idx + 2
+            unsigned long idx = 0;
+            _BitScanReverse(&idx, static_cast<unsigned long>(hi));
+            shift = static_cast<uint32_t>(idx) + 2u;
 #else
-            // MSVC PC 폴백 (시뮬레이션 전용 — 성능 무관)
+            // 범용 폴백 (시뮬레이션 전용)
             uint32_t tmp = hi;
             uint32_t bits = 0u;
             while (tmp != 0u) { tmp >>= 1u; ++bits; }
@@ -282,12 +292,17 @@ namespace ProtectedEngine {
             // hi == 0: nf_num ≤ 0xFFFFFFFF
             // bit31 = 1 → nf_num > INT32_MAX → shift 1
             // bit31 = 0 → nf_num ≤ INT32_MAX → shift 0
-            // 브랜치리스: LSR #31 = 1사이클 (ARM 배럴시프트)
             shift = static_cast<uint32_t>(nf_num) >> 31u;
         }
 
         nf_num >>= shift;
-        nf_den >>= shift;
+        // [FIX-MATH] nf_den 언더플로 방지: shift가 nf_den 비트폭 초과 시 비시프트
+        //  기존: nf_den >>= shift → nf_den=1,shift=1 → nf_den=0 → 가드=1 → 2배 왜곡
+        //  수정: nf_den가 shift를 수용 가능할 때만 시프트
+        //  불가 시: nf_den 유지 → 결과는 noise_floor 과소추정 (보수적 CFAR, 안전)
+        if (shift > 0u && nf_den >= (1u << shift)) {
+            nf_den >>= shift;
+        }
         if (nf_den == 0u) { nf_den = 1u; }
 
         // HW UDIV: 2~12사이클 (기존 __aeabi_ldivmod ~200사이클)

@@ -18,10 +18,11 @@ namespace ProtectedEngine {
     // ── [BUG-54] HARQ Q채널 — CCM 배치 file-scope 배열 ──
     //  sizeof(HTS_V400_Dispatcher)에서 제외하기 위해 클래스 외부 정의.
     //  생성자에서 harq_Q_ 포인터를 이 배열에 연결.
-    //  ARM: .ccm_data 섹션 → linker가 CCM(0x10000000, 64KB)에 배치
-    //  PC:  일반 BSS (.bss) — 테스트 시 제약 없음
+    //  [FIX-CCM-BSS] .ccm_bss 섹션 → 바이너리 108KB 절감
+    //  = {} 제거 → .bss 배치 (startup zero-fill + full_reset_ memset 이중 보장)
+    //  PC: 일반 BSS (.bss) — 테스트 시 제약 없음
     HTS_CCM_SECTION
-        static int32_t g_harq_Q_ccm[FEC_HARQ::NSYM64][FEC_HARQ::C64] = {};
+        static int32_t g_harq_Q_ccm[FEC_HARQ::NSYM64][FEC_HARQ::C64];
 
     static_assert(sizeof(int16_t) == 2, "int16_t must be 2 bytes");
     static_assert(sizeof(int32_t) == 4, "int32_t must be 4 bytes");

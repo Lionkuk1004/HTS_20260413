@@ -34,17 +34,6 @@ static_assert(sizeof(int16_t) == 2u, "int16_t must be 2 bytes");
 static_assert(sizeof(int32_t) == 4u, "int32_t must be 4 bytes");
 
 namespace ProtectedEngine {
-    // [FIX-WIPE] 3중 방어 보안 소거 — impl_buf_ 전체 파쇄
-    static void Native_ECCM_Core_Secure_Wipe(void* p, size_t n) noexcept {
-        if (p == nullptr || n == 0u) { return; }
-        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
 
     // =============================================================================
     //  모듈 상수
@@ -127,8 +116,8 @@ namespace ProtectedEngine {
     //   동일 인스턴스 동시 Decode 호출 시 키 쌍 뒤섞임 → 복호 실패.
     //   STM32 단일 스레드 환경에서는 무해.
     //
-    //  [BUG-32] sizeof(Impl) ≈ 1040B
-    //   mags[64]+sorted[64]+sI[64]+sQ[64]=1024B + atomic 3개 ≈ 1040B
+    //  [BUG-32] sizeof(Impl) ≈ 784B (FIX-SRAM: sorted/sI 공유 −256B)
+    //   mags[64]+union(sorted/sI)[64]+sQ[64]=768B + atomic 3개 ≈ 784B
     //   래퍼 sizeof(HTS64_Native_ECCM_Core) ≈ 2056B와 구분할 것
     // =============================================================================
 
@@ -139,8 +128,15 @@ namespace ProtectedEngine {
         std::atomic<bool>     cal{ false };
 
         uint32_t mags[N] = {};
-        uint32_t sorted[N] = {};
-        int32_t  sI[N] = {};
+        // [FIX-SRAM] sorted → sI 공유 (시간적 분리)
+        //  sorted: extract_and_descramble 전반부에서 nth_select용 (파괴적)
+        //  sI:     extract_and_descramble 후반부 + FWHT에서 사용
+        //  sorted 소비 완료 후 sI 기록 → 메모리 공유 안전
+        //  절감: 256B (uint32_t[64])
+        union {
+            uint32_t sorted[N];   // nth_select 전용 (파괴적 읽기)
+            int32_t  sI[N];       // 스크램블 해제 I + FWHT
+        } scratch_ = {};          // [FIX-C26495] 익명 union 제로 초기화
         int32_t  sQ[N] = {};
 
         // ── Lock-Free PRNG (Xorshift32) ──
@@ -200,13 +196,13 @@ namespace ProtectedEngine {
             for (int i = 0; i < N; ++i) {
                 mags[i] = fast_abs(static_cast<int32_t>(rI[i]))
                     + fast_abs(static_cast<int32_t>(rQ[i]));
-                sorted[i] = mags[i];
+                scratch_.sorted[i] = mags[i];
             }
 
-            uint32_t baseline = nth_select(sorted, N, Q25_IDX);
+            uint32_t baseline = nth_select(scratch_.sorted, N, Q25_IDX);
             if (baseline < MIN_NF) { baseline = MIN_NF; }
 
-            uint32_t q75 = nth_select(sorted, N, Q75_IDX);
+            uint32_t q75 = nth_select(scratch_.sorted, N, Q75_IDX);
             if (q75 < baseline) { q75 = baseline; }
 
             const bool is_cw_like = (q75 > baseline * CW_RATIO_TH);
@@ -240,7 +236,7 @@ namespace ProtectedEngine {
                 }
 
                 if (kb(kH, kL, i)) { si = -si; sq = -sq; }
-                sI[i] = si;
+                scratch_.sI[i] = si;
                 sQ[i] = sq;
             }
             return baseline;
@@ -268,17 +264,17 @@ namespace ProtectedEngine {
             const uint32_t baseline = extract_and_descramble(rI, rQ, kH, kL);
             update_nf(baseline);
 
-            FWHT(sI);
+            FWHT(scratch_.sI);
             FWHT(sQ);
 
             if (!hard && (fI != nullptr) && (fQ != nullptr)) {
-                for (int i = 0; i < N; ++i) { fI[i] = sI[i]; fQ[i] = sQ[i]; }
+                for (int i = 0; i < N; ++i) { fI[i] = scratch_.sI[i]; fQ[i] = sQ[i]; }
             }
 
             // Step 1: 피크 탐색 → 적응형 시프트 결정
             uint32_t peak = 0u;
             for (int m = 0; m < N; ++m) {
-                const uint32_t a = fast_abs(sI[m]);
+                const uint32_t a = fast_abs(scratch_.sI[m]);
                 const uint32_t b = fast_abs(sQ[m]);
                 if (a > peak) { peak = a; }
                 if (b > peak) { peak = b; }
@@ -293,7 +289,7 @@ namespace ProtectedEngine {
             uint32_t best_scaled = 0u;
             uint8_t  dec = 0xFFu;
             for (int m = 0; m < N; ++m) {
-                const int32_t  si_s = sI[m] >> shift;
+                const int32_t  si_s = scratch_.sI[m] >> shift;
                 const int32_t  sq_s = sQ[m] >> shift;
                 const uint32_t e = static_cast<uint32_t>(si_s * si_s)
                     + static_cast<uint32_t>(sq_s * sq_s);
@@ -304,7 +300,7 @@ namespace ProtectedEngine {
             if (dec == 0xFFu) { return -1; }
             const uint64_t best_actual =
                 static_cast<uint64_t>(
-                    static_cast<int64_t>(sI[dec]) * sI[dec]
+                    static_cast<int64_t>(scratch_.sI[dec]) * scratch_.sI[dec]
                     + static_cast<int64_t>(sQ[dec]) * sQ[dec]);
             const uint64_t th = adaptive_threshold();
             return (best_actual < th) ? static_cast<int8_t>(-1)
@@ -319,7 +315,7 @@ namespace ProtectedEngine {
             const uint32_t kL = next_prng();
             extract_and_descramble(rI, rQ, kH, kL);
             for (int i = 0; i < N; ++i) {
-                oI[i] = clamp_i16(sI[i]);
+                oI[i] = clamp_i16(scratch_.sI[i]);
                 oQ[i] = clamp_i16(sQ[i]);
             }
         }
@@ -330,8 +326,8 @@ namespace ProtectedEngine {
             cal.store(false, std::memory_order_relaxed);
             std::atomic_thread_fence(std::memory_order_release);
             SecWipe(mags, sizeof(mags));
-            SecWipe(sorted, sizeof(sorted));
-            SecWipe(sI, sizeof(sI));
+            // [FIX-SRAM] sorted/sI 공유 → 1회 소거
+            SecWipe(&scratch_, sizeof(scratch_));
             SecWipe(sQ, sizeof(sQ));
         }
     };
@@ -376,11 +372,7 @@ namespace ProtectedEngine {
 
     HTS64_Native_ECCM_Core::~HTS64_Native_ECCM_Core() noexcept {
         Impl* p = get_impl();
-        if (p != nullptr) {
-            p->~Impl();
-            // [FIX-WIPE] impl_buf_ 전체 3중 방어 소거
-            Native_ECCM_Core_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        }
+        if (p != nullptr) { p->~Impl(); }
         SecWipe(impl_buf_, sizeof(impl_buf_));
         impl_valid_ = false;
     }
@@ -414,16 +406,21 @@ namespace ProtectedEngine {
             return false;
         }
 
-        // [BUG-28] CAS: 이미 완료 또는 다른 스레드 진행 중이면 즉시 반환
+        // [FIX-OOB] 1회 스냅샷 강제 — V400 아키텍처 계약
+        //  기존: nf 루프로 nI += N 반복 → 호출자가 N*nf 크기 보장 필수
+        //  문제: V400은 Feed_Chip 1프레임(64칩)만 전달 → nf>1이면 OOB 즉사
+        //  수정: nf를 1로 클램프하여 단일 프레임만 처리
+        //  캘리브레이션 정밀도: update_nf IIR 필터가 프레임별로 수렴 → 1프레임 충분
+        if (nf > 1u) { nf = 1u; }
+
         bool expected = false;
         if (!p->cal.compare_exchange_strong(
             expected, true,
             std::memory_order_acq_rel,
             std::memory_order_acquire)) {
-            return true;  // expected == true → 이미 캘리브레이션 완료
+            return true;
         }
 
-        // CAS 성공: cal=true 선점. 이 스레드만 캘리브레이션 수행
         for (uint32_t f = 0u; f < nf; ++f) {
             uint32_t s = 0u;
             for (int i = 0; i < N; ++i) {
@@ -431,10 +428,7 @@ namespace ProtectedEngine {
                     + fast_abs(static_cast<int32_t>(nQ[i]));
             }
             p->update_nf(s >> 6u);
-            nI += N;
-            nQ += N;
         }
-        // cal은 CAS에서 이미 true — 추가 store 불필요
         return true;
     }
 

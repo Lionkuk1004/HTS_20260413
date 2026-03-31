@@ -118,8 +118,35 @@ namespace ProtectedEngine {
     // ── [BUG-54] CCM 섹션 매크로 ──
     //  STM32F407 CCM (0x10000000, 64KB): DMA 불가, CPU만 접근
     //  HARQ 누적은 CPU 연산 전용 → CCM 배치 안전
+    //
+    //  [FIX-CCM-BSS] .ccm_data → .ccm_bss 변경
+    //   .ccm_data: 초기값 포함 → .bin에 108KB 데이터 임베드 (펌웨어 폭발)
+    //   .ccm_bss:  초기값 없음 → .bin 크기 0 (부팅 시 startup이 제로필)
+    //
+    //  ★ 링커 스크립트(.ld) 필수 추가:
+    //   CCM (rwx) : ORIGIN = 0x10000000, LENGTH = 64K
+    //   .ccm_bss (NOLOAD) : {
+    //       _sccm_bss = .;
+    //       *(.ccm_bss)
+    //       _eccm_bss = .;
+    //   } > CCM
+    //
+    //  ★ startup_stm32.s 필수 추가 (Reset_Handler 내):
+    //   @ CCM BSS Zero-Fill
+    //   ldr r0, =_sccm_bss
+    //   ldr r1, =_eccm_bss
+    //   movs r2, #0
+    //   ccm_bss_loop:
+    //     cmp r0, r1
+    //     bge ccm_bss_done
+    //     str r2, [r0], #4
+    //     b ccm_bss_loop
+    //   ccm_bss_done:
+    //
+    //  ★ 런타임 안전망: full_reset_()에서 memset(g_harq_Q_ccm, 0, sizeof)
+    //     이미 적용됨 → startup 누락 시에도 첫 패킷 수신 전 제로화 보장
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)
-#define HTS_CCM_SECTION  __attribute__((section(".ccm_data")))
+#define HTS_CCM_SECTION  __attribute__((section(".ccm_bss")))
 #else
 #define HTS_CCM_SECTION  /* PC: 섹션 속성 무시 */
 #endif
@@ -261,7 +288,7 @@ namespace ProtectedEngine {
         //  포인터만 클래스 멤버로 보유
         //
         //  linker script 예시:
-        //    .ccm_data : { *(.ccm_data) } > CCM
+        //    .ccm_bss (NOLOAD) : { _sccm_bss = .; *(.ccm_bss) _eccm_bss = .; } > CCM
         //
         int32_t(*harq_Q_)[FEC_HARQ::C64];  ///< CCM 배치 Q채널 포인터
 
