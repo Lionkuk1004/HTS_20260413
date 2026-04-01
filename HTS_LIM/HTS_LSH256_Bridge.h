@@ -26,6 +26,11 @@
 #include <cstddef>
 
 namespace ProtectedEngine {
+    static const uint32_t LSH_SECURE_TRUE = 0x5A5A5A5Au;
+    static const uint32_t LSH_SECURE_FALSE = 0xA5A5A5A5u;
+
+    /// @note 성공/실패 모두 비영(0) — if(Hash_*()) 불가.
+    ///       `Hash_*(...) == LSH_SECURE_TRUE` 로 판정 (기준서 G-2 / 호출 계약)
 
     // LSH 출력 길이 상수 (바이트)
     static const size_t LSH256_DIGEST_BYTES = 32u;
@@ -48,7 +53,7 @@ namespace ProtectedEngine {
         //  output_32: 출력 버퍼 — 반드시 32바이트 이상
         //  실패 시: output_32를 0으로 소거 (정보 누출 방지)
         // =================================================================
-        [[nodiscard]] static bool Hash_256(
+        [[nodiscard]] static uint32_t Hash_256(
             const uint8_t* data, size_t data_len,
             uint8_t* output_32) noexcept;
 
@@ -60,7 +65,7 @@ namespace ProtectedEngine {
         //  output_28: 출력 버퍼 — 반드시 28바이트 이상
         //  실패 시: output_28을 0으로 소거 (정보 누출 방지)
         // =================================================================
-        [[nodiscard]] static bool Hash_224(
+        [[nodiscard]] static uint32_t Hash_224(
             const uint8_t* data, size_t data_len,
             uint8_t* output_28) noexcept;
     };

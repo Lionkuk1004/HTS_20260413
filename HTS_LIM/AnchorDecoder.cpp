@@ -260,7 +260,7 @@ namespace ProtectedEngine {
         const std::vector<uint16_t>& anchorData) const noexcept {
 
         std::vector<uint16_t> result;
-        if (decode_inplace(brokenData, anchorData, result)) {
+        if (decode_inplace(brokenData, anchorData, result) == SECURE_TRUE) {
             return result;
         }
         return {};
@@ -278,7 +278,7 @@ namespace ProtectedEngine {
     //  내부 임시 벡터(erasureIndices, healthy 등)는 E에 비례 (E < 16)
     //  → 메모리 할당 무시 가능
     // =====================================================================
-    bool AnchorDecoder::restoreBlock_inplace(
+    uint32_t AnchorDecoder::restoreBlock_inplace(
         std::vector<uint16_t>& data,
         const std::vector<uint16_t>& parityChunk) const noexcept {
 
@@ -292,8 +292,8 @@ namespace ProtectedEngine {
         }
         const size_t E = erasureIndices.size();
 
-        if (E == 0) return true;  // 이레이저 없음 → 이미 정상
-        if (E > parityChunk.size()) return false;
+        if (E == 0) return SECURE_TRUE;  // 이레이저 없음 → 이미 정상
+        if (E > parityChunk.size()) return SECURE_FALSE;
 
         // 2. 건강한 패리티 행 선택
         std::vector<size_t> healthy;
@@ -302,7 +302,7 @@ namespace ProtectedEngine {
             if (parityChunk[p] != 0xFFFFu) healthy.push_back(p);
             if (healthy.size() == E) break;
         }
-        if (healthy.size() != E) return false;
+        if (healthy.size() != E) return SECURE_FALSE;
 
         // 3. 신드롬 계산
         std::vector<uint8_t> syn_hi(E, 0);
@@ -347,7 +347,7 @@ namespace ProtectedEngine {
             }
         }
 
-        if (!GF8Bit_DEC::invertMatrix(M, E)) return false;
+        if (!GF8Bit_DEC::invertMatrix(M, E)) return SECURE_FALSE;
 
         // 5. 역행렬 × 신드롬 → 복원 (data 직접 수정)
         for (size_t k = 0; k < E; ++k) {
@@ -366,7 +366,7 @@ namespace ProtectedEngine {
                 (static_cast<uint16_t>(val_hi) << 8u) | val_lo);
         }
 
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================
@@ -377,13 +377,13 @@ namespace ProtectedEngine {
     //  수정: RAII_Seed_Wiper 소멸자에서 1회 자동 소거
     //        경로 추가 시 소거 누락 위험 원천 차단
     // =====================================================================
-    bool AnchorDecoder::decode_inplace(
+    uint32_t AnchorDecoder::decode_inplace(
         const std::vector<uint16_t>& brokenData,
         const std::vector<uint16_t>& anchorData,
         std::vector<uint16_t>& out) const noexcept {
 
         out.clear();
-        if (brokenData.empty() || anchorData.empty()) return false;
+        if (brokenData.empty() || anchorData.empty()) return SECURE_FALSE;
 
         static constexpr size_t MAX_SEED = 64u;
         uint8_t masterSeed[MAX_SEED] = {};
@@ -396,7 +396,7 @@ namespace ProtectedEngine {
         if (mseed_len == 0u) {
             Session_Gateway::Trigger_Hardware_Trap(
                 "Unauthorized Data Plane Access (Decoder)");
-            return false;
+            return SECURE_FALSE;
         }
 
         const size_t brokenSize = brokenData.size();
@@ -407,7 +407,7 @@ namespace ProtectedEngine {
         if (chunkAnchorSize > 127) chunkAnchorSize = 127;
 
         if (static_cast<size_t>(chunkAnchorSize) + 2 > anchorData.size()) {
-            return false;
+            return SECURE_FALSE;
         }
 
         // out = brokenData (capacity 재사용 → malloc 0회)
@@ -426,22 +426,22 @@ namespace ProtectedEngine {
 
         // [1차 검증] Pre-check: 이미 정상
         if (compute_crc32_(out) == storedCrc) {
-            return true;  // seed_wiper 소멸자: masterSeed 자동 소거
+            return SECURE_TRUE;  // seed_wiper 소멸자: masterSeed 자동 소거
         }
 
         // RS 복원 — out 직접 수정
-        if (!restoreBlock_inplace(out, parityChunk)) {
+        if (restoreBlock_inplace(out, parityChunk) != SECURE_TRUE) {
             out.clear();
-            return false;  // seed_wiper 소멸자: masterSeed 자동 소거
+            return SECURE_FALSE;  // seed_wiper 소멸자: masterSeed 자동 소거
         }
 
         // [2차 검증] Post-check: 복원 결과 무결성
         if (compute_crc32_(out) != storedCrc) {
             out.clear();
-            return false;  // seed_wiper 소멸자: masterSeed 자동 소거
+            return SECURE_FALSE;  // seed_wiper 소멸자: masterSeed 자동 소거
         }
 
-        return true;  // seed_wiper 소멸자: masterSeed 자동 소거
+        return SECURE_TRUE;  // seed_wiper 소멸자: masterSeed 자동 소거
     }
 
 } // namespace ProtectedEngine

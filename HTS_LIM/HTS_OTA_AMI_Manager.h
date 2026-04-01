@@ -28,11 +28,15 @@
 //   콜백 구조체로 주입 → 모듈 독립성 유지
 //
 //  @warning sizeof ≈ 560B — 전역/정적 배치 권장
+//
+//  BUG-42 [CRIT] D-2: 안티포렌식 소거는 SecureMemory::secureWipe 단일화
+//         소멸자: op_busy 스핀 상한 + 타임아웃 시에도 impl_buf 전량 파쇄
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -66,13 +70,15 @@ namespace ProtectedEngine {
     static constexpr size_t OTA_CHUNK_MAC_SIZE = 4u;     // 절삭 HMAC
 
     /// @brief 암호 HAL 콜백 (KCMVP 모듈 연동)
+    /// @note H-1: key/data/out_mac nullptr 금지. 실패 시 out_mac 미정의(호출측에서 소거).
+    ///       X-5-4: 보안 비교는 모듈 내부 ct_compare; 콜백은 **표준 bool** true=성공만.
     struct OTA_Crypto_Callbacks {
         /// @brief HMAC-LSH256 전체 계산
         /// @param key      32B 키
         /// @param data     입력 데이터
         /// @param data_len 길이
         /// @param out_mac  32B 출력
-        /// @return true = 성공
+        /// @return true = 성공, false = 실패 (SECURE_TRUE 토큰 반환 금지 — if(cb()) 오판)
         bool (*hmac_lsh256)(
             const uint8_t* key,
             const uint8_t* data, size_t data_len,
@@ -99,6 +105,9 @@ namespace ProtectedEngine {
 
         explicit HTS_OTA_AMI_Manager(
             uint16_t my_id, uint32_t current_version) noexcept;
+        /// @note 소멸 시 op_busy_ 단일 스핀으로 배타 획득 후 impl 파쇄(D-2).
+        ///       멀티스레드/ISR에서 동시 호출 시 데드락 가능 — 소멸 전 Shutdown() 또는
+        ///       외부 동기화 필수(W-2: ISR 내 장시간 대기 금지).
         ~HTS_OTA_AMI_Manager() noexcept;
 
         HTS_OTA_AMI_Manager(const HTS_OTA_AMI_Manager&) = delete;
@@ -162,7 +171,8 @@ namespace ProtectedEngine {
         static constexpr size_t IMPL_BUF_ALIGN = 8u;
         struct Impl;
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
+        mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;
     };

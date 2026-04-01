@@ -134,18 +134,21 @@ namespace ProtectedEngine {
             g_isOperational.store(false, std::memory_order_release);
             Auto_Rollback_Manager::Execute_Self_Healing(HEAL_ALU_FAIL);
             // [[noreturn]] - never reaches here
+            return; // 방어: 비정상 복귀 시 POST 진행 차단
         }
 
         // KAT #1: Parity Recovery
         if (!KAT_Parity_Recovery_Engine()) {
             g_isOperational.store(false, std::memory_order_release);
             Auto_Rollback_Manager::Execute_Self_Healing(HEAL_KAT1_FAIL);
+            return; // 방어: 실패 후 정상 상태 복귀 금지
         }
 
         // KAT #2: Gravity Interpolation
         if (!KAT_Gravity_Interpolation_Engine()) {
             g_isOperational.store(false, std::memory_order_release);
             Auto_Rollback_Manager::Execute_Self_Healing(HEAL_KAT2_FAIL);
+            return; // 방어: 실패 후 정상 상태 복귀 금지
         }
 
         // [BUG-11] KAT #3: 암호 알고리즘 KAT (KCMVP + FIPS)
@@ -155,6 +158,7 @@ namespace ProtectedEngine {
         if (!Crypto_KAT::Run_All_Crypto_KAT()) {
             g_isOperational.store(false, std::memory_order_release);
             Auto_Rollback_Manager::Execute_Self_Healing(HEAL_CRYPTO_KAT);
+            return; // 방어: 실패 후 정상 상태 복귀 금지
         }
 
         g_isOperational.store(true, std::memory_order_release);
@@ -173,6 +177,7 @@ namespace ProtectedEngine {
                 "I/O blocked. Module is in ERROR STATE.");
             Auto_Rollback_Manager::Execute_Self_Healing(HEAL_POST_BLOCK);
             // [[noreturn]] - never reaches here
+            return; // 방어: 비정상 복귀 시 이후 경로 차단
         }
     }
 

@@ -49,13 +49,16 @@ namespace ProtectedEngine {
     /// @warning sizeof ~ 1.2KB. 전역/정적 배치 권장.
     class HTS_Holo_Dispatcher final {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         HTS_Holo_Dispatcher() noexcept;
         ~HTS_Holo_Dispatcher() noexcept;
 
         /// @brief 초기화 (마스터 시드)
         /// @param master_seed  128비트 마스터 시드
-        /// @return 성공 시 true
-        bool Initialize(const uint32_t master_seed[4]) noexcept;
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Initialize(const uint32_t master_seed[4]) noexcept;
 
         /// @brief 종료
         void Shutdown() noexcept;
@@ -88,8 +91,8 @@ namespace ProtectedEngine {
         /// @param valid_mask 유효 칩 비트맵 (0xFFFF..=전체 유효)
         /// @param out_data   복원 데이터 (최대 16바이트)
         /// @param out_len    복원 데이터 길이
-        /// @return 성공 시 true
-        bool Decode_Holo_Block(const int16_t* rx_I, const int16_t* rx_Q,
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Decode_Holo_Block(const int16_t* rx_I, const int16_t* rx_Q,
             uint16_t chip_count, uint64_t valid_mask,
             uint8_t* out_data, int* out_len) noexcept;
 
@@ -116,8 +119,12 @@ namespace ProtectedEngine {
         HTS_Holo_Dispatcher& operator=(HTS_Holo_Dispatcher&&) = delete;
 
     private:
+        static constexpr uint32_t LOCK_FREE = 0x13579BDFu;
+        static constexpr uint32_t LOCK_BUSY = 0x2468ACE0u;
+
         HTS_Holo_Tensor_4D engine_;
-        uint8_t current_mode_;
+        std::atomic<uint8_t> current_mode_{ HoloPayload::DATA_HOLO };
+        std::atomic<uint32_t> dispatch_busy_{ LOCK_FREE };
         uint8_t pad_[3] = {};   ///< Alignment padding (C26495 fix)
     };
 

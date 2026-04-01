@@ -42,20 +42,31 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
 #include <vector>
+#endif
 
 namespace ProtectedEngine {
 
     class DynamicKeyRotator {
     public:
+        /// @brief [Raw API] Zero-Heap — ARM/임베디드 기본 진입점
+        explicit DynamicKeyRotator(
+            const uint8_t* masterSeed, size_t master_len) noexcept;
+
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
         /// @brief Forward Secrecy 시드 로테이터 생성
         /// @param masterSeed  초기 마스터 시드 (빈 벡터 시 내부 32바이트 기본값)
         /// @note  초기화 실패(OOM) 시 impl_valid_=false → deriveNextSeed 빈 벡터
         /// @note  소멸 시 마스터 시드 보안 소거 보장 (volatile + fence)
         explicit DynamicKeyRotator(
             const std::vector<uint8_t>& masterSeed) noexcept;
+#endif
 
         /// @brief 소멸자 — p->~Impl() + Key_Rotator_Secure_Wipe(impl_buf_) 3중 방어
         ~DynamicKeyRotator() noexcept;
@@ -75,9 +86,12 @@ namespace ProtectedEngine {
         bool deriveNextSeed(uint32_t blockIndex,
             uint8_t* out_buf, size_t out_len) noexcept;
 
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
         /// @brief [호환] 기존 vector API — Raw API 래퍼 (마이그레이션 후 삭제)
         /// @deprecated Raw API 사용 권장
         std::vector<uint8_t> deriveNextSeed(uint32_t blockIndex) noexcept;
+#endif
 
     private:
         // ── [BUG-15] Pimpl In-Place Storage (zero-heap) ──────────────
@@ -89,7 +103,7 @@ namespace ProtectedEngine {
         struct Impl;  ///< 키 소재 완전 은닉 (ABI 안정성 보장)
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;  ///< placement new 성공 여부
+        std::atomic<bool> impl_valid_{ false };  ///< placement new 성공 여부
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

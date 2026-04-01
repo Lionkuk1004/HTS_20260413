@@ -37,6 +37,21 @@
 
 namespace ProtectedEngine {
 
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+    static inline uint32_t keyrot_critical_enter() noexcept {
+        uint32_t primask;
+        __asm volatile ("MRS %0, PRIMASK\n CPSID I"
+            : "=r"(primask) :: "memory");
+        return primask;
+    }
+    static inline void keyrot_critical_exit(uint32_t pm) noexcept {
+        __asm volatile ("MSR PRIMASK, %0" :: "r"(pm) : "memory");
+    }
+#else
+    static inline uint32_t keyrot_critical_enter() noexcept { return 0u; }
+    static inline void keyrot_critical_exit(uint32_t) noexcept {}
+#endif
+
     // =====================================================================
     //  Murmur3 64-bit Finalizer — 키 파생 비선형 혼합
     // =====================================================================
@@ -59,8 +74,7 @@ namespace ProtectedEngine {
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0; i < size; ++i) p[i] = 0;
 #if defined(__GNUC__) || defined(__clang__)
-        // [BUG-FIX CRIT] "memory" → 경량 "r" 이스케이프 (프로젝트 표준 통일)
-        __asm__ __volatile__("" : : "r"(ptr));
+        __asm__ __volatile__("" : : "r"(ptr) : "memory");
 #endif
         // [BUG] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
@@ -87,10 +101,12 @@ namespace ProtectedEngine {
     //  [BUG-07] 소멸자 — 전 멤버 보안 소거
     // =====================================================================
     Dynamic_Key_Rotator::~Dynamic_Key_Rotator() noexcept {
+        const uint32_t pm = keyrot_critical_enter();
         Secure_Wipe_KeyRotator(&internal_state, sizeof(internal_state));
         Secure_Wipe_KeyRotator(&current_key, sizeof(current_key));
         Secure_Wipe_KeyRotator(&operation_count, sizeof(operation_count));
         Secure_Wipe_KeyRotator(&rotation_interval, sizeof(rotation_interval));
+        keyrot_critical_exit(pm);
     }
 
     // =====================================================================
@@ -100,6 +116,7 @@ namespace ProtectedEngine {
     // =====================================================================
 
     uint64_t Dynamic_Key_Rotator::Get_Current_Key_And_Rotate() noexcept {
+        const uint32_t pm = keyrot_critical_enter();
         // [BUG-FIX FATAL] Off-By-One 해소: 회전 검사 → 카운트 증가 순서 교정
         //  기존: count++ 선행 → 첫 키 K0가 (interval-1)회만 사용 → TX/RX 키 엇갈림
         //  수정: 회전 검사 먼저, 카운트 증가 후행 → 모든 키 정확히 interval회 사용
@@ -126,7 +143,9 @@ namespace ProtectedEngine {
         }
 
         operation_count++;
-        return current_key;
+        const uint64_t out = current_key;
+        keyrot_critical_exit(pm);
+        return out;
     }
 
 

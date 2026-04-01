@@ -41,18 +41,6 @@
 #include <new>     // placement new (힙 할당 아님)
 
 namespace ProtectedEngine {
-    // [FIX-WIPE] 3중 방어 보안 소거 — impl_buf_ 전체 파쇄
-    static void Security_Session_Secure_Wipe(void* p, size_t n) noexcept {
-        if (p == nullptr || n == 0u) { return; }
-        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
-
     // =====================================================================
     //  [BUG-08] CTR 카운터 고속 덧셈 (Big-Endian)
     //  루프 오버헤드를 없애고 N개의 블록을 한 번에 더하는 O(1) 알고리즘
@@ -283,12 +271,12 @@ namespace ProtectedEngine {
         static_assert(alignof(Impl) <= 8,
             "Impl alignment exceeds impl_buf_ alignment");
 
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_)
             : nullptr;
     }
     const HTS_Security_Session::Impl* HTS_Security_Session::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -317,19 +305,18 @@ namespace ProtectedEngine {
 
         // placement new: 0클린된 버퍼 위에 Impl 구축 (힙 접근 0)
         ::new (static_cast<void*>(impl_buf_)) Impl();
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Security_Session::~HTS_Security_Session() noexcept {
-        Impl* p = get_impl();
-        if (p) {
+        Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
+        const bool was_valid = impl_valid_.exchange(false, std::memory_order_acq_rel);
+        if (was_valid) {
             p->Clean_State();       // 멤버 필드 보안 소거
             p->~Impl();
-            Security_Session_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);             // 명시적 소멸자 호출 (placement new 계약)
         }
         // [BUG-19] 패딩 포함 전체 버퍼 소거 — Clean_State가 못 닿는 패딩까지
         SecureMemory::secureWipe(impl_buf_, sizeof(impl_buf_));
-        impl_valid_ = false;
     }
 
     bool HTS_Security_Session::Is_Active() const noexcept {
@@ -392,7 +379,8 @@ namespace ProtectedEngine {
     bool HTS_Security_Session::Protect_Begin() noexcept {
         if (!get_impl() || !get_impl()->is_session_active) return false;
         return HMAC_Bridge::Init(
-            get_impl()->tx_mac_ctx, get_impl()->session_mac_key, 32);
+            get_impl()->tx_mac_ctx, get_impl()->session_mac_key, 32)
+            == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Protect_Chunk(
@@ -410,13 +398,15 @@ namespace ProtectedEngine {
             return false;
 
         return HMAC_Bridge::Update(
-            get_impl()->tx_mac_ctx, ciphertext_out, chunk_len);
+            get_impl()->tx_mac_ctx, ciphertext_out, chunk_len)
+            == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Protect_End(uint8_t* mac_tag_out) noexcept {
         if (!get_impl() || !get_impl()->is_session_active || !mac_tag_out)
             return false;
-        return HMAC_Bridge::Final(get_impl()->tx_mac_ctx, mac_tag_out);
+        return HMAC_Bridge::Final(get_impl()->tx_mac_ctx, mac_tag_out)
+            == HMAC_Bridge::SECURE_TRUE;
     }
 
     // =====================================================================
@@ -425,7 +415,8 @@ namespace ProtectedEngine {
     bool HTS_Security_Session::Unprotect_Begin() noexcept {
         if (!get_impl() || !get_impl()->is_session_active) return false;
         return HMAC_Bridge::Init(
-            get_impl()->rx_mac_ctx, get_impl()->session_mac_key, 32);
+            get_impl()->rx_mac_ctx, get_impl()->session_mac_key, 32)
+            == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Unprotect_Feed(
@@ -435,7 +426,8 @@ namespace ProtectedEngine {
             !ciphertext_chunk || chunk_len == 0)
             return false;
         return HMAC_Bridge::Update(
-            get_impl()->rx_mac_ctx, ciphertext_chunk, chunk_len);
+            get_impl()->rx_mac_ctx, ciphertext_chunk, chunk_len)
+            == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Unprotect_Verify(
@@ -444,27 +436,15 @@ namespace ProtectedEngine {
         if (!get_impl() || !get_impl()->is_session_active || !received_mac_tag)
             return false;
 
-        // [FIX-TIMING] deferred_terminate 확인 — 이전 실패 시 즉시 거부
-        if (get_impl()->deferred_terminate) { return false; }
-
-        const bool mac_ok = HMAC_Bridge::Verify_Final(
-            get_impl()->rx_mac_ctx, received_mac_tag);
-
-        // [FIX-TIMING] 타이밍 디커플링 — MAC 결과와 무관한 일정 실행 경로
-        //
-        //  기존: if (!mac_ok) { Terminate_Session(); }
-        //   → 성공/실패 간 실행 시간 차이 → 타이밍 사이드채널
-        //
-        //  수정: 플래그만 설정, 실제 소거는 다음 API 호출 시 수행
-        //   → Unprotect_Verify 실행 시간 = 항상 동일
-        //   → 다음 호출(Decrypt_Chunk 등)에서 deferred_terminate 확인 → 거부+소거
-        //
-        //  branchless 플래그 설정: mac_ok=false → deferred_terminate=true
-        const uint32_t fail_mask = static_cast<uint32_t>(!mac_ok);
-        get_impl()->deferred_terminate |=
-            static_cast<bool>(fail_mask);
-
-        return mac_ok;
+        const bool mac_ok = (HMAC_Bridge::Verify_Final(
+            get_impl()->rx_mac_ctx, received_mac_tag)
+            == HMAC_Bridge::SECURE_TRUE);
+        if (!mac_ok) {
+            // BUG-22 규약: MAC 실패 시 즉시 세션 종료(키/컨텍스트 즉시 소거)
+            Terminate_Session();
+            return false;
+        }
+        return true;
     }
 
     bool HTS_Security_Session::Decrypt_Chunk(
@@ -474,12 +454,6 @@ namespace ProtectedEngine {
         if (!get_impl() || !get_impl()->is_session_active ||
             !ciphertext_chunk || !plaintext_out || chunk_len == 0)
             return false;
-
-        // [FIX-TIMING] 지연 종료 실행 — Unprotect_Verify 실패 후
-        if (get_impl()->deferred_terminate) {
-            Terminate_Session();
-            return false;
-        }
 
         // [BUG-07] 잔여 키스트림 버퍼 연동
         return get_impl()->Do_CTR_Chunk(ciphertext_chunk, chunk_len,

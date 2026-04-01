@@ -28,6 +28,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -49,6 +50,8 @@ namespace ProtectedEngine {
         static constexpr size_t SEED_LEN = KEY_LEN + BLOCK_LEN;  ///< 48B
         static constexpr size_t MAX_OUTPUT = 512u;  ///< 1회 최대 출력
         static constexpr uint32_t RESEED_INTERVAL = (1u << 20);  ///< 2^20
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
 
         HTS_CTR_DRBG() noexcept;
         ~HTS_CTR_DRBG() noexcept;
@@ -91,14 +94,16 @@ namespace ProtectedEngine {
         void Uninstantiate() noexcept;
 
         /// @brief 인스턴스화 여부
-        [[nodiscard]] bool Is_Instantiated() const noexcept { return instantiated; }
+        [[nodiscard]] bool Is_Instantiated() const noexcept {
+            return instantiated.load(std::memory_order_acquire);
+        }
 
     private:
         // ── SP 800-90A 내부 상태 ─────────────────────────────────
         uint8_t  key[KEY_LEN] = {};   ///< 현재 키 (256-bit)
         uint8_t  V[BLOCK_LEN] = {};   ///< 카운터 (128-bit)
-        uint32_t reseed_counter = 0u;
-        bool     instantiated = false;
+        std::atomic<uint32_t> reseed_counter{ 0u };
+        std::atomic<bool>     instantiated{ false };
 
         // ── CRNG 연속 테스트 (FIPS 140-3 AS09.35) ────────────────
         //  연속 2개 출력 블록이 동일하면 DRBG 고장 판정
@@ -108,14 +113,15 @@ namespace ProtectedEngine {
         // ── 내부 연산 ────────────────────────────────────────────
 
         /// @brief SP 800-90A §10.2.1.2 CTR_DRBG_Update
-        void Update(const uint8_t* provided_data) noexcept;
+        /// @return true=성공, false=블록 암호 실패(상태 갱신 중단)
+        uint32_t Update(const uint8_t* provided_data) noexcept;
 
         /// @brief V 카운터 1 증가 (Big-Endian, 16바이트)
         static void Increment_V(uint8_t* v) noexcept;
 
         /// @brief 블록 암호 호출 (빌드 프리셋에 따라 ARIA 또는 AES)
         /// @return true=성공
-        bool Block_Encrypt(const uint8_t* key_32,
+        uint32_t Block_Encrypt(const uint8_t* key_32,
             const uint8_t* in_16, uint8_t* out_16) noexcept;
 
         /// @brief seed_material 구성 (entropy || nonce || pers, SEED_LEN 패딩)

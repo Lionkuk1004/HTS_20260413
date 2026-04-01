@@ -120,7 +120,7 @@ namespace ProtectedEngine {
         struct Impl;  ///< 구현 세부사항 완전 은닉 (ABI 안정성 보장)
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;  ///< placement new 성공 여부
+        std::atomic<bool> impl_valid_{ false };  ///< placement new 성공 여부
 
         /// @brief Pimpl 내부 접근자 (impl_valid_ 검증 포함)
         Impl* get_impl() noexcept;

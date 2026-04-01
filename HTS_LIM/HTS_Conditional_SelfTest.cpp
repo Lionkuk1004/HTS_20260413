@@ -116,13 +116,13 @@ namespace ProtectedEngine {
         };
 
         // 암호화 (in-place)
-        uint8_t work[16] = {};
+        alignas(4) uint8_t work[16] = {};
         std::memcpy(work, pt_raw, 16);
         {
             LEA_Bridge enc;
-            if (!enc.Initialize(key, key_len_bytes, iv_16)) return false;
-            if (!enc.Encrypt_Payload(
-                reinterpret_cast<uint32_t*>(work), 4)) {
+            if (enc.Initialize(key, key_len_bytes, iv_16) != LEA_Bridge::SECURE_TRUE) return false;
+            if (enc.Encrypt_Payload(
+                reinterpret_cast<uint32_t*>(work), 4u) != LEA_Bridge::SECURE_TRUE) {
                 CST_Wipe(work, sizeof(work));
                 return false;
             }
@@ -131,12 +131,12 @@ namespace ProtectedEngine {
         // 복호화 (in-place, 동일 키+IV)
         {
             LEA_Bridge dec;
-            if (!dec.Initialize(key, key_len_bytes, iv_16)) {
+            if (dec.Initialize(key, key_len_bytes, iv_16) != LEA_Bridge::SECURE_TRUE) {
                 CST_Wipe(work, sizeof(work));
                 return false;
             }
-            if (!dec.Decrypt_Payload(
-                reinterpret_cast<uint32_t*>(work), 4)) {
+            if (dec.Decrypt_Payload(
+                reinterpret_cast<uint32_t*>(work), 4u) != LEA_Bridge::SECURE_TRUE) {
                 CST_Wipe(work, sizeof(work));
                 return false;
             }
@@ -226,6 +226,10 @@ namespace ProtectedEngine {
         uint32_t offset = 0u;
 
         while (offset < flash_size) {
+            if (flash_base > (0xFFFFFFFFu - offset)) {
+                CST_Wipe(chunk, sizeof(chunk));
+                return false;
+            }
             const size_t remain = static_cast<size_t>(flash_size - offset);
             const size_t read_len = (remain < CHUNK_SIZE) ? remain : CHUNK_SIZE;
 

@@ -119,16 +119,4 @@ namespace ProtectedEngine {
         return (static_cast<uint8_t>(result | length_mismatch) == 0);
     }
 
-    // =====================================================================
-    //  compare (vector) — 레거시 래퍼
-    // =====================================================================
-    bool ConstantTimeUtil::compare(
-        const std::vector<uint8_t>& a,
-        const std::vector<uint8_t>& b) noexcept {
-
-        return compare_variable(
-            a.empty() ? nullptr : a.data(), a.size(),
-            b.empty() ? nullptr : b.data(), b.size());
-    }
-
 } // namespace ProtectedEngine

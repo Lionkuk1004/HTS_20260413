@@ -54,25 +54,35 @@ namespace ProtectedEngine {
         /// @param gpio_port  GPIO 포트 베이스 주소 (예: 0x40020000 = GPIOA)
         /// @param pin_number 핀 번호 (0~15)
         /// @param response   탬퍼 응답 콜백
+        /// @note H-1: `response==nullptr` 또는 `gpio_port==0` 또는 `pin_number>15` 이면 등록 무시
+        /// @note X-1-2: MODER RMW는 PRIMASK 크리티컬 섹션에서 수행
         static void Register_Case_Open(
             uint32_t gpio_port, uint8_t pin_number,
             TamperResponseFunc response) noexcept;
 
         /// @brief 온도 감시 ADC 등록
-        /// @param adc_channel  ADC 채널 (STM32 내부 온도 = 16)
+        /// @param adc_channel  ADC1 채널 0~18 (내부 온도 = 16)
         /// @param high_limit   고온 임계 (ADC raw 값)
         /// @param low_limit    저온 임계 (ADC raw 값)
         /// @param response     탬퍼 응답 콜백
+        /// @note H-1: `response==nullptr` 이면 무시. `high_limit < low_limit` 이면 무시. `adc_channel>18` 이면 무시
         static void Register_Temperature_Monitor(
             uint8_t adc_channel,
             uint16_t high_limit, uint16_t low_limit,
             TamperResponseFunc response) noexcept;
 
+        /// @brief ADC1이 DMA로 구동될 때 변환 완료 raw(12비트) 주입 — SWSTART 경로와 배타적
+        /// @note CR2.DMA=1 이면 Poll은 레지스터를 건드리지 않음; DMA/ISR에서 본 API 호출 필요
+        static void Submit_Temperature_ADC_Sample(uint16_t raw12) noexcept;
+
         /// @brief 탬퍼 상태 주기적 폴링 (메인 루프에서 호출)
-        /// @note  GPIO/ADC 인터럽트 방식 권장, 폴링은 보조 수단
+        /// @note GPIO/ADC 인터럽트 방식 권장, 폴링은 보조 수단
+        /// @note DMA 미사용: SQR1(L=0)+SQR3(SQ1=ch)+SWSTART 후 EOC 상한 대기 → DR
+        /// @note ⑮/X-4-4: EOC 미수신 시 상한 스핀 후 해당 폴링 주기만 중단(케이스 GPIO는 이미 처리됨)
         static void Poll_Tamper_Status() noexcept;
 
         /// @brief 탬퍼 ISR — EXTI 인터럽트 핸들러에서 호출
+        /// @note W-4: 콜백은 짧게(디바운스/무거운 작업은 메인으로 위임)
         static void Case_Open_ISR() noexcept;
 
         Tamper_HAL() = delete;

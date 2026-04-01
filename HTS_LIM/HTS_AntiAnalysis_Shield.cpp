@@ -146,7 +146,10 @@ namespace ProtectedEngine {
                     __asm__ __volatile__("pause");
 #endif
 #elif defined(_MSC_VER)
-                    _mm_pause();
+                    // MSVC/비x86(ARM 포함) 포팅 안정성:
+                    // x86 전용 pause intrinsic 의존을 제거하고
+                    // 컴파일러 재배치만 억제하는 경량 배리어 사용.
+                    std::atomic_signal_fence(std::memory_order_acq_rel);
 #endif
                 }
                 // 타임아웃: 선발이 비정상 지연 → 기본값으로 안전 폴백

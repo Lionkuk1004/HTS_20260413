@@ -124,7 +124,7 @@ namespace ProtectedEngine {
         //  DWT 틱: 호출 시점 바인딩 (같은 데이터라도 시점마다 다른 패턴)
         uint32_t seed = Physical_Entropy_Engine::Extract_Quantum_Seed();
         seed ^= static_cast<uint32_t>(
-            Hardware_Bridge::Get_Physical_CPU_Tick() & 0xFFFFFFFFu);
+            Hardware_Bridge::Get_Physical_CPU_Tick() & 0xFFFFFFFFULL);
 
         // 0 시드 방어 (seed=0 → 패턴이 val 그대로 → 파쇄 효과 없음)
         if (seed == 0) seed = 0x5C4E3D2Fu;
@@ -147,6 +147,11 @@ namespace ProtectedEngine {
         // ── Pass 3: 최종 0 소거 ──────────────────────────────────────
         *vp = 0x00000000u;
         std::atomic_thread_fence(std::memory_order_release);
+#if defined(_MSC_VER)
+        _ReadWriteBarrier();
+#elif defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(vp));
+#endif
     }
 
 #if defined(__GNUC__) || defined(__clang__)

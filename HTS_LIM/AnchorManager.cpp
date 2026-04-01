@@ -22,6 +22,12 @@
 //  BUG-07 [LOW]      Self-Contained <cstddef> 누락
 //  BUG-08 [LOW]      외부업체 Doxygen 가이드 없음
 // =========================================================================
+#if (defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)) && \
+    !defined(__aarch64__)
+#error "[HTS_FATAL] AnchorManager는 A55/서버 전용. STM32 빌드에서 제외하십시오."
+#endif
+
 #include "AnchorManager.h"
 
 // [BUG-05] <iostream>, <cstdlib> 제거 (abort/cerr 제거에 따라 불필요)
@@ -37,6 +43,20 @@
 namespace {
     constexpr uint8_t ANCHOR_MIN_RATIO = 5;
     constexpr uint8_t ANCHOR_MAX_RATIO = 30;
+    constexpr uint64_t SAFE_MAX_DATA = 614891469123651720ULL;  // floor(UINT64_MAX / 30)
+
+    // floor(v / 100) without / or % operators
+    static uint64_t div_u64_by_100_no_div(uint64_t v) noexcept {
+        uint64_t q = 0u;
+        uint64_t r = 0u;
+        for (int bit = 63; bit >= 0; --bit) {
+            r = (r << 1u) | ((v >> static_cast<uint32_t>(bit)) & 1u);
+            const uint64_t ge = (r >= 100u) ? 1u : 0u;
+            r -= (100u * ge);
+            q |= (ge << static_cast<uint32_t>(bit));
+        }
+        return q;
+    }
 }
 
 AnchorManager::AnchorManager() noexcept
@@ -88,8 +108,14 @@ std::string AnchorManager::getStatusMessage() const {
 // =========================================================================
 uint64_t AnchorManager::calculateAnchorSize(
     uint64_t originalDataSizeBytes) const noexcept {
-    return (originalDataSizeBytes *
-        static_cast<uint64_t>(currentRatio) + 50ULL) / 100ULL;
+    const uint64_t ratio = static_cast<uint64_t>(currentRatio);
+    if (ratio == 0u) { return 0u; }
+    if (originalDataSizeBytes > SAFE_MAX_DATA) {
+        // fail-closed: 포화 처리로 래핑/언더사이즈 앵커 방지
+        return div_u64_by_100_no_div(~0ULL);
+    }
+    const uint64_t scaled = originalDataSizeBytes * ratio + 50ULL;
+    return div_u64_by_100_no_div(scaled);
 }
 
 uint8_t AnchorManager::getCurrentRatio() const noexcept {

@@ -4,6 +4,14 @@
 /// @author Lim Young-jun
 /// @copyright INNOViD 2026. All rights reserved.
 
+// ARM Cortex-M (STM32) 전용 모듈: 비대상 플랫폼 빌드 차단
+// Visual Studio Windows 정적 라이브러리는 _WIN32 로 호스트 단위검증 빌드 허용.
+#if (((!defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+      !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)) || \
+     defined(__aarch64__)) && !defined(_WIN32))
+#error "[HTS_FATAL] HTS_KT_DSN_Adapter는 STM32 전용입니다. A55/서버 빌드에서 제외하십시오."
+#endif
+
 #include "HTS_KT_DSN_Adapter.h"
 #include "HTS_IPC_Protocol.h"
 #include <new>
@@ -17,10 +25,26 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
+
+    struct DSN_Busy_Guard {
+        std::atomic_flag& f;
+        uint32_t locked;
+        explicit DSN_Busy_Guard(std::atomic_flag& flag) noexcept
+            : f(flag), locked(HTS_KT_DSN_Adapter::SECURE_FALSE) {
+            if (!f.test_and_set(std::memory_order_acquire)) {
+                locked = HTS_KT_DSN_Adapter::SECURE_TRUE;
+            }
+        }
+        ~DSN_Busy_Guard() noexcept {
+            if (locked == HTS_KT_DSN_Adapter::SECURE_TRUE) {
+                f.clear(std::memory_order_release);
+            }
+        }
+    };
 
     // ============================================================
     //  Endian Helpers
@@ -89,20 +113,20 @@ namespace ProtectedEngine {
         // ============================================================
         //  CFI Transition
         // ============================================================
-        bool Transition_State(DSN_State target) noexcept
+        uint32_t Transition_State(DSN_State target) noexcept
         {
-            if (!DSN_Is_Legal_Transition(state, target)) {
-                if (DSN_Is_Legal_Transition(state, DSN_State::ERROR)) {
+            if (DSN_Is_Legal_Transition(state, target) != DSN_SECURE_TRUE) {
+                if (DSN_Is_Legal_Transition(state, DSN_State::ERROR) == DSN_SECURE_TRUE) {
                     state = DSN_State::ERROR;
                 }
                 else {
                     state = DSN_State::OFFLINE;
                 }
                 cfi_violation_count++;
-                return false;
+                return HTS_KT_DSN_Adapter::SECURE_FALSE;
             }
             state = target;
-            return true;
+            return HTS_KT_DSN_Adapter::SECURE_TRUE;
         }
 
         // ============================================================
@@ -201,7 +225,7 @@ namespace ProtectedEngine {
             if ((static_cast<uint8_t>(state) &
                 static_cast<uint8_t>(DSN_State::ALERT_ACTIVE)) == 0u)
             {
-                if (!Transition_State(DSN_State::ALERT_ACTIVE)) { return; }
+                if (Transition_State(DSN_State::ALERT_ACTIVE) != HTS_KT_DSN_Adapter::SECURE_TRUE) { return; }
             }
 
             // Store in active alert slot
@@ -459,6 +483,9 @@ namespace ProtectedEngine {
     IPC_Error HTS_KT_DSN_Adapter::Initialize(HTS_IPC_Protocol* ipc,
         uint32_t area_code) noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return IPC_Error::BUSY; }
+
         bool expected = false;
         if (!initialized_.compare_exchange_strong(
             expected, true, std::memory_order_acq_rel))
@@ -498,6 +525,8 @@ namespace ProtectedEngine {
 
     void HTS_KT_DSN_Adapter::Shutdown() noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
@@ -519,6 +548,8 @@ namespace ProtectedEngine {
     void HTS_KT_DSN_Adapter::Register_Receive_Callbacks(
         const DSN_Receive_Callbacks& cb) noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         reinterpret_cast<Impl*>(impl_buf_)->rx_cb = cb;
     }
@@ -526,6 +557,8 @@ namespace ProtectedEngine {
     void HTS_KT_DSN_Adapter::Register_Channel_Callbacks(
         const DSN_Channel_Callbacks& cb) noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         reinterpret_cast<Impl*>(impl_buf_)->ch_cb = cb;
     }
@@ -533,6 +566,8 @@ namespace ProtectedEngine {
     void HTS_KT_DSN_Adapter::Feed_DSN_Message(const uint8_t* data,
         uint16_t len) noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         if (data == nullptr) { return; }
         if (len == 0u) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
@@ -541,6 +576,8 @@ namespace ProtectedEngine {
 
     void HTS_KT_DSN_Adapter::Tick(uint32_t systick_ms) noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->current_tick = systick_ms;
@@ -577,18 +614,24 @@ namespace ProtectedEngine {
 
     DSN_State HTS_KT_DSN_Adapter::Get_State() const noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return DSN_State::OFFLINE; }
         if (!initialized_.load(std::memory_order_acquire)) { return DSN_State::OFFLINE; }
         return reinterpret_cast<const Impl*>(impl_buf_)->state;
     }
 
     uint32_t HTS_KT_DSN_Adapter::Get_Active_Alert_Count() const noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->Count_Active_Alerts();
     }
 
     uint32_t HTS_KT_DSN_Adapter::Get_Total_Alerts_Received() const noexcept
     {
+        DSN_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->total_alerts_received;
     }

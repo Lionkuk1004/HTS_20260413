@@ -46,9 +46,8 @@
 //   ⚠ 반드시 전역/정적 변수로 배치 (스택 배치 금지)
 //
 //  [보안 설계]
-//   tx_ring_buffer: 소멸자에서 보안 소거 (Q16 파형 잔존 방지)
-//   impl_buf_: 소멸자에서 SecWipe — Impl 전체 보안 소거
-//   current_config: 시스템 구성 — Impl 소멸자에서 함께 소거
+//   tx_ring_buffer / impl_buf_ / current_config: SecureMemory::secureWipe (D항)
+//   AlignedIndex(std::atomic): 바이트 소거 금지 — store(0)만 (UB 방지)
 //   복사/이동: = delete (링 버퍼 + atomic 복제 방지)
 //
 //  [STM32F407 성능]
@@ -70,6 +69,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
@@ -151,7 +151,7 @@ namespace ProtectedEngine {
         struct Impl;  ///< 링 버퍼 + SPSC 인덱스 완전 은닉 (ABI 안정성 보장)
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;  ///< placement new 성공 여부
+        std::atomic<bool> impl_valid_{ false };  ///< placement new 성공 (ISR/메인 가시성)
 
         /// @brief impl_buf_에서 Impl 포인터 반환 (컴파일 타임 크기·정렬 검증 포함)
         Impl* get_impl() noexcept;

@@ -200,9 +200,9 @@ namespace ProtectedEngine {
         wdt_feed();
         const uint8_t* flash_ptr =
             reinterpret_cast<const uint8_t*>(FLASH_BASE);
-        const bool ok = LSH256_Bridge::Hash_256(flash_ptr, FW_SIZE, out32);
+        const uint32_t ok = LSH256_Bridge::Hash_256(flash_ptr, FW_SIZE, out32);
         wdt_feed();
-        return ok;
+        return (ok == LSH_SECURE_TRUE);
     }
 
 #else

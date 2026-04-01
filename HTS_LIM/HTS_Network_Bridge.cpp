@@ -11,6 +11,21 @@
 #include <cstring>   // [OPT-2] memcpy, memset
 
 namespace ProtectedEngine {
+    struct Bridge_Busy_Guard {
+        std::atomic_flag& f;
+        uint32_t locked;
+        explicit Bridge_Busy_Guard(std::atomic_flag& flag) noexcept
+            : f(flag), locked(BRIDGE_SECURE_FALSE) {
+            if (!f.test_and_set(std::memory_order_acquire)) {
+                locked = BRIDGE_SECURE_TRUE;
+            }
+        }
+        ~Bridge_Busy_Guard() noexcept {
+            if (locked == BRIDGE_SECURE_TRUE) {
+                f.clear(std::memory_order_release);
+            }
+        }
+    };
 
     // [FIX-1] received_mask uint8_t 안전성 빌드 타임 검증
     //  BRIDGE_MAX_FRAGMENTS ≤ 8 보장 — 초과 시 즉시 빌드 실패
@@ -49,20 +64,20 @@ namespace ProtectedEngine {
         // ============================================================
         //  CFI Transition
         // ============================================================
-        bool Transition_State(BridgeState target) noexcept
+        uint32_t Transition_State(BridgeState target) noexcept
         {
-            if (!Bridge_Is_Legal_Transition(state, target)) {
-                if (Bridge_Is_Legal_Transition(state, BridgeState::ERROR)) {
+            if (Bridge_Is_Legal_Transition(state, target) != BRIDGE_SECURE_TRUE) {
+                if (Bridge_Is_Legal_Transition(state, BridgeState::ERROR) == BRIDGE_SECURE_TRUE) {
                     state = BridgeState::ERROR;
                 }
                 else {
                     state = BridgeState::DISABLED;
                 }
                 cfi_violation_count++;
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
             state = target;
-            return true;
+            return BRIDGE_SECURE_TRUE;
         }
 
         // ============================================================
@@ -76,18 +91,23 @@ namespace ProtectedEngine {
             if (eth_len > BRIDGE_ETH_MAX_FRAME) { return IPC_Error::INVALID_LEN; }
 
             // CFI: IDLE -> FRAGMENTING
-            if (!Transition_State(BridgeState::FRAGMENTING)) {
+            if (Transition_State(BridgeState::FRAGMENTING) != BRIDGE_SECURE_TRUE) {
                 return IPC_Error::CFI_VIOLATION;
             }
 
             // [OPT-1] ceil 나눗셈: while 루프(분기 7회) → UDIV 1회(2~12cyc)
             //  Cortex-M4 하드웨어 UDIV: 비2의제곱 나눗셈도 단일 명령어
             //  BRIDGE_FRAG_MAX_DATA=248 → 시프트 대체 불가 → UDIV 최적
-            uint32_t total_u32 =
-                (static_cast<uint32_t>(eth_len) + BRIDGE_FRAG_MAX_DATA - 1u)
-                / BRIDGE_FRAG_MAX_DATA;
-            if (total_u32 > BRIDGE_MAX_FRAGMENTS) {
-                total_u32 = BRIDGE_MAX_FRAGMENTS;
+            uint32_t total_u32 = 0u;
+            uint32_t remain_u32 = static_cast<uint32_t>(eth_len);
+            while (remain_u32 > 0u && total_u32 < BRIDGE_MAX_FRAGMENTS) {
+                ++total_u32;
+                if (remain_u32 > BRIDGE_FRAG_MAX_DATA) {
+                    remain_u32 -= BRIDGE_FRAG_MAX_DATA;
+                }
+                else {
+                    remain_u32 = 0u;
+                }
             }
             const uint8_t total = static_cast<uint8_t>(total_u32);
 
@@ -144,18 +164,18 @@ namespace ProtectedEngine {
         // ============================================================
         //  Feed Fragment into Reassembly Engine (CFI-protected)
         // ============================================================
-        bool Do_Feed_Fragment(const uint8_t* frag_payload, uint16_t frag_len,
+        uint32_t Do_Feed_Fragment(const uint8_t* frag_payload, uint16_t frag_len,
             uint32_t systick_ms) noexcept
         {
-            if (frag_payload == nullptr) { return false; }
-            if (frag_len < BRIDGE_FRAG_HEADER_SIZE) { return false; }
+            if (frag_payload == nullptr) { return BRIDGE_SECURE_FALSE; }
+            if (frag_len < BRIDGE_FRAG_HEADER_SIZE) { return BRIDGE_SECURE_FALSE; }
 
             // --- CFI: IDLE -> REASSEMBLING ---
             // Must be in IDLE (or already REASSEMBLING for multi-fragment flow).
             // Blocks: DISABLED/ERROR/FRAGMENTING states from entering reassembly.
             if ((static_cast<uint8_t>(state) & static_cast<uint8_t>(BridgeState::REASSEMBLING)) == 0u) {
-                if (!Transition_State(BridgeState::REASSEMBLING)) {
-                    return false;
+                if (Transition_State(BridgeState::REASSEMBLING) != BRIDGE_SECURE_TRUE) {
+                    return BRIDGE_SECURE_FALSE;
                 }
             }
 
@@ -168,24 +188,24 @@ namespace ProtectedEngine {
             // --- Input validation ---
             if (total == 0u || total > BRIDGE_MAX_FRAGMENTS) {
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
             if (idx >= total) {
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
 
             const uint16_t data_len = static_cast<uint16_t>(frag_len - BRIDGE_FRAG_HEADER_SIZE);
             if (data_len > BRIDGE_FRAG_MAX_DATA) {
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
 
             // Find or allocate reassembly slot
             ReassemblySlot* slot = Find_Or_Alloc_Slot(seq, total, systick_ms);
             if (slot == nullptr) {
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
 
             // --- CRITICAL: Teardrop attack defense ---
@@ -207,7 +227,7 @@ namespace ProtectedEngine {
                 slot->received_mask = 0u;
                 IPC_Secure_Wipe(slot->data, BRIDGE_ETH_MAX_FRAME);
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
 
             // Compute data offset in reassembly buffer
@@ -215,7 +235,7 @@ namespace ProtectedEngine {
             const uint32_t data_offset = static_cast<uint32_t>(idx) * BRIDGE_FRAG_MAX_DATA;
             if (data_offset + static_cast<uint32_t>(data_len) > BRIDGE_ETH_MAX_FRAME) {
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
 
             // --- Duplicate fragment detection ---
@@ -224,7 +244,7 @@ namespace ProtectedEngine {
             if ((slot->received_mask & idx_bit) != 0u) {
                 // Already received this index -- silently ignore (not an error)
                 Transition_State(BridgeState::IDLE);
-                return false;
+                return BRIDGE_SECURE_FALSE;
             }
 
             // [OPT-2] byte loop → memcpy
@@ -259,13 +279,13 @@ namespace ProtectedEngine {
 
                 // CFI: REASSEMBLING -> IDLE
                 Transition_State(BridgeState::IDLE);
-                return true;
+                return BRIDGE_SECURE_TRUE;
             }
 
             // Not complete yet -- remain in REASSEMBLING
             // (Next Feed_Fragment call will skip the IDLE->REASSEMBLING transition
             //  because state is already REASSEMBLING)
-            return false;
+            return BRIDGE_SECURE_FALSE;
         }
 
         // ============================================================
@@ -371,6 +391,8 @@ namespace ProtectedEngine {
 
     IPC_Error HTS_Network_Bridge::Initialize(HTS_IPC_Protocol* ipc) noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return IPC_Error::BUSY; }
         bool expected = false;
         if (!initialized_.compare_exchange_strong(
             expected, true, std::memory_order_acq_rel))
@@ -408,6 +430,8 @@ namespace ProtectedEngine {
 
     void HTS_Network_Bridge::Shutdown() noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
 
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
@@ -423,11 +447,14 @@ namespace ProtectedEngine {
         impl->state = BridgeState::DISABLED;
         impl->ipc = nullptr;
         impl->~Impl();
+        IPC_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
         initialized_.store(false, std::memory_order_release);
     }
 
     void HTS_Network_Bridge::Register_ETH_Callback(Bridge_ETH_Callback cb) noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->eth_callback = cb;
@@ -436,6 +463,8 @@ namespace ProtectedEngine {
     IPC_Error HTS_Network_Bridge::Fragment_And_Send(
         const uint8_t* eth_frame, uint16_t eth_len) noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return IPC_Error::BUSY; }
         if (!initialized_.load(std::memory_order_acquire)) {
             return IPC_Error::NOT_INITIALIZED;
         }
@@ -443,17 +472,21 @@ namespace ProtectedEngine {
         return impl->Do_Fragment_And_Send(eth_frame, eth_len);
     }
 
-    bool HTS_Network_Bridge::Feed_Fragment(
+    uint32_t HTS_Network_Bridge::Feed_Fragment(
         const uint8_t* frag_payload, uint16_t frag_len,
         uint32_t systick_ms) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return false; }
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return BRIDGE_SECURE_FALSE; }
+        if (!initialized_.load(std::memory_order_acquire)) { return BRIDGE_SECURE_FALSE; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         return impl->Do_Feed_Fragment(frag_payload, frag_len, systick_ms);
     }
 
     void HTS_Network_Bridge::Tick(uint32_t systick_ms) noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->Check_Timeouts(systick_ms);
@@ -461,6 +494,8 @@ namespace ProtectedEngine {
 
     BridgeState HTS_Network_Bridge::Get_State() const noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return BridgeState::DISABLED; }
         if (!initialized_.load(std::memory_order_acquire)) {
             return BridgeState::DISABLED;
         }
@@ -470,6 +505,8 @@ namespace ProtectedEngine {
 
     uint32_t HTS_Network_Bridge::Get_TX_Fragment_Count() const noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
         return impl->tx_frag_count;
@@ -477,6 +514,8 @@ namespace ProtectedEngine {
 
     uint32_t HTS_Network_Bridge::Get_RX_Reassembled_Count() const noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
         return impl->rx_reassembled_count;
@@ -484,6 +523,8 @@ namespace ProtectedEngine {
 
     uint32_t HTS_Network_Bridge::Get_Timeout_Count() const noexcept
     {
+        Bridge_Busy_Guard guard(op_busy_);
+        if (guard.locked != BRIDGE_SECURE_TRUE) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
         return impl->timeout_count;

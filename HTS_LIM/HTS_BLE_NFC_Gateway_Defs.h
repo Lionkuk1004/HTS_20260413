@@ -57,25 +57,27 @@ namespace ProtectedEngine {
     //  국가지점번호 구조체
     // ============================================================
 
-    /// @brief 국가지점번호 위치 코드 (4바이트 압축)
+    /// @brief 국가지점번호 위치 코드 (8바이트)
     /// @note  대한민국 국가지점번호: "가나 1234 5678" 형식.
-    ///        2글자 한글 인덱스(12비트) + 숫자 8자리(BCD 32비트) 압축.
-    ///        여기서는 uint32_t로 일괄 처리 (외부에서 인코딩).
+    ///        2글자 한글 인덱스(12비트) + 숫자 8자리(BCD 32비트) = 44비트.
+    ///        [BUG-FIX FATAL] uint32_t(32비트)에 44비트 압축 불가 → 상위 12비트 증발
+    ///        uint64_t로 확장하여 44비트 전체 보존.
     struct LocationCode {
-        uint32_t code;      ///< 압축된 국가지점번호 (또는 GPS 그리드 ID)
+        uint64_t code;      ///< 압축된 국가지점번호 (또는 GPS 그리드 ID)
     };
-    static_assert(sizeof(LocationCode) == 4u, "LocationCode must be 4 bytes");
+    static_assert(sizeof(LocationCode) == 8u, "LocationCode must be 8 bytes");
 
     // ============================================================
     //  게이트웨이 프레임 상수
     // ============================================================
 
-    /// 프레임 헤더: MSG_TYPE(1) + SESSION_ID(2) + LOCATION_CODE(4) + PAYLOAD_LEN(1) = 8
-    static constexpr uint32_t BLE_FRAME_HEADER_SIZE = 8u;
+    /// 프레임 헤더: MSG_TYPE(1) + SESSION_ID(2) + LOCATION_CODE(8) + PAYLOAD_LEN(1) = 12
+    /// [BUG-FIX] LocationCode 4→8바이트 확장 반영
+    static constexpr uint32_t BLE_FRAME_HEADER_SIZE = 12u;
     /// CRC 후미
     static constexpr uint32_t BLE_FRAME_CRC_SIZE = 2u;
-    /// 최대 페이로드 (SMART_SIGNAGE 프리셋 128B - 헤더 - CRC)
-    static constexpr uint32_t BLE_MAX_PAYLOAD = 118u;
+    /// 최대 페이로드 (SMART_SIGNAGE 프리셋 128B - 헤더 12 - CRC 2 = 114)
+    static constexpr uint32_t BLE_MAX_PAYLOAD = 114u;
     /// 최대 프레임 크기
     static constexpr uint32_t BLE_MAX_FRAME_SIZE = BLE_FRAME_HEADER_SIZE + BLE_MAX_PAYLOAD + BLE_FRAME_CRC_SIZE;  ///< 128
 
@@ -96,14 +98,15 @@ namespace ProtectedEngine {
     // ============================================================
 
     /// @brief 단일 BLE/NFC 세션
+    /// @note  [BUG-FIX] LocationCode 8바이트 확장 → 정렬 최적화 재배치
     struct BLE_Session {
+        LocationCode location;          ///< 연결된 국가지점번호 (8바이트, 최대 정렬)
+        uint32_t     last_activity_tick; ///< 마지막 활동 시각 (ms)
         uint16_t     session_id;        ///< 세션 식별자
         LinkType     link_type;         ///< 연결 타입 (BLE/NFC)
         uint8_t      active;            ///< 활성 여부 (0/1)
-        LocationCode location;          ///< 연결된 국가지점번호
-        uint32_t     last_activity_tick; ///< 마지막 활동 시각 (ms)
     };
-    static_assert(sizeof(BLE_Session) == 12u, "BLE_Session must be 12 bytes");
+    static_assert(sizeof(BLE_Session) == 16u, "BLE_Session must be 16 bytes");
     static_assert((sizeof(BLE_Session) & 3u) == 0u, "BLE_Session must be 4-byte aligned");
 
     // ============================================================
@@ -144,9 +147,9 @@ namespace ProtectedEngine {
 
         static constexpr uint8_t k_legal[5] = {
             /* OFFLINE      -> */ static_cast<uint8_t>(BLE_GW_State::IDLE),
-            /* IDLE         -> */ static_cast<uint8_t>(
-                static_cast<uint8_t>(BLE_GW_State::CONNECTED)
-              | static_cast<uint8_t>(BLE_GW_State::OFFLINE)),
+            /* IDLE         -> */ static_cast<uint8_t>(BLE_GW_State::CONNECTED),
+            // [BUG-FIX HIGH] | OFFLINE(0x00) 제거: 비트OR 0은 무효
+            //  IDLE→OFFLINE 전이는 아래 if(to==0) 특수 분기에서 처리
             /* CONNECTED    -> */ static_cast<uint8_t>(
                 static_cast<uint8_t>(BLE_GW_State::TRANSFERRING)
               | static_cast<uint8_t>(BLE_GW_State::IDLE)
@@ -154,9 +157,9 @@ namespace ProtectedEngine {
             /* TRANSFERRING -> */ static_cast<uint8_t>(
                 static_cast<uint8_t>(BLE_GW_State::CONNECTED)
               | static_cast<uint8_t>(BLE_GW_State::ERROR)),
-            /* ERROR        -> */ static_cast<uint8_t>(
-                static_cast<uint8_t>(BLE_GW_State::IDLE)
-              | static_cast<uint8_t>(BLE_GW_State::OFFLINE))
+            /* ERROR        -> */ static_cast<uint8_t>(BLE_GW_State::IDLE)
+            // [BUG-FIX HIGH] | OFFLINE(0x00) 제거: 동일 사유
+            //  ERROR→OFFLINE 전이는 아래 if(to==0) 특수 분기에서 처리
         };
 
         uint8_t idx;

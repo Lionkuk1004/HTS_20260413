@@ -34,6 +34,8 @@ namespace ProtectedEngine {
             const uint8_t* key, int key_bits) noexcept;
 
         /// @brief LEA 키 쌍대 일관성 (KCMVP)
+        /// @note  내부 테스트 버퍼는 4바이트 정렬로 구성되어
+        ///        LEA_Bridge의 uint32_t* 인플레이스 API 정렬 요구를 준수.
         [[nodiscard]] static bool Verify_LEA_Key(
             const uint8_t* key, uint32_t key_len_bytes,
             const uint8_t* iv_16) noexcept;

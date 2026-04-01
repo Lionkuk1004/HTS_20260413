@@ -303,7 +303,8 @@ namespace ProtectedEngine {
     bool FEC_HARQ::Decode_Core(const int32_t* accI, const int32_t* accQ,
         int nsym, int nc, int bps, uint8_t* out, int* olen,
         uint32_t il, WorkBuf& wb) noexcept {
-        if (!out || !olen) return false;
+        if (!accI || !accQ || !out || !olen) return false;
+        if (nsym <= 0 || nc <= 0 || bps <= 0) return false;
 
         std::memset(wb.all_llr, 0, sizeof(wb.all_llr));
 
@@ -470,6 +471,8 @@ namespace ProtectedEngine {
         const int32_t* accI, const int32_t* accQ,
         int nsym, int nc, int bps,
         uint8_t* out, int* len, uint32_t il, WorkBuf& wb) noexcept {
+        if (!accI || !accQ || !out || !len) return false;
+        if (nsym <= 0 || nc <= 0) return false;
         if (bps < BPS64_MIN || bps > BPS64_MAX) return false;
         return Decode_Core(accI, accQ, nsym, nc, bps, out, len, il, wb);
     }

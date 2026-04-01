@@ -48,7 +48,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(q));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -64,7 +64,7 @@ namespace ProtectedEngine {
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0u; i < size; ++i) { p[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         // [BUG-01] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
@@ -102,12 +102,13 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(256B)를 초과합니다 — 버퍼 크기를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(8)을 초과합니다");
-        return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        return impl_valid_.load(std::memory_order_acquire)
+            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Rx_Sync_Detector::Impl*
         HTS_Rx_Sync_Detector::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -121,7 +122,7 @@ namespace ProtectedEngine {
     {
         SecWipe_Sync(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(tier);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     // =====================================================================
@@ -135,7 +136,7 @@ namespace ProtectedEngine {
             Rx_Sync_Detector_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
         }
         SecWipe_Sync(impl_buf_, sizeof(impl_buf_));
-        impl_valid_ = false;
+        impl_valid_.store(false, std::memory_order_release);
     }
 
     // =====================================================================
@@ -278,8 +279,16 @@ namespace ProtectedEngine {
             //  idx = MSB 위치 (0~31), CLZ = 31 - idx
             //  shift = 33 - (31 - idx) = idx + 2
             unsigned long idx = 0;
-            _BitScanReverse(&idx, static_cast<unsigned long>(hi));
-            shift = static_cast<uint32_t>(idx) + 2u;
+            const unsigned char bsr_ok =
+                _BitScanReverse(&idx, static_cast<unsigned long>(hi));
+            if (bsr_ok != 0u) {
+                shift = static_cast<uint32_t>(idx) + 2u;
+            }
+            else {
+                // hi!=0 조건에서 이 경로는 이론상 도달 불가.
+                // 정적분석기 경고(C6031)와 방어 코딩을 위해 유지.
+                shift = 1u;
+            }
 #else
             // 범용 폴백 (시뮬레이션 전용)
             uint32_t tmp = hi;

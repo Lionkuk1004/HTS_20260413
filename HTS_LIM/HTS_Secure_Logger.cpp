@@ -15,27 +15,34 @@
 #include "HTS_Secure_Logger.h"
 #include "HTS_Crc32Util.h"
 #include "HTS_Hardware_Bridge.hpp"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
-#include <cstdio>
 #include <cstring>
 
 namespace ProtectedEngine {
 
-    // =====================================================================
-    //  [BUG-09] D-2 스택 소거 헬퍼 — 3중 방어
-    //  volatile + asm clobber + release fence
-    // =====================================================================
-    static void Wipe_Stack_Buffer(void* ptr, size_t size) noexcept {
-        if (!ptr || size == 0) return;
-        volatile unsigned char* p =
-            static_cast<volatile unsigned char*>(ptr);
-        for (size_t i = 0; i < size; ++i) p[i] = 0;
-#if (defined(__GNUC__) || defined(__clang__)) && \
-    (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH))
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
+    static char g_last_audit_line[256] = {};
+
+    static size_t Append_Lit(char* dst, size_t cap, size_t pos, const char* s) noexcept {
+        if (dst == nullptr || s == nullptr || cap == 0u) { return pos; }
+        while (*s != '\0' && pos + 1u < cap) {
+            dst[pos++] = *s++;
+        }
+        dst[pos] = '\0';
+        return pos;
+    }
+
+    static size_t Append_Hex32(char* dst, size_t cap, size_t pos, uint32_t v) noexcept {
+        static constexpr char k_hex[] = "0123456789ABCDEF";
+        if (dst == nullptr || cap == 0u) { return pos; }
+        for (int i = 7; i >= 0; --i) {
+            if (pos + 1u >= cap) { break; }
+            const uint8_t nib = static_cast<uint8_t>((v >> (static_cast<uint32_t>(i) * 4u)) & 0x0Fu);
+            dst[pos++] = k_hex[nib];
+        }
+        dst[pos] = '\0';
+        return pos;
     }
 
     // =====================================================================
@@ -66,42 +73,33 @@ namespace ProtectedEngine {
 
         // CRC 결합 버퍼
         char crc_buf[256];
-        const int crc_len = snprintf(crc_buf, sizeof(crc_buf),
-            "%s|%s", eventType, details);
-        const size_t safe_crc_len =
-            (crc_len < 0) ? 0u :
-            (static_cast<size_t>(crc_len) >= sizeof(crc_buf))
-            ? sizeof(crc_buf) - 1u
-            : static_cast<size_t>(crc_len);
+        size_t crc_pos = 0u;
+        crc_pos = Append_Lit(crc_buf, sizeof(crc_buf), crc_pos, eventType);
+        crc_pos = Append_Lit(crc_buf, sizeof(crc_buf), crc_pos, "|");
+        crc_pos = Append_Lit(crc_buf, sizeof(crc_buf), crc_pos, details);
 
-        const uint32_t logCrc = Compute_Log_CRC(crc_buf, safe_crc_len);
+        const uint32_t logCrc = Compute_Log_CRC(crc_buf, crc_pos);
 
         // 출력 버퍼
         char buf[256];
-        const int written = snprintf(buf, sizeof(buf),
-            "[AUDIT@%08lX] %s | %s | CRC:0x%08lX\n",
-            static_cast<unsigned long>(tick),
-            eventType,
-            details,
-            static_cast<unsigned long>(logCrc));
+        size_t pos = 0u;
+        pos = Append_Lit(buf, sizeof(buf), pos, "[AUDIT@");
+        pos = Append_Hex32(buf, sizeof(buf), pos, tick);
+        pos = Append_Lit(buf, sizeof(buf), pos, "] ");
+        pos = Append_Lit(buf, sizeof(buf), pos, eventType);
+        pos = Append_Lit(buf, sizeof(buf), pos, " | ");
+        pos = Append_Lit(buf, sizeof(buf), pos, details);
+        pos = Append_Lit(buf, sizeof(buf), pos, " | CRC:0x");
+        pos = Append_Hex32(buf, sizeof(buf), pos, logCrc);
+        pos = Append_Lit(buf, sizeof(buf), pos, "\n");
+        (void)pos;
 
-        if (written > 0) {
-            const size_t out_len =
-                (static_cast<size_t>(written) >= sizeof(buf))
-                ? sizeof(buf) - 1u
-                : static_cast<size_t>(written);
-            buf[out_len] = '\0';
-
-            const char* p = buf;
-            while (*p) {
-                fputc(*p, stdout);
-                ++p;
-            }
-        }
+        // 베어메탈 안전 경로: stdout/semihosting 대신 내부 고정 버퍼에 기록
+        std::memcpy(g_last_audit_line, buf, sizeof(g_last_audit_line));
 
         // [BUG-09] D-2: 스택 버퍼 3중 방어 소거
-        Wipe_Stack_Buffer(buf, sizeof(buf));
-        Wipe_Stack_Buffer(crc_buf, sizeof(crc_buf));
+        SecureMemory::secureWipe(buf, sizeof(buf));
+        SecureMemory::secureWipe(crc_buf, sizeof(crc_buf));
     }
 
 } // namespace ProtectedEngine

@@ -51,6 +51,18 @@ namespace ProtectedEngine {
             return state;
         }
 
+        // [FIX-04] 타입별 독립 folding_key 상수 (단일 소스)
+        template <typename T>
+        constexpr T Get_Folding_Key() noexcept {
+            static_assert(std::is_unsigned<T>::value,
+                "T must be an unsigned type for folding key.");
+
+            return (sizeof(T) == 8u) ? static_cast<T>(0x9E3779B19E3779B1ULL) :
+                (sizeof(T) == 4u) ? static_cast<T>(0x9E3779B1UL) :
+                (sizeof(T) == 2u) ? static_cast<T>(0xA3C5U) :
+                static_cast<T>(0xB7U);
+        }
+
     } // anonymous namespace
 
     // =====================================================================
@@ -59,7 +71,7 @@ namespace ProtectedEngine {
     uint32_t Polymorphic_Shield::Generate_AES_CTR_Stream(
         uint64_t session_id, uint32_t gyro_seed) noexcept {
         return static_cast<uint32_t>(
-            Generate_Chaotic_Stream_64(session_id, gyro_seed, 0));
+            Generate_Chaotic_Stream_64(session_id, gyro_seed, static_cast<uint32_t>(0u)));
     }
 
     // =====================================================================
@@ -86,21 +98,7 @@ namespace ProtectedEngine {
                 (folded << shift) | (folded >> (bit_width - shift)));
         }
 
-        // [FIX-04] 타입별 독립 folding_key 상수
-        T folding_key;
-        if (sizeof(T) == 8u) {
-            folding_key = static_cast<T>(0x9E3779B19E3779B1ULL);
-        }
-        else if (sizeof(T) == 4u) {
-            folding_key = static_cast<T>(0x9E3779B1UL);
-        }
-        else if (sizeof(T) == 2u) {
-            folding_key = static_cast<T>(0xA3C5U);
-        }
-        else {
-            folding_key = static_cast<T>(0xB7U);
-        }
-
+        const T folding_key = Get_Folding_Key<T>();
         return static_cast<T>(folded ^ folding_key);
     }
 
@@ -115,20 +113,7 @@ namespace ProtectedEngine {
         static_assert(std::is_unsigned<T>::value,
             "T must be an unsigned type for safe bitwise shift.");
 
-        T folding_key;
-        if (sizeof(T) == 8u) {
-            folding_key = static_cast<T>(0x9E3779B19E3779B1ULL);
-        }
-        else if (sizeof(T) == 4u) {
-            folding_key = static_cast<T>(0x9E3779B1UL);
-        }
-        else if (sizeof(T) == 2u) {
-            folding_key = static_cast<T>(0xA3C5U);
-        }
-        else {
-            folding_key = static_cast<T>(0xB7U);
-        }
-
+        const T folding_key = Get_Folding_Key<T>();
         T unfolded = static_cast<T>(folded_data ^ folding_key);
 
         const unsigned int bit_width = sizeof(T) * 8u;

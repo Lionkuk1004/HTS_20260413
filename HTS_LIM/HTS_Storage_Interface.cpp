@@ -23,12 +23,16 @@ namespace ProtectedEngine {
 
     bool Storage_Interface::Protect_File(std::vector<uint32_t>& file_buffer) noexcept {
         if (file_buffer.empty()) return false;
-        return adapter.Secure_Data_Stream(file_buffer.data(), file_buffer.size(), file_session_id);
+        uint32_t* const p = file_buffer.data();
+        if (p == nullptr) return false;
+        return adapter.Secure_Data_Stream(p, file_buffer.size(), file_session_id);
     }
 
     bool Storage_Interface::Self_Heal_File(std::vector<uint32_t>& damaged_buffer) noexcept {
         if (damaged_buffer.empty()) return false;
-        return adapter.Recover_Data_Stream(damaged_buffer.data(), damaged_buffer.size(), file_session_id);
+        uint32_t* const p = damaged_buffer.data();
+        if (p == nullptr) return false;
+        return adapter.Recover_Data_Stream(p, damaged_buffer.size(), file_session_id);
     }
 
     // [BUG-15] 스택 사용량 검증 (항목⑥)
@@ -62,6 +66,8 @@ namespace ProtectedEngine {
         uint64_t chunk_offset) noexcept {
 
         if (data.empty() || elements == 0) return;
+        uint32_t* const base = data.data();
+        if (base == nullptr) return;
 
         // [BUG-19] chunk_offset 혼합 → 청크별 고유 시드
         const uint64_t chunk_seed = file_session_id ^ chunk_offset;
@@ -73,13 +79,13 @@ namespace ProtectedEngine {
         size_t i = 0;
         for (; i + 1u < safe_elements; i += 2u) {
             const uint64_t key64 = rotator.Get_Current_Key_And_Rotate();
-            data[i] ^= static_cast<uint32_t>(key64 & 0xFFFFFFFFu);
-            data[i + 1] ^= static_cast<uint32_t>(key64 >> 32u);
+            base[i] ^= static_cast<uint32_t>(key64 & 0xFFFFFFFFu);
+            base[i + 1u] ^= static_cast<uint32_t>(key64 >> 32u);
         }
         // 홀수 잔여 1개
         if (i < safe_elements) {
             const uint64_t key64 = rotator.Get_Current_Key_And_Rotate();
-            data[i] ^= static_cast<uint32_t>(key64 & 0xFFFFFFFFu);
+            base[i] ^= static_cast<uint32_t>(key64 & 0xFFFFFFFFu);
         }
     }
 

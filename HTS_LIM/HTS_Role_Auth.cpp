@@ -28,7 +28,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) q[i] = 0u;
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(q));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -43,8 +43,8 @@ namespace ProtectedEngine {
     // 양산: OTP 또는 보호 Flash 섹터에 저장
     static uint8_t s_officer_hash[32] = {};
     static uint8_t s_user_hash[32] = {};
-    static bool    s_officer_hash_set = false;
-    static bool    s_user_hash_set = false;
+    static std::atomic<bool> s_officer_hash_set{ false };
+    static std::atomic<bool> s_user_hash_set{ false };
 
     // 고정 Salt (양산 시 디바이스별 고유값으로 교체 권장)
     static constexpr uint8_t FIXED_SALT[16] = {
@@ -53,7 +53,7 @@ namespace ProtectedEngine {
     };
 
     // 인증 실패 카운터 (연속 5회 실패 → 잠금)
-    static uint8_t s_fail_count = 0u;
+    static std::atomic<uint8_t> s_fail_count{ 0u };
     static constexpr uint8_t MAX_FAIL_COUNT = 5u;
 
     // =====================================================================
@@ -65,7 +65,8 @@ namespace ProtectedEngine {
 
         // HMAC(key=salt, message=password) → 32바이트 해시
         // [FIX-C6031] [[nodiscard]] 반환값 검사 — 실패 시 출력 제로화
-        if (!HMAC_Bridge::Generate(password, len, salt, SALT_LEN, out_32)) {
+        if (HMAC_Bridge::Generate(password, len, salt, Role_Auth::SALT_LEN, out_32)
+            != HMAC_Bridge::SECURE_TRUE) {
             RA_Wipe(out_32, 32u);  // 실패 시 부분 기록 방지
         }
     }
@@ -80,7 +81,7 @@ namespace ProtectedEngine {
         if (password == nullptr || password_len == 0u) return false;
 
         // 잠금 상태 확인
-        if (s_fail_count >= MAX_FAIL_COUNT) {
+        if (s_fail_count.load(std::memory_order_acquire) >= MAX_FAIL_COUNT) {
             SecureLogger::logSecurityEvent(
                 "AUTH_LOCKED",
                 "Authentication locked. Max failures exceeded.");
@@ -93,11 +94,11 @@ namespace ProtectedEngine {
 
         if (target_role == Role::CRYPTO_OFFICER) {
             stored_hash = s_officer_hash;
-            hash_set = s_officer_hash_set;
+            hash_set = s_officer_hash_set.load(std::memory_order_acquire);
         }
         else if (target_role == Role::USER) {
             stored_hash = s_user_hash;
-            hash_set = s_user_hash_set;
+            hash_set = s_user_hash_set.load(std::memory_order_acquire);
         }
         else {
             return false;  // UNAUTHENTICATED는 인증 불필요
@@ -113,14 +114,17 @@ namespace ProtectedEngine {
 
         // 상수 시간 비교
         volatile uint8_t diff = 0u;
-        for (size_t i = 0u; i < HASH_LEN; ++i) {
+        for (size_t i = 0u; i < Role_Auth::HASH_LEN; ++i) {
             diff |= computed[i] ^ stored_hash[i];
         }
 
         RA_Wipe(computed, sizeof(computed));
 
         if (diff != 0u) {
-            s_fail_count++;
+            const uint8_t cur = s_fail_count.load(std::memory_order_relaxed);
+            if (cur < MAX_FAIL_COUNT) {
+                s_fail_count.store(static_cast<uint8_t>(cur + 1u), std::memory_order_release);
+            }
             SecureLogger::logSecurityEvent(
                 "AUTH_FAIL", "Authentication failed.");
             return false;
@@ -130,7 +134,7 @@ namespace ProtectedEngine {
         s_current_role.store(
             static_cast<uint8_t>(target_role),
             std::memory_order_release);
-        s_fail_count = 0u;
+        s_fail_count.store(0u, std::memory_order_release);
 
         SecureLogger::logSecurityEvent(
             "AUTH_OK",
@@ -186,18 +190,18 @@ namespace ProtectedEngine {
     bool Role_Auth::Set_Officer_Password_Hash(
         const uint8_t* hash_32) noexcept {
         if (hash_32 == nullptr) return false;
-        if (s_officer_hash_set) return false;  // 이미 설정됨 → 재설정 금지
+        if (s_officer_hash_set.load(std::memory_order_acquire)) { return false; }  // 이미 설정됨 → 재설정 금지
         std::memcpy(s_officer_hash, hash_32, 32);
-        s_officer_hash_set = true;
+        s_officer_hash_set.store(true, std::memory_order_release);
         return true;
     }
 
     bool Role_Auth::Set_User_Password_Hash(
         const uint8_t* hash_32) noexcept {
         if (hash_32 == nullptr) return false;
-        if (s_user_hash_set) return false;
+        if (s_user_hash_set.load(std::memory_order_acquire)) { return false; }
         std::memcpy(s_user_hash, hash_32, 32);
-        s_user_hash_set = true;
+        s_user_hash_set.store(true, std::memory_order_release);
         return true;
     }
 

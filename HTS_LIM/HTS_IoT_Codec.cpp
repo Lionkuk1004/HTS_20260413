@@ -7,6 +7,25 @@
 #include "HTS_IoT_Codec.h"
 
 namespace ProtectedEngine {
+    namespace {
+        struct IoT_Codec_Busy_Guard final {
+            std::atomic_flag* flag;
+            uint32_t locked;
+            explicit IoT_Codec_Busy_Guard(std::atomic_flag& f) noexcept
+                : flag(&f), locked(HTS_IoT_Codec::SECURE_FALSE) {
+                locked = (!flag->test_and_set(std::memory_order_acq_rel))
+                    ? HTS_IoT_Codec::SECURE_TRUE
+                    : HTS_IoT_Codec::SECURE_FALSE;
+            }
+            ~IoT_Codec_Busy_Guard() noexcept {
+                if (locked == HTS_IoT_Codec::SECURE_TRUE) {
+                    flag->clear(std::memory_order_release);
+                }
+            }
+            IoT_Codec_Busy_Guard(const IoT_Codec_Busy_Guard&) = delete;
+            IoT_Codec_Busy_Guard& operator=(const IoT_Codec_Busy_Guard&) = delete;
+        };
+    }
 
     // ============================================================
     //  Constructor
@@ -29,6 +48,9 @@ namespace ProtectedEngine {
     void HTS_IoT_Codec::Begin_Frame(IoT_MsgType type, uint32_t device_id,
         uint32_t timestamp) noexcept
     {
+        IoT_Codec_Busy_Guard guard(op_busy_);
+        if (guard.locked != HTS_IoT_Codec::SECURE_TRUE) { return; }
+
         // Reset build state
         build_pos_ = 0u;
         tlv_count_ = 0u;
@@ -52,37 +74,40 @@ namespace ProtectedEngine {
     //  Add TLV Items
     // ============================================================
 
-    bool HTS_IoT_Codec::Add_U8(SensorType sensor, uint8_t value) noexcept
+    uint32_t HTS_IoT_Codec::Add_U8(SensorType sensor, uint8_t value) noexcept
     {
         return Add_Raw(sensor, &value, 1u);
     }
 
-    bool HTS_IoT_Codec::Add_U16(SensorType sensor, uint16_t value) noexcept
+    uint32_t HTS_IoT_Codec::Add_U16(SensorType sensor, uint16_t value) noexcept
     {
         uint8_t buf[2];
         Write_U16(buf, value);
         return Add_Raw(sensor, buf, 2u);
     }
 
-    bool HTS_IoT_Codec::Add_U32(SensorType sensor, uint32_t value) noexcept
+    uint32_t HTS_IoT_Codec::Add_U32(SensorType sensor, uint32_t value) noexcept
     {
         uint8_t buf[4];
         Write_U32(buf, value);
         return Add_Raw(sensor, buf, 4u);
     }
 
-    bool HTS_IoT_Codec::Add_Raw(SensorType sensor, const uint8_t* data,
+    uint32_t HTS_IoT_Codec::Add_Raw(SensorType sensor, const uint8_t* data,
         uint8_t data_len) noexcept
     {
-        if (!frame_active_) { return false; }
-        if (data == nullptr && data_len > 0u) { return false; }
-        if (data_len > IOT_TLV_MAX_VALUE_SIZE) { return false; }
-        if (tlv_count_ >= IOT_MAX_TLV_COUNT) { return false; }
+        IoT_Codec_Busy_Guard guard(op_busy_);
+        if (guard.locked != HTS_IoT_Codec::SECURE_TRUE) { return SECURE_FALSE; }
+
+        if (!frame_active_) { return SECURE_FALSE; }
+        if (data == nullptr && data_len > 0u) { return SECURE_FALSE; }
+        if (data_len > IOT_TLV_MAX_VALUE_SIZE) { return SECURE_FALSE; }
+        if (tlv_count_ >= IOT_MAX_TLV_COUNT) { return SECURE_FALSE; }
 
         // Check remaining space: TLV header + value + CRC trailer must fit
         const uint32_t needed = IOT_TLV_HEADER_SIZE + static_cast<uint32_t>(data_len);
         const uint32_t remaining = IOT_MAX_FRAME_SIZE - static_cast<uint32_t>(build_pos_);
-        if (needed + IOT_FRAME_CRC_SIZE > remaining) { return false; }
+        if (needed + IOT_FRAME_CRC_SIZE > remaining) { return SECURE_FALSE; }
 
         // Write TLV: [SENSOR_TYPE(1)][LENGTH(1)][VALUE(data_len)]
         build_buf_[build_pos_] = static_cast<uint8_t>(sensor);
@@ -94,19 +119,22 @@ namespace ProtectedEngine {
         build_pos_ = static_cast<uint16_t>(
             static_cast<uint32_t>(build_pos_) + needed);
         tlv_count_++;
-        return true;
+        return SECURE_TRUE;
     }
 
     // ============================================================
     //  Finalize
     // ============================================================
 
-    bool HTS_IoT_Codec::Finalize(uint8_t* out_buf, uint16_t out_buf_size,
+    uint32_t HTS_IoT_Codec::Finalize(uint8_t* out_buf, uint16_t out_buf_size,
         uint16_t& out_len) noexcept
     {
+        IoT_Codec_Busy_Guard guard(op_busy_);
+        if (guard.locked != HTS_IoT_Codec::SECURE_TRUE) { out_len = 0u; return SECURE_FALSE; }
+
         out_len = 0u;
-        if (!frame_active_) { return false; }
-        if (out_buf == nullptr) { return false; }
+        if (!frame_active_) { return SECURE_FALSE; }
+        if (out_buf == nullptr) { return SECURE_FALSE; }
 
         // Patch TLV count into header
         build_buf_[9] = tlv_count_;
@@ -115,14 +143,14 @@ namespace ProtectedEngine {
         const uint32_t data_region = static_cast<uint32_t>(build_pos_);
         if (data_region + IOT_FRAME_CRC_SIZE > IOT_MAX_FRAME_SIZE) {
             frame_active_ = false;
-            return false;
+            return SECURE_FALSE;
         }
 
         const uint16_t crc = IPC_Compute_CRC16(build_buf_, data_region);
         Write_U16(&build_buf_[data_region], crc);
 
         const uint16_t total = static_cast<uint16_t>(data_region + IOT_FRAME_CRC_SIZE);
-        if (total > out_buf_size) { return false; }
+        if (total > out_buf_size) { return SECURE_FALSE; }
 
         // Copy to output
         for (uint16_t i = 0u; i < total; ++i) {
@@ -132,28 +160,28 @@ namespace ProtectedEngine {
 
         // Reset for next frame
         frame_active_ = false;
-        return true;
+        return SECURE_TRUE;
     }
 
     // ============================================================
     //  Parse
     // ============================================================
 
-    bool HTS_IoT_Codec::Parse(const uint8_t* wire_buf, uint16_t wire_len,
+    uint32_t HTS_IoT_Codec::Parse(const uint8_t* wire_buf, uint16_t wire_len,
         IoT_Frame_Header& out_header,
         IoT_TLV_Item* out_items, uint8_t max_items,
         uint8_t& out_item_count) const noexcept
     {
         out_item_count = 0u;
 
-        if (wire_buf == nullptr) { return false; }
-        if (wire_len < IOT_FRAME_HEADER_SIZE + IOT_FRAME_CRC_SIZE) { return false; }
+        if (wire_buf == nullptr) { return SECURE_FALSE; }
+        if (wire_len < IOT_FRAME_HEADER_SIZE + IOT_FRAME_CRC_SIZE) { return SECURE_FALSE; }
 
         // CRC validation (over all bytes except trailing CRC)
         const uint32_t data_region = static_cast<uint32_t>(wire_len) - IOT_FRAME_CRC_SIZE;
         const uint16_t computed_crc = IPC_Compute_CRC16(wire_buf, data_region);
         const uint16_t received_crc = Read_U16(&wire_buf[data_region]);
-        if (computed_crc != received_crc) { return false; }
+        if (computed_crc != received_crc) { return SECURE_FALSE; }
 
         // Parse header
         out_header.msg_type = static_cast<IoT_MsgType>(wire_buf[0]);
@@ -164,7 +192,8 @@ namespace ProtectedEngine {
         out_header.pad_ = 0u;
 
         // Validate TLV count bounds
-        if (out_header.tlv_count > IOT_MAX_TLV_COUNT) { return false; }
+        if (out_header.tlv_count > IOT_MAX_TLV_COUNT) { return SECURE_FALSE; }
+        if (out_header.tlv_count > max_items) { return SECURE_FALSE; }
 
         // Parse TLV chain
         uint32_t offset = IOT_FRAME_HEADER_SIZE;
@@ -178,17 +207,17 @@ namespace ProtectedEngine {
             const uint8_t    vlen = wire_buf[offset + 1u];
 
             // Validate value length
-            if (vlen > IOT_TLV_MAX_VALUE_SIZE) { return false; }
+            if (vlen > IOT_TLV_MAX_VALUE_SIZE) { return SECURE_FALSE; }
             // Overflow-safe: subtract from known upper bound, not add to offset
             const uint32_t needed = IOT_TLV_HEADER_SIZE + static_cast<uint32_t>(vlen);
             if ((data_region - offset) < needed) {
-                return false;
+                return SECURE_FALSE;
             }
 
             // Cross-check with type registry (optional: strict mode)
             const uint8_t expected_size = IoT_Sensor_Value_Size(stype);
             if (expected_size != 0u && vlen != expected_size) {
-                return false;  // Type/length mismatch -- corrupted or malicious
+                return SECURE_FALSE;  // Type/length mismatch -- corrupted or malicious
             }
 
             // Store if caller has space
@@ -211,10 +240,10 @@ namespace ProtectedEngine {
         }
 
         // Verify we consumed expected number of TLVs
-        if (parsed != out_header.tlv_count) { return false; }
+        if (parsed != out_header.tlv_count) { return SECURE_FALSE; }
 
         out_item_count = parsed;
-        return true;
+        return SECURE_TRUE;
     }
 
     // ============================================================
@@ -223,11 +252,15 @@ namespace ProtectedEngine {
 
     uint8_t HTS_IoT_Codec::Get_TLV_Count() const noexcept
     {
+        IoT_Codec_Busy_Guard guard(op_busy_);
+        if (guard.locked != HTS_IoT_Codec::SECURE_TRUE) { return 0u; }
         return tlv_count_;
     }
 
     uint16_t HTS_IoT_Codec::Get_Used_Bytes() const noexcept
     {
+        IoT_Codec_Busy_Guard guard(op_busy_);
+        if (guard.locked != HTS_IoT_Codec::SECURE_TRUE) { return 0u; }
         return build_pos_;
     }
 

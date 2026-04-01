@@ -54,6 +54,21 @@
 #include <limits>
 
 namespace ProtectedEngine {
+    struct LEA_Busy_Guard {
+        std::atomic_flag& f;
+        uint32_t locked;
+        explicit LEA_Busy_Guard(std::atomic_flag& flag) noexcept
+            : f(flag), locked(LEA_Bridge::SECURE_FALSE) {
+            if (!f.test_and_set(std::memory_order_acquire)) {
+                locked = LEA_Bridge::SECURE_TRUE;
+            }
+        }
+        ~LEA_Busy_Guard() noexcept {
+            if (locked == LEA_Bridge::SECURE_TRUE) {
+                f.clear(std::memory_order_release);
+            }
+        }
+    };
 
     // =====================================================================
     //  보안 메모리 소거 — KCMVP Key Zeroization
@@ -74,6 +89,9 @@ namespace ProtectedEngine {
         for (size_t i = 0; i < size; ++i) {
             p[i] = 0;
         }
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(p));
+#endif
         // [BUG] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -113,15 +131,17 @@ namespace ProtectedEngine {
     //
     //  [BUG-06 수정] 이중 Secure_Zero 제거 → 1회로 통합
     // =====================================================================
-    bool LEA_Bridge::Initialize(
+    uint32_t LEA_Bridge::Initialize(
         const uint8_t* master_key,
         uint32_t       key_len_bytes,
         const uint8_t* initial_vector) noexcept {
+        LEA_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
 
-        if (!master_key || !initial_vector) return false;
+        if (!master_key || !initial_vector) return SECURE_FALSE;
         if (key_len_bytes != 16u &&
             key_len_bytes != 24u &&
-            key_len_bytes != 32u) return false;
+            key_len_bytes != 32u) return SECURE_FALSE;
 
         // 이전 상태 완전 소거
         is_initialized = false;
@@ -139,14 +159,14 @@ namespace ProtectedEngine {
         }
         if (key_check == 0) {
             Secure_Zero_LEA(&session_key, sizeof(LEA_KEY));
-            return false;
+            return SECURE_FALSE;
         }
 
         // CTR 모드 IV 복사 (16바이트 고정)
         std::memcpy(iv_counter, initial_vector, 16u);
 
         is_initialized = true;
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================
@@ -159,22 +179,26 @@ namespace ProtectedEngine {
     //    → 외부에서 추가 증가 시 TX/RX CTR 불일치 → 복호화 실패
     //  수정: Increment_CTR 호출 삭제 — KISA API 내부 관리에 위임
     // =====================================================================
-    bool LEA_Bridge::Encrypt_Payload(
+    uint32_t LEA_Bridge::Encrypt_Payload(
         uint32_t* payload_data, size_t elements) noexcept {
+        LEA_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
 
-        if (!is_initialized || !payload_data || elements == 0) return false;
+        if (!is_initialized || !payload_data || elements == 0u) return SECURE_FALSE;
+        const uintptr_t payload_addr = reinterpret_cast<uintptr_t>(payload_data);
+        if ((payload_addr & (alignof(uint32_t) - 1u)) != 0u) { return SECURE_FALSE; }
 
         // 곱셈 오버플로 방어
         constexpr size_t UINT32_SIZE = sizeof(uint32_t);
         if (elements > std::numeric_limits<size_t>::max() / UINT32_SIZE) {
-            return false;
+            return SECURE_FALSE;
         }
         size_t total_bytes = elements * UINT32_SIZE;
 
         // unsigned int 절사 방어 (KISA API 파라미터 타입)
         if (total_bytes > static_cast<size_t>(
             std::numeric_limits<unsigned int>::max())) {
-            return false;
+            return SECURE_FALSE;
         }
 
         auto* byte_ptr = reinterpret_cast<uint8_t*>(payload_data);
@@ -189,7 +213,7 @@ namespace ProtectedEngine {
             &session_key                             // 키
         );
 
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================
@@ -197,20 +221,24 @@ namespace ProtectedEngine {
     //
     //  [BUG-02 수정] CTR 이중 증가 제거 (Encrypt와 동일 근거)
     // =====================================================================
-    bool LEA_Bridge::Decrypt_Payload(
+    uint32_t LEA_Bridge::Decrypt_Payload(
         uint32_t* payload_data, size_t elements) noexcept {
+        LEA_Busy_Guard guard(op_busy_);
+        if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
 
-        if (!is_initialized || !payload_data || elements == 0) return false;
+        if (!is_initialized || !payload_data || elements == 0u) return SECURE_FALSE;
+        const uintptr_t payload_addr = reinterpret_cast<uintptr_t>(payload_data);
+        if ((payload_addr & (alignof(uint32_t) - 1u)) != 0u) { return SECURE_FALSE; }
 
         constexpr size_t UINT32_SIZE = sizeof(uint32_t);
         if (elements > std::numeric_limits<size_t>::max() / UINT32_SIZE) {
-            return false;
+            return SECURE_FALSE;
         }
         size_t total_bytes = elements * UINT32_SIZE;
 
         if (total_bytes > static_cast<size_t>(
             std::numeric_limits<unsigned int>::max())) {
-            return false;
+            return SECURE_FALSE;
         }
 
         auto* byte_ptr = reinterpret_cast<uint8_t*>(payload_data);
@@ -225,7 +253,7 @@ namespace ProtectedEngine {
             &session_key                             // 키
         );
 
-        return true;
+        return SECURE_TRUE;
     }
 
 } // namespace ProtectedEngine

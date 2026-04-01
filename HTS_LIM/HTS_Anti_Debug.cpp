@@ -167,15 +167,18 @@ namespace ProtectedEngine {
             reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
         const uint32_t val = *dhcsr;
 
-        // [BUG-FIX CRIT] DHCSR 교차 검증 복원 (BUG-07)
-        //  기존: if (val & DHCSR_DEBUG_MASK) → ANY 1비트 세트 시 탐지 → EMI 오탐
-        //  수정: C_DEBUGEN(bit0) 필수 AND (C_HALT OR S_HALT) 동시 세트
-        //  EMI 노이즈: 1비트 무작위 플립 → 교차 조건 불충족 → 오탐 차단
-        //  실제 JTAG: C_DEBUGEN=1 AND (C_HALT=1 OR S_HALT=1) → 교차 확인 → 탐지
-        const bool c_debugen = (val & DHCSR_C_DEBUGEN) != 0u;
-        const bool halted = (val & (DHCSR_C_HALT | DHCSR_S_HALT)) != 0u;
+        // [교차검수 패치] "Attach 탐지"와 구현 정합
+        //  기존 구현은 Halt 동반시에만 탐지되어 Attach(실행중 디버그) 우회 가능.
+        //  오탐 방어를 위해 2회 샘플 모두 C_DEBUGEN=1일 때만 Attach로 판정.
+        const bool c_debugen_1 = (val & DHCSR_C_DEBUGEN) != 0u;
+        const bool halted_1 = (val & (DHCSR_C_HALT | DHCSR_S_HALT)) != 0u;
+        const uint32_t val2 = *dhcsr;
+        const bool c_debugen_2 = (val2 & DHCSR_C_DEBUGEN) != 0u;
+        const bool halted_2 = (val2 & (DHCSR_C_HALT | DHCSR_S_HALT)) != 0u;
+        const bool attached_confirmed = c_debugen_1 && c_debugen_2;
+        const bool halted_confirmed = (halted_1 && c_debugen_1) || (halted_2 && c_debugen_2);
 
-        if (c_debugen && halted) {
+        if (attached_confirmed || halted_confirmed) {
             forceHalt(
                 "SECURITY ALERT: JTAG/SWD Debugger"
                 " (Halt or Attach) detected!");

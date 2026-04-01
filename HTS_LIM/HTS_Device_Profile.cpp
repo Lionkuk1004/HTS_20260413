@@ -10,6 +10,9 @@
 #include <atomic>
 
 namespace ProtectedEngine {
+    static constexpr uint32_t PROFILE_INIT_NONE = 0u;
+    static constexpr uint32_t PROFILE_INIT_BUSY = 1u;
+    static constexpr uint32_t PROFILE_INIT_READY = 2u;
 
     // [FIX-D2] 보안 소거 — volatile + asm clobber + release fence
     static void Profile_Secure_Wipe(void* p, size_t n) noexcept {
@@ -179,7 +182,7 @@ namespace ProtectedEngine {
     // ============================================================
 
     HTS_Device_Profile::HTS_Device_Profile() noexcept
-        : initialized_{ false }
+        : init_state_{ PROFILE_INIT_NONE }
     {
         static_assert(sizeof(Impl) <= IMPL_BUF_SIZE,
             "HTS_Device_Profile::Impl exceeds IMPL_BUF_SIZE");
@@ -196,15 +199,17 @@ namespace ProtectedEngine {
 
     IPC_Error HTS_Device_Profile::Initialize(HTS_Console_Manager* console) noexcept
     {
-        bool expected = false;
-        if (!initialized_.compare_exchange_strong(
-            expected, true, std::memory_order_acq_rel))
+        uint32_t expected = PROFILE_INIT_NONE;
+        if (!init_state_.compare_exchange_strong(
+            expected, PROFILE_INIT_BUSY, std::memory_order_acq_rel))
         {
-            return IPC_Error::OK;
+            return (expected == PROFILE_INIT_READY)
+                ? IPC_Error::OK
+                : IPC_Error::NOT_INITIALIZED;
         }
 
         if (console == nullptr) {
-            initialized_.store(false, std::memory_order_release);
+            init_state_.store(PROFILE_INIT_NONE, std::memory_order_release);
             return IPC_Error::NOT_INITIALIZED;
         }
 
@@ -227,12 +232,13 @@ namespace ProtectedEngine {
         impl->periph_cb.enable_modbus = nullptr;
         impl->periph_cb.enable_cctv_cam = nullptr;
 
+        init_state_.store(PROFILE_INIT_READY, std::memory_order_release);
         return IPC_Error::OK;
     }
 
     void HTS_Device_Profile::Shutdown() noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) { return; }
 
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
@@ -246,19 +252,19 @@ namespace ProtectedEngine {
         // [FIX-D2] impl_buf_ 보안 소거 — 평문 데이터 잔류 방지
         Profile_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
 
-        initialized_.store(false, std::memory_order_release);
+        init_state_.store(PROFILE_INIT_NONE, std::memory_order_release);
     }
 
     void HTS_Device_Profile::Register_Periph_Callbacks(const PeriphCallbacks& cb) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->periph_cb = cb;
     }
 
     IPC_Error HTS_Device_Profile::Switch_Mode(DeviceMode mode) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) {
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) {
             return IPC_Error::NOT_INITIALIZED;
         }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
@@ -267,7 +273,7 @@ namespace ProtectedEngine {
 
     DeviceMode HTS_Device_Profile::Get_Current_Mode() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) {
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) {
             return DeviceMode::SENSOR_GATEWAY;
         }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
@@ -276,7 +282,7 @@ namespace ProtectedEngine {
 
     void HTS_Device_Profile::Get_Current_Preset(DevicePreset& out_preset) const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) {
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) {
             out_preset = k_device_presets[0];
             return;
         }
@@ -296,7 +302,7 @@ namespace ProtectedEngine {
 
     ProfileState HTS_Device_Profile::Get_State() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) {
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) {
             return ProfileState::UNCONFIGURED;
         }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
@@ -305,7 +311,7 @@ namespace ProtectedEngine {
 
     uint8_t HTS_Device_Profile::Get_Active_Periph_Mask() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
+        if (init_state_.load(std::memory_order_acquire) != PROFILE_INIT_READY) { return 0u; }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
         return impl->active_periph_mask;
     }

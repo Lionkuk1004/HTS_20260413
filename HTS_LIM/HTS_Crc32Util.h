@@ -15,8 +15,6 @@
 //   // raw 포인터 (Primary — 힙 0회)
 //   uint32_t crc = Crc32Util::calculate(ptr, len);
 //
-//   // vector 래퍼 (레거시 호환)
-//   uint32_t crc = Crc32Util::calculate(vec);
 //
 //  [성능 — STM32F407 @168MHz]
 //   1바이트: ~4사이클 (LDRB + EOR + LSR + LDR)
@@ -36,7 +34,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <vector>
 
 namespace ProtectedEngine {
 
@@ -47,10 +44,6 @@ namespace ProtectedEngine {
         static uint32_t calculate(
             const uint8_t* data, size_t len) noexcept;
 
-        /// @brief [레거시 래퍼] std::vector CRC-32
-        [[nodiscard]]
-        static uint32_t calculate(
-            const std::vector<uint8_t>& data) noexcept;
     };
 
 } // namespace ProtectedEngine

@@ -27,7 +27,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(q));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -172,14 +172,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 초과");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Sensor_Aggregator::Impl*
         HTS_Sensor_Aggregator::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -191,14 +191,14 @@ namespace ProtectedEngine {
     {
         Agg_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl();
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Sensor_Aggregator::~HTS_Sensor_Aggregator() noexcept {
-        Impl* p = get_impl();
-        if (p != nullptr) { p->~Impl(); }
+        Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
+        const bool was_valid = impl_valid_.exchange(false, std::memory_order_acq_rel);
+        if (was_valid) { p->~Impl(); }
         Agg_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
     }
 
     // =====================================================================
@@ -210,11 +210,10 @@ namespace ProtectedEngine {
         Impl* p = get_impl();
         if (p == nullptr || adc_buf == nullptr) { return; }
 
-        const uint32_t pm = agg_critical_enter();
+        // ISR 콜백에서 호출되므로 PRIMASK 재조작 없이 즉시 스냅샷 반영
         for (size_t i = 0u; i < NUM_ADC_CH; ++i) {
             p->adc_raw[i] = adc_buf[i];
         }
-        agg_critical_exit(pm);
     }
 
     void HTS_Sensor_Aggregator::On_Accel_Read(
@@ -223,7 +222,7 @@ namespace ProtectedEngine {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
 
-        const uint32_t pm = agg_critical_enter();
+        // ISR 콜백에서 호출되므로 PRIMASK 재조작 없이 즉시 갱신
         if (success) {
             p->accel_raw = accel_mg;
             p->accel_ok = true;
@@ -233,7 +232,6 @@ namespace ProtectedEngine {
             p->accel_ok = false;
             p->ch[NUM_ADC_CH].health = SensorHealth::FAIL;
         }
-        agg_critical_exit(pm);
     }
 
     // =====================================================================

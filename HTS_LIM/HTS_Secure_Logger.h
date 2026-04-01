@@ -41,7 +41,7 @@ namespace ProtectedEngine {
         /// @brief 보안 감사 이벤트 기록
         /// @param eventType  이벤트 분류 ("SESSION_OPEN", "POST_START" 등)
         /// @param details    상세 설명 (const char* — 힙 할당 금지)
-        /// @note  ARM: snprintf → UART 스텁, CRC32 무결성 지문 부착
+        /// @note  ARM: stdout/semihosting 비의존 고정 버퍼 경로 + CRC32 지문
         static void logSecurityEvent(
             const char* eventType,
             const char* details) noexcept;

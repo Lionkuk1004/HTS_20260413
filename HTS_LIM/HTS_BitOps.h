@@ -15,7 +15,11 @@
 
 #include <cstdint>
 
-#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+// C++20 <bit> — PC/x86 빌드에서만 사용 (ARM은 SWAR 고정)
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH) && \
+    !defined(__aarch64__) && \
+    (__cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L))
 #include <bit>
 #endif
 
@@ -26,10 +30,27 @@ namespace ProtectedEngine {
     /// @return 0~32 범위의 세트 비트 수
     [[nodiscard]]
     constexpr uint32_t popcount32(uint32_t x) noexcept {
-#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
+        // [BUG-FIX CRIT] C++20 std::popcount ARM 분기 차단
+        //
+        //  기존: C++20이면 무조건 std::popcount(x)
+        //  문제: std::popcount → __builtin_popcount → Cortex-M4에 HW 없음
+        //        → libgcc __popcountsi2 함수 호출 (프롤로그+에필로그+BL ~30cyc)
+        //        → BUG-08에서 제거한 오버헤드가 C++20 전환 시 부활
+        //
+        //  수정: ARM 타겟은 C++ 버전 무관하게 SWAR 고정 (12cyc ALU)
+        //        PC/x86만 std::popcount 허용 (HW POPCNT 단일 사이클)
+        //
+        //  SWAR: 분기 0, 메모리 참조 0, ALU 12cyc O(1)
+        //  Cortex-M4 MUL: 단일 사이클 (HW 곱셈기)
+
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH) && \
+    !defined(__aarch64__) && \
+    (__cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L))
+        // PC/x86 빌드 전용: HW POPCNT 활용 (단일 사이클)
         return static_cast<uint32_t>(std::popcount(x));
 #else
-        // SWAR: 분기/메모리 참조 0, ALU 12cyc O(1)
+        // ARM (Cortex-M4/A55) + C++17 이하 PC: SWAR 알고리즘
         x = x - ((x >> 1u) & 0x55555555u);
         x = (x & 0x33333333u) + ((x >> 2u) & 0x33333333u);
         return (((x + (x >> 4u)) & 0x0F0F0F0Fu) * 0x01010101u) >> 24u;

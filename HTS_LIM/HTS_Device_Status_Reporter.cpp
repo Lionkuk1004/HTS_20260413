@@ -54,6 +54,20 @@ namespace ProtectedEngine {
         dst[1] = static_cast<uint8_t>((v >> 8u) & 0xFFu);
     }
 
+    // 스택 임시 패킷 제거: 수명 보장 정적 슬롯 풀
+    // DATA 큐 깊이(8)에 맞춰 슬롯 8개를 순환 사용
+    static constexpr size_t STATUS_PKT_SLOT_COUNT = 8u;
+    static constexpr uint8_t STATUS_PKT_SLOT_MASK = 7u; // 8 - 1
+    alignas(uint32_t) static uint8_t g_status_pkt_pool[STATUS_PKT_SLOT_COUNT]
+                                                     [HTS_Device_Status_Reporter::STATUS_PKT_SIZE] = {};
+    static uint8_t g_status_pkt_slot = 0u;
+
+    static uint8_t* acquire_status_pkt_slot() noexcept {
+        uint8_t* const pkt = g_status_pkt_pool[g_status_pkt_slot];
+        g_status_pkt_slot = static_cast<uint8_t>((g_status_pkt_slot + 1u) & STATUS_PKT_SLOT_MASK);
+        return pkt;
+    }
+
     // =====================================================================
     //  Pimpl 구현 구조체
     // =====================================================================
@@ -82,21 +96,26 @@ namespace ProtectedEngine {
         }
         ~Impl() noexcept = default;
 
-        bool is_alert() const noexcept {
-            return (fault_flags != FaultFlag::NONE);
+        uint32_t is_alert() const noexcept {
+            return (fault_flags != FaultFlag::NONE)
+                ? HTS_Device_Status_Reporter::SECURE_TRUE
+                : HTS_Device_Status_Reporter::SECURE_FALSE;
         }
 
         uint32_t get_interval() const noexcept {
-            return is_alert() ? ALERT_INTERVAL : NORMAL_INTERVAL;
+            return (is_alert() == HTS_Device_Status_Reporter::SECURE_TRUE)
+                ? ALERT_INTERVAL
+                : NORMAL_INTERVAL;
         }
 
         // [FIX-UPTIME] Tick에서 호출 — 1시간 경과 시 누적
         void tick_uptime(uint32_t now_ms) noexcept {
             static constexpr uint32_t ONE_HOUR_MS = 3600000u;
-            const uint32_t since = now_ms - last_hour_ms;
-            if (since >= ONE_HOUR_MS) {
+            uint32_t since = now_ms - last_hour_ms;
+            while (since >= ONE_HOUR_MS) {
                 if (uptime_hours < 255u) { uptime_hours++; }
-                last_hour_ms = now_ms;
+                last_hour_ms += ONE_HOUR_MS;
+                since -= ONE_HOUR_MS;
             }
         }
 
@@ -149,14 +168,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(256B)를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 alignas를 초과합니다");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Device_Status_Reporter::Impl*
         HTS_Device_Status_Reporter::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -169,14 +188,16 @@ namespace ProtectedEngine {
     {
         Rpt_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(my_id, dev_class, rpt_mode);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Device_Status_Reporter::~HTS_Device_Status_Reporter() noexcept {
-        Impl* p = get_impl();
+        impl_valid_.store(false, std::memory_order_release);
+        const uint32_t pm = rpt_critical_enter();
+        Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
         if (p != nullptr) { p->~Impl(); }
         Rpt_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
+        rpt_critical_exit(pm);
     }
 
     // =====================================================================
@@ -219,13 +240,17 @@ namespace ProtectedEngine {
     void HTS_Device_Status_Reporter::Set_Module_Active(uint8_t flag) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint32_t pm = rpt_critical_enter();
         p->module_flags |= flag;
+        rpt_critical_exit(pm);
     }
 
     void HTS_Device_Status_Reporter::Clear_Module_Active(uint8_t flag) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint32_t pm = rpt_critical_enter();
         p->module_flags &= static_cast<uint8_t>(~flag);
+        rpt_critical_exit(pm);
     }
 
     // =====================================================================
@@ -243,17 +268,29 @@ namespace ProtectedEngine {
 
     uint8_t HTS_Device_Status_Reporter::Get_Faults() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) ? p->fault_flags : 0u;
+        if (p == nullptr) { return 0u; }
+        const uint32_t pm = rpt_critical_enter();
+        const uint8_t v = p->fault_flags;
+        rpt_critical_exit(pm);
+        return v;
     }
 
     uint8_t HTS_Device_Status_Reporter::Get_Modules() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) ? p->module_flags : 0u;
+        if (p == nullptr) { return 0u; }
+        const uint32_t pm = rpt_critical_enter();
+        const uint8_t v = p->module_flags;
+        rpt_critical_exit(pm);
+        return v;
     }
 
-    bool HTS_Device_Status_Reporter::Has_Any_Fault() const noexcept {
+    uint32_t HTS_Device_Status_Reporter::Has_Any_Fault() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) && (p->fault_flags != FaultFlag::NONE);
+        if (p == nullptr) { return SECURE_FALSE; }
+        const uint32_t pm = rpt_critical_enter();
+        const bool has_fault = (p->fault_flags != FaultFlag::NONE);
+        rpt_critical_exit(pm);
+        return has_fault ? SECURE_TRUE : SECURE_FALSE;
     }
 
     // =====================================================================
@@ -271,7 +308,7 @@ namespace ProtectedEngine {
 
         const uint32_t pm = rpt_critical_enter();
 
-        uint8_t pkt[STATUS_PKT_SIZE] = {};
+        uint8_t* const pkt = acquire_status_pkt_slot();
         p->build_packet(pkt);
         p->scan_count++;
 
@@ -283,8 +320,6 @@ namespace ProtectedEngine {
             pkt, STATUS_PKT_SIZE,
             systick_ms);
         (void)enq;
-
-        Rpt_Secure_Wipe(pkt, sizeof(pkt));
     }
 
     // =====================================================================
@@ -299,9 +334,6 @@ namespace ProtectedEngine {
     {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-
-        // WOR_ONLY: Tick 스킵 (On_WoR_Scan에서만 응답)
-        if (p->rpt_mode == ReportMode::WOR_ONLY) { return; }
 
         // [FIX-RACE] 초기화 + 주기 확인 + 패킷 조립 전체 크리티컬 보호
         //  On_WoR_Scan ISR이 build_packet 호출 시 boot_ms/last_rpt_ms
@@ -319,6 +351,12 @@ namespace ProtectedEngine {
         // [FIX-UPTIME] 누적 가동 시간 갱신 (래핑 면역)
         p->tick_uptime(systick_ms);
 
+        // WOR_ONLY: 주기 전송은 스킵 (uptime 누적은 유지)
+        if (p->rpt_mode == ReportMode::WOR_ONLY) {
+            rpt_critical_exit(pm);
+            return;
+        }
+
         // 주기 확인
         const uint32_t interval = p->get_interval();
         const uint32_t elapsed = systick_ms - p->last_rpt_ms;
@@ -328,7 +366,7 @@ namespace ProtectedEngine {
         }
 
         // 패킷 조립
-        uint8_t pkt[STATUS_PKT_SIZE] = {};
+        uint8_t* const pkt = acquire_status_pkt_slot();
         p->build_packet(pkt);
         p->last_rpt_ms = systick_ms;
 
@@ -340,8 +378,6 @@ namespace ProtectedEngine {
             pkt, STATUS_PKT_SIZE,
             systick_ms);
         (void)enq;
-
-        Rpt_Secure_Wipe(pkt, sizeof(pkt));
     }
 
     // =====================================================================

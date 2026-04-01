@@ -47,6 +47,14 @@
 /// @author 임영준 (Lim Young-jun)
 /// @copyright INNOViD 2026. All rights reserved.
 
+// ARM Cortex-M (STM32) 전용 모듈: A55/리눅스 서버 빌드 차단
+// Visual Studio Windows 정적 라이브러리(HTS_LIM.vcxproj)는 _WIN32 로 호스트 단위검증 빌드 허용.
+#if (((!defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+      !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)) || \
+     defined(__aarch64__)) && !defined(_WIN32))
+#error "[HTS_FATAL] HTS_IPC_Protocol은 STM32 전용입니다. A55/서버 빌드에서 제외하십시오."
+#endif
+
 #include "HTS_IPC_Protocol_Defs.h"
 #include <cstdint>
 #include <cstddef>
@@ -69,6 +77,9 @@ namespace ProtectedEngine {
     ///   공개 헤더는 API 표면만 노출.
     class HTS_IPC_Protocol final {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         HTS_IPC_Protocol() noexcept;
         ~HTS_IPC_Protocol() noexcept;
 
@@ -119,7 +130,8 @@ namespace ProtectedEngine {
         /// @param[out] out_payload     페이로드 복사 대상 버퍼
         /// @param      out_buf_size    out_payload 버퍼 크기
         /// @param[out] out_payload_len 실제 페이로드 길이
-        /// @return 성공 시 IPC_Error::OK, RX 링 비어있으면 QUEUE_FULL
+        /// @return 성공 시 IPC_Error::OK, RX 링 비어있으면 QUEUE_FULL.
+        ///         페이로드가 out_buf_size를 초과하면 BUFFER_OVERFLOW (fail-closed).
         IPC_Error Receive_Frame(IPC_Command& out_cmd,
             uint8_t* out_payload,
             uint16_t      out_buf_size,
@@ -138,8 +150,8 @@ namespace ProtectedEngine {
         void Get_Statistics(IPC_Statistics& out_stats) const noexcept;
 
         /// @brief A55 링크 생존 여부 확인 (하트비트 정상 여부)
-        /// @return 마지막 하트비트가 3배 핑 주기 이내이면 true
-        bool Is_Link_Alive() const noexcept;
+        /// @return 마지막 하트비트가 3배 핑 주기 이내이면 SECURE_TRUE
+        uint32_t Is_Link_Alive() const noexcept;
 
         /// @brief TX 링 대기 프레임 수
         uint32_t Get_TX_Pending() const noexcept;

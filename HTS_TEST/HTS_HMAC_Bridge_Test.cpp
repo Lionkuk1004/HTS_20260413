@@ -4,36 +4,58 @@
 //  [컴파일 대상]
 //  ✅ HTS_HMAC_Bridge_Test.cpp
 //  ✅ HTS_HMAC_Bridge.cpp
-//  ✅ KISA_SHA_256.c
+//  ✅ KISA_SHA256.c
 //  ✅ KISA_HMAC.c
+//  ✅ HTS_Secure_Memory.cpp (D-2 — SZ → secureWipe)
 //  ❌ 기타 main 포함 파일 모두 제외
 // =========================================================================
 
 #include "HTS_HMAC_Bridge.h"
+#include "HTS_Secure_Memory.h"
 #include <iostream>
 #include <iomanip>
 #include <cstring>
 #include <cstdlib>
-#include <atomic>
+
+namespace {
+    using HM = ProtectedEngine::HMAC_Bridge;
+    /// HMAC_Bridge API는 uint32_t 토큰 반환 — SECURE_TRUE/SECURE_FALSE 모두 비영(0 아님).
+    /// if(api()) / !api() / ok && api() 는 오동작 → 반드시 == SECURE_TRUE 비교.
+    inline bool hmac_ok(uint32_t r) noexcept {
+        return r == HM::SECURE_TRUE;
+    }
+}
 
 static void SZ(void* p, size_t n) noexcept {
-    volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-    for (size_t i = 0; i < n; ++i) q[i] = 0;
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    ProtectedEngine::SecureMemory::secureWipe(p, n);
 }
 
 static bool CT_Eq(const uint8_t* a, const uint8_t* b, size_t n) noexcept {
-    volatile uint8_t d = 0;
-    for (size_t i = 0; i < n; ++i) d |= a[i] ^ b[i];
-    return (d == 0);
+    if (a == nullptr || b == nullptr) {
+        return false;
+    }
+    if (n == 0u) {
+        return true;
+    }
+    uint32_t diff = 0u;
+    for (size_t i = 0u; i < n; ++i) {
+        diff |= static_cast<uint32_t>(a[i] ^ b[i]);
+    }
+    return diff == 0u;
 }
 
 static void PHex(const char* lbl, const uint8_t* data, size_t len) {
+    if (lbl == nullptr) {
+        return;
+    }
     std::ios_base::fmtflags f = std::cout.flags();
     std::cout << lbl;
-    for (size_t i = 0; i < len; ++i)
-        std::cout << std::hex << std::setw(2) << std::setfill('0')
-        << static_cast<unsigned>(data[i]);
+    if (data != nullptr && len > 0u) {
+        for (size_t i = 0u; i < len; ++i) {
+            std::cout << std::hex << std::setw(2) << std::setfill('0')
+                << static_cast<unsigned>(data[i]);
+        }
+    }
     std::cout.flags(f);
     std::cout << "\n";
 }
@@ -105,9 +127,9 @@ static bool Test_TC1_Streaming() {
     {
         ProtectedEngine::HMAC_Context ctx;
         bool ok = true;
-        ok = ok && ProtectedEngine::HMAC_Bridge::Init(ctx, key, 20);
-        ok = ok && ProtectedEngine::HMAC_Bridge::Update(ctx, msg, 8);
-        ok = ok && ProtectedEngine::HMAC_Bridge::Final(ctx, out);
+        ok = ok && hmac_ok(HM::Init(ctx, key, 20));
+        ok = ok && hmac_ok(HM::Update(ctx, msg, 8));
+        ok = ok && hmac_ok(HM::Final(ctx, out));
         if (!ok) { std::cout << "  [FAIL] 스트리밍 처리 실패\n"; return false; }
     }
     PHex("  Expected : ", expected, 32);
@@ -143,7 +165,10 @@ static bool Test_Streaming_Consistency() {
 
     // 단일 호출
     uint8_t ref[32] = {};
-    ProtectedEngine::HMAC_Bridge::Generate(full, 19, key, 32, ref);
+    if (!hmac_ok(HM::Generate(full, 19, key, 32, ref))) {
+        std::cout << "  [FAIL] Generate 실패\n";
+        return false;
+    }
     PHex("  Generate  : ", ref, 32);
 
     // 스트리밍 (3청크)
@@ -151,11 +176,11 @@ static bool Test_Streaming_Consistency() {
     {
         ProtectedEngine::HMAC_Context ctx;
         bool ok = true;
-        ok = ok && ProtectedEngine::HMAC_Bridge::Init(ctx, key, 32);
-        ok = ok && ProtectedEngine::HMAC_Bridge::Update(ctx, c1, 4);
-        ok = ok && ProtectedEngine::HMAC_Bridge::Update(ctx, c2, 8);
-        ok = ok && ProtectedEngine::HMAC_Bridge::Update(ctx, c3, 7);
-        ok = ok && ProtectedEngine::HMAC_Bridge::Final(ctx, stream);
+        ok = ok && hmac_ok(HM::Init(ctx, key, 32));
+        ok = ok && hmac_ok(HM::Update(ctx, c1, 4));
+        ok = ok && hmac_ok(HM::Update(ctx, c2, 8));
+        ok = ok && hmac_ok(HM::Update(ctx, c3, 7));
+        ok = ok && hmac_ok(HM::Final(ctx, stream));
         if (!ok) {
             std::cout << "  [FAIL] 스트리밍 처리 실패\n";
             SZ(ref, 32); return false;
@@ -184,26 +209,30 @@ static bool Test_Verify_Suite() {
     const size_t  mlen = sizeof(msg) - 1;
 
     uint8_t tag[32] = {};
-    ProtectedEngine::HMAC_Bridge::Generate(msg, mlen, key, klen, tag);
+    if (!hmac_ok(HM::Generate(msg, mlen, key, klen, tag))) {
+        std::cout << "  [FAIL] Generate 실패\n";
+        SZ(tag, 32);
+        return false;
+    }
     PHex("  태그 : ", tag, 32);
 
     bool all = true;
 
-    bool v1 = ProtectedEngine::HMAC_Bridge::Verify(msg, mlen, key, klen, tag);
+    const bool v1 = hmac_ok(HM::Verify(msg, mlen, key, klen, tag));
     std::cout << (v1 ? "  [PASS] 정상 검증\n" : "  [FAIL] 정상 검증 실패\n");
     if (!v1) all = false;
 
     uint8_t bad_msg[sizeof(msg)] = {};
     std::memcpy(bad_msg, msg, mlen);
-    bad_msg[0] ^= 0xFF;
-    bool v2 = !ProtectedEngine::HMAC_Bridge::Verify(bad_msg, mlen, key, klen, tag);
+    bad_msg[0] = static_cast<uint8_t>(bad_msg[0] ^ 0xFFu);
+    const bool v2 = !hmac_ok(HM::Verify(bad_msg, mlen, key, klen, tag));
     std::cout << (v2 ? "  [PASS] 메시지 변조 탐지\n" : "  [FAIL] 메시지 변조 탐지 실패\n");
     if (!v2) all = false;
 
     uint8_t bad_key[sizeof(key)] = {};
     std::memcpy(bad_key, key, klen);
-    bad_key[0] ^= 0x01;
-    bool v3 = !ProtectedEngine::HMAC_Bridge::Verify(msg, mlen, bad_key, klen, tag);
+    bad_key[0] = static_cast<uint8_t>(bad_key[0] ^ 0x01u);
+    const bool v3 = !hmac_ok(HM::Verify(msg, mlen, bad_key, klen, tag));
     std::cout << (v3 ? "  [PASS] 키 변조 탐지\n" : "  [FAIL] 키 변조 탐지 실패\n");
     if (!v3) all = false;
 
@@ -229,20 +258,28 @@ static bool Test_Streaming_Verify() {
     uint8_t tag[32] = {};
     {
         ProtectedEngine::HMAC_Context ctx;
-        ProtectedEngine::HMAC_Bridge::Init(ctx, key, 32);
-        ProtectedEngine::HMAC_Bridge::Update(ctx, c1, 8);
-        ProtectedEngine::HMAC_Bridge::Update(ctx, c2, 8);
-        ProtectedEngine::HMAC_Bridge::Final(ctx, tag);
+        if (!hmac_ok(HM::Init(ctx, key, 32))
+            || !hmac_ok(HM::Update(ctx, c1, 8))
+            || !hmac_ok(HM::Update(ctx, c2, 8))
+            || !hmac_ok(HM::Final(ctx, tag))) {
+            std::cout << "  [FAIL] 태그 생성 실패\n";
+            SZ(tag, 32);
+            return false;
+        }
     }
     PHex("  태그 : ", tag, 32);
 
     bool ok = false;
     {
         ProtectedEngine::HMAC_Context ctx;
-        ProtectedEngine::HMAC_Bridge::Init(ctx, key, 32);
-        ProtectedEngine::HMAC_Bridge::Update(ctx, c1, 8);
-        ProtectedEngine::HMAC_Bridge::Update(ctx, c2, 8);
-        ok = ProtectedEngine::HMAC_Bridge::Verify_Final(ctx, tag);
+        if (!hmac_ok(HM::Init(ctx, key, 32))
+            || !hmac_ok(HM::Update(ctx, c1, 8))
+            || !hmac_ok(HM::Update(ctx, c2, 8))) {
+            std::cout << "  [FAIL] Verify_Final 전 스트리밍 실패\n";
+            SZ(tag, 32);
+            return false;
+        }
+        ok = hmac_ok(HM::Verify_Final(ctx, tag));
     }
     std::cout << (ok ? "  [PASS] Verify_Final 통과\n" : "  [FAIL] Verify_Final 실패\n");
     SZ(tag, 32);
@@ -261,8 +298,12 @@ static bool Test_Long_Key() {
     const uint8_t msg[] = "Long key test message";
     uint8_t t1[32] = {}, t2[32] = {};
 
-    ProtectedEngine::HMAC_Bridge::Generate(msg, sizeof(msg) - 1, long_key, 65, t1);
-    ProtectedEngine::HMAC_Bridge::Generate(msg, sizeof(msg) - 1, long_key, 65, t2);
+    if (!hmac_ok(HM::Generate(msg, sizeof(msg) - 1, long_key, 65, t1))
+        || !hmac_ok(HM::Generate(msg, sizeof(msg) - 1, long_key, 65, t2))) {
+        std::cout << "  [FAIL] Generate 실패\n";
+        SZ(long_key, 65); SZ(t1, 32); SZ(t2, 32);
+        return false;
+    }
 
     PHex("  Tag1 : ", t1, 32);
     PHex("  Tag2 : ", t2, 32);
@@ -274,9 +315,13 @@ static bool Test_Long_Key() {
     uint8_t t3[32] = {};
     {
         ProtectedEngine::HMAC_Context ctx;
-        ProtectedEngine::HMAC_Bridge::Init(ctx, long_key, 65);
-        ProtectedEngine::HMAC_Bridge::Update(ctx, msg, sizeof(msg) - 1);
-        ProtectedEngine::HMAC_Bridge::Final(ctx, t3);
+        if (!hmac_ok(HM::Init(ctx, long_key, 65))
+            || !hmac_ok(HM::Update(ctx, msg, sizeof(msg) - 1))
+            || !hmac_ok(HM::Final(ctx, t3))) {
+            std::cout << "  [FAIL] 스트리밍 Final 실패\n";
+            SZ(long_key, 65); SZ(t1, 32); SZ(t2, 32); SZ(t3, 32);
+            return false;
+        }
     }
     PHex("  Tag3 (streaming) : ", t3, 32);
     bool ok2 = CT_Eq(t1, t3, 32);

@@ -33,6 +33,21 @@
 
 namespace ProtectedEngine {
 
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+    static inline uint32_t ent_critical_enter() noexcept {
+        uint32_t primask;
+        __asm volatile ("MRS %0, PRIMASK\n CPSID I"
+            : "=r"(primask) :: "memory");
+        return primask;
+    }
+    static inline void ent_critical_exit(uint32_t pm) noexcept {
+        __asm volatile ("MSR PRIMASK, %0" :: "r"(pm) : "memory");
+    }
+#else
+    static inline uint32_t ent_critical_enter() noexcept { return 0u; }
+    static inline void ent_critical_exit(uint32_t) noexcept {}
+#endif
+
     // =====================================================================
     //  Entropy Fault 처리 — RCT/APT 공통
     // =====================================================================
@@ -73,6 +88,8 @@ namespace ProtectedEngine {
     //      윈도우 첫 바이트를 기준값으로 설정, 이후 W-1개에서 동일 값 카운트
     // =====================================================================
     void EntropyMonitor::healthCheck(uint8_t generatedByte) noexcept {
+        uint32_t fault_code = 0u;
+        const uint32_t pm = ent_critical_enter();
         // ── 첫 호출: 참조 바이트 + APT 윈도우 시작 ────────────────
         if (!is_initialized) {
             last_byte = generatedByte;
@@ -83,6 +100,7 @@ namespace ProtectedEngine {
             apt_sample = generatedByte;
             apt_count = 1u;
             apt_window_pos = 1u;
+            ent_critical_exit(pm);
             return;
         }
 
@@ -95,7 +113,7 @@ namespace ProtectedEngine {
 
         if (repeat_count >= NIST_RCT_CUTOFF) {
             // TRNG Stuck-at Fault → 0xEEEEEEEE
-            Entropy_Fault_Handler(0xEEEEEEEEu);
+            fault_code = 0xEEEEEEEEu;
         }
         last_byte = generatedByte;
 
@@ -118,7 +136,7 @@ namespace ProtectedEngine {
             // 임계치 초과 → Bias Fault (윈도우 완료 전이라도 즉시 판정)
             if (apt_count >= APT_CUTOFF) {
                 // TRNG Bias Fault → 0xEEEEAAAA
-                Entropy_Fault_Handler(0xEEEEAAAAu);
+                fault_code = 0xEEEEAAAAu;
             }
 
             // 윈도우 완료 → 리셋 (다음 호출에서 새 윈도우 시작)
@@ -126,6 +144,10 @@ namespace ProtectedEngine {
                 apt_window_pos = 0u;
                 apt_count = 0u;
             }
+        }
+        ent_critical_exit(pm);
+        if (fault_code != 0u) {
+            Entropy_Fault_Handler(fault_code);
         }
     }
 

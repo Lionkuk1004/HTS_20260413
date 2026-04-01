@@ -1,37 +1,49 @@
 // =========================================================================
 //  HTS_HMAC_KCMVP_KAT.cpp
 //
+//  [KCMVP / BUG-KAT-46-HMAC] Known Answer = 검증된 **정적** 기대값만
+//  · 기대 HMAC: RFC 4231(TC1/TC2) + KAT-3는 외부 도구로 사전 계산한 32바이트 상수
+//  · MUT(HMAC_Bridge)로 런타임 캡처하여 expected를 채우면 안 됨(자기 참조/Tautology)
+//
 //  [프로젝트 컴파일 대상]
 //  ✅ HTS_HMAC_KCMVP_KAT.cpp   ← 이 파일 (main)
 //  ✅ HTS_HMAC_Bridge.cpp
+//  ✅ HTS_Secure_Memory.cpp
+//  ✅ KISA_SHA256.c
 //  ✅ KISA_HMAC.c
 //  ❌ 기타 main 포함 파일 모두 제외
 //
-//  빌드 (MSVC):
-//    cl.exe /EHsc /std:c++17
-//           HTS_HMAC_KCMVP_KAT.cpp HTS_HMAC_Bridge.cpp KISA_HMAC.c
+//  빌드 (MSVC) — KISA는 MUT(브릿지) 링크용; KAT 기대값 생성에 사용하지 않음
+//    cl.exe /EHsc /std:c++17 /I.
+//           HTS_HMAC_KCMVP_KAT.cpp HTS_HMAC_Bridge.cpp HTS_Secure_Memory.cpp
+//           KISA_SHA256.c KISA_HMAC.c
 //           /Fe:HMAC_KAT.exe
 //  빌드 (GCC):
-//    g++ -std=c++17 -O2
-//        HTS_HMAC_KCMVP_KAT.cpp HTS_HMAC_Bridge.cpp KISA_HMAC.c
+//    g++ -std=c++17 -O2 -I.
+//        HTS_HMAC_KCMVP_KAT.cpp HTS_HMAC_Bridge.cpp HTS_Secure_Memory.cpp
+//        KISA_SHA256.c KISA_HMAC.c
 //        -o HMAC_KAT
 // =========================================================================
 
 #include "HTS_HMAC_Bridge.h"
+#include "HTS_Secure_Memory.h"
 #include <iostream>
 #include <iomanip>
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
-#include <atomic>
+
+namespace {
+using HM = ProtectedEngine::HMAC_Bridge;
+/// Generate/Verify는 SECURE_TRUE·SECURE_FALSE 모두 비영 — if(r)/!r 불가.
+inline bool hmac_ok(uint32_t r) noexcept { return r == HM::SECURE_TRUE; }
+} // namespace
 
 // =========================================================================
-//  유틸리티
+//  유틸리티 — D-2 / X-5-1: 스택·임시 버퍼 소거는 SecureMemory::secureWipe (BUG-KAT-43)
 // =========================================================================
 static void SZ(void* p, size_t n) noexcept {
-    volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-    for (size_t i = 0; i < n; ++i) q[i] = 0;
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    ProtectedEngine::SecureMemory::secureWipe(p, n);
 }
 
 static bool CT_Eq(const uint8_t* a,
@@ -64,8 +76,7 @@ struct KAT_Vector {
     size_t      key_len;
     uint8_t     message[128];  // 정확히 128바이트
     size_t      msg_len;
-    uint8_t     expected[32];  // 정확히 32바이트
-    bool        captured;
+    uint8_t     expected[32];  // 정확히 32바이트 (런타임 캡처 금지)
 };
 
 // =========================================================================
@@ -83,7 +94,8 @@ struct KAT_Vector {
 //  key_len = 4   → 키 4바이트 + 패딩 60바이트   = 64
 //  msg_len = 28  → 메시지 28바이트 + 패딩 100바이트 = 128
 //
-//  [KAT-3] B-CDMA 도메인
+//  [KAT-3] B-CDMA 도메인 — expected는 외부 신뢰 도구로 사전 계산한 상수
+//  (예: OpenSSL dgst -sha256 -hmac …, Python hmac, .NET HMACSHA256)
 //  key_len = 32  → 키 32바이트 + 패딩 32바이트  = 64
 //  msg_len = 32  → 메시지 32바이트 + 패딩 96바이트 = 128
 // =========================================================================
@@ -134,7 +146,6 @@ static KAT_Vector KAT_TABLE[] = {
         0x88,0x1D,0xC2,0x00, 0xC9,0x83,0x3D,0xA7,
         0x26,0xE9,0x37,0x6C, 0x2E,0x32,0xCF,0xF7
     },
-    true
 },
 
 // ------------------------------------------------------------------
@@ -184,14 +195,13 @@ static KAT_Vector KAT_TABLE[] = {
         0x5A,0x00,0x3F,0x08, 0x9D,0x27,0x39,0x83,
         0x9D,0xEC,0x58,0xB9, 0x64,0xEC,0x38,0x43
     },
-    true
 },
 
 // ------------------------------------------------------------------
 //  [KAT-3] B-CDMA 펌웨어 도메인 시뮬레이션
 //  key[64]  = 32개 유효값 + 32개 0 패딩
 //  msg[128] = 32개 유효값 + 96개 0 패딩
-//  ★ 1단계 자동 캡처 → seed.kisa.or.kr 공식 벡터 대조 필요
+//  expected[32]: HMAC-SHA256(key, msg) — .NET HMACSHA256 등 외부 도구로 사전 산출 상수
 // ------------------------------------------------------------------
 {
     "HMAC-SHA256 KAT-3 (B-CDMA Session)",
@@ -228,7 +238,14 @@ static KAT_Vector KAT_TABLE[] = {
         0,0,0,0,0,0,0,0                              // 128
     },
     32,
-    { 0 }, false   // 1단계 자동 캡처
+    // HMAC-SHA256(key[0:32], msg[0:32]) — PowerShell .NET HMACSHA256 산출 (RFC 2104 동일)
+    // hex: 482c73db4c5f43127a8218a2eaadd99134bd735ac77f678f3ae55f8d2201377a
+    {
+        0x48,0x2C,0x73,0xDB, 0x4C,0x5F,0x43,0x12,
+        0x7A,0x82,0x18,0xA2, 0xEA,0xAD,0xD9,0x91,
+        0x34,0xBD,0x73,0x5A, 0xC7,0x7F,0x67,0x8F,
+        0x3A,0xE5,0x5F,0x8D, 0x22,0x01,0x37,0x7A
+    }
 },
 };
 
@@ -237,57 +254,12 @@ sizeof(KAT_TABLE) / sizeof(KAT_TABLE[0]);
 
 
 // =========================================================================
-//  1단계: 실제 HMAC 값 자동 캡처
-// =========================================================================
-static bool Capture_Phase() {
-    std::cout << "\n==========================================\n"
-        << "  [1단계] 실제 HMAC 값 캡처\n"
-        << "  KISA HMAC-SHA256 라이브러리 실행 결과 기록\n"
-        << "==========================================\n";
-
-    bool all_ok = true;
-
-    for (size_t i = 0; i < KAT_COUNT; ++i) {
-        KAT_Vector& v = KAT_TABLE[i];
-        std::cout << "\n  [ " << v.name << " ]\n";
-
-        if (v.captured) {
-            PHex("  기존 값 : ", v.expected, 32);
-            std::cout << "  ★ seed.kisa.or.kr 공식 벡터와 반드시 대조하십시오.\n";
-            continue;
-        }
-
-        uint8_t computed[32] = {};
-        bool ok = ProtectedEngine::HMAC_Bridge::Generate(
-            v.message, v.msg_len,
-            v.key, v.key_len,
-            computed
-        );
-
-        if (!ok) {
-            std::cout << "  [ERROR] HMAC 생성 실패\n";
-            all_ok = false;
-            SZ(computed, sizeof(computed));
-            continue;
-        }
-
-        std::memcpy(v.expected, computed, 32);
-        v.captured = true;
-        PHex("  Captured : ", v.expected, 32);
-        std::cout << "  ★ seed.kisa.or.kr 공식 벡터와 반드시 대조하십시오.\n";
-        SZ(computed, sizeof(computed));
-    }
-
-    return all_ok;
-}
-
-
-// =========================================================================
-//  2단계: KAT 검증
+//  KAT 검증 — 정적 Expected vs MUT(HMAC_Bridge)
 // =========================================================================
 static bool KAT_Phase() {
     std::cout << "\n==========================================\n"
-        << "  [2단계] KAT 검증 (Known Answer Test)\n"
+        << "  KAT 검증 — 정적 기대값 vs MUT [BUG-KAT-46-HMAC]\n"
+        << "  (런타임 캡처/자기 참조 없음)\n"
         << "==========================================\n";
 
     int pass = 0, fail = 0;
@@ -303,18 +275,13 @@ static bool KAT_Phase() {
         PHex("  Message  : ", v.message, v.msg_len);
         PHex("  Expected : ", v.expected, 32);
 
-        if (!v.captured) {
-            std::cout << "  [SKIP] 캡처 미완료\n";
-            ++fail; continue;
-        }
-
         // HMAC 재생성
         uint8_t computed[32] = {};
-        bool gen_ok = ProtectedEngine::HMAC_Bridge::Generate(
+        bool gen_ok = hmac_ok(HM::Generate(
             v.message, v.msg_len,
             v.key, v.key_len,
             computed
-        );
+        ));
 
         if (!gen_ok) {
             std::cout << "  [FAIL] HMAC 생성 실패\n";
@@ -330,26 +297,27 @@ static bool KAT_Phase() {
             : "  [FAIL] HMAC 불일치\n");
 
         // Verify API 검증
-        bool verify_ok = ProtectedEngine::HMAC_Bridge::Verify(
+        bool verify_ok = hmac_ok(HM::Verify(
             v.message, v.msg_len,
             v.key, v.key_len,
             v.expected
-        );
+        ));
         std::cout << (verify_ok
             ? "  [PASS] Verify API 정상\n"
             : "  [FAIL] Verify API 오류\n");
+        if (!verify_ok) kat_ok = false;
 
         // 메시지 위변조 탐지
         {
             uint8_t tampered[128] = {};
             std::memcpy(tampered, v.message, v.msg_len);
-            tampered[0] ^= 0xFF;
+            tampered[0] = static_cast<uint8_t>(tampered[0] ^ 0xFF);
 
-            bool rejected = !ProtectedEngine::HMAC_Bridge::Verify(
+            bool rejected = !hmac_ok(HM::Verify(
                 tampered, v.msg_len,
                 v.key, v.key_len,
                 v.expected
-            );
+            ));
             std::cout << (rejected
                 ? "  [PASS] 위변조 탐지 성공 (메시지 1바이트 변조)\n"
                 : "  [FAIL] 위변조 탐지 실패\n");
@@ -362,13 +330,13 @@ static bool KAT_Phase() {
         {
             uint8_t wrong_key[64] = {};
             std::memcpy(wrong_key, v.key, v.key_len);
-            wrong_key[0] ^= 0x01;
+            wrong_key[0] = static_cast<uint8_t>(wrong_key[0] ^ 0x01);
 
-            bool rejected = !ProtectedEngine::HMAC_Bridge::Verify(
+            bool rejected = !hmac_ok(HM::Verify(
                 v.message, v.msg_len,
                 wrong_key, v.key_len,
                 v.expected
-            );
+            ));
             std::cout << (rejected
                 ? "  [PASS] 키 변조 탐지 성공\n"
                 : "  [FAIL] 키 변조 탐지 실패\n");
@@ -389,8 +357,8 @@ static bool KAT_Phase() {
     if (fail == 0) {
         std::cout << "  판정 : 전체 통과 ✓\n\n"
             << "  [KCMVP 다음 단계]\n"
-            << "  1. KAT-1, KAT-2 → RFC 4231 공식값 대조 완료\n"
-            << "  2. KAT-3 Captured → seed.kisa.or.kr 대조\n"
+            << "  1. 상수 Expected를 RFC 4231 / 공식 문서와 대조 유지\n"
+            << "  2. KAT-3 B-CDMA 벡터는 외부 도구 산출값과 주기적 재대조\n"
             << "  3. 암호모듈 경계 정의서 및 보안정책서 작성\n"
             << "  4. 국정원 지정 시험기관 제출\n";
     }
@@ -413,12 +381,8 @@ int main() {
         << "  규격 : KS X ISO/IEC 9797-2\n"
         << "  벡터 : RFC 4231 TC1, TC2 + B-CDMA 도메인\n"
         << "  목적 : KCMVP 제출 전 자가 사전 검증\n"
+        << "  기대값 : 정적 RFC/외부 산출 상수 (런타임 캡처 없음)\n"
         << "==========================================\n";
-
-    if (!Capture_Phase()) {
-        std::cout << "\n[ERROR] 캡처 단계 실패 — 종료\n";
-        return EXIT_FAILURE;
-    }
 
     return KAT_Phase() ? EXIT_SUCCESS : EXIT_FAILURE;
 }

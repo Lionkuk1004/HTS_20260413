@@ -64,6 +64,8 @@
 //   BUG-52 [CRIT] wb_ 유니온화 (반이중 증명: TX/RX 동시 접근 불가)
 //   BUG-53 [HIGH] orig_acc_ int8_t 양자화 (AJC LMS σq << σth 검증)
 //   BUG-54 [HIGH] harq I/Q → RxAccum_I(SRAM) + RxAccum_Q(CCM) 분리
+//   BUG-41 [CRIT] SecureMemory::secureWipe — D-2/X-5-1 구현은 HTS_Secure_Memory.cpp
+//          (호스트·타깃 동일 3중 방어; 본 모듈은 호출부만)
 //
 /// @warning sizeof(HTS_V400_Dispatcher) ≈ 120KB (SRAM 부분만)
 ///          harq_Q_는 CCM에 별도 배치. 반드시 전역/정적 변수로 배치할 것.
@@ -161,7 +163,7 @@ namespace ProtectedEngine {
 
         /// @brief 디스패처 생성 (WAIT_SYNC 초기 상태)
         HTS_V400_Dispatcher() noexcept;
-        /// @brief 소멸자
+        /// @brief 소멸자 — CCM·버퍼·시드 개별 secureWipe (this 통째 wipe 없음: ajc_ UB 방지)
         ~HTS_V400_Dispatcher() noexcept;
 
         /// 상태 복제/이동 방지 (HARQ 누적 버퍼 + AJC 학습 상태)

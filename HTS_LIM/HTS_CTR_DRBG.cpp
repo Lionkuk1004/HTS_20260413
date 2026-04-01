@@ -49,6 +49,21 @@ namespace ProtectedEngine {
         std::atomic_thread_fence(std::memory_order_release);
     }
 
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+    static inline uint32_t drbg_critical_enter() noexcept {
+        uint32_t primask;
+        __asm volatile ("MRS %0, PRIMASK\n CPSID I"
+            : "=r"(primask) :: "memory");
+        return primask;
+    }
+    static inline void drbg_critical_exit(uint32_t pm) noexcept {
+        __asm volatile ("MSR PRIMASK, %0" :: "r"(pm) : "memory");
+    }
+#else
+    static inline uint32_t drbg_critical_enter() noexcept { return 0u; }
+    static inline void drbg_critical_exit(uint32_t) noexcept {}
+#endif
+
     // =====================================================================
     //  생성자 / 소멸자
     // =====================================================================
@@ -65,12 +80,14 @@ namespace ProtectedEngine {
     //  Uninstantiate — 키 소재 완전 소거
     // =====================================================================
     void HTS_CTR_DRBG::Uninstantiate() noexcept {
+        const uint32_t pm = drbg_critical_enter();
         DRBG_Wipe(key, sizeof(key));
         DRBG_Wipe(V, sizeof(V));
         DRBG_Wipe(prev_block, sizeof(prev_block));
         prev_block_valid = false;
-        reseed_counter = 0u;
-        instantiated = false;
+        reseed_counter.store(0u, std::memory_order_release);
+        instantiated.store(false, std::memory_order_release);
+        drbg_critical_exit(pm);
     }
 
     // =====================================================================
@@ -78,27 +95,34 @@ namespace ProtectedEngine {
     //  SP 800-90A §10.2.1.2 Step 2
     // =====================================================================
     void HTS_CTR_DRBG::Increment_V(uint8_t* v) noexcept {
+        // [교정] D-1/D-2. 타이밍 부채널 방어 및 연산 레지스터 파기
+        volatile uint16_t carry = 1u;
         for (int i = BLOCK_LEN - 1; i >= 0; --i) {
-            v[i] = static_cast<uint8_t>(v[i] + 1u);
-            if (v[i] != 0u) break;  // 캐리 없음 → 종료
+            uint16_t sum = static_cast<uint16_t>(v[i]) + carry;
+            v[i] = static_cast<uint8_t>(sum & 0xFFu);
+            carry = sum >> 8u;
         }
+        carry = 0u;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(carry) : "memory");
+#endif
     }
 
     // =====================================================================
     //  Block_Encrypt — 블록 암호 1회 호출
     //  빌드 프리셋에 따라 ARIA-256 또는 AES-256 선택
     // =====================================================================
-    bool HTS_CTR_DRBG::Block_Encrypt(const uint8_t* key_32,
+    uint32_t HTS_CTR_DRBG::Block_Encrypt(const uint8_t* key_32,
         const uint8_t* in_16, uint8_t* out_16) noexcept {
 
 #if defined(HTS_CRYPTO_FIPS) && !defined(HTS_CRYPTO_DUAL)
         AES_Bridge cipher;
-        if (!cipher.Initialize_Encryption(key_32, 256)) return false;
-        return cipher.Process_Block(in_16, out_16);
+        if (!cipher.Initialize_Encryption(key_32, 256)) return SECURE_FALSE;
+        return cipher.Process_Block(in_16, out_16) ? SECURE_TRUE : SECURE_FALSE;
 #else
         ARIA_Bridge cipher;
-        if (!cipher.Initialize_Encryption(key_32, 256)) return false;
-        return cipher.Process_Block(in_16, out_16);
+        if (!cipher.Initialize_Encryption(key_32, 256)) return SECURE_FALSE;
+        return cipher.Process_Block(in_16, out_16) ? SECURE_TRUE : SECURE_FALSE;
 #endif
     }
 
@@ -125,8 +149,11 @@ namespace ProtectedEngine {
 
         // nonce XOR 혼합 (연접 대신 XOR — 고정 SEED_LEN 유지)
         if (nonce != nullptr && n_len > 0u) {
+            size_t idx = pos;
             for (size_t i = 0u; i < n_len && i < SEED_LEN; ++i) {
-                seed_out[(pos + i) % SEED_LEN] ^= nonce[i];
+                seed_out[idx] ^= nonce[i];
+                ++idx;
+                if (idx >= SEED_LEN) { idx -= SEED_LEN; }
             }
         }
 
@@ -150,9 +177,10 @@ namespace ProtectedEngine {
     //  Key = temp[0..keylen-1]
     //  V   = temp[keylen..seedlen-1]
     // =====================================================================
-    void HTS_CTR_DRBG::Update(const uint8_t* provided_data) noexcept {
+    uint32_t HTS_CTR_DRBG::Update(const uint8_t* provided_data) noexcept {
 
-        uint8_t temp[SEED_LEN] = {};  // 48B 스택
+        const uint32_t pm = drbg_critical_enter();
+        alignas(uint32_t) uint8_t temp[SEED_LEN] = {};  // 48B 스택
         size_t offset = 0u;
 
         // SEED_LEN / BLOCK_LEN = 48 / 16 = 3 블록
@@ -160,11 +188,13 @@ namespace ProtectedEngine {
 
         for (size_t i = 0u; i < NUM_BLOCKS; ++i) {
             Increment_V(V);
-            uint8_t block_out[BLOCK_LEN] = {};
-            if (!Block_Encrypt(key, V, block_out)) {
-                // 암호 실패 시 0으로 유지 (상태 불변)
+            alignas(uint32_t) uint8_t block_out[BLOCK_LEN] = {};
+            if (Block_Encrypt(key, V, block_out) != SECURE_TRUE) {
+                // fail-closed: 부분 temp 상태를 폐기하고 즉시 실패 반환
+                DRBG_Wipe(temp, sizeof(temp));
                 DRBG_Wipe(block_out, sizeof(block_out));
-                continue;
+                drbg_critical_exit(pm);
+                return SECURE_FALSE;
             }
             std::memcpy(temp + offset, block_out, BLOCK_LEN);
             offset += BLOCK_LEN;
@@ -183,6 +213,8 @@ namespace ProtectedEngine {
         std::memcpy(V, temp + KEY_LEN, BLOCK_LEN);
 
         DRBG_Wipe(temp, sizeof(temp));
+        drbg_critical_exit(pm);
+        return SECURE_TRUE;
     }
 
     // =====================================================================
@@ -203,16 +235,19 @@ namespace ProtectedEngine {
         std::memset(V, 0, sizeof(V));
 
         // seed_material 구성
-        uint8_t seed[SEED_LEN] = {};
+        alignas(uint32_t) uint8_t seed[SEED_LEN] = {};
         Build_Seed_Material(seed, entropy, entropy_len,
             nonce, nonce_len, pers, pers_len);
 
         // Update(seed_material, Key=0, V=0)
-        Update(seed);
+        if (Update(seed) != SECURE_TRUE) {
+            DRBG_Wipe(seed, sizeof(seed));
+            return DRBG_Status::ERROR_CIPHER_FAIL;
+        }
         DRBG_Wipe(seed, sizeof(seed));
 
-        reseed_counter = 1u;
-        instantiated = true;
+        reseed_counter.store(1u, std::memory_order_release);
+        instantiated.store(true, std::memory_order_release);
 
         SecureLogger::logSecurityEvent(
             "DRBG_INIT",
@@ -227,7 +262,7 @@ namespace ProtectedEngine {
     DRBG_Status HTS_CTR_DRBG::Instantiate_Auto() noexcept {
 
         // SEED_LEN(48B) = 12 × 4B(uint32_t)
-        uint8_t entropy[SEED_LEN] = {};
+        alignas(uint32_t) uint8_t entropy[SEED_LEN] = {};
         for (size_t i = 0u; i < SEED_LEN; i += 4u) {
             const uint32_t raw =
                 Physical_Entropy_Engine::Extract_Quantum_Seed();
@@ -238,7 +273,7 @@ namespace ProtectedEngine {
         }
 
         // nonce = 추가 4바이트 엔트로피
-        uint8_t nonce[4] = {};
+        alignas(uint32_t) uint8_t nonce[4] = {};
         {
             const uint32_t n =
                 Physical_Entropy_Engine::Extract_Quantum_Seed();
@@ -269,59 +304,99 @@ namespace ProtectedEngine {
     DRBG_Status HTS_CTR_DRBG::Generate(
         uint8_t* output, size_t output_len) noexcept {
 
-        if (!instantiated) return DRBG_Status::ERROR_UNINSTANTIATED;
+        if (!instantiated.load(std::memory_order_acquire)) return DRBG_Status::ERROR_UNINSTANTIATED;
         if (output == nullptr || output_len == 0u) return DRBG_Status::OK;
         if (output_len > MAX_OUTPUT) return DRBG_Status::ERROR_INPUT_TOO_LONG;
 
         // reseed 필요 여부
-        if (reseed_counter > RESEED_INTERVAL) {
+        if (reseed_counter.load(std::memory_order_relaxed) > RESEED_INTERVAL) {
             return DRBG_Status::ERROR_RESEED_REQUIRED;
         }
 
         size_t generated = 0u;
+        uint8_t crng_failed = 0u;
         while (generated < output_len) {
-            Increment_V(V);
+            alignas(uint32_t) uint8_t key_snapshot[KEY_LEN] = {};
+            alignas(uint32_t) uint8_t v_snapshot[BLOCK_LEN] = {};
+            alignas(uint32_t) uint8_t prev_snapshot[BLOCK_LEN] = {};
+            bool prev_valid_snapshot = false;
 
-            uint8_t block_out[BLOCK_LEN] = {};
-            if (!Block_Encrypt(key, V, block_out)) {
+            {
+                const uint32_t pm = drbg_critical_enter();
+                Increment_V(V);
+                std::memcpy(key_snapshot, key, KEY_LEN);
+                std::memcpy(v_snapshot, V, BLOCK_LEN);
+                prev_valid_snapshot = prev_block_valid;
+                if (prev_valid_snapshot) {
+                    std::memcpy(prev_snapshot, prev_block, BLOCK_LEN);
+                }
+                drbg_critical_exit(pm);
+            }
+
+            alignas(uint32_t) uint8_t block_out[BLOCK_LEN] = {};
+            if (Block_Encrypt(key_snapshot, v_snapshot, block_out) != SECURE_TRUE) {
+                DRBG_Wipe(key_snapshot, sizeof(key_snapshot));
+                DRBG_Wipe(v_snapshot, sizeof(v_snapshot));
+                DRBG_Wipe(prev_snapshot, sizeof(prev_snapshot));
                 DRBG_Wipe(block_out, sizeof(block_out));
                 return DRBG_Status::ERROR_CIPHER_FAIL;
             }
 
             // ── CRNG 연속 테스트 (FIPS 140-3 AS09.35) ────────────
             //  연속 2개 출력 블록이 동일 → DRBG 고장 (확률 2^(-128))
-            if (prev_block_valid) {
+            if (prev_valid_snapshot) {
                 volatile uint8_t diff = 0u;
                 for (size_t j = 0u; j < BLOCK_LEN; ++j) {
-                    diff |= block_out[j] ^ prev_block[j];
+                    diff |= block_out[j] ^ prev_snapshot[j];
                 }
-                if (diff == 0u) {
-                    // DRBG 출력 반복 → 치명적 고장
-                    DRBG_Wipe(block_out, sizeof(block_out));
-                    Uninstantiate();
-                    SecureLogger::logSecurityEvent(
-                        "DRBG_FAIL",
-                        "CRNG continuous test failed. DRBG blocked.");
-                    return DRBG_Status::ERROR_CIPHER_FAIL;
-                }
+                // DRBG 출력 반복 → 치명적 고장
+                // 즉시 리턴하지 않고 플래그 누적 후 고정 흐름으로 종료 지점에서 fail-closed.
+                const uint32_t d = static_cast<uint32_t>(diff);
+                const uint8_t eq_mask = static_cast<uint8_t>((d - 1u) >> 31u); // diff==0 -> 1, else 0
+                crng_failed |= eq_mask;
             }
             // 현재 블록을 이전 블록으로 저장
-            for (size_t j = 0u; j < BLOCK_LEN; ++j) {
-                prev_block[j] = block_out[j];
+            {
+                const uint32_t pm = drbg_critical_enter();
+                for (size_t j = 0u; j < BLOCK_LEN; ++j) {
+                    prev_block[j] = block_out[j];
+                }
+                prev_block_valid = true;
+                drbg_critical_exit(pm);
             }
-            prev_block_valid = true;
 
             const size_t remain = output_len - generated;
             const size_t copy = (remain < BLOCK_LEN) ? remain : BLOCK_LEN;
-            std::memcpy(output + generated, block_out, copy);
+            const uint32_t cf_acc = static_cast<uint32_t>(crng_failed);
+            const uint32_t has_err = (cf_acc | (0u - cf_acc)) >> 31u;
+            const uint8_t ok_mask = static_cast<uint8_t>((has_err - 1u) & 0xFFu);
+            for (size_t j = 0u; j < copy; ++j) {
+                // CRNG 실패 누적 시 output으로의 원본 블록 유출 차단
+                output[generated + j] = static_cast<uint8_t>(block_out[j] & ok_mask);
+            }
 
             generated += copy;
+            DRBG_Wipe(key_snapshot, sizeof(key_snapshot));
+            DRBG_Wipe(v_snapshot, sizeof(v_snapshot));
+            DRBG_Wipe(prev_snapshot, sizeof(prev_snapshot));
             DRBG_Wipe(block_out, sizeof(block_out));
         }
 
+        if (crng_failed != 0u) {
+            DRBG_Wipe(output, output_len);
+            Uninstantiate();
+            SecureLogger::logSecurityEvent(
+                "DRBG_FAIL",
+                "CRNG continuous test failed. DRBG blocked.");
+            return DRBG_Status::ERROR_CIPHER_FAIL;
+        }
+
         // Update(additional_input = NULL)
-        Update(nullptr);
-        reseed_counter++;
+        if (Update(nullptr) != SECURE_TRUE) {
+            Uninstantiate();
+            return DRBG_Status::ERROR_CIPHER_FAIL;
+        }
+        reseed_counter.fetch_add(1u, std::memory_order_release);
 
         return DRBG_Status::OK;
     }
@@ -333,19 +408,24 @@ namespace ProtectedEngine {
         const uint8_t* entropy, size_t entropy_len,
         const uint8_t* additional, size_t add_len) noexcept {
 
-        if (!instantiated) return DRBG_Status::ERROR_UNINSTANTIATED;
+        if (!instantiated.load(std::memory_order_acquire)) return DRBG_Status::ERROR_UNINSTANTIATED;
         if (entropy == nullptr || entropy_len < SEED_LEN) {
             return DRBG_Status::ERROR_ENTROPY_FAIL;
         }
 
-        uint8_t seed[SEED_LEN] = {};
+        alignas(uint32_t) uint8_t seed[SEED_LEN] = {};
         Build_Seed_Material(seed, entropy, entropy_len,
             additional, add_len, nullptr, 0);
 
-        Update(seed);
+        if (Update(seed) != SECURE_TRUE) {
+            DRBG_Wipe(seed, sizeof(seed));
+            Uninstantiate();
+            return DRBG_Status::ERROR_CIPHER_FAIL;
+        }
         DRBG_Wipe(seed, sizeof(seed));
 
-        reseed_counter = 1u;
+        reseed_counter.store(1u, std::memory_order_release);
+        instantiated.store(true, std::memory_order_release);
 
         SecureLogger::logSecurityEvent(
             "DRBG_RESEED",
@@ -359,7 +439,7 @@ namespace ProtectedEngine {
     // =====================================================================
     DRBG_Status HTS_CTR_DRBG::Reseed_Auto() noexcept {
 
-        uint8_t entropy[SEED_LEN] = {};
+        alignas(uint32_t) uint8_t entropy[SEED_LEN] = {};
         for (size_t i = 0u; i < SEED_LEN; i += 4u) {
             const uint32_t raw =
                 Physical_Entropy_Engine::Extract_Quantum_Seed();

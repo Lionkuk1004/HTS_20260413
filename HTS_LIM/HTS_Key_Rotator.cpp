@@ -27,6 +27,10 @@
 #if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #include <bit>
 #endif
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
+#include <vector>
+#endif
 
 namespace ProtectedEngine {
     // [FIX-WIPE] 3중 방어 보안 소거 — impl_buf_ 전체 파쇄
@@ -35,7 +39,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -170,12 +174,13 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(256B)를 초과합니다 — 버퍼 크기를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(8)을 초과합니다");
-        return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        return impl_valid_.load(std::memory_order_acquire)
+            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const DynamicKeyRotator::Impl*
         DynamicKeyRotator::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -187,15 +192,23 @@ namespace ProtectedEngine {
     //  수정: impl_buf_ SecWipe → ::new Impl(masterSeed) → impl_valid_ = true
     //  Impl(masterSeed) 내부 try-catch가 OOM 처리 → 생성자 자체는 noexcept 유지
     // =====================================================================
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
     DynamicKeyRotator::DynamicKeyRotator(
         const std::vector<uint8_t>& masterSeed) noexcept
+        : DynamicKeyRotator(masterSeed.data(), masterSeed.size())
+    {
+    }
+#endif
+
+    DynamicKeyRotator::DynamicKeyRotator(
+        const uint8_t* masterSeed, size_t master_len) noexcept
         : impl_valid_(false)
     {
         Key_Rotator_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
-        // [BUG-17] vector → raw 포인터 + 길이 전달
         ::new (static_cast<void*>(impl_buf_)) Impl(
-            masterSeed.data(), masterSeed.size());
-        impl_valid_ = true;
+            masterSeed, master_len);
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     // =====================================================================
@@ -203,11 +216,12 @@ namespace ProtectedEngine {
     //  Impl 소멸자(currentSeed 보안 소거) → impl_buf_ 전체 SecWipe
     // =====================================================================
     DynamicKeyRotator::~DynamicKeyRotator() noexcept {
-        Impl* p = get_impl();
-        if (p != nullptr) { p->~Impl(); }
-        // [FIX-WIPE] impl_buf_ 전체 3중 방어 소거 (p==nullptr에도 무조건 실행)
-        Key_Rotator_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
+        if (impl_valid_.load(std::memory_order_acquire)) {
+            impl_valid_.store(false, std::memory_order_release);
+            reinterpret_cast<Impl*>(impl_buf_)->~Impl();
+        }
+        // [FIX-WIPE] impl_buf_ 전체 3중 방어 소거
+        Key_Rotator_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
     }
 
     // =====================================================================
@@ -251,8 +265,12 @@ namespace ProtectedEngine {
             : "=r"(primask_saved) :: "memory");
 #else
         // PC / A55: atomic_flag spinlock (멀티스레드 안전)
+        uint32_t spin_guard = 1000000u;
         while (p->spin_lock.test_and_set(std::memory_order_acquire)) {
-            // 멀티코어: 짧은 스핀 (임계구간 ~100 사이클 이내)
+            // 무기한 대기 방지: fail-closed 타임아웃
+            if (--spin_guard == 0u) {
+                return false;
+            }
         }
 #endif
 
@@ -308,6 +326,8 @@ namespace ProtectedEngine {
         return true;
     }
 
+#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
     // [호환] 기존 vector API — Raw API 래퍼 (마이그레이션 후 삭제)
     std::vector<uint8_t> DynamicKeyRotator::deriveNextSeed(
         uint32_t blockIndex) noexcept {
@@ -317,5 +337,6 @@ namespace ProtectedEngine {
         }
         return std::vector<uint8_t>(buf, buf + Impl::SEED_LEN);
     }
+#endif
 
 } // namespace ProtectedEngine

@@ -40,6 +40,19 @@ namespace ProtectedEngine {
     }
 
     void HTS_Adaptive_BPS_Controller::Update() noexcept {
+        // W-4/실시간 안정성: ISR-메인 동시 진입 등 재진입 시
+        // quiet_count_ 비원자 갱신이 충돌할 수 있으므로 fail-closed 조기 복귀.
+        static std::atomic_flag update_busy = ATOMIC_FLAG_INIT;
+        if (update_busy.test_and_set(std::memory_order_acq_rel)) {
+            return;
+        }
+        struct Update_Busy_Clear {
+            std::atomic_flag* f;
+            ~Update_Busy_Clear() noexcept {
+                f->clear(std::memory_order_release);
+            }
+        } update_busy_clear{ &update_busy };
+
         // ── 측정값 읽기 (acquire: 쓰기 모듈의 release와 쌍을 이룸) ──
         const int32_t  snr = metrics_.snr_proxy.load(
             std::memory_order_acquire);

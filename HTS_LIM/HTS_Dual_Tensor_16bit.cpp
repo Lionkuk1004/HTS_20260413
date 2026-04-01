@@ -76,6 +76,9 @@ namespace ProtectedEngine {
         volatile unsigned char* p =
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0u; i < bytes; ++i) { p[i] = 0u; }
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(ptr) : "memory");
+#endif
         // [BUG-18] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -232,12 +235,13 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다 — 헤더에서 IMPL_BUF_SIZE를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(8)을 초과합니다");
-        return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        return impl_valid_.load(std::memory_order_acquire)
+            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const Dual_Tensor_Pipeline::Impl*
         Dual_Tensor_Pipeline::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -251,17 +255,17 @@ namespace ProtectedEngine {
     {
         Secure_Wipe_Buffer(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(bt_product, filter_taps);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     // =====================================================================
     //  [BUG-14] 소멸자 — 명시적 (= default 제거)
     // =====================================================================
     Dual_Tensor_Pipeline::~Dual_Tensor_Pipeline() noexcept {
-        Impl* p = get_impl();
+        impl_valid_.store(false, std::memory_order_release);
+        Impl* p = reinterpret_cast<Impl*>(impl_buf_);
         if (p != nullptr) { p->~Impl(); }
         Secure_Wipe_Buffer(impl_buf_, sizeof(impl_buf_));
-        impl_valid_ = false;
     }
 
     // =====================================================================

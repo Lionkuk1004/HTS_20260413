@@ -39,14 +39,17 @@ namespace ProtectedEngine {
     /// @warning sizeof ~ 1KB. 전역/정적 배치 권장.
     class HTS_Holo_Tensor_4D final {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         HTS_Holo_Tensor_4D() noexcept;
         ~HTS_Holo_Tensor_4D() noexcept;
 
         /// @brief 초기화 (마스터 시드 + 프로파일)
         /// @param master_seed  128비트 마스터 시드 (4 x uint32_t)
         /// @param profile      운용 프로파일 (nullptr → 기본 DATA 프로파일)
-        /// @return 성공 시 true
-        bool Initialize(const uint32_t master_seed[4],
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Initialize(const uint32_t master_seed[4],
             const HoloTensor_Profile* profile) noexcept;
 
         /// @brief 종료 및 시드 보안 소거
@@ -63,8 +66,8 @@ namespace ProtectedEngine {
         /// @param K            블록 크기 (비트 수)
         /// @param output_chips 출력 칩 배열 (±1 BPSK, 길이 N)
         /// @param N            칩 수
-        /// @return 성공 시 true
-        bool Encode_Block(const int8_t* data_bits, uint16_t K,
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Encode_Block(const int8_t* data_bits, uint16_t K,
             int8_t* output_chips, uint16_t N) noexcept;
 
         /// @brief RX: 블록 디코딩 (N칩 → K비트, 자가 치유 복원)
@@ -73,8 +76,8 @@ namespace ProtectedEngine {
         /// @param valid_mask   유효 칩 비트맵 (bit i=1: 칩 i 유효)
         /// @param output_bits  복원 비트 배열 (±1, 길이 K)
         /// @param K            블록 크기
-        /// @return 성공 시 true
-        bool Decode_Block(const int16_t* rx_chips, uint16_t N,
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Decode_Block(const int16_t* rx_chips, uint16_t N,
             uint64_t valid_mask,
             int8_t* output_bits, uint16_t K) noexcept;
 
@@ -107,6 +110,7 @@ namespace ProtectedEngine {
         struct Impl;
         alignas(4) uint8_t impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
+        mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
     };
 
     static_assert(sizeof(HTS_Holo_Tensor_4D) <= 2048u,

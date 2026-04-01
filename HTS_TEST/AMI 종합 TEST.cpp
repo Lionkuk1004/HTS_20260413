@@ -46,6 +46,13 @@ static int g_total = 0, g_pass = 0, g_fail = 0;
 
 using namespace ProtectedEngine;
 
+namespace {
+/// Is_Active() → SECURE_TRUE / SECURE_FALSE (모두 비영) — ! 로는 판정 불가(X-5-5).
+inline bool eb_active_is_on(uint32_t r) noexcept {
+    return r == HTS_Emergency_Beacon::SECURE_TRUE;
+}
+} // namespace
+
 // =========================================================================
 //  [01] Emergency_Beacon
 // =========================================================================
@@ -55,10 +62,10 @@ static void test_beacon() {
     HTS_Priority_Scheduler sched;
     HTS_Emergency_Beacon beacon(0x1234u);
 
-    CHECK("초기 상태 = 비활성", !beacon.Is_Active());
+    CHECK("초기 상태 = 비활성", !eb_active_is_on(beacon.Is_Active()));
 
     beacon.Trigger(0x0003u);
-    CHECK("Trigger 후 활성", beacon.Is_Active());
+    CHECK("Trigger 후 활성", eb_active_is_on(beacon.Is_Active()));
 
     beacon.Tick(500u, sched);
     CHECK("Tick → 패킷 전송", true);
@@ -69,7 +76,7 @@ static void test_beacon() {
         beacon.Tick(t, sched);
     }
     beacon.Cancel();
-    CHECK("Cancel 후 비활성 (30초 경과)", !beacon.Is_Active());
+    CHECK("Cancel 후 비활성 (30초 경과)", !eb_active_is_on(beacon.Is_Active()));
 
     beacon.Shutdown();
     CHECK("Shutdown 완료", true);
@@ -398,11 +405,16 @@ static void test_meter() {
 //  [10] OTA_AMI_Manager — 보안 FUOTA
 // =========================================================================
 static bool mock_hmac(const uint8_t*, const uint8_t*, size_t, uint8_t* o) {
-    for (int i = 0; i < 32; i++) o[i] = 0xABu; return true;
+    if (o == nullptr) { return false; }
+    for (int i = 0; i < 32; ++i) { o[i] = 0xABu; }
+    return true;
 }
 static void mock_init(const uint8_t*) {}
 static void mock_update(const uint8_t*, size_t) {}
-static void mock_final(uint8_t* o) { for (int i = 0; i < 32; i++) o[i] = 0xABu; }
+static void mock_final(uint8_t* o) {
+    if (o == nullptr) { return; }
+    for (int i = 0; i < 32; ++i) { o[i] = 0xABu; }
+}
 
 static void test_ota() {
     SECTION("[10] OTA_AMI_Manager — 보안 FUOTA");
@@ -419,24 +431,24 @@ static void test_ota() {
     uint8_t nonce[8] = { 1,2,3,4,5,6,7,8 };
     uint8_t hmac[32]; memset(hmac, 0xAB, 32);
 
-    // 안티 롤백
-    CHECK("구 버전 거부", !ota.On_Begin(50u, 1024u, 4u, nonce, hmac, 0u));
+    // 안티 롤백 (On_Begin: bool — 명시 비교, X-5 bool 강제 오판 방지)
+    CHECK("구 버전 거부", ota.On_Begin(50u, 1024u, 4u, nonce, hmac, 0u) == false);
     CHECK("사유=VERSION_OLD", ota.Get_Reject_Reason() == AMI_OtaReject::VERSION_OLD);
 
     // size↔chunks 불일치
-    CHECK("size 불일치 거부", !ota.On_Begin(200u, 1000u, 2u, nonce, hmac, 0u));
+    CHECK("size 불일치 거부", ota.On_Begin(200u, 1000u, 2u, nonce, hmac, 0u) == false);
 
     // 정상 시작
-    CHECK("BEGIN 성공", ota.On_Begin(200u, 1024u, 4u, nonce, hmac, 0x12345678u));
+    CHECK("BEGIN 성공", ota.On_Begin(200u, 1024u, 4u, nonce, hmac, 0x12345678u) == true);
     CHECK("RECEIVING", ota.Get_State() == AMI_OtaState::RECEIVING);
 
     // 논스 재전송 차단
     ota.Abort();
-    CHECK("동일 논스 거부", !ota.On_Begin(201u, 1024u, 4u, nonce, hmac, 0u));
+    CHECK("동일 논스 거부", ota.On_Begin(201u, 1024u, 4u, nonce, hmac, 0u) == false);
 
     // 새 논스로 재시작
     uint8_t n2[8] = { 9,10,11,12,13,14,15,16 };
-    CHECK("새 논스 성공", ota.On_Begin(200u, 1024u, 4u, n2, hmac, 0x12345678u));
+    CHECK("새 논스 성공", ota.On_Begin(200u, 1024u, 4u, n2, hmac, 0x12345678u) == true);
 
     // 4청크 수신
     uint8_t chunk[256]; memset(chunk, 0x55, 256);

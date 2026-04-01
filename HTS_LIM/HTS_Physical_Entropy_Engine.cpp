@@ -24,13 +24,6 @@
 
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
 #define HTS_PLATFORM_ARM_BAREMETAL
-#elif defined(__aarch64__)
-#define HTS_PLATFORM_AARCH64
-#include <chrono>
-#include <time.h>      // clock_gettime — vDSO 안전 타이머
-#else
-#define HTS_PLATFORM_PC
-#include <chrono>
 #endif
 
 namespace ProtectedEngine {
@@ -102,21 +95,6 @@ namespace ProtectedEngine {
         return *RNG_DR;
     }
 
-#elif defined(HTS_PLATFORM_AARCH64)
-    static std::atomic<bool> a55_seeded{ false };
-
-    // [BUG-FIX FATAL] cntvct_el0 → clock_gettime vDSO 안전 엔트로피
-    //  기존: mrs cntvct_el0 → Linux 보안 커널 SIGILL 즉사
-    //  수정: clock_gettime(CLOCK_MONOTONIC) → vDSO 경유 안전 읽기
-    //  나노초 하위 32비트: 호출 시점 타이밍 지터 포함 (엔트로피 충분)
-    static uint32_t Read_VDSO_Entropy() noexcept {
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
-        // 나노초 하위 32비트: 타이밍 지터 엔트로피원
-        return static_cast<uint32_t>(ts.tv_nsec);
-    }
-#else
-    static std::atomic<bool> pc_seeded{ false };
 #endif
 
     // =====================================================================
@@ -142,6 +120,7 @@ namespace ProtectedEngine {
     //  ISR/멀티스레드 동시 호출 안전
     // =====================================================================
     uint32_t Physical_Entropy_Engine::Extract_Quantum_Seed() noexcept {
+        uint32_t dynamic_entropy = 0u;
 
 #if defined(HTS_PLATFORM_ARM_BAREMETAL)
         // [BUG-17] 원자적 3상 상태 머신: TOCTOU 레이스 차단
@@ -155,38 +134,8 @@ namespace ProtectedEngine {
         }
 
         // [BUG-14] 매 호출마다 DWT 지속 혼합 (TRNG 고장 대비)
-        uint32_t dynamic_entropy = Read_DWT_CYCCNT();
+        dynamic_entropy = Read_DWT_CYCCNT();
 
-#elif defined(HTS_PLATFORM_AARCH64)
-        // [BUG-20] 통합콘솔 (A55 Linux): CNTVCT_EL0 + chrono 초기 시드
-        //
-        // A55는 STM32 TRNG 하드웨어에 직접 접근 불가 (PUF와 동일)
-        // → CNTVCT_EL0 타이밍 지터를 매 호출 동적 엔트로피로 사용
-        // → STM32의 DWT CYCCNT 역할을 CNTVCT_EL0가 대체
-        //
-        // 초기 시드: chrono nanoseconds (프로세스 시작 시점 1회)
-        // 동적 엔트로피: CNTVCT_EL0 (매 호출 타이밍 지터)
-        if (!a55_seeded.exchange(true, std::memory_order_relaxed)) {
-            auto now = std::chrono::steady_clock::now().time_since_epoch();
-            uint32_t time_seed = static_cast<uint32_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    now).count());
-            ctr_nonce_state.fetch_xor(time_seed,
-                std::memory_order_release);
-        }
-        uint32_t dynamic_entropy = Read_VDSO_Entropy();
-
-#else
-        // PC 개발빌드: 시간 기반 초기 시드 (매 실행 고유)
-        if (!pc_seeded.exchange(true, std::memory_order_relaxed)) {
-            auto now = std::chrono::steady_clock::now().time_since_epoch();
-            uint32_t time_seed = static_cast<uint32_t>(
-                std::chrono::duration_cast<std::chrono::nanoseconds>(
-                    now).count());
-            ctr_nonce_state.fetch_xor(time_seed,
-                std::memory_order_release);
-        }
-        uint32_t dynamic_entropy = 0;
 #endif
 
         uint32_t counter = ctr_nonce_state.fetch_add(
@@ -210,7 +159,16 @@ namespace ProtectedEngine {
     //  앵커 노드 판별 (5% 비율: 20칩당 1개)
     // =====================================================================
     bool Physical_Entropy_Engine::Is_Anchor_Node(size_t index) noexcept {
-        return (index % 20u == 0u);
+        // ASIC 규약: 런타임 나눗셈/모듈로 제거
+        // index % 20 == 0  <=>  (index/4) % 5 == 0
+        // /4는 시프트, /5는 reciprocal multiply로 판정
+        if (index > static_cast<size_t>(0xFFFFFFFFu)) { return false; }
+        const uint32_t idx32 = static_cast<uint32_t>(index);
+        if ((idx32 & 3u) != 0u) { return false; }
+        const uint32_t div4 = idx32 >> 2u;
+        const uint32_t q5 = static_cast<uint32_t>(
+            (static_cast<uint64_t>(div4) * 0xCCCCCCCDull) >> 34u);
+        return (q5 * 5u) == div4;
     }
 
 } // namespace ProtectedEngine

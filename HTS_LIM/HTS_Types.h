@@ -7,9 +7,8 @@
 ///       FOTA 패킷 등 임시 평문 데이터 처리에 사용.
 ///       BB1 텐서 버퍼에는 사용 금지 (부팅 시 Impl 내부 resize 전용).
 ///
-/// @warning allocate()는 nothrow 반환. OOM 시 nullptr → std::vector 내부에서
-///          미정의 동작 가능. PC 전용 모듈이므로 OOM 가능성 극히 낮으나,
-///          대용량 할당 전 시스템 메모리 검사를 권장.
+/// @warning allocate()는 ::operator new(nothrow) 사용. nullptr을 vector에 넘기면
+///          표준 컨테이너가 역참조하여 UB — 오버플로·OOM 시 std::abort()로 Fail-Safe 종료.
 ///
 /// [양산 수정 이력 — 12건]
 ///  BUG-01~05 (이전 세션)
@@ -20,6 +19,7 @@
 ///  BUG-10 [HIGH] C-2: ::operator new → nothrow (-fno-exceptions 준수)
 ///  BUG-11 [MED]  D-2: release fence 누락 → delete 직전 배리어 추가
 ///  BUG-12 [LOW]  M-14: DRY TODO 잔류 제거 (HTS_Secure_Memory.h BUG-02에서 이미 해소)
+///  BUG-13 [CRIT] allocate nullptr → vector UB 방지: 오버플로/OOM 시 std::abort()
 // =========================================================================
 #pragma once
 
@@ -29,11 +29,11 @@
 #error "[HTS_FATAL] HTS_Types.h(SecureVector)는 PC/서버 전용입니다. ARM 빌드에서 제외하십시오."
 #endif
 
+#include "HTS_Secure_Memory.h"
 #include <vector>
 #include <cstdint>
-#include <cstring>
+#include <cstdlib>
 #include <new>
-#include <atomic>  // [BUG-11] std::atomic_thread_fence
 
 namespace ProtectedEngine {
 
@@ -46,36 +46,24 @@ namespace ProtectedEngine {
         template <typename U>
         Secure_Allocator(const Secure_Allocator<U>&) noexcept {}
 
-        // [BUG-10] nothrow: -fno-exceptions에서 OOM 시 std::terminate 방지
-        //  nullptr 반환 → std::vector 내부 미정의 동작 가능성 있으나
-        //  PC 전용 모듈이므로 OOM 확률 극히 낮음
+        // [BUG-10] nothrow: -fno-exceptions 준수 (::operator new(nothrow))
+        // [BUG-13] vector는 allocate 실패(nullptr)를 검사하지 않음 → OOM/오버플로 시 abort
         [[nodiscard]] T* allocate(std::size_t n) noexcept {
-            return static_cast<T*>(
+            if (n != 0u && n > (SIZE_MAX / sizeof(T))) {
+                std::abort();
+            }
+            T* const p = static_cast<T*>(
                 ::operator new(n * sizeof(T), std::nothrow));
+            if (p == nullptr && n != 0u) {
+                std::abort();
+            }
+            return p;
         }
 
         void deallocate(T* ptr, std::size_t n) noexcept {
-            if (ptr && n > 0u) {
+            if (ptr != nullptr && n > 0u) {
                 const std::size_t bytes = n * sizeof(T);
-
-#if defined(__GNUC__) || defined(__clang__)
-                std::memset(static_cast<void*>(ptr), 0, bytes);
-                __asm__ __volatile__("" : : "r"(ptr) : "memory");
-#elif defined(_MSC_VER)
-                // [BUG-08] T* → void* → volatile uint8_t* (⑫ static_cast 경유)
-                // Secure_Wipe_BB1(BB1_Core_Engine.cpp) 패턴과 통일
-                volatile uint8_t* vptr = static_cast<volatile uint8_t*>(
-                    static_cast<void*>(ptr));
-                for (std::size_t i = 0; i < bytes; ++i) {
-                    vptr[i] = 0u;
-                }
-#else
-                std::memset(static_cast<void*>(ptr), 0, bytes);
-#endif
-                // [BUG-11] release fence: 소거 완료를 delete 전에 가시화
-                // BB1_Core_Engine Secure_Wipe_BB1 / HTS_Universal_API
-                // Absolute_Trace_Erasure 보안 소거 정책 통일
-                std::atomic_thread_fence(std::memory_order_release);
+                SecureMemory::secureWipe(static_cast<void*>(ptr), bytes);
             }
             ::operator delete(ptr);
         }

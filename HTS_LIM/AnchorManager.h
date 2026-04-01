@@ -33,6 +33,13 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
+// ARM(STM32) 빌드 차단 — A55/서버 전용 모듈
+#if (defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)) && \
+    !defined(__aarch64__)
+#error "[HTS_FATAL] AnchorManager는 A55/서버 전용. STM32 빌드에서 제외하십시오."
+#endif
+
 #include <cstdint>
 #include <cstddef>
 

@@ -10,8 +10,12 @@
 //  · CRC32 전송 무결성 (기존 유지)
 //  · 점진적 검증 (WDT 안전, Tick 분산)
 //  · Constant-Time HMAC 비교 (타이밍 부채널 차단)
+//
+//  BUG-42 [CRIT] 로컬 OTA_Secure_Wipe 제거 → SecureMemory::secureWipe (D-2/X-5-1)
+//         소멸자: busy 락 미획득 조기 return 제거, 스핀 상한 + 타임아웃 파쇄
 // =========================================================================
 #include "HTS_OTA_AMI_Manager.h"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
 #include <cstddef>
@@ -19,19 +23,25 @@
 #include <new>
 
 namespace ProtectedEngine {
+    struct OTA_Busy_Guard {
+        std::atomic_flag& f;
+        bool locked;
+        explicit OTA_Busy_Guard(std::atomic_flag& flag) noexcept
+            : f(flag), locked(false) {
+            if (!f.test_and_set(std::memory_order_acquire)) {
+                locked = true;
+            }
+        }
+        ~OTA_Busy_Guard() noexcept {
+            if (locked) {
+                f.clear(std::memory_order_release);
+            }
+        }
+    };
 
     // =====================================================================
-    //  보안 유틸리티
+    //  보안 유틸리티 — D-2 / X-5-1: 소거는 SecureMemory::secureWipe 단일화 (BUG-42)
     // =====================================================================
-    static void OTA_Secure_Wipe(void* p, size_t n) noexcept {
-        if (p == nullptr || n == 0u) { return; }
-        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
 
     /// @brief Constant-Time 비교 (타이밍 부채널 방어)
     ///  비트마스크 OR 누적 → 전 바이트 비교 후 판정
@@ -145,13 +155,13 @@ namespace ProtectedEngine {
     {
         static_assert(sizeof(Impl) <= IMPL_BUF_SIZE, "Impl 초과");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN, "정렬 초과");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
     const HTS_OTA_AMI_Manager::Impl*
         HTS_OTA_AMI_Manager::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -159,21 +169,31 @@ namespace ProtectedEngine {
         uint16_t my_id, uint32_t current_version) noexcept
         : impl_valid_(false)
     {
-        OTA_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
+        SecureMemory::secureWipe(static_cast<void*>(impl_buf_), sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(my_id, current_version);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_OTA_AMI_Manager::~HTS_OTA_AMI_Manager() noexcept {
-        Impl* p = get_impl();
+        // [BUG-42] op_busy_ 미보유 상태에서 impl_buf 파쇄 금지(UAF/레이스).
+        //          타임아웃으로 조기 return 하면 다른 컨텍스트가 Impl 사용 중인데
+        //          버퍼를 지울 수 있음(H-2/H-3). 단일 스핀으로 배타 획득 후 파쇄.
+        //          멀티스레드 시 소멸 전 Shutdown() 또는 외부 동기화 필수.
+        while (op_busy_.test_and_set(std::memory_order_acquire)) {
+            // Busy-wait — RTOS에서는 이 루프에 yield 훅 삽입 권장
+        }
+        Impl* p = reinterpret_cast<Impl*>(impl_buf_);
+        impl_valid_.store(false, std::memory_order_release);
         if (p != nullptr) { p->~Impl(); }
-        OTA_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
+        SecureMemory::secureWipe(static_cast<void*>(impl_buf_), IMPL_BUF_SIZE);
+        op_busy_.clear(std::memory_order_release);
     }
 
     void HTS_OTA_AMI_Manager::Register_Crypto(
         const OTA_Crypto_Callbacks& cb) noexcept
     {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         Impl* p = get_impl();
         if (p != nullptr) { p->crypto = cb; }
     }
@@ -192,6 +212,8 @@ namespace ProtectedEngine {
         const uint8_t* expected_hmac,
         uint32_t expected_crc32) noexcept
     {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return false; }
         Impl* p = get_impl();
         if (p == nullptr) { return false; }
         if (p->state != AMI_OtaState::IDLE &&
@@ -253,7 +275,7 @@ namespace ProtectedEngine {
             p->expected_hmac[i] = expected_hmac[i];
         }
 
-        OTA_Secure_Wipe(p->recv_bitmap, OTA_BITMAP_SIZE);
+        SecureMemory::secureWipe(p->recv_bitmap, OTA_BITMAP_SIZE);
         p->state = AMI_OtaState::RECEIVING;
         return true;
     }
@@ -270,6 +292,8 @@ namespace ProtectedEngine {
         const uint8_t* data, size_t data_len,
         const uint8_t* chunk_mac) noexcept
     {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return false; }
         Impl* p = get_impl();
         if (p == nullptr || data == nullptr) { return false; }
         if (p->state != AMI_OtaState::RECEIVING &&
@@ -283,9 +307,14 @@ namespace ProtectedEngine {
         if (bmap_test(p->recv_bitmap, chunk_idx)) { return true; }
 
         // [보안 4] 청크 MAC 검증 (선택적)
-        if (chunk_mac != nullptr && p->crypto.hmac_lsh256 != nullptr) {
+        if (chunk_mac != nullptr) {
+            if (p->crypto.hmac_lsh256 == nullptr) {
+                p->reject = AMI_OtaReject::CHUNK_MAC_FAIL;
+                return false;
+            }
             // idx(2B big-endian) ‖ data → HMAC → 4B 절삭 비교
-            uint8_t mac_input[2u + CHUNK_SIZE];
+            // B-3: 대형 스택 배열 금지 — op_busy_ 보유 중에만 사용하는 정적 워크
+            static alignas(8) uint8_t mac_input[2u + CHUNK_SIZE];
             mac_input[0] = static_cast<uint8_t>(chunk_idx >> 8u);
             mac_input[1] = static_cast<uint8_t>(chunk_idx & 0xFFu);
             for (size_t i = 0u; i < data_len; ++i) {
@@ -293,17 +322,23 @@ namespace ProtectedEngine {
             }
 
             uint8_t full_mac[OTA_HMAC_SIZE] = {};
-            p->crypto.hmac_lsh256(
+            if (!p->crypto.hmac_lsh256(
                 p->session_nonce,  // 논스를 청크 키로 사용
                 mac_input, 2u + data_len,
-                full_mac);
+                full_mac))
+            {
+                SecureMemory::secureWipe(full_mac, sizeof(full_mac));
+                SecureMemory::secureWipe(mac_input, sizeof(mac_input));
+                p->reject = AMI_OtaReject::CHUNK_MAC_FAIL;
+                return false;
+            }
 
             // 4B 절삭 Constant-Time 비교
             const uint32_t mac_diff =
                 ct_compare(chunk_mac, full_mac, OTA_CHUNK_MAC_SIZE);
 
-            OTA_Secure_Wipe(full_mac, sizeof(full_mac));
-            OTA_Secure_Wipe(mac_input, sizeof(mac_input));
+            SecureMemory::secureWipe(full_mac, sizeof(full_mac));
+            SecureMemory::secureWipe(mac_input, sizeof(mac_input));
 
             if (mac_diff != 0u) {
                 p->reject = AMI_OtaReject::CHUNK_MAC_FAIL;
@@ -331,12 +366,35 @@ namespace ProtectedEngine {
     void HTS_OTA_AMI_Manager::On_Broadcast_Complete(
         uint32_t systick_ms) noexcept
     {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         Impl* p = get_impl();
         if (p == nullptr) { return; }
         if (p->state != AMI_OtaState::RECEIVING) { return; }
 
         if (p->received_count >= p->total_chunks) {
-            (void)Verify();
+            p->verify_crc = 0xFFFFFFFFu;
+            p->verify_offset = 0u;
+            p->verify_remaining = p->total_size;
+            p->verify_hmac_started = false;
+            p->state = AMI_OtaState::VERIFYING;
+
+            if (p->crypto.hmac_init != nullptr) {
+                p->crypto.hmac_init(p->session_nonce);
+                uint8_t prefix[12] = {};
+                for (size_t i = 0u; i < OTA_NONCE_SIZE; ++i) {
+                    prefix[i] = p->session_nonce[i];
+                }
+                prefix[8] = static_cast<uint8_t>(p->new_version >> 24u);
+                prefix[9] = static_cast<uint8_t>((p->new_version >> 16u) & 0xFFu);
+                prefix[10] = static_cast<uint8_t>((p->new_version >> 8u) & 0xFFu);
+                prefix[11] = static_cast<uint8_t>(p->new_version & 0xFFu);
+                if (p->crypto.hmac_update != nullptr) {
+                    p->crypto.hmac_update(prefix, 12u);
+                }
+                SecureMemory::secureWipe(prefix, sizeof(prefix));
+                p->verify_hmac_started = true;
+            }
         }
         else {
             p->state = AMI_OtaState::NACK_WAIT;
@@ -350,6 +408,8 @@ namespace ProtectedEngine {
     uint16_t HTS_OTA_AMI_Manager::Get_NACK_Bitmap(
         uint8_t* out_bitmap) const noexcept
     {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return 0u; }
         const Impl* p = get_impl();
         if (p == nullptr || out_bitmap == nullptr) { return 0u; }
 
@@ -378,6 +438,8 @@ namespace ProtectedEngine {
     }
 
     bool HTS_OTA_AMI_Manager::Is_Complete() const noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return false; }
         const Impl* p = get_impl();
         return (p != nullptr) && (p->received_count >= p->total_chunks);
     }
@@ -391,6 +453,8 @@ namespace ProtectedEngine {
     //   hmac_final(computed_mac) → ct_compare(expected)
     // =====================================================================
     bool HTS_OTA_AMI_Manager::Verify() noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return false; }
         Impl* p = get_impl();
         if (p == nullptr) { return false; }
         if (p->received_count < p->total_chunks) { return false; }
@@ -418,7 +482,7 @@ namespace ProtectedEngine {
             if (p->crypto.hmac_update != nullptr) {
                 p->crypto.hmac_update(prefix, 12u);
             }
-            OTA_Secure_Wipe(prefix, sizeof(prefix));
+            SecureMemory::secureWipe(prefix, sizeof(prefix));
             p->verify_hmac_started = true;
         }
 
@@ -429,23 +493,26 @@ namespace ProtectedEngine {
     //  Commit
     // =====================================================================
     void HTS_OTA_AMI_Manager::Commit() noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         Impl* p = get_impl();
         if (p == nullptr) { return; }
         if (p->state != AMI_OtaState::READY) { return; }
 
         // 보안 상태 소거 후 리부팅
-        OTA_Secure_Wipe(p->expected_hmac, OTA_HMAC_SIZE);
-        OTA_Secure_Wipe(p->session_nonce, OTA_NONCE_SIZE);
+        SecureMemory::secureWipe(p->expected_hmac, OTA_HMAC_SIZE);
+        SecureMemory::secureWipe(p->session_nonce, OTA_NONCE_SIZE);
         system_reset();
     }
 
     void HTS_OTA_AMI_Manager::Abort() noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        OTA_Secure_Wipe(p->recv_bitmap, OTA_BITMAP_SIZE);
-        OTA_Secure_Wipe(p->expected_hmac, OTA_HMAC_SIZE);
+        SecureMemory::secureWipe(p->recv_bitmap, OTA_BITMAP_SIZE);
+        SecureMemory::secureWipe(p->expected_hmac, OTA_HMAC_SIZE);
         p->received_count = 0u;
-        p->reject = AMI_OtaReject::NONE;
         p->state = AMI_OtaState::IDLE;
     }
 
@@ -453,16 +520,22 @@ namespace ProtectedEngine {
     //  상태 조회
     // =====================================================================
     AMI_OtaState HTS_OTA_AMI_Manager::Get_State() const noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return AMI_OtaState::IDLE; }
         const Impl* p = get_impl();
         return (p != nullptr) ? p->state : AMI_OtaState::IDLE;
     }
 
     AMI_OtaReject HTS_OTA_AMI_Manager::Get_Reject_Reason() const noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return AMI_OtaReject::NONE; }
         const Impl* p = get_impl();
         return (p != nullptr) ? p->reject : AMI_OtaReject::NONE;
     }
 
     uint8_t HTS_OTA_AMI_Manager::Get_Progress_Pct() const noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return 0u; }
         const Impl* p = get_impl();
         if (p == nullptr || p->total_chunks == 0u) { return 0u; }
         if (p->received_count >= p->total_chunks) { return 100u; }
@@ -472,6 +545,8 @@ namespace ProtectedEngine {
     }
 
     uint16_t HTS_OTA_AMI_Manager::Get_Received_Count() const noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return 0u; }
         const Impl* p = get_impl();
         return (p != nullptr) ? p->received_count : 0u;
     }
@@ -480,6 +555,8 @@ namespace ProtectedEngine {
     //  Tick — 타임아웃 + 점진적 CRC/HMAC 검증
     // =====================================================================
     void HTS_OTA_AMI_Manager::Tick(uint32_t systick_ms) noexcept {
+        OTA_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         Impl* p = get_impl();
         if (p == nullptr) { return; }
 
@@ -493,7 +570,10 @@ namespace ProtectedEngine {
         if (p->state == AMI_OtaState::RECEIVING) {
             if (elapsed >= OTA_TIMEOUT_MS) {
                 p->reject = AMI_OtaReject::TIMEOUT;
-                Abort();
+                SecureMemory::secureWipe(p->recv_bitmap, OTA_BITMAP_SIZE);
+                SecureMemory::secureWipe(p->expected_hmac, OTA_HMAC_SIZE);
+                p->received_count = 0u;
+                p->state = AMI_OtaState::IDLE;
             }
             return;
         }
@@ -504,11 +584,35 @@ namespace ProtectedEngine {
                 p->nack_rounds++;
                 if (p->nack_rounds >= MAX_NACK_ROUNDS) {
                     p->reject = AMI_OtaReject::TIMEOUT;
+                    SecureMemory::secureWipe(p->recv_bitmap, OTA_BITMAP_SIZE);
+                    SecureMemory::secureWipe(p->expected_hmac, OTA_HMAC_SIZE);
+                    p->received_count = 0u;
                     p->state = AMI_OtaState::FAILED;
                     return;
                 }
                 if (p->received_count >= p->total_chunks) {
-                    (void)Verify();
+                    p->verify_crc = 0xFFFFFFFFu;
+                    p->verify_offset = 0u;
+                    p->verify_remaining = p->total_size;
+                    p->verify_hmac_started = false;
+                    p->state = AMI_OtaState::VERIFYING;
+
+                    if (p->crypto.hmac_init != nullptr) {
+                        p->crypto.hmac_init(p->session_nonce);
+                        uint8_t prefix[12] = {};
+                        for (size_t i = 0u; i < OTA_NONCE_SIZE; ++i) {
+                            prefix[i] = p->session_nonce[i];
+                        }
+                        prefix[8] = static_cast<uint8_t>(p->new_version >> 24u);
+                        prefix[9] = static_cast<uint8_t>((p->new_version >> 16u) & 0xFFu);
+                        prefix[10] = static_cast<uint8_t>((p->new_version >> 8u) & 0xFFu);
+                        prefix[11] = static_cast<uint8_t>(p->new_version & 0xFFu);
+                        if (p->crypto.hmac_update != nullptr) {
+                            p->crypto.hmac_update(prefix, 12u);
+                        }
+                        SecureMemory::secureWipe(prefix, sizeof(prefix));
+                        p->verify_hmac_started = true;
+                    }
                 }
                 else {
                     p->state = AMI_OtaState::RECEIVING;
@@ -540,13 +644,18 @@ namespace ProtectedEngine {
 
                     const uint32_t hmac_diff = ct_compare(
                         computed, p->expected_hmac, OTA_HMAC_SIZE);
-                    OTA_Secure_Wipe(computed, sizeof(computed));
+                    SecureMemory::secureWipe(computed, sizeof(computed));
 
                     if (hmac_diff != 0u) {
                         p->reject = AMI_OtaReject::HMAC_FAIL;
                         p->state = AMI_OtaState::FAILED;
                         return;
                     }
+                }
+                else if (p->verify_hmac_started) {
+                    p->reject = AMI_OtaReject::HMAC_FAIL;
+                    p->state = AMI_OtaState::FAILED;
+                    return;
                 }
 
                 p->state = AMI_OtaState::READY;
@@ -555,37 +664,38 @@ namespace ProtectedEngine {
 
             // Tick당 16청크 (4KB) 처리
             static constexpr uint32_t CHUNKS_PER_TICK = 16u;
+            // B-3: 검증 스크래치 — op_busy_ 보유 중 정적 단일 버퍼(재진입 불가 전제)
+            static alignas(8) uint8_t verify_buf[CHUNK_SIZE];
             for (uint32_t c = 0u;
                 c < CHUNKS_PER_TICK && p->verify_remaining > 0u; ++c)
             {
-                uint8_t buf[CHUNK_SIZE];
                 const uint32_t chunk =
                     (p->verify_remaining < CHUNK_SIZE)
                     ? p->verify_remaining : CHUNK_SIZE;
 
-                if (!flash_read(p->verify_offset, buf,
+                if (!flash_read(p->verify_offset, verify_buf,
                     static_cast<size_t>(chunk)))
                 {
                     p->reject = AMI_OtaReject::FLASH_FAIL;
                     p->state = AMI_OtaState::FAILED;
-                    OTA_Secure_Wipe(buf, sizeof(buf));
+                    SecureMemory::secureWipe(verify_buf, sizeof(verify_buf));
                     return;
                 }
 
                 // CRC 누적
                 p->verify_crc = sw_crc32_block(
-                    buf, static_cast<size_t>(chunk), p->verify_crc);
+                    verify_buf, static_cast<size_t>(chunk), p->verify_crc);
 
                 // HMAC 누적
                 if (p->verify_hmac_started &&
                     p->crypto.hmac_update != nullptr)
                 {
-                    p->crypto.hmac_update(buf, static_cast<size_t>(chunk));
+                    p->crypto.hmac_update(verify_buf, static_cast<size_t>(chunk));
                 }
 
                 p->verify_offset += chunk;
                 p->verify_remaining -= chunk;
-                OTA_Secure_Wipe(buf, sizeof(buf));
+                SecureMemory::secureWipe(verify_buf, sizeof(verify_buf));
             }
         }
     }
@@ -593,5 +703,9 @@ namespace ProtectedEngine {
     void HTS_OTA_AMI_Manager::Shutdown() noexcept {
         Abort();
     }
+
+    // U-B: 래퍼 객체 크기 상한(정적 배치·스택 예산)
+    static_assert(sizeof(HTS_OTA_AMI_Manager) <= 800u,
+        "HTS_OTA_AMI_Manager sizeof — SRAM 예산 재검토");
 
 } // namespace ProtectedEngine

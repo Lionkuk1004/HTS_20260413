@@ -17,6 +17,31 @@
 
 namespace ProtectedEngine {
 
+    namespace {
+        static constexpr uint32_t HOLO_LOCK_FREE = 0x13579BDFu;
+        static constexpr uint32_t HOLO_LOCK_BUSY = 0x2468ACE0u;
+
+        struct Holo_Dispatch_Busy_Guard final {
+            std::atomic<uint32_t>* gate;
+            uint32_t locked;
+            explicit Holo_Dispatch_Busy_Guard(std::atomic<uint32_t>& g) noexcept
+                : gate(&g), locked(HTS_Holo_Dispatcher::SECURE_FALSE) {
+                uint32_t expected = HOLO_LOCK_FREE;
+                if (gate->compare_exchange_strong(expected, HOLO_LOCK_BUSY,
+                    std::memory_order_acq_rel, std::memory_order_relaxed)) {
+                    locked = HTS_Holo_Dispatcher::SECURE_TRUE;
+                }
+            }
+            ~Holo_Dispatch_Busy_Guard() noexcept {
+                if (locked == HTS_Holo_Dispatcher::SECURE_TRUE) {
+                    gate->store(HOLO_LOCK_FREE, std::memory_order_release);
+                }
+            }
+            Holo_Dispatch_Busy_Guard(const Holo_Dispatch_Busy_Guard&) = delete;
+            Holo_Dispatch_Busy_Guard& operator=(const Holo_Dispatch_Busy_Guard&) = delete;
+        };
+    } // namespace
+
     // ============================================================
     //  Helper: bytes to BPSK bits (+1/-1)
     // ============================================================
@@ -73,23 +98,31 @@ namespace ProtectedEngine {
         Shutdown();
     }
 
-    bool HTS_Holo_Dispatcher::Initialize(const uint32_t master_seed[4]) noexcept
+    uint32_t HTS_Holo_Dispatcher::Initialize(const uint32_t master_seed[4]) noexcept
     {
-        if (master_seed == nullptr) { return false; }
+        if (master_seed == nullptr) { return SECURE_FALSE; }
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
 
         // Initialize with default DATA profile
         const HoloTensor_Profile prof = Holo_Mode_To_Profile(HoloPayload::DATA_HOLO);
-        return engine_.Initialize(master_seed, &prof);
+        return (engine_.Initialize(master_seed, &prof) == HTS_Holo_Tensor_4D::SECURE_TRUE)
+            ? SECURE_TRUE : SECURE_FALSE;
     }
 
     void HTS_Holo_Dispatcher::Shutdown() noexcept
     {
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         engine_.Shutdown();
-        current_mode_ = HoloPayload::DATA_HOLO;
+        current_mode_.store(HoloPayload::DATA_HOLO, std::memory_order_release);
     }
 
     void HTS_Holo_Dispatcher::Rotate_Seed(const uint32_t new_seed[4]) noexcept
     {
+        if (new_seed == nullptr) { return; }
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         engine_.Rotate_Seed(new_seed);
     }
 
@@ -119,6 +152,9 @@ namespace ProtectedEngine {
         int16_t* out_I, int16_t* out_Q,
         int max_chips) noexcept
     {
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return 0; }
+
         // Validate inputs
         if (info == nullptr || out_I == nullptr || out_Q == nullptr) { return 0; }
         if (info_len <= 0 || info_len > 16) { return 0; }
@@ -166,17 +202,17 @@ namespace ProtectedEngine {
 
             // 4D Holographic encode
             int8_t chip_bpsk[HOLO_CHIP_COUNT];
-            if (!engine_.Encode_Block(data_bits, K, chip_bpsk, N)) {
+            if (engine_.Encode_Block(data_bits, K, chip_bpsk, N) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
                 return 0;
             }
 
             // Convert soft chips to I/Q (proportional scaling)
             // chip ranges from -(L*K) to +(L*K), max 32 for our profiles
-            // Scale: val = chip * amp / 32 via right-shift (ASIC: barrel shifter)
+            // Scale: val = chip * amp / 32 (round toward zero for signed symmetry)
             // Preserves holographic amplitude information through RF chain
             for (uint16_t i = 0u; i < N; ++i) {
                 const int32_t val = (static_cast<int32_t>(chip_bpsk[i]) *
-                    static_cast<int32_t>(amp)) >> 5;
+                    static_cast<int32_t>(amp)) / 32;
                 // Clamp to int16_t (defensive)
                 if (val > 32767) { out_I[chip_pos] = 32767; out_Q[chip_pos] = 32767; }
                 else if (val < -32767) { out_I[chip_pos] = -32767; out_Q[chip_pos] = -32767; }
@@ -192,26 +228,30 @@ namespace ProtectedEngine {
             // at frame boundary to keep TX/RX PRNG seeds synchronized.
         }
 
-        current_mode_ = mode;
+        current_mode_.store(mode, std::memory_order_release);
         return chip_pos;
     }
 
-    bool HTS_Holo_Dispatcher::Decode_Holo_Block(const int16_t* rx_I, const int16_t* rx_Q,
+    uint32_t HTS_Holo_Dispatcher::Decode_Holo_Block(const int16_t* rx_I, const int16_t* rx_Q,
         uint16_t chip_count, uint64_t valid_mask,
         uint8_t* out_data, int* out_len) noexcept
     {
-        if (rx_I == nullptr || rx_Q == nullptr) { return false; }
-        if (out_data == nullptr || out_len == nullptr) { return false; }
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
+
+        if (rx_I == nullptr || rx_Q == nullptr) { return SECURE_FALSE; }
+        if (out_data == nullptr || out_len == nullptr) { return SECURE_FALSE; }
         *out_len = 0;
 
-        const HoloTensor_Profile prof = Holo_Mode_To_Profile(current_mode_);
+        const HoloTensor_Profile prof =
+            Holo_Mode_To_Profile(current_mode_.load(std::memory_order_acquire));
         engine_.Set_Profile(&prof);  // Sync engine to current mode
         const uint16_t K = prof.block_bits;
         const uint16_t N = prof.chip_count;
         const uint16_t bytes_per_block = static_cast<uint16_t>(K >> 3u);
 
-        if (N == 0u || bytes_per_block == 0u) { return false; }
-        if (chip_count < N) { return false; }
+        if (N == 0u || bytes_per_block == 0u) { return SECURE_FALSE; }
+        if (chip_count < N) { return SECURE_FALSE; }
 
         // Calculate number of blocks in received data
         // num_blocks = chip_count / N via bounded counter (no division)
@@ -224,7 +264,7 @@ namespace ProtectedEngine {
                 if (num_blocks > 64u) { break; }
             }
         }
-        if (num_blocks == 0u) { return false; }
+        if (num_blocks == 0u) { return SECURE_FALSE; }
 
         int total_bytes = 0;
         for (uint16_t blk = 0u; blk < num_blocks; ++blk) {
@@ -246,7 +286,7 @@ namespace ProtectedEngine {
             int16_t rx_soft[HOLO_CHIP_COUNT];
             for (uint16_t i = 0u; i < N; ++i) {
                 const int32_t combined = (static_cast<int32_t>(rx_I[chip_offset + i]) +
-                    static_cast<int32_t>(rx_Q[chip_offset + i])) >> 1;
+                    static_cast<int32_t>(rx_Q[chip_offset + i])) / 2;
                 // int16_t 범위 클램핑 (방어적)
                 if (combined > 32767) { rx_soft[i] = 32767; }
                 else if (combined < -32767) { rx_soft[i] = -32767; }
@@ -255,8 +295,8 @@ namespace ProtectedEngine {
 
             // Decode
             int8_t recovered_bits[HOLO_MAX_BLOCK_BITS];
-            if (!engine_.Decode_Block(rx_soft, N, valid_mask, recovered_bits, K)) {
-                return false;
+            if (engine_.Decode_Block(rx_soft, N, valid_mask, recovered_bits, K) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                return SECURE_FALSE;
             }
 
             // Convert bits to bytes
@@ -272,28 +312,32 @@ namespace ProtectedEngine {
         }
 
         *out_len = total_bytes;
-        return true;
+        return SECURE_TRUE;
     }
 
     void HTS_Holo_Dispatcher::Advance_Time() noexcept
     {
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         engine_.Advance_Time_Slot();
     }
 
     void HTS_Holo_Dispatcher::Sync_Time_Slot(uint32_t frame_no) noexcept
     {
+        Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
+        if (guard.locked != SECURE_TRUE) { return; }
         engine_.Set_Time_Slot(frame_no);
     }
 
     uint8_t HTS_Holo_Dispatcher::Get_Current_Mode() const noexcept
     {
-        return current_mode_;
+        return current_mode_.load(std::memory_order_acquire);
     }
 
     void HTS_Holo_Dispatcher::Set_Current_Mode(uint8_t mode) noexcept
     {
         if (HoloPayload::Is_Holo_Mode(mode)) {
-            current_mode_ = mode;
+            current_mode_.store(mode, std::memory_order_release);
         }
     }
 

@@ -46,8 +46,8 @@ namespace ProtectedEngine {
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0u; i < size; ++i) { p[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        // [BUG-FIX LOW] "memory" 클로버 → 경량 "r" 이스케이프 (Spill 방지)
-        __asm__ __volatile__("" : : "r"(ptr));
+        // [PEND FIX] 프로젝트 보안 소거 표준 통일: memory clobber
+        __asm__ __volatile__("" : : "r"(ptr) : "memory");
 #endif
         // [BUG-05] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
@@ -77,6 +77,10 @@ namespace ProtectedEngine {
         //  원리: total개 중 target = total*ratio/100 개를 균등 선택
         //        err += target; if (err >= total) { 선택, err -= total; }
         const size_t total = tensor.size();
+        // 산술 가드: size_t 곱셈 오버플로우 시 fail-closed
+        if (total > (static_cast<size_t>(-1) / static_cast<size_t>(ratio_percent))) {
+            return;
+        }
         const size_t target = (total * static_cast<size_t>(ratio_percent)) / 100u;
         if (target == 0u) return;
 
@@ -123,6 +127,10 @@ namespace ProtectedEngine {
         // [BUG-FIX CRIT] Bresenham 복원 (Sequestrate와 동일 알고리즘)
         //  동일 ratio_percent + 동일 tensor.size() → 동일 인덱스 선택 보장
         const size_t total = damaged_tensor.size();
+        // 산술 가드: size_t 곱셈 오버플로우 시 fail-closed
+        if (total > (static_cast<size_t>(-1) / static_cast<size_t>(ratio_percent))) {
+            return;
+        }
         const size_t target = (total * static_cast<size_t>(ratio_percent)) / 100u;
         if (target == 0u) return;
 

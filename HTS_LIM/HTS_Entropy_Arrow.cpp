@@ -40,7 +40,11 @@
 #include "HTS_Entropy_Arrow.hpp"
 #include <atomic>
 
-#ifdef HTS_ENTROPY_ARROW_ARM
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+#define HTS_PLATFORM_ARM
+#endif
+
+#ifdef HTS_PLATFORM_ARM
 #include "HTS_Hardware_Bridge.hpp"
 #else
 #include <chrono>
@@ -75,7 +79,7 @@ namespace ProtectedEngine {
 #endif
     }
 
-#ifdef HTS_ENTROPY_ARROW_ARM
+#ifdef HTS_PLATFORM_ARM
     // =====================================================================
     //  ARM 전용 상수
     //  168MHz → 1ms = 168,000 틱
@@ -148,7 +152,7 @@ namespace ProtectedEngine {
             return Generate_Chaos_Seed(current_session_id);
         }
 
-#ifdef HTS_ENTROPY_ARROW_ARM
+#ifdef HTS_PLATFORM_ARM
             // [BUG-FIX FATAL] 15초 폴링 임계 (168MHz × 15 = 2,520,000,000)
             //  uint32_t 최대 = 4,294,967,295 → 25.5초 래핑
             //  15초 임계 → 래핑 공격 윈도우를 40.5초 이상으로 밀어냄
@@ -164,17 +168,17 @@ namespace ProtectedEngine {
         last_tick = now_tick;
 
         // [BUG-FIX FATAL] 지연 감지: delta > 15초 → fail-safe 즉시 자폭
-        if (delta > MAX_SILENT_TICKS) {
-            __asm__ __volatile__("msr primask, %0" : : "r"(primask) : "memory");
-            is_collapsed.store(true, std::memory_order_release);
-            return Generate_Chaos_Seed(current_session_id);
-        }
-
+        const bool collapse_now = (delta > MAX_SILENT_TICKS);
         total_elapsed_ticks += static_cast<uint64_t>(delta);
         const bool expired = (total_elapsed_ticks > max_lifespan_ticks);
 
+        // 모든 반환 경로에서 인터럽트 상태를 반드시 복원한다.
         __asm__ __volatile__("msr primask, %0" : : "r"(primask) : "memory");
 
+        if (collapse_now) HTS_UNLIKELY{
+            is_collapsed.store(true, std::memory_order_release);
+            return Generate_Chaos_Seed(current_session_id);
+        }
         if (expired) HTS_UNLIKELY{
             is_collapsed.store(true, std::memory_order_release);
             return Generate_Chaos_Seed(current_session_id);
@@ -192,6 +196,12 @@ namespace ProtectedEngine {
         }
 #endif
 
+        // Force_Collapse()와의 경합 창구 차단:
+        // 함수 진입 후 붕괴 플래그가 set된 경우라도 정상 세션 ID가
+        // 1회 반환되지 않도록 반환 직전 재확인한다.
+        if (is_collapsed.load(std::memory_order_acquire)) HTS_UNLIKELY{
+            return Generate_Chaos_Seed(current_session_id);
+        }
         return current_session_id;
     }
 
@@ -222,7 +232,7 @@ namespace ProtectedEngine {
 
     uint64_t Entropy_Time_Arrow::Generate_Chaos_Seed(uint64_t input) const noexcept {
         // 시점 엔트로피 혼합 (플랫폼별)
-#ifdef HTS_ENTROPY_ARROW_ARM
+#ifdef HTS_PLATFORM_ARM
         uint64_t time_entropy = static_cast<uint64_t>(Read_DWT_Tick());
 #else
         uint64_t time_entropy = static_cast<uint64_t>(

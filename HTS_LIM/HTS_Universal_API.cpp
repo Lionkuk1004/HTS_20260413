@@ -18,14 +18,20 @@
 //  BUG-12 [CRIT] Secure_Gate_Open return(==0u) → 브랜치리스 비트 연산
 //                (== 비교는 CMP+분기 → 타이밍 부채널 잔존, 비트 시프트로 완전 제거)
 //  BUG-13 [MED]  Absolute_Trace_Erasure 이중 주석 블록 → 통합 (⑦주석-코드 불일치)
+//  BUG-14 [CRIT] 2단계 0 소거: volatile uint32_t* 전체 순회 → 비정렬 UB — SecureMemory::secureWipe 통일 (D-2/B-2)
+//  BUG-15 [CRIT] 1단계 XOR ↔ 2단계 secureWipe 사이 DSE 방어 — asm memory clobber + release fence (주석 79행 정합)
 //
 // [HTS_API 구현부는 HTS_API.cpp에 존재 → LNK2005 이중 정의 방지]
 // =========================================================================
 #include "HTS_Universal_API.h"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
 #include <cstdint>
 #include <cstring>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 namespace ProtectedEngine {
 
@@ -79,7 +85,9 @@ namespace ProtectedEngine {
     // =====================================================================
     void Universal_API::Absolute_Trace_Erasure(
         void* target, size_t size) noexcept {
-        if (!target || size == 0) return;
+        if (target == nullptr || size == 0u) {
+            return;
+        }
 
         // [수정 3] 64비트 빌드 호환: 하위 32비트 명시 마스킹
         uint32_t shredder = static_cast<uint32_t>(
@@ -125,36 +133,19 @@ namespace ProtectedEngine {
             ++b_ptr;
         }
 
-        // ── 2단계: 0 오버라이트 (volatile 워드 순회 — DSE 방어 내재) ──
-        // [BUG-FIX CRIT] memset + 글로벌 "memory" 클로버 → volatile 워드 소거
-        //
-        //  기존: std::memset(target, 0, size) + asm("" ::: "memory")
-        //   → "memory" 클로버가 전역 레지스터 spill/reload 유발
-        //   → 핫패스(V400/세션) 호출 시 캐시 히트율 붕괴 + 사이클 지터
-        //
-        //  수정: volatile uint32_t/uint8_t 직접 쓰기
-        //   · volatile 쓰기 = C++ 표준 관찰가능 부수효과 → DSE 원천 불가
-        //   · 글로벌 클로버 불필요 → 호출부 레지스터 캐싱 완전 보존
-        //   · 워드(4B) 단위 → memset 대비 ~25% 느리나 DSE 확정 방어
-        //   · 프로젝트 표준 통일: Key_Rotator_Secure_Wipe 패턴 동일
-        {
-            volatile uint32_t* vw = static_cast<volatile uint32_t*>(target);
-            const size_t n_words = size >> 2u;
-            for (size_t i = 0u; i < n_words; ++i) { vw[i] = 0u; }
-            volatile uint8_t* vb = reinterpret_cast<volatile uint8_t*>(vw + n_words);
-            const size_t n_tail = size & 3u;
-            for (size_t i = 0u; i < n_tail; ++i) { vb[i] = 0u; }
-        }
-
-        // ── 3단계: 하드웨어 메모리 배리어 (소거 가시화) ──────────────
-        // [BUG-FIX CRIT] 글로벌 "memory" 클로버 제거
-        //  volatile 쓰기가 DSE 방어를 내재하므로 asm clobber 불필요
-        //  release fence만으로 소거 가시화 완료
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(target));  // target 이스케이프 (경량)
+        // ── 1단계/2단계 경계: DSE(Dead Store Elimination) 방어
+        //  LTO/-O2에서 XOR 쓰기 전체가 "곧바로 secureWipe로 덮임"으로 dead store 판정되는 것을 차단.
+        //  (기능: XOR 스크램블은 그대로 수행된 뒤에만 최종 소거가 이어짐 — 동작 의미 동일, 최적화만 억제)
+#if (defined(__GNUC__) || defined(__clang__))
+        __asm__ __volatile__("" ::: "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
 #endif
-        // [BUG-08] seq_cst → release (소거 배리어 정책 통일, HTS_Secure_Memory.cpp 동일)
         std::atomic_thread_fence(std::memory_order_release);
+
+        // ── 2단계: 0 오버라이트 — 프로젝트 표준 SecureMemory (바이트 순회, 비정렬 안전, D-2)
+        //  [BUG-14] 기존 volatile uint32_t* 워드 루프는 target 비정렬 시 Cortex-M UsageFault
+        SecureMemory::secureWipe(static_cast<void*>(target), size);
     }
 
 } // namespace ProtectedEngine

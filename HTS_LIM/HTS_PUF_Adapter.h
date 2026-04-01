@@ -9,20 +9,12 @@
 // =========================================================================
 #pragma once
 
-#include <vector>
 #include <cstdint>
 
 namespace ProtectedEngine {
 
     class PUF_Adapter {
     public:
-        // PUF 칩에 Challenge를 인가하여 고유 Response(시드)를 추출
-        // ARM: 하드웨어 레지스터 직접 읽기
-        // PC:  목업 데이터 반환 (테스트용)
-        static void getHardwareSeed(
-            const std::vector<uint8_t>& challenge,
-            std::vector<uint8_t>& out_seed) noexcept;
-
         /// @brief PUF 시드 추출 — 고정 배열 API (ARM Zero-Heap)
         /// @param challenge     챌린지 배열 (nullptr 불가)
         /// @param challenge_len 챌린지 길이

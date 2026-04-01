@@ -675,6 +675,13 @@ namespace ProtectedEngine {
         for (size_t i = 0u; i < elements; ++i) {
             const size_t pre_pos =
                 static_cast<size_t>(m.shared.state_map[i]);
+            // fail-closed: state_map 오염 시 OOB 접근 차단
+            if (pre_pos >= elements) {
+                m.Wipe_RX();
+                Universal_API::Absolute_Trace_Erasure(
+                    damaged_tensor, elements * sizeof(T));
+                return false;
+            }
             const bool was_erased =
                 (m.shared.temp_vec[pre_pos >> 5u]
                     & (1u << (pre_pos & 31u))) != 0u;

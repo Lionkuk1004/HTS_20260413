@@ -25,6 +25,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
@@ -68,6 +69,8 @@ namespace ProtectedEngine {
         static constexpr size_t   STATUS_PKT_SIZE = 8u;
         static constexpr uint32_t NORMAL_INTERVAL = 60000u;   // 60초
         static constexpr uint32_t ALERT_INTERVAL = 10000u;   // 10초
+        static constexpr uint32_t SECURE_FALSE = 0x00000000u;
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
 
         /// @brief 생성자
         /// @param my_id        장비 ID
@@ -99,7 +102,7 @@ namespace ProtectedEngine {
         [[nodiscard]] int8_t  Get_Temperature() const noexcept;
         [[nodiscard]] uint8_t Get_Faults() const noexcept;
         [[nodiscard]] uint8_t Get_Modules() const noexcept;
-        [[nodiscard]] bool    Has_Any_Fault() const noexcept;
+        [[nodiscard]] uint32_t Has_Any_Fault() const noexcept;
 
         // ─── Wake-on-Signal 응답 (WoR ISR에서 호출) ──────
 
@@ -124,7 +127,7 @@ namespace ProtectedEngine {
         static constexpr size_t IMPL_BUF_ALIGN = 8u;
         struct Impl;
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;
     };

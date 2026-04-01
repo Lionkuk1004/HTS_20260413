@@ -491,7 +491,7 @@ namespace ProtectedEngine {
             r.flash_crc = (diag_cb.get_flash_crc != nullptr)
                 ? diag_cb.get_flash_crc() : 0u;
 
-            r.link_state = (ipc != nullptr && ipc->Is_Link_Alive()) ? 1u : 0u;
+            r.link_state = (ipc != nullptr && ipc->Is_Link_Alive() == HTS_IPC_Protocol::SECURE_TRUE) ? 1u : 0u;
             r.device_mode = static_cast<uint8_t>(channel_config.device_mode);
             r.bps_mode = static_cast<uint8_t>(channel_config.bps_mode);
             r.secure_boot_state = 1u;  // TODO: read from POST_Manager
@@ -612,6 +612,8 @@ namespace ProtectedEngine {
         //  -> 소비자 acquire 로드와 release-acquire 쌍 형성
         //  -> 위의 모든 쓰기가 소비자에게 가시화됨
         initialized_.store(true, std::memory_order_release);
+        // 초기화 완료: 재진입 차단 락 해제
+        initializing_.store(false, std::memory_order_release);
 
         return IPC_Error::OK;
     }
@@ -633,6 +635,8 @@ namespace ProtectedEngine {
         IPC_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
 
         initialized_.store(false, std::memory_order_release);
+        // 종료 완료: 다음 Initialize() 허용
+        initializing_.store(false, std::memory_order_release);
     }
 
     void HTS_Console_Manager::Register_Callbacks(const DiagCallbacks& cb) noexcept

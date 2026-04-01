@@ -69,7 +69,8 @@ namespace ProtectedEngine {
     class AntiDebugManager {
     public:
         /// @brief 디버거 연결 여부 확인 — 탐지 시 forceHalt 호출
-        /// @note  ARM: DHCSR.C_DEBUGEN 직접 검사
+        /// @note  ARM: DHCSR 2회 샘플 기반 C_DEBUGEN Attach 탐지 +
+        ///        (C_HALT|S_HALT) Halt 교차 검증
         static void checkDebuggerPresence() noexcept;
 
         // 정적 전용 클래스 — 인스턴스화 차단

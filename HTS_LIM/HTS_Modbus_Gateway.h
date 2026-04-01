@@ -40,6 +40,9 @@ namespace ProtectedEngine {
     /// @warning sizeof ~ 512B. 전역/정적 배치 권장.
     class HTS_Modbus_Gateway final {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         HTS_Modbus_Gateway() noexcept;
         ~HTS_Modbus_Gateway() noexcept;
 
@@ -56,10 +59,22 @@ namespace ProtectedEngine {
         void Configure_UART(Modbus_PHY phy, const Modbus_UART_Config& cfg) noexcept;
 
         /// @brief B-CDMA에서 수신된 GW 명령 처리
+        /// @param payload [GW_CMD][PHY][SLAVE][FC][LEN][DATA...] 형식의 프레임
+        /// @param len payload 총 길이 (최소 MODBUS_GW_HEADER_SIZE)
+        /// @note  내부 검증 규칙:
+        ///        - PHY: 1..(PHY_COUNT-1)
+        ///        - SLAVE_ADDR: 1..247
+        ///        - FUNC_CODE: ModbusFC 화이트리스트만 허용
         void Process_GW_Command(const uint8_t* payload, uint16_t len) noexcept;
 
         /// @brief 자동 폴링 항목 추가
         /// @return 슬롯 인덱스 (0~7), 실패 시 0xFF
+        /// @note  item 입력 계약:
+        ///        - active=1, interval_sec>0
+        ///        - slave_addr: 1..247
+        ///        - reg_count: 1..125
+        ///        - func_code: ModbusFC 화이트리스트
+        ///        - phy_type: 1..(PHY_COUNT-1)
         uint8_t Add_Poll_Item(const Modbus_PollItem& item) noexcept;
 
         /// @brief 자동 폴링 항목 제거
@@ -70,6 +85,12 @@ namespace ProtectedEngine {
 
         /// @brief Modbus 슬레이브에 직접 요청 (내부 모듈용)
         /// @return 응답 데이터 길이, 실패 시 0
+        /// @note  입력 계약:
+        ///        - phy: 1..(PHY_COUNT-1)
+        ///        - slave_addr: 1..247
+        ///        - func_code: ModbusFC 화이트리스트
+        ///        - data_len>0 이면 data!=nullptr
+        ///        - rsp_buf_size>0 이면 rsp_buf!=nullptr
         uint16_t Send_Request(Modbus_PHY phy, uint8_t slave_addr,
             uint8_t func_code, const uint8_t* data,
             uint8_t data_len, uint8_t* rsp_buf,
@@ -94,6 +115,7 @@ namespace ProtectedEngine {
         struct Impl;
         alignas(4) uint8_t impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
+        mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
     };
 
     static_assert(sizeof(HTS_Modbus_Gateway) <= 1024u,

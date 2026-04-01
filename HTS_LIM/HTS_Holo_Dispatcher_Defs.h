@@ -45,6 +45,7 @@ namespace ProtectedEngine {
         static constexpr uint8_t RESILIENT_HOLO = 0x12u;  ///< K=128, N=64, L=4
 
         /// @brief 모드가 4D 홀로그램인지 판별
+        /// @note  보안 경로에서는 호출 결과를 즉시 사용하고, 캐시된 bool 재사용을 금지.
         inline bool Is_Holo_Mode(uint8_t mode) noexcept
         {
             return (mode >= VOICE_HOLO && mode <= RESILIENT_HOLO);

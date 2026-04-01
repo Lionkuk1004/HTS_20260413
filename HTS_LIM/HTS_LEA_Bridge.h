@@ -27,12 +27,19 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 #include "lea.h"
 
 namespace ProtectedEngine {
 
     class LEA_Bridge {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
+        /// @note 성공/실패 모두 비영(0) — if(api()) 불가. 반드시
+        ///       `api(...) == SECURE_TRUE` 로 판정 (기준서 G-2 / 호출 계약)
+
         LEA_Bridge() noexcept;
         ~LEA_Bridge() noexcept;
 
@@ -49,7 +56,7 @@ namespace ProtectedEngine {
         //  key_len_bytes:   16(128bit) / 24(192bit) / 32(256bit)
         //  initial_vector:  128비트 초기 카운터 (16바이트, null 불가)
         // =================================================================
-        [[nodiscard]] bool Initialize(
+        [[nodiscard]] uint32_t Initialize(
             const uint8_t* master_key,
             uint32_t       key_len_bytes,
             const uint8_t* initial_vector) noexcept;
@@ -58,16 +65,18 @@ namespace ProtectedEngine {
         //  Encrypt_Payload — LEA-CTR 암호화 (인플레이스)
         //
         //  CTR 카운터: KISA lea_ctr_enc가 내부 증가 (수동 증가 불필요)
+        //  payload_data는 4바이트 정렬된 버퍼여야 함 (uint32_t* 계약)
         // =================================================================
-        [[nodiscard]] bool Encrypt_Payload(
+        [[nodiscard]] uint32_t Encrypt_Payload(
             uint32_t* payload_data, size_t elements) noexcept;
 
         // =================================================================
         //  Decrypt_Payload — LEA-CTR 복호화 (인플레이스)
         //
         //  CTR 카운터: KISA lea_ctr_dec가 내부 증가 (수동 증가 불필요)
+        //  payload_data는 4바이트 정렬된 버퍼여야 함 (uint32_t* 계약)
         // =================================================================
-        [[nodiscard]] bool Decrypt_Payload(
+        [[nodiscard]] uint32_t Decrypt_Payload(
             uint32_t* payload_data, size_t elements) noexcept;
 
     private:
@@ -75,6 +84,7 @@ namespace ProtectedEngine {
         LEA_KEY  session_key;
         uint8_t  iv_counter[16] = {};   // CTR 모드 128비트 카운터
         bool     is_initialized = false;
+        std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
     };
 
 } // namespace ProtectedEngine

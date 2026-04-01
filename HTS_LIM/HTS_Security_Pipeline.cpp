@@ -28,6 +28,7 @@
 #include "HTS_Gyro_Engine.h"
 #include "HTS_Sparse_Recovery.h"
 #include "HTS_AntiAnalysis_Shield.h"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
 #include <cstddef>
@@ -53,6 +54,38 @@ namespace ProtectedEngine {
         // [BUG-19] FNV-1a 해시 상수
         // [BUG-26] 64비트→32비트 전환: __aeabi_lmul 제거
         constexpr uint32_t FNV32_PRIME = 0x01000193u;  // FNV-1a 32비트 표준 소수
+
+        // CFI 상태 (초경량 32비트 원자 상태머신)
+        constexpr uint32_t CFI_IDLE = 0xC100u;
+        constexpr uint32_t CFI_WORKER = 0xC101u;
+        constexpr uint32_t CFI_AEAD = 0xC102u;
+        constexpr uint32_t CFI_ABORT = 0xC1FFu;
+
+        std::atomic<uint32_t> g_pipeline_cfi{ CFI_IDLE };
+
+        static bool cfi_enter(uint32_t target) noexcept {
+            const uint32_t cur = g_pipeline_cfi.load(std::memory_order_acquire);
+            if (cur != CFI_IDLE) { return false; }
+            g_pipeline_cfi.store(target, std::memory_order_release);
+            return true;
+        }
+
+        static void cfi_leave(uint32_t from) noexcept {
+            const uint32_t cur = g_pipeline_cfi.load(std::memory_order_acquire);
+            if (cur == from) {
+                g_pipeline_cfi.store(CFI_IDLE, std::memory_order_release);
+            }
+            else {
+                g_pipeline_cfi.store(CFI_ABORT, std::memory_order_release);
+            }
+        }
+
+        // division-free start % 20 (Cortex-M4 friendly)
+        static uint32_t fast_mod20_u32(uint32_t x) noexcept {
+            const uint32_t q = static_cast<uint32_t>(
+                (static_cast<uint64_t>(x) * 0xCCCCCCCDull) >> 36u); // floor(x/20)
+            return static_cast<uint32_t>(x - q * SPARSE_PERIOD);
+        }
     }
 
     // [BUG-21] 빌드 타임 검증
@@ -99,18 +132,23 @@ namespace ProtectedEngine {
         uint32_t* data, size_t start, size_t end,
         std::atomic<bool>& abort_signal) noexcept {
 
-        if (!data || start >= end) return;
+        if (data == nullptr || start >= end) return;
         if (abort_signal.load(std::memory_order_relaxed)) return;
+        if (!cfi_enter(CFI_WORKER)) {
+            abort_signal.store(true, std::memory_order_release);
+            return;
+        }
 
         // [BUG-11] 루프 진입 전 1회 선행 보안 검증
         // [BUG-17] 단축평가 제거 → security_check_failed 헬퍼
         if (security_check_failed(PIPELINE_SESSION_ID)) {
             abort_signal.store(true, std::memory_order_release);
+            cfi_leave(CFI_WORKER);
             return;
         }
 
-        // [BUG-15] 로컬 카운터 초기화 (UDIV 1회만 → 루프 내 0회)
-        uint32_t sparse_cnt = static_cast<uint32_t>(start % SPARSE_PERIOD);
+        // [개선] start % 20의 UDIV 제거 (division-free reciprocal)
+        uint32_t sparse_cnt = fast_mod20_u32(static_cast<uint32_t>(start));
 
         for (size_t i = start; i < end; ++i) {
             Gyro_Engine::Apply_Dynamic_Phase_Stabilization(data[i]);
@@ -125,17 +163,22 @@ namespace ProtectedEngine {
 
             // [BUG-15] i % 8192 → & SECURITY_CHECK_MASK (비트 마스크)
             if ((i & SECURITY_CHECK_MASK) == 0u) {
-                if (abort_signal.load(std::memory_order_relaxed)) return;
+                if (abort_signal.load(std::memory_order_relaxed)) {
+                    cfi_leave(CFI_WORKER);
+                    return;
+                }
 
                 // [BUG-17] 단축평가 제거
                 if (security_check_failed(PIPELINE_SESSION_ID)) {
                     abort_signal.store(true, std::memory_order_release);
+                    cfi_leave(CFI_WORKER);
                     return;
                 }
             }
 
             data[i] = ~data[i];
         }
+        cfi_leave(CFI_WORKER);
     }
 
     // =====================================================================
@@ -159,12 +202,17 @@ namespace ProtectedEngine {
         std::atomic<uint32_t>& global_tag_hi,
         std::atomic<uint32_t>& global_tag_lo) noexcept {
 
-        if (!data || start >= end) return;
+        if (data == nullptr || start >= end) return;
         if (abort_signal.load(std::memory_order_relaxed)) return;
+        if (!cfi_enter(CFI_AEAD)) {
+            abort_signal.store(true, std::memory_order_release);
+            return;
+        }
 
         // [BUG-11/17] 선행 검증 (단축평가 제거)
         if (security_check_failed(PIPELINE_SESSION_ID)) {
             abort_signal.store(true, std::memory_order_release);
+            cfi_leave(CFI_AEAD);
             return;
         }
 
@@ -182,7 +230,7 @@ namespace ProtectedEngine {
             static_cast<uint32_t>(PIPELINE_SESSION_ID >> 32u);
 
         // [BUG-15] 로컬 카운터 초기화
-        uint32_t sparse_cnt = static_cast<uint32_t>(start % SPARSE_PERIOD);
+        uint32_t sparse_cnt = fast_mod20_u32(static_cast<uint32_t>(start));
 
         for (size_t i = start; i < end; ++i) {
             Gyro_Engine::Apply_Dynamic_Phase_Stabilization(data[i]);
@@ -197,10 +245,14 @@ namespace ProtectedEngine {
 
             // [BUG-15/17] 주기적 보안 검사
             if ((i & SECURITY_CHECK_MASK) == 0u) {
-                if (abort_signal.load(std::memory_order_relaxed)) return;
+                if (abort_signal.load(std::memory_order_relaxed)) {
+                    cfi_leave(CFI_AEAD);
+                    return;
+                }
 
                 if (security_check_failed(PIPELINE_SESSION_ID)) {
                     abort_signal.store(true, std::memory_order_release);
+                    cfi_leave(CFI_AEAD);
                     return;
                 }
             }
@@ -210,15 +262,16 @@ namespace ProtectedEngine {
             // [BUG-26] 32비트 이중 FNV-1a — 64비트 연산 0회
             // hi: data^tag_key_hi 혼합, lo: data^tag_key 혼합
             // 독립 누적 → 크로스 XOR로 엔트로피 확산
-            const uint32_t mixed = data[i] ^ tag_key;
+            const uint32_t data_word = static_cast<uint32_t>(data[i]);
+            const uint32_t mixed = static_cast<uint32_t>(data_word ^ tag_key);
             tag_lo ^= mixed;
             tag_lo *= FNV32_PRIME;     // ARM UMULL 1cyc
-            tag_lo = (tag_lo << 13u) | (tag_lo >> 19u);  // ROR 1cyc
+            tag_lo = static_cast<uint32_t>((tag_lo << 13u) | (tag_lo >> 19u));  // ROR 1cyc
 
-            const uint32_t mixed_hi = data[i] ^ tag_key_hi;
+            const uint32_t mixed_hi = static_cast<uint32_t>(data_word ^ tag_key_hi);
             tag_hi ^= mixed_hi;
             tag_hi *= FNV32_PRIME;
-            tag_hi = (tag_hi << 7u) | (tag_hi >> 25u);  // 다른 회전량 → 독립성
+            tag_hi = static_cast<uint32_t>((tag_hi << 7u) | (tag_hi >> 25u));  // 다른 회전량 → 독립성
 
             // 크로스 XOR: hi↔lo 상호 의존성 주입
             tag_hi ^= tag_lo;
@@ -228,16 +281,10 @@ namespace ProtectedEngine {
         global_tag_hi.fetch_xor(tag_hi, std::memory_order_relaxed);
         global_tag_lo.fetch_xor(tag_lo, std::memory_order_relaxed);
 
-        // [BUG-24] D-2 보안 소거 — 3중 방어
-        volatile uint32_t* v_hi = &tag_hi;
-        volatile uint32_t* v_lo = &tag_lo;
-        *v_hi = 0u;
-        *v_lo = 0u;
-#if (defined(__GNUC__) || defined(__clang__)) && \
-    (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH))
-        __asm__ __volatile__("" : : "r"(v_hi), "r"(v_lo) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
+        // [BUG-24] D-2 보안 소거 — 프로젝트 공통 API로 통일
+        SecureMemory::secureWipe(&tag_hi, sizeof(tag_hi));
+        SecureMemory::secureWipe(&tag_lo, sizeof(tag_lo));
+        cfi_leave(CFI_AEAD);
     }
 
 } // namespace ProtectedEngine

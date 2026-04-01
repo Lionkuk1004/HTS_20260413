@@ -37,6 +37,7 @@
 #include "HTS_IoT_Codec_Defs.h"
 #include "HTS_IPC_Protocol_Defs.h"
 #include <cstdint>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -51,6 +52,9 @@ namespace ProtectedEngine {
     ///   - CRC-16 무결성 (IPC_Compute_CRC16 공유)
     class HTS_IoT_Codec final {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         HTS_IoT_Codec() noexcept;
 
         /// @name 프레임 빌드 (송신 측)
@@ -66,35 +70,35 @@ namespace ProtectedEngine {
         /// @brief uint8_t 값 TLV 추가
         /// @param sensor  센서 타입
         /// @param value   값
-        /// @return 성공 시 true, 버퍼 오버플로우 시 false
-        bool Add_U8(SensorType sensor, uint8_t value) noexcept;
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Add_U8(SensorType sensor, uint8_t value) noexcept;
 
         /// @brief uint16_t / int16_t 값 TLV 추가 (빅엔디안 직렬화)
         /// @param sensor  센서 타입
         /// @param value   값
-        /// @return 성공 시 true
-        bool Add_U16(SensorType sensor, uint16_t value) noexcept;
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Add_U16(SensorType sensor, uint16_t value) noexcept;
 
         /// @brief uint32_t / int32_t 값 TLV 추가 (빅엔디안 직렬화)
         /// @param sensor  센서 타입
         /// @param value   값
-        /// @return 성공 시 true
-        bool Add_U32(SensorType sensor, uint32_t value) noexcept;
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Add_U32(SensorType sensor, uint32_t value) noexcept;
 
         /// @brief 원시 바이트 배열 TLV 추가
         /// @param sensor    센서 타입
         /// @param data      값 바이트
         /// @param data_len  값 길이 (1~8)
-        /// @return 성공 시 true
-        bool Add_Raw(SensorType sensor, const uint8_t* data,
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Add_Raw(SensorType sensor, const uint8_t* data,
             uint8_t data_len) noexcept;
 
         /// @brief 프레임 완성: CRC 부착 및 와이어 버퍼 출력
         /// @param[out] out_buf     출력 와이어 버퍼
         /// @param      out_buf_size 출력 버퍼 크기
         /// @param[out] out_len     실제 기록된 바이트
-        /// @return 성공 시 true
-        bool Finalize(uint8_t* out_buf, uint16_t out_buf_size,
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Finalize(uint8_t* out_buf, uint16_t out_buf_size,
             uint16_t& out_len) noexcept;
 
         /// @}
@@ -109,8 +113,8 @@ namespace ProtectedEngine {
         /// @param[out] out_items   TLV 항목 배열 (호출자 제공)
         /// @param      max_items   배열 최대 크기
         /// @param[out] out_item_count 실제 파싱된 항목 수
-        /// @return 성공 시 true, CRC 에러 또는 포맷 에러 시 false
-        bool Parse(const uint8_t* wire_buf, uint16_t wire_len,
+        /// @return 성공 시 SECURE_TRUE, 실패 시 SECURE_FALSE
+        uint32_t Parse(const uint8_t* wire_buf, uint16_t wire_len,
             IoT_Frame_Header& out_header,
             IoT_TLV_Item* out_items, uint8_t max_items,
             uint8_t& out_item_count) const noexcept;
@@ -131,6 +135,7 @@ namespace ProtectedEngine {
         uint16_t build_pos_;     ///< 현재 기록 위치
         uint8_t  tlv_count_;     ///< 추가된 TLV 항목 수
         bool     frame_active_;  ///< Begin_Frame 호출 여부
+        mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
 
         /// @brief 엔디안 독립 직렬화 헬퍼 (인라인)
         static void Write_U16(uint8_t* b, uint16_t v) noexcept

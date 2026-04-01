@@ -20,6 +20,15 @@
 #include <new>
 
 namespace ProtectedEngine {
+    static constexpr uint8_t RTR_PKT_SLOT_COUNT = 8u;
+    static constexpr uint8_t RTR_PKT_SLOT_MASK = 7u;
+    static std::atomic<uint32_t> g_rtr_pkt_slot{ 0u };
+    alignas(uint32_t) static uint8_t g_rtr_pkt_pool[RTR_PKT_SLOT_COUNT][64] = {};
+
+    static uint8_t* acquire_rtr_pkt_slot() noexcept {
+        const uint32_t slot = g_rtr_pkt_slot.fetch_add(1u, std::memory_order_relaxed);
+        return g_rtr_pkt_pool[slot & RTR_PKT_SLOT_MASK];
+    }
 
     // =====================================================================
     //  보안 소거 / PRIMASK
@@ -29,7 +38,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(q));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -164,14 +173,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(512B)를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 alignas를 초과합니다");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Mesh_Router::Impl*
         HTS_Mesh_Router::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -183,14 +192,14 @@ namespace ProtectedEngine {
     {
         Rtr_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(my_id);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Mesh_Router::~HTS_Mesh_Router() noexcept {
-        Impl* p = get_impl();
+        impl_valid_.store(false, std::memory_order_release);
+        Impl* p = reinterpret_cast<Impl*>(impl_buf_);
         if (p != nullptr) { p->~Impl(); }
         Rtr_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
     }
 
     // =====================================================================
@@ -427,7 +436,7 @@ namespace ProtectedEngine {
             return FwdResult::NO_ROUTE;
         }
 
-        uint8_t relay[RELAY_MAX] = {};
+        uint8_t* const relay = acquire_rtr_pkt_slot();
         ser_u16(&relay[0], next_hop);
         ser_u16(&relay[2], final_dest);
         relay[4] = ttl;
@@ -442,8 +451,6 @@ namespace ProtectedEngine {
             PacketPriority::DATA,
             relay, total,
             systick_ms);
-
-        Rtr_Secure_Wipe(relay, sizeof(relay));
 
         return (enq == EnqueueResult::OK)
             ? FwdResult::OK : FwdResult::QUEUE_FULL;
@@ -698,7 +705,8 @@ namespace ProtectedEngine {
         // [2]   route_count
         // [3]   r0_dest_hi, [4] r0_dest_lo, [5] r0_hop, [6] r0_metric, [7] r0_lqi
         // (실제로는 여러 패킷으로 분할 → 여기서는 요약만)
-        uint8_t pkt[8] = {};
+        uint8_t* const pkt = acquire_rtr_pkt_slot();
+        Rtr_Secure_Wipe(pkt, 8u);
         ser_u16(&pkt[0], p->my_id);
         pkt[2] = p->route_count;
         // 상위 3경로 요약 (최적 메트릭순)
@@ -725,7 +733,6 @@ namespace ProtectedEngine {
             systick_ms);
         (void)enq;
 
-        Rtr_Secure_Wipe(pkt, sizeof(pkt));
     }
 
     // =====================================================================

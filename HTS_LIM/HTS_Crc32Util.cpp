@@ -45,7 +45,7 @@ namespace ProtectedEngine {
                     for (int j = 0; j < 8; ++j) {
                         uint32_t mask = static_cast<uint32_t>(
                             ~(crc & 1u) + 1u);
-                        crc = (crc >> 1) ^ (0xEDB88320u & mask);
+                        crc = (crc >> 1u) ^ (0xEDB88320u & mask);
                     }
                     data[i] = crc;
                 }
@@ -69,22 +69,12 @@ namespace ProtectedEngine {
 
         uint32_t crc = 0xFFFFFFFFu;
 
-        for (size_t i = 0; i < len; ++i) {
-            crc = (crc >> 8) ^
-                CRC32_LUT.data[(crc ^ data[i]) & 0xFFu];
+        for (size_t i = 0u; i < len; ++i) {
+            crc = (crc >> 8u) ^
+                CRC32_LUT.data[(crc ^ static_cast<uint32_t>(data[i])) & 0xFFu];
         }
 
         return ~crc;
-    }
-
-    // =====================================================================
-    //  calculate (vector) — 레거시 래퍼
-    // =====================================================================
-    uint32_t Crc32Util::calculate(
-        const std::vector<uint8_t>& data) noexcept {
-        return calculate(
-            data.empty() ? nullptr : data.data(),
-            data.size());
     }
 
 } // namespace ProtectedEngine

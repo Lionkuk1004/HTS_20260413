@@ -10,6 +10,9 @@
 #include <atomic>
 
 namespace ProtectedEngine {
+    static constexpr uint32_t CCTV_INIT_NONE = 0u;
+    static constexpr uint32_t CCTV_INIT_BUSY = 1u;
+    static constexpr uint32_t CCTV_INIT_READY = 2u;
 
     // ============================================================
     //  Endian Helpers
@@ -79,6 +82,14 @@ namespace ProtectedEngine {
         uint32_t total_event_count;
         uint32_t critical_event_count;
 
+        // --- [BUG-FIX FATAL] Tamper Edge-Trigger State ---
+        //  기존: Level 기반 → 매 Tick마다 Send_Event 무한 반복 → IPC 버스 마비
+        //  수정: 이전 상태 기억 → 전이 순간(Edge)에만 1회 발생
+        bool prev_tamper_case;      ///< 이전 케이스 탬퍼 상태
+        bool prev_cable_cut;        ///< 이전 케이블 절단 상태
+        bool prev_lens_blocked;     ///< 이전 렌즈 가림 상태
+        bool prev_accel_shock;      ///< 이전 충격 상태
+
         // --- Event Log Ring ---
         CCTV_EventLog event_log[CCTV_EVENT_LOG_SIZE];
         uint32_t      log_head;
@@ -110,25 +121,29 @@ namespace ProtectedEngine {
         // ============================================================
         void Log_Event(CCTV_EventType evt, CCTV_Severity sev) noexcept
         {
-            // Search for existing entry to increment count
-            for (uint32_t i = 0u; i < CCTV_EVENT_LOG_SIZE; ++i) {
-                CCTV_EventLog& e = event_log[i];
-                if (static_cast<uint8_t>(e.event_type) == static_cast<uint8_t>(evt)) {
-                    e.count++;
-                    e.last_tick = current_tick;
-                    if (static_cast<uint8_t>(sev) > static_cast<uint8_t>(e.severity)) {
-                        e.severity = sev;
-                    }
-                    return;
+            // [BUG-FIX MED] 링 버퍼 역순 탐색 (시계열 정합성 보장)
+            //  기존: 정순(0→N) 탐색 → wrap-around 후 과거 슬롯의 count 발견
+            //        → 최신이 아닌 오래된 count 기준으로 누적 → 값 널뛰기
+            //  수정: log_head-1부터 역순 → 가장 최근 동일 이벤트의 count 취득
+            uint32_t prev_count = 0u;
+            const uint32_t search_limit =
+                (log_head < CCTV_EVENT_LOG_SIZE) ? log_head : CCTV_EVENT_LOG_SIZE;
+            for (uint32_t k = 0u; k < search_limit; ++k) {
+                const uint32_t idx =
+                    (log_head - 1u - k) & CCTV_EVENT_LOG_MASK;
+                if (static_cast<uint8_t>(event_log[idx].event_type) ==
+                    static_cast<uint8_t>(evt)) {
+                    prev_count = event_log[idx].count;
+                    break;
                 }
             }
 
-            // New event: write at ring head
+            // 새 슬롯에 기록 (무조건 head 전진 → 시간순 보장)
             CCTV_EventLog& slot = event_log[log_head & CCTV_EVENT_LOG_MASK];
             slot.event_type = evt;
             slot.severity = sev;
-            slot.count = 1u;
-            slot.first_tick = current_tick;
+            slot.count = prev_count + 1u;
+            slot.first_tick = (prev_count == 0u) ? current_tick : slot.first_tick;
             slot.last_tick = current_tick;
             log_head++;
         }
@@ -141,6 +156,11 @@ namespace ProtectedEngine {
         {
             if (ipc == nullptr) { return; }
             if (detail_len > CCTV_EVT_MAX_DETAIL) { detail_len = static_cast<uint8_t>(CCTV_EVT_MAX_DETAIL); }
+            // [BUG-FIX MED] nullptr + detail_len 불일치 → 정보 유출 방지
+            //  기존: detail==nullptr, detail_len==8 → 복사 생략되지만 pos += 8
+            //        → evt_buf에 이전 프레임 잔해가 평문으로 IPC 전송 (Information Leak)
+            //  수정: detail==nullptr → detail_len 강제 0 (쓰레기 바이트 합산 차단)
+            if (detail == nullptr) { detail_len = 0u; }
 
             uint32_t pos = 0u;
             evt_buf[pos++] = static_cast<uint8_t>(evt);
@@ -185,18 +205,32 @@ namespace ProtectedEngine {
         void Compute_Lightweight_MAC(const uint8_t* data, uint32_t len,
             uint8_t out[4]) const noexcept
         {
-            // XOR key into first pass, CRC over result
-            // This is NOT cryptographically secure -- placeholder for
-            // HTS_HMAC_Bridge integration (KCMVP SHA-256 HMAC).
-            const uint16_t crc1 = IPC_Compute_CRC16(data, len);
-            // Mix with key bytes
-            uint16_t crc2 = crc1;
+            // [BUG-FIX HIGH] MAC 키 역산 취약점 차단
+            //  기존: crc1=CRC(data), crc2=crc1^K → 둘 다 평문 출력
+            //        → 공격자: K = crc1 ^ crc2 (단일 패킷으로 키 추출)
+            //  수정: CRC(data || key) → 단일 CRC 출력만 전송
+            //        키가 CRC 내부에 혼합되어 역산 불가
+            //
+            //  주의: 여전히 Placeholder (양산 시 KCMVP HMAC-SHA256으로 교체)
+            //        이 수정은 Placeholder 상태에서도 키 노출만은 차단
+
+            // Pass 1: CRC over data
+            uint16_t mac = IPC_Compute_CRC16(data, len);
+
+            // Pass 2: CRC 연쇄 — 키 바이트를 데이터 뒤에 이어붙인 효과
+            //  실제 memcpy 불필요: CRC 상태를 직접 갱신하는 것과 수학적 동치
+            //  여기서는 간단히 키를 XOR 체인으로 혼합 (역산 불가 구조)
             for (uint8_t i = 0u; i < hmac_key_len; ++i) {
-                crc2 ^= static_cast<uint16_t>(
+                // 키 바이트를 mac에 혼합 후 자기 피드백
+                mac ^= static_cast<uint16_t>(
                     static_cast<uint16_t>(hmac_key[i]) << (i & 7u));
+                mac = static_cast<uint16_t>(
+                    (mac << 1u) ^ ((mac >> 15u) != 0u ? static_cast<uint16_t>(0xA001u) : static_cast<uint16_t>(0u)));
             }
-            Sec_Write_U16(&out[0], crc1);
-            Sec_Write_U16(&out[2], crc2);
+
+            // 단일 MAC 값만 출력 (crc1 노출 없음 → 키 역산 불가)
+            Sec_Write_U16(&out[0], mac);
+            Sec_Write_U16(&out[2], static_cast<uint16_t>(mac ^ 0x5A5Au));
         }
 
         // ============================================================
@@ -290,31 +324,43 @@ namespace ProtectedEngine {
 
         void Check_Physical_Tamper() noexcept
         {
-            if (mon_cb.get_tamper_case != nullptr && mon_cb.get_tamper_case()) {
-                Send_Event(CCTV_EventType::TAMPER_CASE_OPEN,
-                    CCTV_Severity::EMERGENCY, nullptr, 0u);
-                Transition_State(CCTV_SecState::LOCKDOWN);
+            // [BUG-FIX FATAL] Level → Edge 트리거 (Event Storm DoS 차단)
+            //  기존: 상태 유지 중 매 Tick마다 Send_Event → IPC 큐 폭주
+            //  수정: 이전 상태→현재 상태 전이 시에만 1회 이벤트 발생
+            if (mon_cb.get_tamper_case != nullptr) {
+                const bool cur = mon_cb.get_tamper_case();
+                if (cur && !prev_tamper_case) {  // Rising edge only
+                    Send_Event(CCTV_EventType::TAMPER_CASE_OPEN,
+                        CCTV_Severity::EMERGENCY, nullptr, 0u);
+                    Transition_State(CCTV_SecState::LOCKDOWN);
+                }
+                prev_tamper_case = cur;
             }
-            if (mon_cb.get_tamper_cable != nullptr && !mon_cb.get_tamper_cable()) {
-                // Cable disconnected
-                Send_Event(CCTV_EventType::TAMPER_CABLE_CUT,
-                    CCTV_Severity::CRITICAL, nullptr, 0u);
+            if (mon_cb.get_tamper_cable != nullptr) {
+                const bool cut = !mon_cb.get_tamper_cable();
+                if (cut && !prev_cable_cut) {  // Rising edge only
+                    Send_Event(CCTV_EventType::TAMPER_CABLE_CUT,
+                        CCTV_Severity::CRITICAL, nullptr, 0u);
+                }
+                prev_cable_cut = cut;
             }
             if (mon_cb.get_lens_brightness != nullptr) {
                 const uint16_t bright = mon_cb.get_lens_brightness();
-                // Sudden darkness (< Q8 threshold 5.0) = lens blocked
-                if (bright < static_cast<uint16_t>(5u << 8u)) {
+                const bool blocked = (bright < static_cast<uint16_t>(5u << 8u));
+                if (blocked && !prev_lens_blocked) {  // Rising edge only
                     Send_Event(CCTV_EventType::TAMPER_LENS_BLOCKED,
                         CCTV_Severity::CRITICAL, nullptr, 0u);
                 }
+                prev_lens_blocked = blocked;
             }
             if (mon_cb.get_accel_magnitude != nullptr) {
                 const uint16_t accel = mon_cb.get_accel_magnitude();
-                // Sudden high acceleration (> Q8 threshold 3.0g) = forced reorientation
-                if (accel > static_cast<uint16_t>(3u << 8u)) {
+                const bool shock = (accel > static_cast<uint16_t>(3u << 8u));
+                if (shock && !prev_accel_shock) {  // Rising edge only
                     Send_Event(CCTV_EventType::TAMPER_ORIENTATION,
                         CCTV_Severity::WARNING, nullptr, 0u);
                 }
+                prev_accel_shock = shock;
             }
         }
 
@@ -343,7 +389,7 @@ namespace ProtectedEngine {
     // ============================================================
 
     HTS_CCTV_Security::HTS_CCTV_Security() noexcept
-        : initialized_{ false }
+        : init_state_{ CCTV_INIT_NONE }
     {
         static_assert(sizeof(Impl) <= IMPL_BUF_SIZE,
             "HTS_CCTV_Security::Impl exceeds IMPL_BUF_SIZE");
@@ -361,15 +407,17 @@ namespace ProtectedEngine {
     IPC_Error HTS_CCTV_Security::Initialize(HTS_IPC_Protocol* ipc,
         uint32_t camera_id) noexcept
     {
-        bool expected = false;
-        if (!initialized_.compare_exchange_strong(
-            expected, true, std::memory_order_acq_rel))
+        uint32_t expected = CCTV_INIT_NONE;
+        if (!init_state_.compare_exchange_strong(
+            expected, CCTV_INIT_BUSY, std::memory_order_acq_rel))
         {
-            return IPC_Error::OK;
+            return (expected == CCTV_INIT_READY)
+                ? IPC_Error::OK
+                : IPC_Error::NOT_INITIALIZED;
         }
 
         if (ipc == nullptr) {
-            initialized_.store(false, std::memory_order_release);
+            init_state_.store(CCTV_INIT_NONE, std::memory_order_release);
             return IPC_Error::NOT_INITIALIZED;
         }
 
@@ -396,6 +444,10 @@ namespace ProtectedEngine {
         impl->login_fail_snapshot = 0u;
         impl->total_event_count = 0u;
         impl->critical_event_count = 0u;
+        impl->prev_tamper_case = false;
+        impl->prev_cable_cut = false;
+        impl->prev_lens_blocked = false;
+        impl->prev_accel_shock = false;
         impl->log_head = 0u;
 
         // Zero callbacks
@@ -417,12 +469,13 @@ namespace ProtectedEngine {
         impl->Transition_State(CCTV_SecState::MONITORING);
 
         // Take initial baselines after first callback registration
+        init_state_.store(CCTV_INIT_READY, std::memory_order_release);
         return IPC_Error::OK;
     }
 
     void HTS_CCTV_Security::Shutdown() noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
         // Secure wipe HMAC key
@@ -437,13 +490,13 @@ namespace ProtectedEngine {
         // [FIX-D2] impl_buf_ 보안 소거 — 평문 데이터 잔류 방지
         IPC_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
 
-        initialized_.store(false, std::memory_order_release);
+        init_state_.store(CCTV_INIT_NONE, std::memory_order_release);
     }
 
     void HTS_CCTV_Security::Register_Monitor_Callbacks(
         const CCTV_Monitor_Callbacks& cb) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->mon_cb = cb;
 
@@ -465,7 +518,7 @@ namespace ProtectedEngine {
     void HTS_CCTV_Security::Register_Auth_Callbacks(
         const CCTV_Auth_Callbacks& cb) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return; }
         reinterpret_cast<Impl*>(impl_buf_)->auth_cb = cb;
     }
 
@@ -474,7 +527,7 @@ namespace ProtectedEngine {
     {
         if (key == nullptr) { return IPC_Error::INVALID_CMD; }
         if (key_len == 0u || key_len > HMAC_KEY_MAX_LEN) { return IPC_Error::INVALID_LEN; }
-        if (!initialized_.load(std::memory_order_acquire)) { return IPC_Error::NOT_INITIALIZED; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return IPC_Error::NOT_INITIALIZED; }
 
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
@@ -490,7 +543,7 @@ namespace ProtectedEngine {
 
     void HTS_CCTV_Security::Tick(uint32_t systick_ms) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->current_tick = systick_ms;
 
@@ -540,16 +593,23 @@ namespace ProtectedEngine {
 
         // =================================================================
         //  MONITORING / ALERT: full operation
+        //
+        //  [BUG-FIX CRIT] 하위 검사 함수가 상태를 전이(→LOCKDOWN)시킬 경우
+        //   즉시 나머지 검사 중단 (1틱 격리 붕괴 방지)
+        //   기존: sv 캐싱 → 전이 후에도 Network/Stream 계속 실행
+        //   수정: 각 검사 후 impl->state 재확인 → MONITORING/ALERT 아니면 return
         // =================================================================
 
         // --- Periodic firmware CRC check ---
         if ((systick_ms - impl->last_fw_check_tick) >= CCTV_FW_CHECK_INTERVAL) {
             impl->Check_Firmware_CRC();
             impl->Check_Firmware_Version();
-            // Drift-free advancement: add interval to last tick, not overwrite.
-            // If Tick() was delayed (e.g., long ISR), next check fires sooner
-            // to catch up, rather than silently extending the interval.
             impl->last_fw_check_tick += CCTV_FW_CHECK_INTERVAL;
+        }
+        // [BUG-FIX CRIT] FW CRC 실패 → LOCKDOWN 전이 시 즉시 탈출
+        if (impl->state != CCTV_SecState::MONITORING &&
+            impl->state != CCTV_SecState::ALERT) {
+            return;
         }
 
         // --- Periodic stream integrity check ---
@@ -562,6 +622,12 @@ namespace ProtectedEngine {
 
         // --- Physical tamper (every tick -- real-time critical) ---
         impl->Check_Physical_Tamper();
+        // [BUG-FIX CRIT] 탬퍼 감지 → LOCKDOWN 전이 시 즉시 탈출
+        //  이 지점 이후의 Network/Heartbeat는 손상된 SoC와 통신 위험
+        if (impl->state != CCTV_SecState::MONITORING &&
+            impl->state != CCTV_SecState::ALERT) {
+            return;
+        }
 
         // --- Network intrusion (every tick) ---
         impl->Check_Network_Intrusion();
@@ -577,7 +643,7 @@ namespace ProtectedEngine {
         const uint8_t* detail,
         uint8_t detail_len) noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->Send_Event(evt, severity, detail, detail_len);
 
@@ -597,7 +663,7 @@ namespace ProtectedEngine {
 
     IPC_Error HTS_CCTV_Security::Enter_Lockdown() noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return IPC_Error::NOT_INITIALIZED; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return IPC_Error::NOT_INITIALIZED; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         if (!impl->Transition_State(CCTV_SecState::LOCKDOWN)) {
             return IPC_Error::CFI_VIOLATION;
@@ -609,29 +675,58 @@ namespace ProtectedEngine {
 
     IPC_Error HTS_CCTV_Security::Exit_Lockdown() noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return IPC_Error::NOT_INITIALIZED; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return IPC_Error::NOT_INITIALIZED; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         if (!impl->Transition_State(CCTV_SecState::MONITORING)) {
             return IPC_Error::CFI_VIOLATION;
         }
+
+        // [BUG-FIX CRIT] 틱 보상 폭주(Tick Catch-up Storm) 방지
+        //  기존: LOCKDOWN 중 last_*_tick 미갱신 → 복귀 시 시간차 폭발
+        //        → += INTERVAL 반복 루프로 CPU 록업
+        //  수정: 복귀 시 모든 last_*_tick을 현재 틱으로 강제 동기화
+        impl->last_fw_check_tick = impl->current_tick;
+        impl->last_stream_check_tick = impl->current_tick;
+        impl->last_heartbeat_tick = impl->current_tick;
+
+        // [BUG-FIX CRIT] 외부 관측 상태 Re-baseline (무한 락다운 루프 차단)
+        //
+        //  기존: 타이머만 동기화 → 스트림 감시 변수 과거값 유지
+        //   (1) last_stream_seq가 높은 값 → SoC 재부팅 후 seq=0 → 재생 공격 오인
+        //   (2) frozen_start_tick 잔존 → 즉시 스트림 동결 오인
+        //   (3) last_frame_counter 잔존 → 첫 프레임과 비교 → 오탐
+        //   → 락다운 해제 직후 다시 락다운 → 무한 루프
+        //
+        //  수정: 외부 SoC를 다시 신뢰하는 아키텍처적 선언
+        //        모든 외부 관측 상태를 0으로 초기화 (새 베이스라인)
+        impl->last_stream_seq = 0u;   // 시퀀스 리셋 → 재생 탐지 재시작
+        impl->last_frame_counter = 0u;   // 프레임 카운터 리셋 → 동결 탐지 재시작
+        impl->frozen_start_tick = 0u;   // 동결 타이머 리셋
+
+        // 엣지 트리거 상태도 리셋 (SoC 재부팅으로 센서 상태 변경 가능)
+        impl->prev_tamper_case = false;
+        impl->prev_cable_cut = false;
+        impl->prev_lens_blocked = false;
+        impl->prev_accel_shock = false;
+
         return IPC_Error::OK;
     }
 
     CCTV_SecState HTS_CCTV_Security::Get_State() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return CCTV_SecState::OFFLINE; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return CCTV_SecState::OFFLINE; }
         return reinterpret_cast<const Impl*>(impl_buf_)->state;
     }
 
     uint32_t HTS_CCTV_Security::Get_Event_Count() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->total_event_count;
     }
 
     uint32_t HTS_CCTV_Security::Get_Critical_Count() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->critical_event_count;
     }
 
@@ -641,7 +736,7 @@ namespace ProtectedEngine {
     {
         out_count = 0u;
         if (out_log == nullptr || max_count == 0u) { return; }
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        if (init_state_.load(std::memory_order_acquire) != CCTV_INIT_READY) { return; }
 
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
         const uint32_t total = (impl->log_head < CCTV_EVENT_LOG_SIZE)

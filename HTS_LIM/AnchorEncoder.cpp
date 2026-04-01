@@ -88,6 +88,30 @@
 #include <mutex>   // [BUG-18] std::call_once (A55 멀티스레드 안전)
 
 namespace ProtectedEngine {
+    // =====================================================================
+    //  masterSeed 보안 소거 RAII
+    // =====================================================================
+    struct RAII_Seed_Wiper_ENC {
+        volatile uint8_t* ptr;
+        size_t size;
+
+        RAII_Seed_Wiper_ENC(uint8_t* p, size_t s) noexcept
+            : ptr(reinterpret_cast<volatile uint8_t*>(p)), size(s) {
+        }
+
+        ~RAII_Seed_Wiper_ENC() noexcept {
+            for (size_t i = 0u; i < size; ++i) { ptr[i] = 0u; }
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("" : : "r"(ptr));
+#endif
+            std::atomic_thread_fence(std::memory_order_release);
+        }
+
+        RAII_Seed_Wiper_ENC(const RAII_Seed_Wiper_ENC&) = delete;
+        RAII_Seed_Wiper_ENC& operator=(const RAII_Seed_Wiper_ENC&) = delete;
+        RAII_Seed_Wiper_ENC(RAII_Seed_Wiper_ENC&&) = delete;
+        RAII_Seed_Wiper_ENC& operator=(RAII_Seed_Wiper_ENC&&) = delete;
+    };
 
     // =====================================================================
     //  GF(2^8) 고속 연산 엔진
@@ -160,6 +184,7 @@ namespace ProtectedEngine {
         // [BUG-18] Get_Master_Seed → Get_Master_Seed_Raw (BUG-29)
         static constexpr size_t MAX_SEED = 64u;
         uint8_t masterSeed[MAX_SEED] = {};
+        RAII_Seed_Wiper_ENC seed_wiper(masterSeed, MAX_SEED);
         const size_t mseed_len =
             Session_Gateway::Get_Master_Seed_Raw(masterSeed, MAX_SEED);
         if (mseed_len == 0u) {
@@ -203,14 +228,6 @@ namespace ProtectedEngine {
             anchorData.push_back(
                 static_cast<uint16_t>(crc & 0xFFFFu));
         }
-
-        // [BUG-17] masterSeed D-2 보안 소거 — 3중 방어
-        volatile uint8_t* v_seed = masterSeed;
-        for (size_t i = 0u; i < MAX_SEED; ++i) v_seed[i] = 0u;
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(v_seed) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
 
         return anchorData;
     }

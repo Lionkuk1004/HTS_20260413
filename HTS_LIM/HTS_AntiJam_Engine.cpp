@@ -44,6 +44,12 @@ namespace ProtectedEngine {
         uint32_t t = a; a = b; b = t;
     }
 
+    static inline int32_t clamp_i32_(int64_t v) noexcept {
+        if (v > 2147483647LL) return 2147483647;
+        if (v < -2147483648LL) return -2147483648LL;
+        return static_cast<int32_t>(v);
+    }
+
     uint32_t AntiJamEngine::nth_select_(uint32_t* a, int n, int k) noexcept {
         int lo = 0, hi = n - 1;
         while (lo < hi) {
@@ -126,12 +132,17 @@ namespace ProtectedEngine {
             const int32_t lut = static_cast<int32_t>(k_cw_lut8[i & 7u]);
 
             // Q8 역정규화: (ja × lut) >> 8 = 실제 CW 진폭
-            const int32_t cw_I = (ja_I * lut) >> 8;
-            const int32_t cw_Q = (ja_Q * lut) >> 8;
+            const int32_t cw_I = clamp_i32_(
+                (static_cast<int64_t>(ja_I) * static_cast<int64_t>(lut)) >> 8);
+            const int32_t cw_Q = clamp_i32_(
+                (static_cast<int64_t>(ja_Q) * static_cast<int64_t>(lut)) >> 8);
 
             // EMA 스케일로 저장 (ajc_apply_가 >>EMA_SHIFT로 꺼냄)
-            jprof_I_[i] = cw_I << EMA_SHIFT;
-            jprof_Q_[i] = cw_Q << EMA_SHIFT;
+            // 비정상 입력(EMI/비트플립) 대비: 좌시프트도 포화(clamp) 저장
+            jprof_I_[i] = clamp_i32_(
+                static_cast<int64_t>(cw_I) << EMA_SHIFT);
+            jprof_Q_[i] = clamp_i32_(
+                static_cast<int64_t>(cw_Q) << EMA_SHIFT);
         }
 
         // mismatch_ema_ 재초기화
@@ -301,7 +312,11 @@ namespace ProtectedEngine {
         if (!orig_I || !orig_Q) return;
         if (nc <= 0 || nc > MAX_NC) return;
 
-        bool confident = is_preamble || (best_e > second_e * 3u);
+        bool confident = is_preamble;
+        if (!confident) {
+            confident = (second_e <= (0xFFFFFFFFu / 3u))
+                && (best_e > second_e * 3u);
+        }
         if (!confident) return;
         if (sym < 0 || sym >= nc) return;
 

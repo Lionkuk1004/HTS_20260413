@@ -10,6 +10,7 @@
 //  · PRIMASK ISR 보호 (ADC/I2C ISR에서 Feed 호출)
 // =========================================================================
 #include "HTS_Sensor_Fusion.h"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
 #include <cstddef>
@@ -17,19 +18,6 @@
 #include <new>
 
 namespace ProtectedEngine {
-
-    // =====================================================================
-    //  보안 소거 / PRIMASK
-    // =====================================================================
-    static void Fus_Secure_Wipe(void* p, size_t n) noexcept {
-        if (p == nullptr || n == 0u) { return; }
-        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
 
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)
     static inline uint32_t fus_critical_enter() noexcept {
@@ -185,14 +173,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 초과");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Sensor_Fusion::Impl*
         HTS_Sensor_Fusion::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -202,16 +190,16 @@ namespace ProtectedEngine {
     HTS_Sensor_Fusion::HTS_Sensor_Fusion() noexcept
         : impl_valid_(false)
     {
-        Fus_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
+        SecureMemory::secureWipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl();
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Sensor_Fusion::~HTS_Sensor_Fusion() noexcept {
-        Impl* p = get_impl();
-        if (p != nullptr) { p->~Impl(); }
-        Fus_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
+        Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
+        const bool was_valid = impl_valid_.exchange(false, std::memory_order_acq_rel);
+        if (was_valid) { p->~Impl(); }
+        SecureMemory::secureWipe(impl_buf_, sizeof(impl_buf_));
     }
 
     // =====================================================================
@@ -220,41 +208,36 @@ namespace ProtectedEngine {
     void HTS_Sensor_Fusion::Feed_Temperature(int16_t raw_x10) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        const uint32_t pm = fus_critical_enter();
+        // ISR 경로에서도 호출될 수 있으므로 PRIMASK 재조작 금지
         p->raw_temp = raw_x10;
-        fus_critical_exit(pm);
     }
 
     void HTS_Sensor_Fusion::Feed_Smoke(uint16_t raw_adc) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        const uint32_t pm = fus_critical_enter();
+        // ISR 경로에서도 호출될 수 있으므로 PRIMASK 재조작 금지
         p->raw_smoke = raw_adc;
-        fus_critical_exit(pm);
     }
 
     void HTS_Sensor_Fusion::Feed_Humidity(uint8_t raw_pct) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        const uint32_t pm = fus_critical_enter();
-        p->raw_humid = raw_pct;
-        fus_critical_exit(pm);
+        // ISR 경로에서도 호출될 수 있으므로 PRIMASK 재조작 금지
+        p->raw_humid = (raw_pct > 100u) ? 100u : raw_pct;
     }
 
     void HTS_Sensor_Fusion::Feed_Wind(uint16_t raw_x10) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        const uint32_t pm = fus_critical_enter();
+        // ISR 경로에서도 호출될 수 있으므로 PRIMASK 재조작 금지
         p->raw_wind = raw_x10;
-        fus_critical_exit(pm);
     }
 
     void HTS_Sensor_Fusion::Feed_Accel(uint16_t raw_mg) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        const uint32_t pm = fus_critical_enter();
+        // ISR 경로에서도 호출될 수 있으므로 PRIMASK 재조작 금지
         p->raw_accel = raw_mg;
-        fus_critical_exit(pm);
     }
 
     // =====================================================================
@@ -280,12 +263,20 @@ namespace ProtectedEngine {
 
     AlertLevel HTS_Sensor_Fusion::Get_Level() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) ? p->level : AlertLevel::NORMAL;
+        if (p == nullptr) { return AlertLevel::NORMAL; }
+        const uint32_t pm = fus_critical_enter();
+        const AlertLevel level = p->level;
+        fus_critical_exit(pm);
+        return level;
     }
 
     bool HTS_Sensor_Fusion::Is_Moving() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) ? p->is_moving : false;
+        if (p == nullptr) { return false; }
+        const uint32_t pm = fus_critical_enter();
+        const bool moving = p->is_moving;
+        fus_critical_exit(pm);
+        return moving;
     }
 
     // =====================================================================
@@ -364,8 +355,24 @@ namespace ProtectedEngine {
     void HTS_Sensor_Fusion::Shutdown() noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint32_t pm = fus_critical_enter();
+        // 재가동 시 stale 데이터 기반 IIR 재개를 방지하기 위해
+        // 입력/필터/상태를 생성자 기본값으로 원자적 리셋한다.
+        p->raw_temp = 250;
+        p->raw_smoke = 0u;
+        p->raw_humid = 50u;
+        p->raw_wind = 0u;
+        p->raw_accel = 0u;
+        p->filt_temp = 250;
+        p->filt_smoke = 0u;
+        p->filt_humid = 50u;
+        p->filt_wind = 0u;
+        p->filt_accel = 0u;
         p->level = AlertLevel::NORMAL;
         p->trigger_flags = 0u;
+        p->is_moving = false;
+        p->initialized = false;
+        fus_critical_exit(pm);
     }
 
 } // namespace ProtectedEngine

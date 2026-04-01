@@ -37,7 +37,7 @@ namespace ProtectedEngine {
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0u; i < size; ++i) { p[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         // [BUG-13] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
@@ -78,12 +78,13 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(320B)를 초과합니다 — 버퍼 크기를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(8)을 초과합니다");
-        return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        return impl_valid_.load(std::memory_order_acquire)
+            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Rx_Matched_Filter::Impl*
         HTS_Rx_Matched_Filter::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -101,17 +102,17 @@ namespace ProtectedEngine {
     {
         Secure_Wipe_MF(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(tier);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     // =====================================================================
     //  [BUG-12] 소멸자 — 명시적 (= default 제거)
     // =====================================================================
     HTS_Rx_Matched_Filter::~HTS_Rx_Matched_Filter() noexcept {
-        Impl* p = get_impl();
-        if (p != nullptr) { p->~Impl(); }
+        Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
+        const bool was_valid = impl_valid_.exchange(false, std::memory_order_acq_rel);
+        if (was_valid) { p->~Impl(); }
         Secure_Wipe_MF(impl_buf_, sizeof(impl_buf_));
-        impl_valid_ = false;
     }
 
     // =====================================================================
@@ -130,13 +131,18 @@ namespace ProtectedEngine {
         // [FIX-C] 정적 배열 경계 검사
         if (size > Impl::MAX_REF_SEQ) { return false; }
 
+        // Alias-safe 복사: 입력이 내부 버퍼를 가리켜도 데이터 붕괴 방지
+        int32_t shadow[Impl::MAX_REF_SEQ] = {};
+        std::memcpy(shadow, seq_data, size * sizeof(int32_t));
+
         // 기존 데이터 보안 소거
         Secure_Wipe_MF(p->reference_sequence,
             Impl::MAX_REF_SEQ * sizeof(int32_t));
 
         // 복사 (zero-heap)
-        std::memcpy(p->reference_sequence, seq_data,
+        std::memcpy(p->reference_sequence, shadow,
             size * sizeof(int32_t));
+        Secure_Wipe_MF(shadow, sizeof(shadow));
         p->ref_len = size;
         return true;
     }

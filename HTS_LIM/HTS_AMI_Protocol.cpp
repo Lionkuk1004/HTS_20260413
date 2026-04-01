@@ -218,7 +218,7 @@ namespace ProtectedEngine {
             const uint8_t cnt = (obis_dict->count > AMI_MAX_DICT_ENTRIES)
                 ? AMI_MAX_DICT_ENTRIES : obis_dict->count;
             for (uint8_t i = 0u; i < cnt; ++i) {
-                if (OBIS_Equal(obis, obis_dict->entries[i].obis)) {
+                if (OBIS_Equal(obis, obis_dict->entries[i].obis) == 0u) {
                     return &obis_dict->entries[i];
                 }
             }
@@ -328,6 +328,12 @@ namespace ProtectedEngine {
                     static_cast<uint16_t>(AMI_MAX_SECURE_BUF))) {
                     return IPC_Error::BUFFER_OVERFLOW;
                 }
+                // 보안 콜백 방어: 잘못된 길이 반환 시 Fail-Closed
+                if (cipher_len == 0u
+                    || cipher_len > static_cast<uint16_t>(AMI_MAX_SECURE_BUF)) {
+                    AMI_Secure_Wipe(secure_buf, AMI_MAX_SECURE_BUF);
+                    return IPC_Error::BUFFER_OVERFLOW;
+                }
                 const IPC_Error err = ipc->Send_Frame(
                     IPC_Command::DATA_TX, secure_buf, cipher_len);
                 // 보안 버퍼 소거
@@ -342,19 +348,19 @@ namespace ProtectedEngine {
         // ============================================================
         //  [A1] 딕셔너리 기반 GET_REQUEST 처리
         // ============================================================
-        void Handle_Get_Request(const uint8_t* apdu, uint16_t len) noexcept {
-            if (apdu == nullptr) { return; }
-            if (len < AMI_APDU_HEADER_SIZE + AMI_APDU_CRC_SIZE) { return; }
+        IPC_Error Handle_Get_Request(const uint8_t* apdu, uint16_t len) noexcept {
+            if (apdu == nullptr) { return IPC_Error::OK; }
+            if (len < AMI_APDU_HEADER_SIZE + AMI_APDU_CRC_SIZE) { return IPC_Error::OK; }
 
             // CRC check
             const uint32_t data_region = static_cast<uint32_t>(len) - AMI_APDU_CRC_SIZE;
             const uint16_t computed = IPC_Compute_CRC16(apdu, data_region);
             const uint16_t received = AMI_Read_U16(&apdu[data_region]);
-            if (computed != received) { return; }
+            if (computed != received) { return IPC_Error::OK; }
 
             const uint8_t req_invoke = apdu[1];
             const uint8_t obj_count = apdu[2];
-            if (obj_count > AMI_MAX_OBJECTS) { return; }
+            if (obj_count > AMI_MAX_OBJECTS) { return IPC_Error::OK; }
 
             // Build response
             uint32_t rpos = 0u;
@@ -401,7 +407,7 @@ namespace ProtectedEngine {
             rpos += AMI_APDU_CRC_SIZE;
 
             // [A2] 보안 랩핑 후 전송
-            Send_Secured(static_cast<uint16_t>(rpos));
+            return Send_Secured(static_cast<uint16_t>(rpos));
         }
     };
 
@@ -580,6 +586,12 @@ namespace ProtectedEngine {
                 AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
                 return;
             }
+            // 보안 콜백 방어: 길이 오염 시 파서 진입 차단
+            if (plain_len < static_cast<uint16_t>(AMI_APDU_HEADER_SIZE + AMI_APDU_CRC_SIZE)
+                || plain_len > static_cast<uint16_t>(AMI_MAX_APDU_SIZE)) {
+                AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
+                return;
+            }
             effective_apdu = impl->decrypt_buf;
             effective_len = plain_len;
         }
@@ -610,7 +622,13 @@ namespace ProtectedEngine {
 
         switch (svc) {
         case DLMS_Service::GET_REQUEST:
-            impl->Handle_Get_Request(effective_apdu, effective_len);
+        {
+            const IPC_Error get_err = impl->Handle_Get_Request(
+                effective_apdu, effective_len);
+            if (get_err != IPC_Error::OK) {
+                impl->Transition_State(AMI_State::ERROR);
+            }
+        }
             break;
         case DLMS_Service::SET_REQUEST:
             // [BUG-FIX ⑦] 미지원 SET 요청 → DLMS 에러 응답 명시 전송
@@ -627,7 +645,11 @@ namespace ProtectedEngine {
                 impl->apdu_buf[1] = (effective_len >= 2u) ? effective_apdu[1] : 0x01u;
                 impl->apdu_buf[2] = 0x01u;  // Data-Access-Error
                 impl->apdu_buf[3] = 0x03u;  // Read/Write Denied
-                impl->ipc->Send_Frame(IPC_Command::DATA_TX, impl->apdu_buf, 4u);
+                const IPC_Error set_err =
+                    impl->ipc->Send_Frame(IPC_Command::DATA_TX, impl->apdu_buf, 4u);
+                if (set_err != IPC_Error::OK) {
+                    impl->Transition_State(AMI_State::ERROR);
+                }
             }
             break;
         case DLMS_Service::ACTION_REQUEST:
@@ -639,7 +661,11 @@ namespace ProtectedEngine {
                 impl->apdu_buf[1] = (effective_len >= 2u) ? effective_apdu[1] : 0x01u;
                 impl->apdu_buf[2] = 0x01u;  // Action-Result present
                 impl->apdu_buf[3] = 0x03u;  // Other-Reason
-                impl->ipc->Send_Frame(IPC_Command::DATA_TX, impl->apdu_buf, 4u);
+                const IPC_Error act_err =
+                    impl->ipc->Send_Frame(IPC_Command::DATA_TX, impl->apdu_buf, 4u);
+                if (act_err != IPC_Error::OK) {
+                    impl->Transition_State(AMI_State::ERROR);
+                }
             }
             break;
         default:
@@ -649,7 +675,9 @@ namespace ProtectedEngine {
         // 복호 버퍼 보안 소거
         AMI_Secure_Wipe(impl->decrypt_buf, AMI_MAX_APDU_SIZE);
 
-        impl->Transition_State(AMI_State::IDLE);
+        if (impl->state != AMI_State::ERROR && impl->state != AMI_State::OFFLINE) {
+            impl->Transition_State(AMI_State::IDLE);
+        }
     }
 
     AMI_State HTS_AMI_Protocol::Get_State() const noexcept {

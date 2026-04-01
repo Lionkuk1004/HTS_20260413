@@ -21,7 +21,11 @@
 ///   g_bridge.Fragment_And_Send(eth_frame, eth_len);
 ///
 ///   // B-CDMA -> ETH (IPC 수신 루프에서)
-///   g_bridge.Feed_Fragment(frag_payload, frag_len, systick_ms);
+///   const uint32_t reassembled =
+///       g_bridge.Feed_Fragment(frag_payload, frag_len, systick_ms);
+///   if (reassembled == ProtectedEngine::BRIDGE_SECURE_TRUE) {
+///       // 콜백 경로에서 ETH 프레임 처리
+///   }
 ///
 ///   // 주기적
 ///   g_bridge.Tick(systick_ms);
@@ -92,8 +96,12 @@ namespace ProtectedEngine {
         /// @param frag_payload  분할 페이로드 (분할 헤더 포함)
         /// @param frag_len      페이로드 길이
         /// @param systick_ms    현재 시스템 틱
-        /// @return 재조립 완료 시 true (콜백 호출됨)
-        bool Feed_Fragment(const uint8_t* frag_payload, uint16_t frag_len,
+        /// @return 재조립 완료 시 BRIDGE_SECURE_TRUE (콜백 호출됨)
+        /// @note  호출자는 bool 캐스팅을 금지하고 반드시
+        ///        (ret == BRIDGE_SECURE_TRUE)로 명시 비교할 것.
+        /// @note  내부 CAS 가드(op_busy_)는 본 객체가 단독 소유/해제하며,
+        ///        외부에서 동기화 객체를 획득/해제하지 않는다.
+        uint32_t Feed_Fragment(const uint8_t* frag_payload, uint16_t frag_len,
             uint32_t systick_ms) noexcept;
 
         /// @}
@@ -130,6 +138,7 @@ namespace ProtectedEngine {
         struct Impl;
         alignas(4) uint8_t impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
+        mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
     };
 
     /// @warning sizeof ~ 8KB (재조립 슬롯 4 x 1528B 내장).

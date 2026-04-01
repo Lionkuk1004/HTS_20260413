@@ -165,6 +165,11 @@ namespace ProtectedEngine {
         int32_t* output, size_t out_cap) noexcept {
 
         if (!tensor || !output || t_len == 0 || num_taps == 0) return 0;
+        // ASIC/ARM 포팅 안전성: 32비트 워드 접근 정렬 강제
+        const uintptr_t tensor_addr = reinterpret_cast<uintptr_t>(tensor);
+        const uintptr_t output_addr = reinterpret_cast<uintptr_t>(output);
+        if ((tensor_addr & (alignof(uint32_t) - 1u)) != 0u) return 0;
+        if ((output_addr & (alignof(int32_t) - 1u)) != 0u) return 0;
 
         // [BUG-09] 오버플로 방어
         if (t_len > std::numeric_limits<size_t>::max() / 8u) return 0;
@@ -205,7 +210,9 @@ namespace ProtectedEngine {
                 const uint8_t chunk =
                     static_cast<uint8_t>((block >> (ki * 4u)) & 0x0Fu);
 
-                const int32_t symbol = (chunk & 0x08u) ? 1 : -1;
+                const uint32_t sign_bit = (chunk >> 3u) & 1u;
+                const int32_t symbol =
+                    static_cast<int32_t>(sign_bit << 1u) - 1;
                 const int32_t w1_weight =
                     static_cast<int32_t>(chunk & 0x07u) - 3;
 

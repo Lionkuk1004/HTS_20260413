@@ -82,6 +82,7 @@ namespace ProtectedEngine {
     template <typename T>
     void Gyro_Engine::Safe_Buffer_Flush(T* buffer, size_t elements) noexcept {
         if (!buffer || elements == 0) return;
+        if (elements > (SIZE_MAX / sizeof(T))) return;
 
         const size_t total_bytes = elements * sizeof(T);
 
@@ -101,7 +102,7 @@ namespace ProtectedEngine {
             reinterpret_cast<volatile uint8_t*>(buffer);
         for (size_t i = 0u; i < total_bytes; ++i) { bp[i] = 0u; }
         // 경량 이스케이프: 포인터만 클로버 (글로벌 "memory" 배제)
-        __asm__ __volatile__("" : : "r"(buffer));
+        __asm__ __volatile__("" : : "r"(bp));
 #else
         // MSVC: volatile 포인터 바이트 쓰기 (DCE 차단 보장)
         volatile unsigned char* vp =

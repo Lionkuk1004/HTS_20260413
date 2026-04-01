@@ -38,6 +38,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -124,7 +125,7 @@ namespace ProtectedEngine {
         struct Impl;
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

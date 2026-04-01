@@ -23,6 +23,8 @@
 #include <cstddef>
 
 namespace ProtectedEngine {
+    static constexpr uint32_t DSN_SECURE_TRUE = 0x5A5A5A5Au;
+    static constexpr uint32_t DSN_SECURE_FALSE = 0xA5A5A5A5u;
 
     // ============================================================
     //  재난 메시지 타입
@@ -189,17 +191,17 @@ namespace ProtectedEngine {
         | static_cast<uint8_t>(DSN_State::RETRANSMITTING)
         | static_cast<uint8_t>(DSN_State::ERROR);
 
-    inline bool DSN_Is_Valid_State(DSN_State s) noexcept
+    inline uint32_t DSN_Is_Valid_State(DSN_State s) noexcept
     {
         const uint8_t v = static_cast<uint8_t>(s);
-        if (v == 0u) { return true; }
-        if ((v & ~DSN_VALID_STATE_MASK) != 0u) { return false; }
-        return ((v & (v - 1u)) == 0u);
+        if (v == 0u) { return DSN_SECURE_TRUE; }
+        if ((v & ~DSN_VALID_STATE_MASK) != 0u) { return DSN_SECURE_FALSE; }
+        return (((v & (v - 1u)) == 0u) ? DSN_SECURE_TRUE : DSN_SECURE_FALSE);
     }
 
-    inline bool DSN_Is_Legal_Transition(DSN_State from, DSN_State to) noexcept
+    inline uint32_t DSN_Is_Legal_Transition(DSN_State from, DSN_State to) noexcept
     {
-        if (!DSN_Is_Valid_State(to)) { return false; }
+        if (DSN_Is_Valid_State(to) != DSN_SECURE_TRUE) { return DSN_SECURE_FALSE; }
 
         static constexpr uint8_t k_legal[5] = {
             /* OFFLINE        -> */ static_cast<uint8_t>(DSN_State::MONITORING),
@@ -226,17 +228,17 @@ namespace ProtectedEngine {
         case DSN_State::ALERT_ACTIVE:   idx = 2u; break;
         case DSN_State::RETRANSMITTING: idx = 3u; break;
         case DSN_State::ERROR:          idx = 4u; break;
-        default:                        return false;
+        default:                        return DSN_SECURE_FALSE;
         }
 
         if (static_cast<uint8_t>(to) == 0u) {
             static constexpr uint8_t k_off_src = static_cast<uint8_t>(
                 static_cast<uint8_t>(DSN_State::MONITORING)
                 | static_cast<uint8_t>(DSN_State::ERROR));
-            return (static_cast<uint8_t>(from) & k_off_src) != 0u;
+            return ((static_cast<uint8_t>(from) & k_off_src) != 0u) ? DSN_SECURE_TRUE : DSN_SECURE_FALSE;
         }
 
-        return (k_legal[idx] & static_cast<uint8_t>(to)) != 0u;
+        return ((k_legal[idx] & static_cast<uint8_t>(to)) != 0u) ? DSN_SECURE_TRUE : DSN_SECURE_FALSE;
     }
 
 } // namespace ProtectedEngine

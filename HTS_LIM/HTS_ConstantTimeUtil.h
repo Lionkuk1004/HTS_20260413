@@ -44,7 +44,6 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <vector>
 
 namespace ProtectedEngine {
 
@@ -75,13 +74,6 @@ namespace ProtectedEngine {
             const uint8_t* a, size_t len_a,
             const uint8_t* b, size_t len_b) noexcept;
 
-        // =================================================================
-        //  [레거시 래퍼] std::vector 비교 (하위 호환)
-        // =================================================================
-        [[nodiscard]]
-        static bool compare(
-            const std::vector<uint8_t>& a,
-            const std::vector<uint8_t>& b) noexcept;
     };
 
 } // namespace ProtectedEngine

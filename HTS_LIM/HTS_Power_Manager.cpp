@@ -16,7 +16,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(q));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -80,6 +80,15 @@ namespace ProtectedEngine {
 
             // CFI: ACTIVE -> SLEEPING
             if (!Transition_State(PowerState::SLEEPING)) { return false; }
+
+            // IRQ masking pair must be consistent.
+            // If disable only is provided, CPU can remain masked -> ISR deadlock.
+            const bool has_disable = (hal_cb.disable_irq != nullptr);
+            const bool has_enable = (hal_cb.enable_irq != nullptr);
+            if (has_disable != has_enable) {
+                Transition_State(PowerState::ERROR);
+                return false;
+            }
 
             // Pre-sleep notification (external modules save state)
             if (notify_cb.on_pre_sleep != nullptr) {
@@ -296,7 +305,7 @@ namespace ProtectedEngine {
             return true;  // Already initialized
         }
 
-        Impl* impl = new (impl_buf_) Impl{};
+        Impl* impl = ::new (static_cast<void*>(impl_buf_)) Impl{};
 
         impl->state = PowerState::UNINITIALIZED;
         impl->cfi_violation_count = 0u;

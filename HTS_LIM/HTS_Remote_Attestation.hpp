@@ -48,9 +48,9 @@ namespace ProtectedEngine {
             uint64_t expected_quote) noexcept;
 
         /// @brief Legacy server verification API (stub)
-        /// @note  Currently returns basic validity check only
+        /// @note  0 = accepted, non-zero = rejected (FI/글리치 주입 방어)
         [[nodiscard]]
-        static bool Verify_Quote_With_Server(uint64_t quote) noexcept;
+        static uint32_t Verify_Quote_With_Server(uint64_t quote) noexcept;
 
         // [BUG-09] Static-only — instantiation blocked
         Remote_Attestation() = delete;

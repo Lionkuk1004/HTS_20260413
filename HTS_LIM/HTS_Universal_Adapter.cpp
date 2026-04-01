@@ -14,8 +14,16 @@
 //  BUG-35 [LOW]  [[likely]] C++20 가드 매크로 (C++14/17 호환)
 //  BUG-36 [CRIT] <cstdlib>/std::abort PC코드 물리적 삭제 (아키텍처 원칙3+⑭)
 //  BUG-37 [MED]  AIRCR 매직넘버 → constexpr 상수화 (J-3)
+//  BUG-38 [CRIT] default 경로 AIRCR: ARM 타겟에서만 — PC 역참조 금지 (H-1)
+//  BUG-39 [CRIT] CAS 조기 true 제거 → 스핀락 + 프로필 확정 후 release store
+//  BUG-40 [HIGH] PC default 빈 무한루프 → volatile·배리어로 DCE 방지
 // =========================================================================
 #include "HTS_Universal_Adapter.h"
+
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+#include <cstdint>
 
 namespace ProtectedEngine {
 
@@ -33,16 +41,22 @@ namespace ProtectedEngine {
     } // anonymous namespace
 
     void HTS_Adapter::Initialize_Device(DeviceType type) noexcept {
-        // [BUG-34] CAS: 정확히 1컨텍스트만 초기화 실행
-        //  기존: load(acquire) → 작업 → store(release)
-        //    → PC 테스트 환경: 2스레드 동시 load(false) → 양쪽 모두 초기화 실행
-        //    → ARM 단일코어: 무해하나 설계 결함
-        //  수정: compare_exchange_strong(acq_rel) — 원자적 false→true 전환
-        //    → 선발 1컨텍스트만 통과, 후발은 즉시 반환
-        bool expected = false;
-        if (!m_is_initialized.compare_exchange_strong(
-            expected, true, std::memory_order_acq_rel))
-            HTS_ADAPTER_UNLIKELY return;
+        // [BUG-39] Double-Checked: 빠른 경로 → 스핀락 → 재확인 → 프로필 설정
+        //   → m_is_initialized 는 프로필 완료 후에만 release (조기 true 금지)
+        if (m_is_initialized.load(std::memory_order_acquire)) {
+            return;
+        }
+
+        while (m_init_spin.test_and_set(std::memory_order_acquire)) {
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("" ::: "memory");
+#endif
+        }
+
+        if (m_is_initialized.load(std::memory_order_acquire)) {
+            m_init_spin.clear(std::memory_order_release);
+            return;
+        }
 
         switch (type) {
         case DeviceType::SERVER_STORAGE:
@@ -64,20 +78,22 @@ namespace ProtectedEngine {
             break;
 
         default:
-            // [BUG-36] PC 코드 물리적 삭제 (아키텍처 원칙 3)
-            //  기존: #if defined(_MSC_VER) std::abort() #else ARM리셋 #endif
-            //  → <cstdlib>/std::abort가 양산 ARM 소스에 물리적 존재 = ⑭ FAIL
-            //  수정: PC 분기 전면 삭제, ARM AIRCR 리셋만 존재
-            //  PC 테스트: 이 default는 enum class 4가지 외 도달 불가
-            //             컴파일러 경고(-Wswitch)가 누락 case를 잡아줌
-            // [BUG-37] AIRCR 매직넘버 → constexpr 상수
+            // 대기 중인 다른 진입이 영구 정지하지 않도록 스핀 해제 후 치명 경로
+            m_init_spin.clear(std::memory_order_release);
+            // 손상/비정상 DeviceType — ARM만 SCB AIRCR 물리 주소 접근 (X-1-1)
+            //  PC/호스트: 0xE000ED0C 역참조는 무효 → 메모리 손상(H-1) — 분기 차단
+            // [BUG-37] AIRCR constexpr / [BUG-38] 호스트 AIRCR 쓰기 제거
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
 #if defined(__GNUC__) || defined(__clang__)
             __asm__ __volatile__("cpsid i" ::: "memory");
             __asm__ __volatile__("dsb" ::: "memory");
 #endif
-            * reinterpret_cast<volatile uint32_t*>(
-                static_cast<uintptr_t>(AIRCR_ADDR)) =
-                (AIRCR_VECTKEY | AIRCR_SYSRESETREQ);
+            {
+                volatile uint32_t* const aircr = reinterpret_cast<volatile uint32_t*>(
+                    reinterpret_cast<void*>(static_cast<uintptr_t>(AIRCR_ADDR)));
+                *aircr = (AIRCR_VECTKEY | AIRCR_SYSRESETREQ);
+            }
 #if defined(__GNUC__) || defined(__clang__)
             __asm__ __volatile__("dsb" ::: "memory");
             __asm__ __volatile__("isb");
@@ -87,10 +103,22 @@ namespace ProtectedEngine {
                 __asm__ __volatile__("wfi");
 #endif
             }
+#else
+            // [BUG-40] 관찰 가능한 부수효과 — 빈 루프 DCE·fall-through 방지
+            volatile uint32_t hts_fatal_spin = 1u;
+            while (hts_fatal_spin != 0u) {
+#if defined(__GNUC__) || defined(__clang__)
+                __asm__ __volatile__("" ::: "memory");
+#elif defined(_MSC_VER)
+                _ReadWriteBarrier();
+#endif
+            }
+#endif
+            return;
         }
 
-        // [BUG-34] CAS에서 이미 true로 설정 완료
-        // 추가 store 불필요 — acq_rel이 Reader 가시성 보장
+        m_is_initialized.store(true, std::memory_order_release);
+        m_init_spin.clear(std::memory_order_release);
     }
 
 } // namespace ProtectedEngine

@@ -29,6 +29,14 @@
 #include <cstddef>      // size_t
 #include <cstdint>      // uint8_t, uint64_t
 
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+#define HTS_HWBRIDGE_ARM
+#endif
+
+#ifndef HTS_HWBRIDGE_ARM
+#include <vector>
+#endif
+
 // =========================================================================
 //  플랫폼별 틱 카운터 헤더
 // =========================================================================
@@ -98,8 +106,10 @@ namespace ProtectedEngine {
         //  clock_gettime(CLOCK_MONOTONIC)은 Linux vDSO를 통해 커널 타이머를
         //  유저스페이스에서 안전하게 읽음 (syscall 오버헤드 0, ~20ns)
         //  나노초 해상도: 엔트로피 수집/타이밍 방어에 충분
-        struct timespec ts;
-        clock_gettime(CLOCK_MONOTONIC, &ts);
+        struct timespec ts = { 0, 0 };
+        if (clock_gettime(CLOCK_MONOTONIC, &ts) != 0) {
+            return 0u;  // fail-closed: 타이머 읽기 실패 시 0 반환
+        }
         return static_cast<uint64_t>(ts.tv_sec) * 1000000000ULL
             + static_cast<uint64_t>(ts.tv_nsec);
 #endif
@@ -145,7 +155,7 @@ namespace ProtectedEngine {
 #if defined(_MSC_VER)
         _ReadWriteBarrier();
 #elif defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
+        __asm__ __volatile__("" : : "r"(ptr));
 #endif
     }
 
@@ -155,12 +165,13 @@ namespace ProtectedEngine {
     //  내부적으로 Secure_Erase_Raw 호출 (코드 중복 제거)
     //  벡터 크기/capacity 유지 — 내용만 0으로 소거
     // =====================================================================
+#ifndef HTS_HWBRIDGE_ARM
     void Hardware_Bridge::Secure_Erase_Memory(
         std::vector<uint8_t>& buffer) noexcept {
-
         if (buffer.empty()) return;
         Secure_Erase_Raw(buffer.data(), buffer.size());
     }
+#endif
 
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC pop_options
@@ -169,3 +180,5 @@ namespace ProtectedEngine {
 #endif
 
 } // namespace ProtectedEngine
+
+#undef HTS_HWBRIDGE_ARM

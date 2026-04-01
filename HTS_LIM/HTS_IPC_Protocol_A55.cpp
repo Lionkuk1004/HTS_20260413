@@ -75,6 +75,8 @@ struct HTS_GPIO_Event_Data {
 };
 
 namespace ProtectedEngine {
+    static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+    static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
 
     // ============================================================
     //  Constants
@@ -110,17 +112,15 @@ namespace ProtectedEngine {
 
         // --- Ring Buffers ---
         // RX ring: SPSC (RX thread produces, main thread consumes)
-        // TX ring: MPSC (main thread + Tick context both produce,
-        //          RX thread consumes). Protected by tx_push_lock.
+        // TX ring: MPSC lock-free (CAS reserve + ordered commit),
+        //          RX thread consumes committed slots only.
         IPC_Ring_Entry rx_ring[IPC_RING_DEPTH];
         IPC_Ring_Entry tx_ring[IPC_RING_DEPTH];
         std::atomic<uint32_t> rx_head;      ///< Written by RX thread (release)
         std::atomic<uint32_t> rx_tail;      ///< Written by main thread (release)
-        std::atomic<uint32_t> tx_head;      ///< Written by any producer via spinlock
+        std::atomic<uint32_t> tx_head;      ///< Written by producers (CAS reserve)
+        std::atomic<uint32_t> tx_commit;    ///< Written by producers (ordered commit)
         std::atomic<uint32_t> tx_tail;      ///< Written by RX thread consumer (release)
-
-        // MPSC spinlock for TX ring producers (lightweight, no syscall)
-        std::atomic_flag tx_push_lock;
 
         // --- SPI Full-Duplex Buffers ---
         alignas(8) uint8_t spi_tx_buf[IPC_SPI_DMA_BUF_SIZE];
@@ -143,31 +143,31 @@ namespace ProtectedEngine {
         // ============================================================
         //  CFI Transition
         // ============================================================
-        bool Transition_State(IPC_State target) noexcept
+        uint32_t Transition_State(IPC_State target) noexcept
         {
             if (!IPC_Is_Legal_Transition(state, target)) {
                 stats.cfi_violations++;
                 state = IPC_State::ERROR_RECOVERY;
-                return false;
+                return SECURE_FALSE;
             }
             state = target;
-            return true;
+            return SECURE_TRUE;
         }
 
         // ============================================================
         //  Linux SPI: Open and Configure
         // ============================================================
-        bool Open_SPI() noexcept
+        uint32_t Open_SPI() noexcept
         {
             spi_fd = ::open(config.spidev_path, O_RDWR);
-            if (spi_fd < 0) { return false; }
+            if (spi_fd < 0) { return SECURE_FALSE; }
 
             // Set SPI mode
             uint8_t mode = config.spi_mode;
             if (::ioctl(spi_fd, HTS_SPI_IOC_WR_MODE, &mode) < 0) {
                 ::close(spi_fd);
                 spi_fd = INVALID_FD;
-                return false;
+                return SECURE_FALSE;
             }
 
             // Set bits per word
@@ -176,7 +176,7 @@ namespace ProtectedEngine {
             if (::ioctl(spi_fd, HTS_SPI_IOC_WR_BITS, &bpw) < 0) {
                 ::close(spi_fd);
                 spi_fd = INVALID_FD;
-                return false;
+                return SECURE_FALSE;
             }
 
             // Set max speed
@@ -185,16 +185,16 @@ namespace ProtectedEngine {
             if (::ioctl(spi_fd, HTS_SPI_IOC_WR_MAX_SPEED, &speed) < 0) {
                 ::close(spi_fd);
                 spi_fd = INVALID_FD;
-                return false;
+                return SECURE_FALSE;
             }
 
-            return true;
+            return SECURE_TRUE;
         }
 
         // ============================================================
         //  Linux GPIO: Open Chardev and Configure DRDY Line
         // ============================================================
-        bool Open_GPIO_DRDY() noexcept
+        uint32_t Open_GPIO_DRDY() noexcept
         {
             // Build gpiochip path
             char chip_path[GPIO_PATH_MAX];
@@ -202,11 +202,11 @@ namespace ProtectedEngine {
             int written = ::snprintf(chip_path, GPIO_PATH_MAX,
                 "/dev/gpiochip%u", static_cast<unsigned>(config.gpio_drdy_chip));
             if ((written < 0) || (static_cast<uint32_t>(written) >= GPIO_PATH_MAX)) {
-                return false;
+                return SECURE_FALSE;
             }
 
             gpio_chip_fd = ::open(chip_path, O_RDONLY);
-            if (gpio_chip_fd < 0) { return false; }
+            if (gpio_chip_fd < 0) { return SECURE_FALSE; }
 
             // Request line event (rising edge on DRDY)
             HTS_GPIO_Event_Request req = {};
@@ -223,19 +223,19 @@ namespace ProtectedEngine {
             if (::ioctl(gpio_chip_fd, HTS_GPIO_GET_LINEEVENT_IOCTL, &req) < 0) {
                 ::close(gpio_chip_fd);
                 gpio_chip_fd = INVALID_FD;
-                return false;
+                return SECURE_FALSE;
             }
 
             gpio_event_fd = req.fd;
-            return true;
+            return SECURE_TRUE;
         }
 
         // ============================================================
         //  SPI Full-Duplex Transfer
         // ============================================================
-        bool SPI_Transfer(const uint8_t* tx, uint8_t* rx, uint32_t len) noexcept
+        uint32_t SPI_Transfer(const uint8_t* tx, uint8_t* rx, uint32_t len) noexcept
         {
-            if (spi_fd < 0) { return false; }
+            if (spi_fd < 0) { return SECURE_FALSE; }
 
             HTS_SPI_Transfer xfer = {};
             xfer.tx_buf = static_cast<uint64_t>(reinterpret_cast<uintptr_t>(tx));
@@ -247,22 +247,22 @@ namespace ProtectedEngine {
             int ret = ::ioctl(spi_fd, HTS_SPI_IOC_MESSAGE_1, &xfer);
             if (ret < 0) {
                 stats.hw_faults++;
-                return false;
+                return SECURE_FALSE;
             }
-            return true;
+            return SECURE_TRUE;
         }
 
         // ============================================================
         //  Ring Buffer Helpers (identical logic to STM32 side)
         // ============================================================
 
-        bool Ring_RX_Push(const uint8_t* data, uint16_t len) noexcept
+        uint32_t Ring_RX_Push(const uint8_t* data, uint16_t len) noexcept
         {
             const uint32_t head = rx_head.load(std::memory_order_relaxed);
             const uint32_t tail = rx_tail.load(std::memory_order_acquire);
             if ((head - tail) >= IPC_RING_DEPTH) {
                 stats.queue_overflows++;
-                return false;
+                return SECURE_FALSE;
             }
             IPC_Ring_Entry& entry = rx_ring[head & IPC_RING_MASK];
             const uint32_t copy_len = (len <= IPC_MAX_FRAME_SIZE)
@@ -273,16 +273,16 @@ namespace ProtectedEngine {
             }
             entry.length = static_cast<uint16_t>(copy_len);
             rx_head.store(head + 1u, std::memory_order_release);
-            return true;
+            return SECURE_TRUE;
         }
 
-        bool Ring_RX_Pop(uint8_t* data, uint16_t buf_size, uint16_t& out_len) noexcept
+        uint32_t Ring_RX_Pop(uint8_t* data, uint16_t buf_size, uint16_t& out_len) noexcept
         {
             const uint32_t head = rx_head.load(std::memory_order_acquire);
             const uint32_t tail = rx_tail.load(std::memory_order_relaxed);
             if (head == tail) {
                 out_len = 0u;
-                return false;
+                return SECURE_FALSE;
             }
             const IPC_Ring_Entry& entry = rx_ring[tail & IPC_RING_MASK];
             const uint16_t copy_len = (entry.length <= buf_size) ? entry.length : buf_size;
@@ -293,26 +293,24 @@ namespace ProtectedEngine {
             }
             out_len = copy_len;
             rx_tail.store(tail + 1u, std::memory_order_release);
-            return true;
+            return SECURE_TRUE;
         }
 
-        /// @brief Push frame into TX ring (MPSC-safe: spinlock serialized)
-        /// @note  Called from main thread (Send_Frame) AND Tick context
-        ///        (Tick_Heartbeat). Spinlock ensures mutual exclusion.
-        bool Ring_TX_Push(const uint8_t* data, uint16_t len) noexcept
+        /// @brief Push frame into TX ring (MPSC lock-free CAS + commit)
+        uint32_t Ring_TX_Push(const uint8_t* data, uint16_t len) noexcept
         {
-            // Acquire spinlock (MPSC: Send_Frame + Tick_Heartbeat contend)
-            while (tx_push_lock.test_and_set(std::memory_order_acquire)) {
-                // Spin -- bounded: max 2 contenders, critical section < 1us
-            }
-
-            const uint32_t head = tx_head.load(std::memory_order_relaxed);
-            const uint32_t tail = tx_tail.load(std::memory_order_acquire);
-            if ((head - tail) >= IPC_RING_DEPTH) {
-                stats.queue_overflows++;
-                tx_push_lock.clear(std::memory_order_release);
-                return false;
-            }
+            uint32_t head = 0u;
+            uint32_t next_head = 0u;
+            do {
+                head = tx_head.load(std::memory_order_acquire);
+                const uint32_t tail = tx_tail.load(std::memory_order_acquire);
+                if ((head - tail) >= IPC_RING_DEPTH) {
+                    stats.queue_overflows++;
+                    return SECURE_FALSE;
+                }
+                next_head = head + 1u;
+            } while (!tx_head.compare_exchange_weak(
+                head, next_head, std::memory_order_acq_rel, std::memory_order_acquire));
 
             IPC_Ring_Entry& entry = tx_ring[head & IPC_RING_MASK];
             const uint32_t copy_len = (len <= IPC_MAX_FRAME_SIZE)
@@ -323,20 +321,24 @@ namespace ProtectedEngine {
             }
             entry.length = static_cast<uint16_t>(copy_len);
 
-            // Publish: consumer sees head advance only after data is complete
-            tx_head.store(head + 1u, std::memory_order_release);
-
-            tx_push_lock.clear(std::memory_order_release);
-            return true;
+            while (tx_commit.load(std::memory_order_acquire) != head) {
+#if defined(__aarch64__)
+                __asm__ __volatile__("yield" ::: "memory");
+#else
+                std::atomic_signal_fence(std::memory_order_acq_rel);
+#endif
+            }
+            tx_commit.store(next_head, std::memory_order_release);
+            return SECURE_TRUE;
         }
 
-        bool Ring_TX_Pop(uint8_t* data, uint16_t buf_size, uint16_t& out_len) noexcept
+        uint32_t Ring_TX_Pop(uint8_t* data, uint16_t buf_size, uint16_t& out_len) noexcept
         {
-            const uint32_t head = tx_head.load(std::memory_order_acquire);
+            const uint32_t head = tx_commit.load(std::memory_order_acquire);
             const uint32_t tail = tx_tail.load(std::memory_order_relaxed);
             if (head == tail) {
                 out_len = 0u;
-                return false;
+                return SECURE_FALSE;
             }
             const IPC_Ring_Entry& entry = tx_ring[tail & IPC_RING_MASK];
             const uint16_t copy_len = (entry.length <= buf_size) ? entry.length : buf_size;
@@ -347,7 +349,7 @@ namespace ProtectedEngine {
             }
             out_len = copy_len;
             tx_tail.store(tail + 1u, std::memory_order_release);
-            return true;
+            return SECURE_TRUE;
         }
 
         uint32_t Ring_RX_Count() const noexcept
@@ -358,7 +360,7 @@ namespace ProtectedEngine {
 
         uint32_t Ring_TX_Count() const noexcept
         {
-            return tx_head.load(std::memory_order_acquire) -
+            return tx_commit.load(std::memory_order_acquire) -
                 tx_tail.load(std::memory_order_relaxed);
         }
 
@@ -461,7 +463,7 @@ namespace ProtectedEngine {
                     // Load TX buffer: next queued frame or idle zeros
                     Load_TX_Buffer_For_Transfer();
 
-                    if (SPI_Transfer(spi_tx_buf, spi_rx_buf, IPC_SPI_DMA_BUF_SIZE)) {
+                    if (SPI_Transfer(spi_tx_buf, spi_rx_buf, IPC_SPI_DMA_BUF_SIZE) == SECURE_TRUE) {
                         Process_RX_Data();
                     }
                 }
@@ -476,7 +478,7 @@ namespace ProtectedEngine {
         void Load_TX_Buffer_For_Transfer() noexcept
         {
             uint16_t frame_len = 0u;
-            if (Ring_TX_Pop(spi_tx_buf, IPC_SPI_DMA_BUF_SIZE, frame_len)) {
+            if (Ring_TX_Pop(spi_tx_buf, IPC_SPI_DMA_BUF_SIZE, frame_len) == SECURE_TRUE) {
                 // Zero-pad remainder
                 for (uint32_t i = static_cast<uint32_t>(frame_len); i < IPC_SPI_DMA_BUF_SIZE; ++i) {
                     spi_tx_buf[i] = 0x00u;
@@ -502,7 +504,7 @@ namespace ProtectedEngine {
 
             Load_TX_Buffer_For_Transfer();
 
-            if (SPI_Transfer(spi_tx_buf, spi_rx_buf, IPC_SPI_DMA_BUF_SIZE)) {
+            if (SPI_Transfer(spi_tx_buf, spi_rx_buf, IPC_SPI_DMA_BUF_SIZE) == SECURE_TRUE) {
                 Process_RX_Data();  // Check if STM32 sent data simultaneously
             }
         }
@@ -522,17 +524,22 @@ namespace ProtectedEngine {
                     frame_buf, tx_seq.fetch_add(1u, std::memory_order_relaxed),
                     IPC_Command::PING, nullptr, 0u);
                 if (flen > 0u) {
-                    Ring_TX_Push(frame_buf, static_cast<uint16_t>(flen));
+                    (void)Ring_TX_Push(frame_buf, static_cast<uint16_t>(flen));
                 }
                 last_ping_sent_tick = now_ms;
             }
         }
 
-        bool Is_Heartbeat_Alive(uint32_t now_ms) const noexcept
+        uint32_t Is_Heartbeat_Alive(uint32_t now_ms) const noexcept
         {
-            if (config.ping_interval_ms == 0u) { return true; }
-            const uint32_t dead_threshold = config.ping_interval_ms * 3u;
-            return (now_ms - last_pong_recv_tick) < dead_threshold;
+            if (config.ping_interval_ms == 0u) { return SECURE_TRUE; }
+            const uint32_t dead_threshold =
+                (config.ping_interval_ms <= (0xFFFFFFFFu / 3u))
+                ? (config.ping_interval_ms * 3u)
+                : 0xFFFFFFFFu;
+            return ((now_ms - last_pong_recv_tick) < dead_threshold)
+                ? SECURE_TRUE
+                : SECURE_FALSE;
         }
 
         // ============================================================
@@ -623,8 +630,8 @@ namespace ProtectedEngine {
         impl->rx_head.store(0u, std::memory_order_relaxed);
         impl->rx_tail.store(0u, std::memory_order_relaxed);
         impl->tx_head.store(0u, std::memory_order_relaxed);
+        impl->tx_commit.store(0u, std::memory_order_relaxed);
         impl->tx_tail.store(0u, std::memory_order_relaxed);
-        impl->tx_push_lock.clear();
 
         // Initialize thread state
         impl->rx_thread_running.store(false, std::memory_order_relaxed);
@@ -639,14 +646,14 @@ namespace ProtectedEngine {
         impl->stats = IPC_Statistics{};
 
         // --- Open SPI ---
-        if (!impl->Open_SPI()) {
+        if (impl->Open_SPI() != SECURE_TRUE) {
             impl->~Impl();
             initialized_.store(false, std::memory_order_release);
             return IPC_Error::HW_FAULT;
         }
 
         // --- Open GPIO DRDY ---
-        if (!impl->Open_GPIO_DRDY()) {
+        if (impl->Open_GPIO_DRDY() != SECURE_TRUE) {
             impl->Close_All_FDs();
             impl->~Impl();
             initialized_.store(false, std::memory_order_release);
@@ -674,6 +681,17 @@ namespace ProtectedEngine {
         uint32_t spin = 0u;
         while (!impl->rx_thread_running.load(std::memory_order_acquire) && spin < 100000u) {
             ++spin;
+        }
+        if (!impl->rx_thread_running.load(std::memory_order_acquire)) {
+            impl->rx_thread_exit_request.store(true, std::memory_order_release);
+            if (impl->rx_thread_created) {
+                pthread_join(impl->rx_thread, nullptr);
+                impl->rx_thread_created = false;
+            }
+            impl->Close_All_FDs();
+            impl->~Impl();
+            initialized_.store(false, std::memory_order_release);
+            return IPC_Error::HW_FAULT;
         }
 
         // Transition to IDLE
@@ -728,6 +746,7 @@ namespace ProtectedEngine {
         impl->rx_head.store(0u, std::memory_order_relaxed);
         impl->rx_tail.store(0u, std::memory_order_relaxed);
         impl->tx_head.store(0u, std::memory_order_relaxed);
+        impl->tx_commit.store(0u, std::memory_order_relaxed);
         impl->tx_tail.store(0u, std::memory_order_relaxed);
 
         // Reset sequence
@@ -781,7 +800,7 @@ namespace ProtectedEngine {
         }
 
         // Push to TX ring (RX thread will pick up and send via SPI)
-        if (!impl->Ring_TX_Push(frame_buf, static_cast<uint16_t>(flen))) {
+        if (impl->Ring_TX_Push(frame_buf, static_cast<uint16_t>(flen)) != SECURE_TRUE) {
             return IPC_Error::QUEUE_FULL;
         }
 
@@ -803,7 +822,7 @@ namespace ProtectedEngine {
         // Pop from RX ring
         uint8_t raw_buf[IPC_MAX_FRAME_SIZE];
         uint16_t raw_len = 0u;
-        if (!impl->Ring_RX_Pop(raw_buf, IPC_MAX_FRAME_SIZE, raw_len)) {
+        if (impl->Ring_RX_Pop(raw_buf, IPC_MAX_FRAME_SIZE, raw_len) != SECURE_TRUE) {
             out_payload_len = 0u;
             return IPC_Error::QUEUE_FULL;  // Ring empty
         }
@@ -820,8 +839,13 @@ namespace ProtectedEngine {
             return err;
         }
 
+        if (payload_len > out_buf_size) {
+            out_payload_len = 0u;
+            return IPC_Error::BUFFER_OVERFLOW;
+        }
+
         // Copy payload
-        const uint16_t copy_len = (payload_len <= out_buf_size) ? payload_len : out_buf_size;
+        const uint16_t copy_len = payload_len;
         if ((out_payload != nullptr) && (payload_ptr != nullptr) && (copy_len > 0u)) {
             for (uint16_t i = 0u; i < copy_len; ++i) {
                 out_payload[i] = payload_ptr[i];
@@ -855,7 +879,7 @@ namespace ProtectedEngine {
     {
         if (!initialized_.load(std::memory_order_acquire)) { return false; }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
-        return impl->Is_Heartbeat_Alive(impl->state_entry_tick);
+        return impl->Is_Heartbeat_Alive(impl->state_entry_tick) == SECURE_TRUE;
     }
 
     uint32_t HTS_IPC_Protocol_A55::Get_TX_Pending() const noexcept

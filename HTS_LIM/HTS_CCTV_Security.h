@@ -115,7 +115,7 @@ namespace ProtectedEngine {
     private:
         struct Impl;
         alignas(4) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        std::atomic<bool>  initialized_{ false };
+        std::atomic<uint32_t> init_state_{ 0u };  ///< 0=NONE, 1=BUSY, 2=READY
     };
 
     static_assert(sizeof(HTS_CCTV_Security) <= 2048u,

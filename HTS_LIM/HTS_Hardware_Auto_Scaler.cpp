@@ -40,16 +40,18 @@
 //  3단 플랫폼 분기 — RAM 감지 헤더
 // =========================================================================
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
-#define HTS_SCALER_PLATFORM_ARM
-#elif defined(_WIN32)
-#define HTS_SCALER_PLATFORM_WIN
+#define HTS_PLATFORM_ARM
+#endif
+
+#ifndef HTS_PLATFORM_ARM
+#if defined(_WIN32)
 #ifndef NOMINMAX
 #define NOMINMAX
 #endif
 #include <windows.h>
 #else
-#define HTS_SCALER_PLATFORM_LINUX
 #include <unistd.h>
+#endif
 #endif
 
 namespace ProtectedEngine {
@@ -97,11 +99,11 @@ namespace ProtectedEngine {
     //  감지 실패: PC_FALLBACK_BYTES (128MB)
     // =====================================================================
     size_t Hardware_Auto_Scaler::Get_Free_System_Memory() noexcept {
-#if defined(HTS_SCALER_PLATFORM_ARM)
+#ifdef HTS_PLATFORM_ARM
         // ARM 베어메탈: DMA 가능 SRAM 정적 반환
         return ARM_DMA_SRAM_BYTES;
-
-#elif defined(HTS_SCALER_PLATFORM_WIN)
+#else
+#if defined(_WIN32)
         // Windows: 물리 가용 메모리 감지
         MEMORYSTATUSEX status;
         status.dwLength = sizeof(status);
@@ -111,7 +113,6 @@ namespace ProtectedEngine {
             return static_cast<size_t>(status.ullAvailPhys);
         }
         return PC_FALLBACK_BYTES;
-
 #else
         // Linux/macOS: POSIX sysconf
         long avail_pages = sysconf(_SC_AVPHYS_PAGES);
@@ -123,6 +124,7 @@ namespace ProtectedEngine {
             return static_cast<size_t>(total);
         }
         return PC_FALLBACK_BYTES;
+#endif
 #endif
     }
 

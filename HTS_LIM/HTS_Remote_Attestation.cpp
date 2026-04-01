@@ -123,13 +123,13 @@ namespace ProtectedEngine {
             // 현재 반복의 해시 연산보다 앞당기는 것을 차단
 #if (defined(__GNUC__) || defined(__clang__)) && \
     (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH))
-            __asm__ __volatile__("" : : : "memory");
+            __asm__ __volatile__("" : : "r"(vdata), "r"(i));
 #endif
         }
 
 #if (defined(__GNUC__) || defined(__clang__)) && \
     (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH))
-        __asm__ __volatile__("" : "+r"(hash_lo), "+r"(hash_hi) : : "memory");
+        __asm__ __volatile__("" : : "r"(hash_lo), "r"(hash_hi));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
 
@@ -192,10 +192,10 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Verify_Quote_With_Server — 스텁 (양산 전 교체 필수)
     // =====================================================================
-    bool Remote_Attestation::Verify_Quote_With_Server(
+    uint32_t Remote_Attestation::Verify_Quote_With_Server(
         uint64_t quote) noexcept {
-        if (quote == 0 || quote == 0xFFFFFFFFFFFFFFFFULL) return false;
-        return true;  // STUB
+        if (quote == 0u || quote == 0xFFFFFFFFFFFFFFFFULL) { return 1u; }
+        return 0u;  // STUB: 0=accepted, non-zero=rejected
     }
 
 } // namespace ProtectedEngine

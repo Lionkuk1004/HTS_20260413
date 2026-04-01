@@ -141,13 +141,13 @@ namespace ProtectedEngine {
         };
 
         // ── 암호화 ───────────────────────────────────────────────
-        uint8_t work[16] = {};
+        alignas(4) uint8_t work[16] = {};
         std::memcpy(work, pt, 16);
         {
             LEA_Bridge bridge;
-            if (!bridge.Initialize(key, 16, iv)) return false;
-            if (!bridge.Encrypt_Payload(
-                reinterpret_cast<uint32_t*>(work), 4)) {
+            if (bridge.Initialize(key, 16u, iv) != LEA_Bridge::SECURE_TRUE) return false;
+            if (bridge.Encrypt_Payload(
+                reinterpret_cast<uint32_t*>(work), 4u) != LEA_Bridge::SECURE_TRUE) {
                 KAT_Wipe(work, sizeof(work));
                 return false;
             }
@@ -161,16 +161,16 @@ namespace ProtectedEngine {
         }
 
         // ── 복호화 역방향 검증 ───────────────────────────────────
-        uint8_t dec[16] = {};
+        alignas(4) uint8_t dec[16] = {};
         std::memcpy(dec, work, 16);
         {
             LEA_Bridge bridge;
-            if (!bridge.Initialize(key, 16, iv)) {
+            if (bridge.Initialize(key, 16u, iv) != LEA_Bridge::SECURE_TRUE) {
                 KAT_Wipe(work, sizeof(work));
                 return false;
             }
-            if (!bridge.Decrypt_Payload(
-                reinterpret_cast<uint32_t*>(dec), 4)) {
+            if (bridge.Decrypt_Payload(
+                reinterpret_cast<uint32_t*>(dec), 4u) != LEA_Bridge::SECURE_TRUE) {
                 KAT_Wipe(work, sizeof(work));
                 KAT_Wipe(dec, sizeof(dec));
                 return false;
@@ -243,7 +243,7 @@ namespace ProtectedEngine {
 
         uint8_t result[32] = {};
 
-        if (!LSH256_Bridge::Hash_256(msg, 3, result)) {
+        if (LSH256_Bridge::Hash_256(msg, 3u, result) != LSH_SECURE_TRUE) {
             KAT_Wipe(result, sizeof(result));
             return false;
         }

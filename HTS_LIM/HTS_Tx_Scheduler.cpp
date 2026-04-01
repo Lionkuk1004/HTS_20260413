@@ -20,6 +20,7 @@
 // =========================================================================
 #include "HTS_Tx_Scheduler.h"
 #include "HTS_Dynamic_Config.h"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
 #include <cstddef>
@@ -28,33 +29,6 @@
 #include <new>
 
 namespace ProtectedEngine {
-    // [FIX-WIPE] 3중 방어 보안 소거 — impl_buf_ 전체 파쇄
-    static void Tx_Scheduler_Secure_Wipe(void* p, size_t n) noexcept {
-        if (p == nullptr || n == 0u) { return; }
-        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
-
-    // ── 보안 소거 (asm clobber + seq_cst — 임베디드 호환 2중 보호) ──
-    // Strict Aliasing 규칙 준수 및 DSE 완벽 차단
-    static void SecWipe(void* p, size_t n) noexcept {
-        if (p == nullptr || n == 0u) { return; }
-        std::memset(p, 0, n);
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#elif defined(_MSC_VER)
-        volatile uint8_t* vp = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0u; i < n; ++i) { vp[i] = 0u; }
-#endif
-        // [BUG-13] seq_cst → release (소거 배리어 정책 통일)
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
     // ── [BUG-67] 2의 제곱수 올림 (플랫폼별 링 버퍼 상한) ──
     //
     //  ARM (EMBEDDED_MINI): node_count=256 → raw_cap=1024 → ring_size=1024
@@ -139,16 +113,20 @@ namespace ProtectedEngine {
 
             // [FIX-RING] 물리 버퍼 전체 소거 (ring_mask+1 = ring_size)
             if (ring_mask > 0u) {
-                SecWipe(tx_ring_buffer, (ring_mask + 1u) << 2u);
+                const size_t nwords = ring_mask + 1u;
+                if (nwords <= MAX_RING_POW2) {
+                    SecureMemory::secureWipe(
+                        static_cast<void*>(tx_ring_buffer), nwords << 2u);
+                }
             }
 
             write_idx.val.store(0, std::memory_order_relaxed);
             read_idx.val.store(0, std::memory_order_relaxed);
             std::atomic_thread_fence(std::memory_order_release);
-            SecWipe(&write_idx, sizeof(write_idx));
-            SecWipe(&read_idx, sizeof(read_idx));
+            // std::atomic 멤버에 memset/바이트 소거는 UB — store(0)만 사용 (V-3-13 유사)
 
-            SecWipe(&current_config, sizeof(current_config));
+            SecureMemory::secureWipe(
+                static_cast<void*>(&current_config), sizeof(current_config));
             std::atomic_thread_fence(std::memory_order_release);
         }
     };
@@ -167,11 +145,12 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다 — IMPL_BUF_SIZE 확대 필요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(64)를 초과합니다");
-        return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        return impl_valid_.load(std::memory_order_acquire)
+            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Tx_Scheduler::Impl* HTS_Tx_Scheduler::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -181,25 +160,23 @@ namespace ProtectedEngine {
     //  Impl(tier) 생성자는 noexcept → 예외 없이 안전
     // =====================================================================
     HTS_Tx_Scheduler::HTS_Tx_Scheduler(HTS_Sys_Tier tier) noexcept
-        : impl_valid_(false)
     {
-        SecWipe(impl_buf_, sizeof(impl_buf_));
+        impl_valid_.store(false, std::memory_order_release);
+        SecureMemory::secureWipe(static_cast<void*>(impl_buf_), sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(tier);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     // =====================================================================
     //  [BUG-64] 소멸자 — 명시적 (= default 제거)
-    //  Impl 소멸자(내부 SecWipe) 호출 → impl_buf_ 전체 SecWipe → 플래그 무효화
+    //  Impl 소멸자(내부 secureWipe) 호출 → impl_buf_ 전체 SecureMemory::secureWipe → 플래그 무효화
     // =====================================================================
     HTS_Tx_Scheduler::~HTS_Tx_Scheduler() noexcept {
         Impl* p = get_impl();
         if (p != nullptr) {
             p->~Impl();
-            // [FIX-WIPE] impl_buf_ 전체 3중 방어 소거
-            Tx_Scheduler_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
         }
-        SecWipe(impl_buf_, sizeof(impl_buf_));
+        SecureMemory::secureWipe(impl_buf_, sizeof(impl_buf_));
         impl_valid_ = false;
     }
 
@@ -229,9 +206,16 @@ namespace ProtectedEngine {
         // ring_size ≤ MAX_RING_POW2 보장 (Next_Power_Of_Two 클램프)
         // [FIX-RING] 물리 버퍼 소거 (ring_mask+1)
         if (impl.ring_mask > 0u) {
-            SecWipe(impl.tx_ring_buffer, (impl.ring_mask + 1u) << 2u);
+            const size_t old_phys = impl.ring_mask + 1u;
+            if (old_phys > (SIZE_MAX >> 2u)) { return false; }
+            const size_t old_bytes = old_phys << 2u;
+            SecureMemory::secureWipe(
+                static_cast<void*>(impl.tx_ring_buffer), old_bytes);
         }
-        std::memset(impl.tx_ring_buffer, 0, ring_size << 2u);
+        if (ring_size > (SIZE_MAX >> 2u)) { return false; }
+        const size_t init_bytes = ring_size << 2u;
+        SecureMemory::secureWipe(
+            static_cast<void*>(impl.tx_ring_buffer), init_bytes);
 
         impl.ring_mask = ring_size - 1u;
         // [FIX-RING] ring_capacity = ring_size - 1 (한 칸 비우기)
@@ -264,10 +248,14 @@ namespace ProtectedEngine {
         std::atomic_thread_fence(std::memory_order_release);
 
         // [BUG-67] Ghost Transmission 방지 — 잔여 Q16 파형 보안 소거
-        // 기존 memset은 컴파일러 DSE 최적화 시 제거 가능 → SecWipe로 교체
+        // 기존 memset은 컴파일러 DSE 최적화 시 제거 가능 → SecureMemory::secureWipe로 교체
         // [FIX-RING] 물리 버퍼 소거
         if (impl.ring_mask > 0u) {
-            SecWipe(impl.tx_ring_buffer, (impl.ring_mask + 1u) << 2u);
+            const size_t nwords = impl.ring_mask + 1u;
+            if (nwords <= MAX_RING_POW2) {
+                SecureMemory::secureWipe(
+                    static_cast<void*>(impl.tx_ring_buffer), nwords << 2u);
+            }
         }
     }
 
@@ -320,6 +308,7 @@ namespace ProtectedEngine {
         const size_t phy_write = cur_write & mask;
         // [FIX-RING] 물리 버퍼 크기(ring_mask+1) 사용 (ring_capacity는 논리 용량)
         const size_t to_end = (impl.ring_mask + 1u) - phy_write;
+        if (size > (SIZE_MAX >> 2u)) { return false; }
         const size_t bytes = size << 2u;
         const size_t to_end_bytes = to_end << 2u;
 
@@ -403,6 +392,7 @@ namespace ProtectedEngine {
         const size_t phy_read = cur_read & mask;
         // [FIX-RING] 물리 버퍼 크기 사용
         const size_t to_end = (impl.ring_mask + 1u) - phy_read;
+        if (requested_size > (SIZE_MAX >> 2u)) { return false; }
         const size_t bytes = requested_size << 2u;
         const size_t to_end_bytes = to_end << 2u;
 

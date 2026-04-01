@@ -39,6 +39,9 @@ namespace ProtectedEngine {
     /// @warning sizeof ~ 512B. 전역/정적 배치 권장.
     class HTS_KT_DSN_Adapter final {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         HTS_KT_DSN_Adapter() noexcept;
         ~HTS_KT_DSN_Adapter() noexcept;
 
@@ -86,6 +89,7 @@ namespace ProtectedEngine {
         struct Impl;
         alignas(4) uint8_t impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
+        mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;
     };
 
     static_assert(sizeof(HTS_KT_DSN_Adapter) <= 1024u,

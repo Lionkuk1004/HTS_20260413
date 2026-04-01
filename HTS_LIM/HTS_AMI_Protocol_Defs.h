@@ -79,12 +79,14 @@ namespace ProtectedEngine {
     };
     static_assert(sizeof(OBIS_Code) == 6u, "OBIS_Code must be 6 bytes");
 
-    inline bool OBIS_Equal(const OBIS_Code& a, const OBIS_Code& b) noexcept
+    // [X-5-4/5] 보안 비교 반환형 bool 금지 — uint32_t 마스크 반환
+    // 0u: equal, non-zero: different
+    inline uint32_t OBIS_Equal(const OBIS_Code& a, const OBIS_Code& b) noexcept
     {
         const uint8_t diff = static_cast<uint8_t>(
             (a.a ^ b.a) | (a.b ^ b.b) | (a.c ^ b.c) |
             (a.d ^ b.d) | (a.e ^ b.e) | (a.f ^ b.f));
-        return (diff == 0u);
+        return static_cast<uint32_t>(diff);
     }
 
     // ============================================================

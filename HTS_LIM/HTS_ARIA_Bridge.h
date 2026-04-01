@@ -21,6 +21,7 @@
 //  3. Process_Block: 실패 시 출력 버퍼 소거 (정보 누출 방지)
 //  4. 매직 넘버 272 → 명명 상수 ROUND_KEY_BUF_SIZE
 //  5. 문서화 보강 (KCMVP 인증 범위, 운용 모드)
+//  6. BUG-43 [CRIT] 키/스택 소거 → HTS_Secure_Memory::secureWipe (D-2/X-5-1)
 // =========================================================================
 #pragma once
 
@@ -79,7 +80,7 @@ namespace ProtectedEngine {
 
     private:
         // [C26495] 모든 멤버 기본값 초기화
-        uint8_t round_keys[ROUND_KEY_BUF_SIZE] = {};  // 값 초기화 (0)
+        alignas(4) uint8_t round_keys[ROUND_KEY_BUF_SIZE] = {};  // Word 접근 정렬 보장
         int     num_rounds = 0;
         bool    is_initialized = false;
     };

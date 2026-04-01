@@ -57,9 +57,15 @@
 // =========================================================================
 //  [Layer 2] HTS_Engine — PC 시뮬레이션 전용
 //  [BUG-03] ARM 빌드에서 <random>, <string> 등 STL 헤더 전파 차단
+//
+//  HTS_3D_FORCE_PC_LAYER2: PC 전용 테스트/도구에서 IntelliSense가 __arm__ 등을
+//  잘못 잡아 Layer 2가 빠지며 E0070(불완전한 형식)이 나는 경우를 막기 위해
+//  HTS_TEST 등 Win32/x64 프로젝트에 정의합니다. 펌웨어(ARM) 타깃 빌드에서는
+//  이 매크로를 정의하지 마십시오.
 // =========================================================================
-#if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
-    !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
+#if defined(HTS_3D_FORCE_PC_LAYER2) || \
+    (!defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+     !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH))
 
 #include <vector>
 #include <string>

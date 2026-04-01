@@ -12,6 +12,21 @@
 #include <cstring>
 
 namespace ProtectedEngine {
+    namespace {
+        struct Holo4D_Busy_Guard final {
+            std::atomic_flag* flag;
+            bool locked;
+            explicit Holo4D_Busy_Guard(std::atomic_flag& f) noexcept
+                : flag(&f), locked(false) {
+                locked = !flag->test_and_set(std::memory_order_acq_rel);
+            }
+            ~Holo4D_Busy_Guard() noexcept {
+                if (locked) { flag->clear(std::memory_order_release); }
+            }
+            Holo4D_Busy_Guard(const Holo4D_Busy_Guard&) = delete;
+            Holo4D_Busy_Guard& operator=(const Holo4D_Busy_Guard&) = delete;
+        };
+    }
 
     // [FIX-WIPE] 3중 방어 보안 소거
     static void Holo4D_Secure_Wipe(void* p, size_t n) noexcept {
@@ -19,7 +34,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -73,7 +88,7 @@ namespace ProtectedEngine {
         // ============================================================
         //  CFI Transition
         // ============================================================
-        bool Transition_State(HoloState target) noexcept
+        uint32_t Transition_State(HoloState target) noexcept
         {
             if (!Holo_Is_Legal_Transition(state, target)) {
                 if (Holo_Is_Legal_Transition(state, HoloState::ERROR)) {
@@ -83,10 +98,10 @@ namespace ProtectedEngine {
                     state = HoloState::OFFLINE;
                 }
                 cfi_violation_count++;
-                return false;
+                return HTS_Holo_Tensor_4D::SECURE_FALSE;
             }
             state = target;
-            return true;
+            return HTS_Holo_Tensor_4D::SECURE_TRUE;
         }
 
         // [FIX-ALU] Generate_Phase 삭제 — O(K²)→O(K) 최적화
@@ -198,20 +213,22 @@ namespace ProtectedEngine {
         //     Generate_Phase() + Cos_Q15() 연결
         //     Spot 재밍 위상 분산 효과
         // ============================================================
-        bool Encode(const int8_t* data, uint16_t K,
+        uint32_t Encode(const int8_t* data, uint16_t K,
             int8_t* chips, uint16_t N) noexcept
         {
-            if (N > HOLO_CHIP_COUNT) { return false; }
-            if (K > HOLO_MAX_BLOCK_BITS) { return false; }
-            if (K > N) { return false; }
-            if (N == 0u) { return false; }
+            if (N > HOLO_CHIP_COUNT) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
+            if (K > HOLO_MAX_BLOCK_BITS) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
+            if (K > N) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
+            if (N == 0u) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
             // [BUG-FIX CRIT] Walsh-Hadamard 직교성 보증: N = 2^m 필수
             //  비2의거듭제곱 N(예: 48) → 계층 간 직교성 붕괴 → 복구 불가
             //  검사: (N & (N-1)) == 0 ↔ N이 정확히 2의거듭제곱
-            if ((N & static_cast<uint16_t>(N - 1u)) != 0u) { return false; }
+            if ((N & static_cast<uint16_t>(N - 1u)) != 0u) {
+                return HTS_Holo_Tensor_4D::SECURE_FALSE;
+            }
 
             const uint8_t L = profile.num_layers;
-            if (static_cast<uint16_t>(L) * K > N) { return false; }
+            if (static_cast<uint16_t>(L) * K > N) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
 
             // Column permutation + Binary Phase Mask 생성
             Generate_Partitioned_Params(scratch_rows, K, N, L, scratch_perm, time_slot);
@@ -268,7 +285,7 @@ namespace ProtectedEngine {
                 else { chips[i] = static_cast<int8_t>(accum[i]); }
 #endif
             }
-            return true;
+            return HTS_Holo_Tensor_4D::SECURE_TRUE;
         }
 
         // ============================================================
@@ -276,19 +293,21 @@ namespace ProtectedEngine {
         //  통합 Walsh 홀로그램 역투영 + Binary Phase Mask
         //  valid_mask: branchless exclusion of lost chips
         // ============================================================
-        bool Decode(const int16_t* rx_chips, uint16_t N,
+        uint32_t Decode(const int16_t* rx_chips, uint16_t N,
             uint64_t valid_mask,
             int8_t* output_bits, uint16_t K) noexcept
         {
-            if (N > HOLO_CHIP_COUNT) { return false; }
-            if (K > HOLO_MAX_BLOCK_BITS) { return false; }
-            if (K > N) { return false; }
-            if (N == 0u) { return false; }
+            if (N > HOLO_CHIP_COUNT) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
+            if (K > HOLO_MAX_BLOCK_BITS) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
+            if (K > N) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
+            if (N == 0u) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
             // [BUG-FIX CRIT] Walsh 직교성: N = 2^m 필수 (Encode와 동일)
-            if ((N & static_cast<uint16_t>(N - 1u)) != 0u) { return false; }
+            if ((N & static_cast<uint16_t>(N - 1u)) != 0u) {
+                return HTS_Holo_Tensor_4D::SECURE_FALSE;
+            }
 
             const uint8_t L = profile.num_layers;
-            if (static_cast<uint16_t>(L) * K > N) { return false; }
+            if (static_cast<uint16_t>(L) * K > N) { return HTS_Holo_Tensor_4D::SECURE_FALSE; }
 
             Generate_Partitioned_Params(scratch_rows, K, N, L, scratch_perm, time_slot);
 
@@ -348,7 +367,7 @@ namespace ProtectedEngine {
                 const int32_t sign_mask = accum[k] >> 31;
                 output_bits[k] = static_cast<int8_t>((sign_mask << 1) + 1);
             }
-            return true;
+            return HTS_Holo_Tensor_4D::SECURE_TRUE;
         }
     };
 
@@ -371,16 +390,18 @@ namespace ProtectedEngine {
         Shutdown();
     }
 
-    bool HTS_Holo_Tensor_4D::Initialize(const uint32_t master_seed[4],
+    uint32_t HTS_Holo_Tensor_4D::Initialize(const uint32_t master_seed[4],
         const HoloTensor_Profile* profile) noexcept
     {
-        if (master_seed == nullptr) { return false; }
+        if (master_seed == nullptr) { return SECURE_FALSE; }
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return SECURE_FALSE; }
 
         bool expected = false;
         if (!initialized_.compare_exchange_strong(
             expected, true, std::memory_order_acq_rel))
         {
-            return true;
+            return SECURE_TRUE;
         }
 
         Impl* impl = new (impl_buf_) Impl{};
@@ -424,12 +445,16 @@ namespace ProtectedEngine {
             impl->accum[i] = 0;
         }
 
-        impl->Transition_State(HoloState::READY);
-        return true;
+        if (impl->Transition_State(HoloState::READY) != SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
+        return SECURE_TRUE;
     }
 
     void HTS_Holo_Tensor_4D::Shutdown() noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->~Impl();
@@ -444,6 +469,8 @@ namespace ProtectedEngine {
     void HTS_Holo_Tensor_4D::Rotate_Seed(const uint32_t new_seed[4]) noexcept
     {
         if (new_seed == nullptr) { return; }
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
@@ -464,6 +491,8 @@ namespace ProtectedEngine {
     void HTS_Holo_Tensor_4D::Set_Profile(const HoloTensor_Profile* profile) noexcept
     {
         if (profile == nullptr) { return; }
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
@@ -483,77 +512,97 @@ namespace ProtectedEngine {
         }
     }
 
-    bool HTS_Holo_Tensor_4D::Encode_Block(const int8_t* data_bits, uint16_t K,
+    uint32_t HTS_Holo_Tensor_4D::Encode_Block(const int8_t* data_bits, uint16_t K,
         int8_t* output_chips, uint16_t N) noexcept
     {
-        if (data_bits == nullptr) { return false; }
-        if (output_chips == nullptr) { return false; }
-        if (!initialized_.load(std::memory_order_acquire)) { return false; }
+        if (data_bits == nullptr) { return SECURE_FALSE; }
+        if (output_chips == nullptr) { return SECURE_FALSE; }
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return SECURE_FALSE; }
+        if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
 
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
-        if (!impl->Transition_State(HoloState::ENCODING)) { return false; }
+        if (impl->Transition_State(HoloState::ENCODING) != SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
 
-        const bool ok = impl->Encode(data_bits, K, output_chips, N);
+        const uint32_t ok = impl->Encode(data_bits, K, output_chips, N);
 
         impl->Transition_State(HoloState::READY);
 
-        if (ok) { impl->encode_count++; }
+        if (ok == SECURE_TRUE) { impl->encode_count++; }
         return ok;
     }
 
-    bool HTS_Holo_Tensor_4D::Decode_Block(const int16_t* rx_chips, uint16_t N,
+    uint32_t HTS_Holo_Tensor_4D::Decode_Block(const int16_t* rx_chips, uint16_t N,
         uint64_t valid_mask,
         int8_t* output_bits, uint16_t K) noexcept
     {
-        if (rx_chips == nullptr) { return false; }
-        if (output_bits == nullptr) { return false; }
-        if (!initialized_.load(std::memory_order_acquire)) { return false; }
+        if (rx_chips == nullptr) { return SECURE_FALSE; }
+        if (output_bits == nullptr) { return SECURE_FALSE; }
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return SECURE_FALSE; }
+        if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
 
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
-        if (!impl->Transition_State(HoloState::DECODING)) { return false; }
+        if (impl->Transition_State(HoloState::DECODING) != SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
 
-        const bool ok = impl->Decode(rx_chips, N, valid_mask, output_bits, K);
+        const uint32_t ok = impl->Decode(rx_chips, N, valid_mask, output_bits, K);
 
         impl->Transition_State(HoloState::READY);
 
-        if (ok) { impl->decode_count++; }
+        if (ok == SECURE_TRUE) { impl->decode_count++; }
         return ok;
     }
 
     void HTS_Holo_Tensor_4D::Advance_Time_Slot() noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         reinterpret_cast<Impl*>(impl_buf_)->time_slot++;
     }
 
     void HTS_Holo_Tensor_4D::Set_Time_Slot(uint32_t frame_no) noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         reinterpret_cast<Impl*>(impl_buf_)->time_slot = frame_no;
     }
 
     HoloState HTS_Holo_Tensor_4D::Get_State() const noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return HoloState::OFFLINE; }
         if (!initialized_.load(std::memory_order_acquire)) { return HoloState::OFFLINE; }
         return reinterpret_cast<const Impl*>(impl_buf_)->state;
     }
 
     uint32_t HTS_Holo_Tensor_4D::Get_Encode_Count() const noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->encode_count;
     }
 
     uint32_t HTS_Holo_Tensor_4D::Get_Decode_Count() const noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->decode_count;
     }
 
     uint32_t HTS_Holo_Tensor_4D::Get_Time_Slot() const noexcept
     {
+        Holo4D_Busy_Guard guard(op_busy_);
+        if (!guard.locked) { return 0u; }
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
         return reinterpret_cast<const Impl*>(impl_buf_)->time_slot;
     }

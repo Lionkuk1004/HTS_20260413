@@ -31,7 +31,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(q));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -223,14 +223,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(1024B)를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 alignas를 초과합니다");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Neighbor_Discovery::Impl*
         HTS_Neighbor_Discovery::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -242,14 +242,14 @@ namespace ProtectedEngine {
     {
         ND_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(my_id);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Neighbor_Discovery::~HTS_Neighbor_Discovery() noexcept {
         Impl* p = get_impl();
         if (p != nullptr) { p->~Impl(); }
         ND_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
+        impl_valid_.store(false, std::memory_order_release);
     }
 
     // =====================================================================
@@ -260,7 +260,9 @@ namespace ProtectedEngine {
     {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint32_t pm = nd_critical_enter();
         p->link_down_cb = cb;
+        nd_critical_exit(pm);
     }
 
     // =====================================================================
@@ -269,6 +271,8 @@ namespace ProtectedEngine {
     void HTS_Neighbor_Discovery::Set_Mode(DiscoveryMode mode) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint8_t mode_v = static_cast<uint8_t>(mode);
+        if (mode_v > static_cast<uint8_t>(DiscoveryMode::REALTIME)) { return; }
         const uint32_t pm = nd_critical_enter();
 
         const DiscoveryMode prev = p->mode;
@@ -287,7 +291,11 @@ namespace ProtectedEngine {
 
     DiscoveryMode HTS_Neighbor_Discovery::Get_Mode() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) ? p->mode : DiscoveryMode::DEEP_SLEEP;
+        if (p == nullptr) { return DiscoveryMode::DEEP_SLEEP; }
+        const uint32_t pm = nd_critical_enter();
+        const DiscoveryMode mode = p->mode;
+        nd_critical_exit(pm);
+        return mode;
     }
 
     bool HTS_Neighbor_Discovery::Is_RX_Window(
@@ -319,13 +327,17 @@ namespace ProtectedEngine {
     void HTS_Neighbor_Discovery::Set_My_Hop(uint8_t hop) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint32_t pm = nd_critical_enter();
         p->my_hop = hop;
+        nd_critical_exit(pm);
     }
 
     void HTS_Neighbor_Discovery::Set_My_TX_Power(int8_t dbm) noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
+        const uint32_t pm = nd_critical_enter();
         p->my_tx_power = dbm;
+        nd_critical_exit(pm);
     }
 
     // =====================================================================

@@ -5,7 +5,42 @@
 // =========================================================================
 #include "HTS_Sparse_Recovery.h"
 #include <climits>       // INT32_MAX (BUG-12 static_assert)
+#include <cstdint>       // uintptr_t (B-2 정렬 검증)
 #include <type_traits>   // std::is_unsigned (Safe_Obfuscate static_assert)
+
+namespace {
+    /// i + span 이 size_t 오버플로 없이 [i, elements) 구간만 덮도록 끝 인덱스 계산
+    inline size_t sparse_block_end_exclusive(
+        const size_t i,
+        const size_t span,
+        const size_t elements) noexcept
+    {
+        if (i >= elements) { return elements; }
+        const size_t remain = elements - i;
+        const size_t take = (span < remain) ? span : remain;
+        return i + take;
+    }
+
+    /// RecoveryStats 임시 객체/복사 할당 없이 제로 클리어 (베어메탈)
+    inline void recovery_stats_zero(ProtectedEngine::RecoveryStats& s) noexcept {
+        s.total_elements = 0u;
+        s.destroyed_count = 0u;
+        s.recovered_by_parity = 0u;
+        s.recovered_by_gravity = 0u;
+        s.unrecoverable = 0u;
+        s.noise_ratio_q16 = 0u;
+    }
+
+    /// Cortex-M4 UsageFault 방지 — T* 가 alignof(T) 경계에 있을 것 (기준서 B-2 / K-2)
+    template <typename T>
+    inline bool sparse_ptr_aligned(const T* p) noexcept {
+        constexpr std::size_t al = alignof(T);
+        static_assert((al & (al - 1u)) == 0u, "alignof(T) must be power of 2");
+        const uintptr_t a = reinterpret_cast<uintptr_t>(p);
+        const uintptr_t mask = static_cast<uintptr_t>(al - 1u);
+        return (a & mask) == 0u;
+    }
+} // namespace
 
 // [양산 수정 이력 — 10건 + 추가 3건]
 //  BUG-01 [MED]  double noise_ratio 유지 (API 호환) → ④-FIX: Q16 전환
@@ -30,6 +65,19 @@
 //         · 역변환: ×INV3 (3의 모듈러 역수) + XOR → 수학적 완벽 가역
 
 namespace ProtectedEngine {
+
+    /// 3의 모듈러 역원 (mod 2^N). Safe_Obfuscate / Safe_Deobfuscate 공통 — INV3 이중 정의 방지
+    template <typename T>
+    static constexpr T modular_inverse_3() noexcept {
+        static_assert(std::is_unsigned<T>::value,
+            "modular_inverse_3: unsigned 타입만 허용");
+        constexpr T inv = static_cast<T>(
+            static_cast<T>(static_cast<T>(~static_cast<T>(0)) / static_cast<T>(3))
+            * static_cast<T>(2) + static_cast<T>(1));
+        static_assert(static_cast<T>(static_cast<T>(3) * inv) == static_cast<T>(1),
+            "Modular inverse verification failed: 3 * INV3 != 1");
+        return inv;
+    }
 
     // =====================================================================
     //  가역적 모듈러 난독화 / 역난독화 (Safe_Obfuscate / Safe_Deobfuscate)
@@ -77,9 +125,7 @@ namespace ProtectedEngine {
         // ② 위험 평문 사전 탐지: (bad_x ^ I) * 3 ≡ MARKER (mod 2^N)
         //    bad_x ^ I = MARKER * INV3 = ~INV3 + 1  (모듈러 산술)
         //    bad_x = (~INV3 + 1) ^ I
-        static constexpr T INV3 = static_cast<T>(
-            static_cast<T>(static_cast<T>(~static_cast<T>(0)) / static_cast<T>(3))
-            * static_cast<T>(2) + static_cast<T>(1));
+        static constexpr T INV3 = modular_inverse_3<T>();
         const T neg_inv3 = static_cast<T>(~INV3 + static_cast<T>(1u));
         const T bad_plaintext = static_cast<T>(neg_inv3 ^ interference);
 
@@ -100,13 +146,7 @@ namespace ProtectedEngine {
     static T Safe_Deobfuscate(T obfuscated, T interference) noexcept {
         static_assert(std::is_unsigned<T>::value,
             "Safe_Deobfuscate: unsigned 타입만 허용");
-        // 3의 모듈러 역수: (~T(0) / 3) × 2 + 1
-        static constexpr T INV3 = static_cast<T>(
-            static_cast<T>(static_cast<T>(~static_cast<T>(0)) / static_cast<T>(3))
-            * static_cast<T>(2) + static_cast<T>(1));
-        // 빌드타임 가역성 검증: 3 × INV3 ≡ 1 (mod 2^N)
-        static_assert(static_cast<T>(static_cast<T>(3) * INV3) == static_cast<T>(1),
-            "Modular inverse verification failed: 3 * INV3 != 1");
+        static constexpr T INV3 = modular_inverse_3<T>();
         return static_cast<T>(
             static_cast<T>(obfuscated * INV3) ^ interference);
     }
@@ -171,7 +211,8 @@ namespace ProtectedEngine {
     // =================================================================================
     template <typename T>
     void Sparse_Recovery_Engine::Generate_Interference_Pattern(T* tensor_block, size_t elements, uint64_t session_id, uint32_t anchor_interval, bool is_test_mode) {
-        if (!tensor_block || elements == 0) return;
+        if ((tensor_block == nullptr) || (elements == 0u)) { return; }
+        if (!sparse_ptr_aligned(tensor_block)) { return; }
 
         // 오토 튜닝 및 상용망 규격 락다운
         // [BUG-FIX FATAL] anchor_interval==1 방어:
@@ -181,12 +222,16 @@ namespace ProtectedEngine {
         if (anchor_interval == 1u) { anchor_interval = 0u; }
 
         if (!is_test_mode) {
-            if (anchor_interval == 0 || anchor_interval > 6) {
-                anchor_interval = (anchor_interval != 0) ? 6 : 0;
+            if (anchor_interval == 0u
+                || anchor_interval > SparseRecoveryLimits::ANCHOR_INTERVAL_CAP) {
+                anchor_interval = (anchor_interval != 0u)
+                    ? SparseRecoveryLimits::ANCHOR_INTERVAL_CAP : 0u;
             }
         }
         else {
-            if (anchor_interval == 0) anchor_interval = 20;
+            if (anchor_interval == 0u) {
+                anchor_interval = SparseRecoveryLimits::TEST_MODE_DEFAULT_ANCHOR;
+            }
         }
 
         uint32_t master_seed = static_cast<uint32_t>(session_id ^ 0x3D485453);
@@ -196,7 +241,8 @@ namespace ProtectedEngine {
         if (anchor_interval > 0) {
             for (size_t i = 0; i < elements; i += anchor_interval) {
                 T parity = 0;
-                size_t end_idx = (i + anchor_interval < elements) ? (i + anchor_interval) : elements;
+                const size_t end_idx = sparse_block_end_exclusive(
+                    i, static_cast<size_t>(anchor_interval), elements);
 
                 for (size_t j = i + 1; j < end_idx; ++j) {
                     parity ^= tensor_block[j]; // 1. 원본 페이로드 패리티 누적
@@ -223,21 +269,30 @@ namespace ProtectedEngine {
     // =================================================================================
     template <typename T>
     bool Sparse_Recovery_Engine::Execute_L1_Reconstruction(T* damaged_tensor, size_t elements, uint64_t session_id, uint32_t anchor_interval, bool is_test_mode, bool strict_mode, RecoveryStats& out_stats) {
-        if (!damaged_tensor || elements == 0) return false;
+        recovery_stats_zero(out_stats);
+        if ((damaged_tensor == nullptr) || (elements == 0u)) {
+            return false;
+        }
+        if (!sparse_ptr_aligned(damaged_tensor)) {
+            return false;
+        }
 
-        out_stats = RecoveryStats();
         out_stats.total_elements = elements;
 
         // [BUG-FIX FATAL] anchor_interval==1 방어 (TX와 동일)
         if (anchor_interval == 1u) { anchor_interval = 0u; }
 
         if (!is_test_mode) {
-            if (anchor_interval == 0 || anchor_interval > 6) {
-                anchor_interval = (anchor_interval != 0) ? 6 : 0;
+            if (anchor_interval == 0u
+                || anchor_interval > SparseRecoveryLimits::ANCHOR_INTERVAL_CAP) {
+                anchor_interval = (anchor_interval != 0u)
+                    ? SparseRecoveryLimits::ANCHOR_INTERVAL_CAP : 0u;
             }
         }
         else {
-            if (anchor_interval == 0) anchor_interval = 20;
+            if (anchor_interval == 0u) {
+                anchor_interval = SparseRecoveryLimits::TEST_MODE_DEFAULT_ANCHOR;
+            }
         }
 
         // [무결성 1] Type Promotion 버그를 차단하는 범용 파괴 마커
@@ -258,7 +313,8 @@ namespace ProtectedEngine {
                     total_destroyed++;
                 }
 
-                size_t end_idx = (i + anchor_interval < elements) ? (i + anchor_interval) : elements;
+                const size_t end_idx = sparse_block_end_exclusive(
+                    i, static_cast<size_t>(anchor_interval), elements);
                 for (size_t j = i + 1; j < end_idx; ++j) {
                     if (damaged_tensor[j] != ERASURE_MARKER) {
                         // [BUG-FIX CRIT] 가역적 모듈러 역난독화 (×INV3 + XOR)
@@ -301,7 +357,8 @@ namespace ProtectedEngine {
 
         // 2단계: 스마트 하이브리드 복구 로직
         for (size_t block_start = 0; block_start < elements; block_start += anchor_interval) {
-            size_t block_end = (block_start + anchor_interval < elements) ? (block_start + anchor_interval) : elements;
+            const size_t block_end = sparse_block_end_exclusive(
+                block_start, static_cast<size_t>(anchor_interval), elements);
 
             size_t local_destroyed_count = 0;
             size_t last_destroyed_idx = 0;

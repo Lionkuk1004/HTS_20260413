@@ -25,9 +25,11 @@ namespace ProtectedEngine {
 
         /// @brief SHA-256 해시 (원샷)
         /// @param data       입력 데이터 (nullptr 시 data_len=0 필수)
-        /// @param data_len   바이트 단위
+        /// @param data_len   바이트 단위 (KISA UINT 상한 초과 시 실패)
         /// @param output_32  출력 버퍼 (32바이트 이상)
         /// @return true=성공
+        /// @note  실패 경로에서는 output_32 가 SecureMemory::secureWipe 로 소거될 수 있음
+        /// @see   KISA_SHA256.h (SHA256_Init / SHA256_Process / SHA256_Close)
         [[nodiscard]] static bool Hash(
             const uint8_t* data, size_t data_len,
             uint8_t* output_32) noexcept;

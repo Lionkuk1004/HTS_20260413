@@ -1265,11 +1265,12 @@ namespace ProtectedEngine {
         out_stats = impl->stats;
     }
 
-    bool HTS_IPC_Protocol::Is_Link_Alive() const noexcept
+    uint32_t HTS_IPC_Protocol::Is_Link_Alive() const noexcept
     {
-        if (!initialized_.load(std::memory_order_acquire)) { return false; }
+        if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
         const Impl* impl = reinterpret_cast<const Impl*>(impl_buf_);
-        return impl->Is_Heartbeat_Alive(impl->state_entry_tick);
+        return impl->Is_Heartbeat_Alive(impl->state_entry_tick)
+            ? SECURE_TRUE : SECURE_FALSE;
     }
 
     uint32_t HTS_IPC_Protocol::Get_TX_Pending() const noexcept

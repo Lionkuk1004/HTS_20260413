@@ -32,8 +32,8 @@
 //  LSH는 SHA-256 대비 약 1.5배 고속 (ARX 구조 + 워드 병렬)
 // =========================================================================
 #include "HTS_LSH256_Bridge.h"
+#include "HTS_Secure_Memory.h"
 #include <cstring>
-#include <atomic>
 #include <limits>
 #include <cstdint>
 
@@ -48,30 +48,11 @@ extern "C" {
 namespace ProtectedEngine {
 
     // =====================================================================
-    //  보안 메모리 소거 — KCMVP 해시 내부 상태 잔존 방지
-    //
-    //  [BUG-01 수정] pragma O0 추가 — 3중 DCE 방지
+    //  보안 메모리 소거 — D-2 / X-5-1: SecureMemory::secureWipe (HTS_Secure_Memory.cpp)
     // =====================================================================
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-#elif defined(_MSC_VER)
-#pragma optimize("", off)
-#endif
-
     static void Secure_Zero_LSH(void* ptr, size_t size) noexcept {
-        if (!ptr || size == 0) return;
-        volatile uint8_t* p = static_cast<volatile uint8_t*>(ptr);
-        for (size_t i = 0; i < size; ++i) p[i] = 0;
-        // [BUG] seq_cst → release (소거 배리어 정책 통일)
-        std::atomic_thread_fence(std::memory_order_release);
+        SecureMemory::secureWipe(ptr, size);
     }
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC pop_options
-#elif defined(_MSC_VER)
-#pragma optimize("", on)
-#endif
 
     // =====================================================================
     //  내부 공통 해시 계산
@@ -84,7 +65,7 @@ namespace ProtectedEngine {
     //  lsh256_final 실패 시에도 output에 부분 데이터가 남을 수 있음
     //  → Secure_Zero_LSH(output) 후 false 반환
     // =====================================================================
-    static bool Do_Hash(
+    static uint32_t Do_Hash(
         lsh_type       algtype,
         const uint8_t* data,
         size_t         data_len,
@@ -92,10 +73,10 @@ namespace ProtectedEngine {
         size_t         output_len) noexcept {
 
         // 출력 버퍼 필수 / 데이터 포인터는 길이 0이면 null 허용
-        if (!output) return false;
+        if (!output) return LSH_SECURE_FALSE;
         if (data_len > 0 && !data) {
             Secure_Zero_LSH(output, output_len);
-            return false;
+            return LSH_SECURE_FALSE;
         }
 
         // 바이트 → 비트 변환 오버플로 방어
@@ -103,7 +84,7 @@ namespace ProtectedEngine {
             std::numeric_limits<size_t>::max() / 8u;
         if (data_len > MAX_BYTE_LEN) {
             Secure_Zero_LSH(output, output_len);
-            return false;
+            return LSH_SECURE_FALSE;
         }
 
         // LSH-256 컨텍스트 초기화
@@ -114,7 +95,7 @@ namespace ProtectedEngine {
         if (err != LSH_SUCCESS) {
             Secure_Zero_LSH(&ctx, sizeof(ctx));
             Secure_Zero_LSH(output, output_len);
-            return false;
+            return LSH_SECURE_FALSE;
         }
 
         // 데이터 주입 (비트 단위)
@@ -126,7 +107,7 @@ namespace ProtectedEngine {
             if (err != LSH_SUCCESS) {
                 Secure_Zero_LSH(&ctx, sizeof(ctx));
                 Secure_Zero_LSH(output, output_len);
-                return false;
+                return LSH_SECURE_FALSE;
             }
         }
 
@@ -139,21 +120,21 @@ namespace ProtectedEngine {
         // [BUG-02] final 실패 시 출력 소거
         if (err != LSH_SUCCESS) {
             Secure_Zero_LSH(output, output_len);
-            return false;
+            return LSH_SECURE_FALSE;
         }
 
-        return true;
+        return LSH_SECURE_TRUE;
     }
 
     // =====================================================================
     //  Hash_256 — LSH-256 (32바이트 출력)
     // =====================================================================
-    bool LSH256_Bridge::Hash_256(
+    uint32_t LSH256_Bridge::Hash_256(
         const uint8_t* data,
         size_t         data_len,
         uint8_t* output_32) noexcept {
 
-        if (!output_32) return false;
+        if (!output_32) return LSH_SECURE_FALSE;
 
         return Do_Hash(
             LSH_TYPE_256_256,
@@ -164,12 +145,12 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Hash_224 — LSH-224 (28바이트 출력)
     // =====================================================================
-    bool LSH256_Bridge::Hash_224(
+    uint32_t LSH256_Bridge::Hash_224(
         const uint8_t* data,
         size_t         data_len,
         uint8_t* output_28) noexcept {
 
-        if (!output_28) return false;
+        if (!output_28) return LSH_SECURE_FALSE;
 
         return Do_Hash(
             LSH_TYPE_256_224,

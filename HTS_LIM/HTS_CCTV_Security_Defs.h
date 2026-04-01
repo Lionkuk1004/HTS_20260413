@@ -194,9 +194,14 @@ namespace ProtectedEngine {
     }
 
     /// @note  OFFLINE->MONITORING, MONITORING->ALERT|LOCKDOWN|OFFLINE,
-    ///        ALERT->MONITORING|LOCKDOWN|ERROR,
-    ///        LOCKDOWN->MONITORING|ALERT|ERROR,
+    ///        ALERT->MONITORING|LOCKDOWN|ERROR|OFFLINE,
+    ///        LOCKDOWN->MONITORING|ALERT|ERROR|OFFLINE,
     ///        ERROR->MONITORING|OFFLINE
+    ///
+    /// [BUG-FIX FATAL] CFI 전이 규칙 2건 교정:
+    ///  (1) k_legal: | OFFLINE(0x00) 무효 연산 제거 (비트OR 0 = 무의미)
+    ///  (2) to==OFFLINE 예외 분기: MONITORING+ERROR만 → 모든 활성 상태(from!=0)
+    ///      → ALERT/LOCKDOWN에서 Shutdown() 호출 시 CFI Violation 방지
     inline bool CCTV_Sec_Is_Legal_Transition(CCTV_SecState from, CCTV_SecState to) noexcept
     {
         if (!CCTV_Sec_Is_Valid_State(to)) { return false; }
@@ -205,8 +210,7 @@ namespace ProtectedEngine {
             /* OFFLINE    -> */ static_cast<uint8_t>(CCTV_SecState::MONITORING),
             /* MONITORING -> */ static_cast<uint8_t>(
                 static_cast<uint8_t>(CCTV_SecState::ALERT)
-              | static_cast<uint8_t>(CCTV_SecState::LOCKDOWN)
-              | static_cast<uint8_t>(CCTV_SecState::OFFLINE)),
+              | static_cast<uint8_t>(CCTV_SecState::LOCKDOWN)),
             /* ALERT      -> */ static_cast<uint8_t>(
                 static_cast<uint8_t>(CCTV_SecState::MONITORING)
               | static_cast<uint8_t>(CCTV_SecState::LOCKDOWN)
@@ -215,9 +219,7 @@ namespace ProtectedEngine {
                 static_cast<uint8_t>(CCTV_SecState::MONITORING)
               | static_cast<uint8_t>(CCTV_SecState::ALERT)
               | static_cast<uint8_t>(CCTV_SecState::ERROR)),
-            /* ERROR      -> */ static_cast<uint8_t>(
-                static_cast<uint8_t>(CCTV_SecState::MONITORING)
-              | static_cast<uint8_t>(CCTV_SecState::OFFLINE))
+            /* ERROR      -> */ static_cast<uint8_t>(CCTV_SecState::MONITORING)
         };
 
         uint8_t idx;
@@ -230,11 +232,11 @@ namespace ProtectedEngine {
         default:                        return false;
         }
 
+        // [BUG-FIX FATAL] OFFLINE(0x00)으로의 전이: 모든 활성 상태에서 합법
+        //  기존: k_off_src = MONITORING|ERROR → ALERT/LOCKDOWN에서 Shutdown 불가!
+        //  수정: from != OFFLINE (0u) → 켜져있는 모든 상태에서 끄기 허용
         if (static_cast<uint8_t>(to) == 0u) {
-            static constexpr uint8_t k_off_src = static_cast<uint8_t>(
-                static_cast<uint8_t>(CCTV_SecState::MONITORING)
-                | static_cast<uint8_t>(CCTV_SecState::ERROR));
-            return (static_cast<uint8_t>(from) & k_off_src) != 0u;
+            return (static_cast<uint8_t>(from) != 0u);
         }
 
         return (k_legal[idx] & static_cast<uint8_t>(to)) != 0u;

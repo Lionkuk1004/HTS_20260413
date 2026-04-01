@@ -69,6 +69,8 @@ namespace ProtectedEngine {
         /// @param ja_I  I 채널 CW 진폭 추정값 (corr_I >> 13)
         /// @param ja_Q  Q 채널 CW 진폭 추정값 (corr_Q >> 13)
         /// @note  nc=64 고정 (cw_cancel_64_()는 항상 64칩 처리)
+        /// @note  구현부에서 64비트 중간 연산 + int32 포화(clamp)로
+        ///        곱셈/EMA 좌시프트 저장 단계의 오버플로우를 차단합니다.
         void Seed_CW_Profile(int32_t ja_I, int32_t ja_Q) noexcept;
 
     private:

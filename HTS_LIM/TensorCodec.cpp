@@ -6,7 +6,7 @@
 // [양산 수정 이력 — 25건]
 //  BUG-01~19 (이전 세션)
 //  BUG-20 [CRIT] unique_ptr + make_unique + try-catch(ctor) → placement new
-//         · impl_buf_[2048] alignas(8) 정적 배치
+//         · impl_buf_[2048] alignas(64) 정적 배치 (BUG-39)
 //         · Impl = AnchorManager(값) + AnchorEncoder(값) + AnchorDecoder(값)
 //           sizeof(Impl): get_impl() static_assert로 컴파일 타임 검증
 //           초과 시 즉시 빌드 실패 → IMPL_BUF_SIZE를 늘릴 것
@@ -26,6 +26,11 @@
 //         · AnchorDecoder::decode_inplace() API 추가 완료
 //         · 터보 루프 내 fixed 벡터 할당 완전 제거 → fixed_buf 사전 할당
 //         · 힙 할당: 36,864 → 2 (reserve 2회) = 99.99% 절감
+//  BUG-39 [CRIT] Secure_Wipe_Tensor → SecureMemory::secureWipe, impl_buf_ alignas(64),
+//         impl_valid_ atomic, DecodePacket turbo_iters<0 방어, provideFeedback 음수 클램프
+//  BUG-40 [CRIT] vector secureWipe: size→capacity 전체 힙 블록; DecodePacket 앵커 평탄
+//         count×len ↔ flat.size() 무결성 검증 후 reserve (거짓 메타 DoS 차단)
+//  BUG-41 [CRIT] RAII secureWipe: ptr/size 명시 가드(H-1); u16_vec wipe: cap·data 검증
 //  BUG-26 [CRIT] STM32 빌드 가드 → 프로젝트 표준 4종 매크로
 //         · 기존: __arm__ 단독 → ARMCC(Keil)/IAR 누락
 //         · 수정: __arm__ + __TARGET_ARCH_ARM + __TARGET_ARCH_THUMB + __ARM_ARCH
@@ -49,32 +54,38 @@
 // [BUG-15] AnchorEncoder/Decoder = ProtectedEngine 안
 #include "AnchorEncoder.h"
 #include "AnchorDecoder.h"
+#include "HTS_Secure_Memory.h"
 
 #include <algorithm>
-#include <atomic>
 #include <cstddef>
 #include <cstdint>
-#include <cstring>
 #include <new>
 #include <vector>
 
 namespace ProtectedEngine {
 
-    // =====================================================================
-    //  [BUG-16] 보안 메모리 소거 (volatile + asm clobber + seq_cst)
-    //  pragma O0 삭제 → asm clobber로 DSE 차단 (프로젝트 표준 통일)
-    // =====================================================================
-    static void Secure_Wipe_Tensor(void* ptr, size_t size) noexcept {
-        if (ptr == nullptr || size == 0u) { return; }
-        volatile unsigned char* p =
-            static_cast<volatile unsigned char*>(ptr);
-        for (size_t i = 0u; i < size; ++i) { p[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
-#endif
-        // [BUG-21] seq_cst → release (소거 배리어 정책 통일)
-        std::atomic_thread_fence(std::memory_order_release);
-    }
+    namespace {
+
+        /// @brief size_t 곱 오버플로 없이 a*b — [BUG-40] 평탄 배열 기대 크기
+        static bool size_mul_ok(size_t a, size_t b, size_t* out) noexcept {
+            if (out == nullptr) { return false; }
+            if (a == 0u || b == 0u) { *out = 0u; return true; }
+            if (a > SIZE_MAX / b) { return false; }
+            *out = a * b;
+            return true;
+        }
+
+        static void secure_wipe_u16_vec(std::vector<uint16_t>& v) noexcept {
+            const size_t cap = v.capacity();
+            if (cap == 0u) { return; }
+            uint16_t* p = v.data();
+            if (p == nullptr) { return; }
+            SecureMemory::secureWipe(
+                static_cast<void*>(p), cap * sizeof(uint16_t));
+        }
+    } // namespace
+
+    // [BUG-39] 보안 소거 — SecureMemory::secureWipe 단일화 (D-2)
 
     // [BUG-14] RAII 보안 소거
     struct RAII_Secure_Wiper_Tensor {
@@ -84,7 +95,9 @@ namespace ProtectedEngine {
             : ptr(p), size(s) {
         }
         ~RAII_Secure_Wiper_Tensor() noexcept {
-            Secure_Wipe_Tensor(ptr, size);
+            if (ptr != nullptr && size != 0u) {
+                SecureMemory::secureWipe(static_cast<void*>(ptr), size);
+            }
         }
         void update(void* p, size_t s) noexcept { ptr = p; size = s; }
         RAII_Secure_Wiper_Tensor(const RAII_Secure_Wiper_Tensor&) = delete;
@@ -97,23 +110,11 @@ namespace ProtectedEngine {
     //  TensorPacket 소멸자 [BUG-01]
     // =====================================================================
     TensorPacket::~TensorPacket() noexcept {
-        if (!tensor_data.empty()) {
-            Secure_Wipe_Tensor(tensor_data.data(),
-                tensor_data.size() * sizeof(uint16_t));
-        }
-        // [BUG-23] D-2: 앵커 평탄 버퍼 3개 힙 잔상 소거
-        if (!row_anchors_flat.empty()) {
-            Secure_Wipe_Tensor(row_anchors_flat.data(),
-                row_anchors_flat.size() * sizeof(uint16_t));
-        }
-        if (!col_anchors_flat.empty()) {
-            Secure_Wipe_Tensor(col_anchors_flat.data(),
-                col_anchors_flat.size() * sizeof(uint16_t));
-        }
-        if (!depth_anchors_flat.empty()) {
-            Secure_Wipe_Tensor(depth_anchors_flat.data(),
-                depth_anchors_flat.size() * sizeof(uint16_t));
-        }
+        // [BUG-40] 할당 블록 전체(capacity) 소거 — size만 지우면 잉여 capacity에 잔상
+        secure_wipe_u16_vec(tensor_data);
+        secure_wipe_u16_vec(row_anchors_flat);
+        secure_wipe_u16_vec(col_anchors_flat);
+        secure_wipe_u16_vec(depth_anchors_flat);
     }
 
     // =====================================================================
@@ -239,12 +240,14 @@ namespace ProtectedEngine {
         static_assert(sizeof(Impl) <= IMPL_BUF_SIZE,
             "Impl이 IMPL_BUF_SIZE(2048B)를 초과합니다 — 버퍼 크기를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
-            "Impl 정렬 요구가 impl_buf_ alignas(8)을 초과합니다");
-        return impl_valid_ ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+            "Impl 정렬 요구가 impl_buf_(IMPL_BUF_ALIGN)을 초과합니다");
+        return impl_valid_.load(std::memory_order_acquire)
+            ? reinterpret_cast<Impl*>(impl_buf_)
+            : nullptr;
     }
 
     const TensorCodec::Impl* TensorCodec::get_impl() const noexcept {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_)
             : nullptr;
     }
@@ -261,10 +264,10 @@ namespace ProtectedEngine {
     //    PC: std::terminate → 스택 트레이스로 원인 즉시 진단 가능
     //  기존 make_unique + try-catch도 실질적으로 동일 효과였습니다.
     // =====================================================================
-    TensorCodec::TensorCodec() noexcept : impl_valid_(false) {
-        Secure_Wipe_Tensor(impl_buf_, sizeof(impl_buf_));
+    TensorCodec::TensorCodec() noexcept {
+        SecureMemory::secureWipe(static_cast<void*>(impl_buf_), sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl();
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     // =====================================================================
@@ -272,9 +275,9 @@ namespace ProtectedEngine {
     // =====================================================================
     TensorCodec::~TensorCodec() noexcept {
         Impl* p = get_impl();
+        impl_valid_.store(false, std::memory_order_release);
         if (p != nullptr) { p->~Impl(); }
-        Secure_Wipe_Tensor(impl_buf_, sizeof(impl_buf_));
-        impl_valid_ = false;
+        SecureMemory::secureWipe(static_cast<void*>(impl_buf_), sizeof(impl_buf_));
     }
 
     // =====================================================================
@@ -358,9 +361,9 @@ namespace ProtectedEngine {
             if (i == 0u) { anc = std::move(first_anchor); }
             else { anc = impl.encoder.encode(temp_line); }
 
-            // [BUG-22] D-2: 패리티 벡터 힙 잔상 소거
+            // [BUG-22/40] D-2: 패리티 벡터 힙 잔상 — capacity 전체
             RAII_Secure_Wiper_Tensor wipe_anc(
-                anc.data(), anc.size() * sizeof(uint16_t));
+                anc.data(), anc.capacity() * sizeof(uint16_t));
 
             const size_t off = i * pkt.row_anchor_len;
             const size_t cplen = std::min(anc.size(), pkt.row_anchor_len);
@@ -380,9 +383,9 @@ namespace ProtectedEngine {
             if (i == 0u) { anc = std::move(first_col_anc); }
             else { anc = impl.encoder.encode(temp_line); }
 
-            // [BUG-22] D-2: 패리티 벡터 힙 잔상 소거
+            // [BUG-22/40] D-2: 패리티 벡터 힙 잔상 — capacity 전체
             RAII_Secure_Wiper_Tensor wipe_anc(
-                anc.data(), anc.size() * sizeof(uint16_t));
+                anc.data(), anc.capacity() * sizeof(uint16_t));
 
             const size_t off = i * pkt.col_anchor_len;
             const size_t cplen = std::min(anc.size(), pkt.col_anchor_len);
@@ -402,9 +405,9 @@ namespace ProtectedEngine {
             if (i == 0u) { anc = std::move(first_dep_anc); }
             else { anc = impl.encoder.encode(temp_line); }
 
-            // [BUG-22] D-2: 패리티 벡터 힙 잔상 소거
+            // [BUG-22/40] D-2: 패리티 벡터 힙 잔상 — capacity 전체
             RAII_Secure_Wiper_Tensor wipe_anc(
-                anc.data(), anc.size() * sizeof(uint16_t));
+                anc.data(), anc.capacity() * sizeof(uint16_t));
 
             const size_t off = i * pkt.depth_anchor_len;
             const size_t cplen = std::min(anc.size(), pkt.depth_anchor_len);
@@ -428,7 +431,27 @@ namespace ProtectedEngine {
         if (p == nullptr) { return; }
         // [BUG-17] 기형 패킷 방어: 텐서 크기 불일치 → 즉시 탈출
         if (pkt.tensor_data.size() != ROWS * COLS * DEPTH) { return; }
+        int turbo_iters = turbo_iterations;
+        if (turbo_iters < 0) { turbo_iters = 0; }
         auto& impl = *p;
+
+        // [BUG-40] 수신 메타 vs 평탄 벡터 무결성 — 불일치·오버플로 시 즉시 반환
+        // (거짓 depth/col/row_anchor_len → max_anc_len 폭주 → bad_alloc/DoS 차단)
+        {
+            size_t expected = 0u;
+            if (!size_mul_ok(pkt.row_anchor_count, pkt.row_anchor_len, &expected)
+                || expected != pkt.row_anchors_flat.size()) {
+                return;
+            }
+            if (!size_mul_ok(pkt.col_anchor_count, pkt.col_anchor_len, &expected)
+                || expected != pkt.col_anchors_flat.size()) {
+                return;
+            }
+            if (!size_mul_ok(pkt.depth_anchor_count, pkt.depth_anchor_len, &expected)
+                || expected != pkt.depth_anchors_flat.size()) {
+                return;
+            }
+        }
 
         // [BUG-21] try-catch 삭제 (-fno-exceptions)
         std::vector<uint16_t> temp_line;
@@ -458,7 +481,7 @@ namespace ProtectedEngine {
         bool avalanche_triggered = true;
 
         for (int iter = 0;
-            iter < turbo_iterations && avalanche_triggered; ++iter) {
+            iter < turbo_iters && avalanche_triggered; ++iter) {
             avalanche_triggered = false;
 
             // ── [단계 1] Z축 (Depth) 3D 스파이럴 ─────────────────
@@ -489,7 +512,7 @@ namespace ProtectedEngine {
 
                     // [PENDING-1] decode_inplace: fixed_buf capacity 재사용
                     if (impl.decoder.decode_inplace(
-                        temp_line, anc_slice, fixed_buf)) {
+                        temp_line, anc_slice, fixed_buf) == ProtectedEngine::AnchorDecoder::SECURE_TRUE) {
                         if (Impl::insertDepthFast(
                             pkt.tensor_data, r, c, fixed_buf)) {
                             avalanche_triggered = true;
@@ -523,7 +546,7 @@ namespace ProtectedEngine {
                             off + pkt.col_anchor_len));
 
                     if (impl.decoder.decode_inplace(
-                        temp_line, anc_slice, fixed_buf)) {
+                        temp_line, anc_slice, fixed_buf) == ProtectedEngine::AnchorDecoder::SECURE_TRUE) {
                         if (Impl::insertColFast(
                             pkt.tensor_data, d, c, fixed_buf)) {
                             avalanche_triggered = true;
@@ -557,7 +580,7 @@ namespace ProtectedEngine {
                             off + pkt.row_anchor_len));
 
                     if (impl.decoder.decode_inplace(
-                        temp_line, anc_slice, fixed_buf)) {
+                        temp_line, anc_slice, fixed_buf) == ProtectedEngine::AnchorDecoder::SECURE_TRUE) {
                         if (Impl::insertRowFast(
                             pkt.tensor_data, d, r, fixed_buf)) {
                             avalanche_triggered = true;
@@ -567,15 +590,9 @@ namespace ProtectedEngine {
             }
         } // for iter
 
-        // [BUG-24] 사전 할당 버퍼 보안 소거
-        if (!anc_slice.empty()) {
-            Secure_Wipe_Tensor(anc_slice.data(),
-                anc_slice.size() * sizeof(uint16_t));
-        }
-        if (!fixed_buf.empty()) {
-            Secure_Wipe_Tensor(fixed_buf.data(),
-                fixed_buf.size() * sizeof(uint16_t));
-        }
+        // [BUG-24/40] 사전 할당 버퍼 보안 소거 — capacity 전체 (마지막 assign 길이 ≠ 힙 블록)
+        secure_wipe_u16_vec(anc_slice);
+        secure_wipe_u16_vec(fixed_buf);
         // wipe_temp 소멸자: temp_line 자동 보안 소거
     }
 
@@ -591,7 +608,9 @@ namespace ProtectedEngine {
         int residual_errors, int loops_used) noexcept {
         Impl* p = get_impl();
         if (p != nullptr) {
-            p->anchorManager.autoScaleRatio(residual_errors, loops_used);
+            const int re = (residual_errors < 0) ? 0 : residual_errors;
+            const int lu = (loops_used < 0) ? 0 : loops_used;
+            p->anchorManager.autoScaleRatio(re, lu);
         }
     }
 

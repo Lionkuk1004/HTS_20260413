@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup>
     <Filter Include="소스 파일">
@@ -392,6 +392,9 @@
     <ClInclude Include="..\..\CORE\HTS_Universal_API.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="..\..\CORE\HTS_Universal_API.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="..\..\CORE\BB1_Core_Engine.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -402,6 +405,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="..\..\CORE\HTS_Universal_Adapter.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\CORE\HTS_Universal_Adapter.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Secure_Memory_Manager.hpp">
@@ -470,6 +476,9 @@
     <ClInclude Include="HTS_Unified_Scheduler.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_Unified_Scheduler.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Hardware_Init.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -477,6 +486,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_MAC_RateController.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="TensorCodec.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="TensorCodec.hpp">
@@ -489,6 +501,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Tx_Scheduler.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Tx_Scheduler.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Rx_Matched_Filter.h">
@@ -566,6 +581,9 @@
     <ClInclude Include="HTS_ARIA_Bridge.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_ARIA_Bridge.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="common.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -581,6 +599,9 @@
     <ClInclude Include="HTS_HMAC_Bridge.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_HMAC_Bridge.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Security_Session.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -590,6 +611,9 @@
     <ClInclude Include="HTS_FEC_HARQ.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_V400_Dispatcher.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_V400_Dispatcher.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -597,6 +621,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Holo_Tensor_Engine.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS64_Native_ECCM_Core.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS64_Native_ECCM_Core.hpp">
@@ -728,7 +755,13 @@
     <ClInclude Include="HTS_TRNG_Collector.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_TRNG_Collector.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Tamper_HAL.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Tamper_HAL.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Key_Provisioning.h">

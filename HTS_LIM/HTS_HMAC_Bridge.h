@@ -13,6 +13,7 @@
 //  2. Secure_Zero/CT_Eq: pragma O0 보호 추가 (보안 소거/상수시간 표준)
 //  3. 함수명 SZ → Secure_Zero_HMAC (가독성)
 //  4. 문서화 보강 (RFC 2104, KCMVP 인증 범위)
+//  5. BUG-44 [CRIT] 키/스택 소거 → HTS_Secure_Memory::secureWipe (D-2/X-5-1)
 // =========================================================================
 #pragma once
 
@@ -50,6 +51,12 @@ namespace ProtectedEngine {
 
     class HMAC_Bridge {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
+        /// @note 성공/실패 모두 비영 — if(Generate)/if(Verify) 불가.
+        ///       `r == SECURE_TRUE` 로만 성공 판정 (호출 계약)
+
         HMAC_Bridge() = delete;
         HMAC_Bridge(const HMAC_Bridge&) = delete;
         HMAC_Bridge& operator=(const HMAC_Bridge&) = delete;
@@ -58,36 +65,36 @@ namespace ProtectedEngine {
         //  Init → Update(반복) → Final 또는 Verify_Final
 
         // 키 설정 + 내부 해시 시작 (i_key_pad 주입)
-        [[nodiscard]] static bool Init(
+        [[nodiscard]] static uint32_t Init(
             HMAC_Context& ctx,
             const uint8_t* key,
             size_t         key_len) noexcept;
 
         // 메시지 청크 누적 (64바이트 정렬 자동 처리)
-        [[nodiscard]] static bool Update(
+        [[nodiscard]] static uint32_t Update(
             HMAC_Context& ctx,
             const uint8_t* data,
             size_t         data_len) noexcept;
 
         // HMAC 생성 + 컨텍스트 보안 소거
-        [[nodiscard]] static bool Final(
+        [[nodiscard]] static uint32_t Final(
             HMAC_Context& ctx,
             uint8_t* output_hmac_32bytes) noexcept;
 
         // HMAC 검증 (상수시간 비교) + 컨텍스트 보안 소거
-        [[nodiscard]] static bool Verify_Final(
+        [[nodiscard]] static uint32_t Verify_Final(
             HMAC_Context& ctx,
             const uint8_t* received_hmac_32bytes) noexcept;
 
         // ── 단일 호출 API (하위 호환) ─────────────────────────────────
         //  내부적으로 Init → Update → Final/Verify_Final 순차 호출
 
-        [[nodiscard]] static bool Generate(
+        [[nodiscard]] static uint32_t Generate(
             const uint8_t* message, size_t msg_len,
             const uint8_t* key, size_t key_len,
             uint8_t* output_hmac_32bytes) noexcept;
 
-        [[nodiscard]] static bool Verify(
+        [[nodiscard]] static uint32_t Verify(
             const uint8_t* message, size_t msg_len,
             const uint8_t* key, size_t key_len,
             const uint8_t* received_hmac_32bytes) noexcept;

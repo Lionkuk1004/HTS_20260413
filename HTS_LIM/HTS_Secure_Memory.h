@@ -25,6 +25,8 @@
 //               iostream 가드, mutex 가드
 //   세션8 06~10: vector 제거(ARM 힙 방지), static_assert,
 //                Doxygen, 인스턴스화 차단, SecureVector 폐기
+//   BUG-41 Force_Secure_Wipe: GCC/Clang memory clobber + MSVC _ReadWriteBarrier
+//          (D-2 / X-5-1 — 호스트·타겟 동일 3중 방어, HTS_Secure_Memory.cpp)
 //
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
@@ -54,7 +56,7 @@ namespace ProtectedEngine {
         /// @brief 안티포렌식 데이터 파쇄 + 잠금 해제
         /// @param ptr   대상 메모리
         /// @param size  바이트 수
-        /// @note  volatile 0x00 + asm clobber + release fence → DCE 차단
+        /// @note  volatile 0x00 + 컴파일러 전체 배리어 + release fence (BUG-41, D-2/X-5-1)
         static void secureWipe(void* ptr, size_t size) noexcept;
 
         // [BUG-07] 정적 전용 — 인스턴스화 차단 (6종)

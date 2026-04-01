@@ -118,6 +118,20 @@ namespace ProtectedEngine {
         ser_u16(dst, static_cast<uint16_t>(v));
     }
 
+    // 스택 임시 패킷 제거: 수명 보장 정적 슬롯 풀
+    // SOS 큐 깊이(4)에 맞춰 슬롯 4개를 순환 사용
+    static constexpr size_t BEACON_PKT_SLOT_COUNT = 4u;
+    static constexpr uint8_t BEACON_PKT_SLOT_MASK = 3u; // 4 - 1
+    alignas(uint32_t) static uint8_t g_beacon_pkt_pool[BEACON_PKT_SLOT_COUNT]
+                                                     [HTS_Emergency_Beacon::BEACON_SIZE] = {};
+    static uint8_t g_beacon_pkt_slot = 0u;
+
+    static uint8_t* acquire_beacon_pkt_slot() noexcept {
+        uint8_t* const pkt = g_beacon_pkt_pool[g_beacon_pkt_slot];
+        g_beacon_pkt_slot = static_cast<uint8_t>((g_beacon_pkt_slot + 1u) & BEACON_PKT_SLOT_MASK);
+        return pkt;
+    }
+
     // =====================================================================
     //  Pimpl 구현 구조체
     // =====================================================================
@@ -156,14 +170,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(256B)를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 alignas를 초과합니다");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Emergency_Beacon::Impl*
         HTS_Emergency_Beacon::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -175,14 +189,16 @@ namespace ProtectedEngine {
     {
         Beacon_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(device_id);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Emergency_Beacon::~HTS_Emergency_Beacon() noexcept {
-        Impl* p = get_impl();
+        impl_valid_.store(false, std::memory_order_release);
+        const uint32_t pm = bcn_critical_enter();
+        Impl* p = reinterpret_cast<Impl*>(impl_buf_);
         if (p != nullptr) { p->~Impl(); }
         Beacon_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
+        bcn_critical_exit(pm);
     }
 
     // =====================================================================
@@ -242,12 +258,20 @@ namespace ProtectedEngine {
 
     uint16_t HTS_Emergency_Beacon::Get_Flags() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) ? p->alert_flags : 0u;
+        if (p == nullptr) { return 0u; }
+        const uint32_t pm = bcn_critical_enter();
+        const uint16_t v = p->alert_flags;
+        bcn_critical_exit(pm);
+        return v;
     }
 
-    bool HTS_Emergency_Beacon::Is_Active() const noexcept {
+    uint32_t HTS_Emergency_Beacon::Is_Active() const noexcept {
         const Impl* p = get_impl();
-        return (p != nullptr) && p->active;
+        if (p == nullptr) { return SECURE_FALSE; }
+        const uint32_t pm = bcn_critical_enter();
+        const bool v = p->active;
+        bcn_critical_exit(pm);
+        return v ? SECURE_TRUE : SECURE_FALSE;
     }
 
     // =====================================================================
@@ -291,7 +315,7 @@ namespace ProtectedEngine {
         }
 
         // 비콘 패킷 조립 (크리티컬 내부 — 플래그/좌표 일관성)
-        uint8_t pkt[BEACON_SIZE] = {};
+        uint8_t* const pkt = acquire_beacon_pkt_slot();
         p->build_packet(pkt);
 
         // [BUG-FIX CRIT] Tick() last_tx_ms Jitter 수정
@@ -328,9 +352,6 @@ namespace ProtectedEngine {
             pkt, BEACON_SIZE,
             systick_ms);
         (void)enq;  // P0 큐 풀 시 드롭 허용 (다음 500ms에 재시도)
-
-        // 패킷 소거 (크리티컬 밖)
-        Beacon_Secure_Wipe(pkt, sizeof(pkt));
     }
 
     // =====================================================================

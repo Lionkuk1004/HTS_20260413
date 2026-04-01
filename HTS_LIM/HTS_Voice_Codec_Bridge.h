@@ -5,9 +5,14 @@
 ///   [양산 수정]
 ///   VCB-1 [CRIT] PLC: 패킷 손실 시 Comfort Noise 프레임 주입
 ///   VCB-2 [CRIT] 시퀀스 검증: 역전/중복 패킷 드롭
-///   VCB-3 [HIGH] Shutdown impl_buf_ 전체 보안 소거
+///   VCB-3 [HIGH] Shutdown: impl_buf_ 전체 SecureMemory::secureWipe (D-2)
 ///   VCB-4 [MED]  생성자 memset 표준 통일
 ///   VCB-5 [MED]  alignas(8) Pimpl 표준 통일
+///   VCB-6 [CRIT] PLC 연속손실 카운터 uint8 포화(255 랩 방지)
+///   VCB-7 [HIGH] TX/RX 더블버퍼 오버런 방어 — ready 선검사(acquire) 후 미소비 시 드롭
+///   VCB-8 [CRIT] PLC last_rx_frame·plc — Consume 전용 갱신 (생산자와 분리)
+///   VCB-9 [HIGH] TX/RX/drop 통계 std::atomic<uint32_t>
+///   VCB-10 [CRIT] Shutdown: SecureMemory::secureWipe(impl_buf_) — D-2/X-5-1 (BUG-41/42 정합)
 ///   - 패딩 제거 + ASIC ROM 합성 최적화
 ///
 /// @author 임영준 (Lim Young-jun)

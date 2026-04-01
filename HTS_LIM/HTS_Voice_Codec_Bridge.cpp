@@ -15,6 +15,10 @@
 ///  VCB-3 [HIGH] Shutdown impl_buf_ 전체 보안 소거
 ///  VCB-4 [MED]  생성자 for→memset
 ///  VCB-5 [MED]  alignas(8) (헤더에서 처리)
+///  VCB-6 [CRIT] PLC 연속손실 카운터 uint8 포화(255 랩 → 반복/무음 분기 오염 방지)
+///  VCB-7 [HIGH] TX/RX 더블버퍼 오버런 방어 — tx/rx_frame_ready acquire 선검사 후 드롭
+///  VCB-8 [CRIT] PLC 사본·plc_consecutive_loss 갱신은 Consume_RX_Frame 전용(Unpack 레이스 제거)
+///  VCB-9 [HIGH] tx/rx/drop 통계 카운터 std::atomic<uint32_t> (relaxed)
 ///  - 패딩 제거 + ASIC ROM 합성 최적화
 ///
 /// @author Lim Young-jun
@@ -22,25 +26,12 @@
 
 #include "HTS_Voice_Codec_Bridge.h"
 #include "HTS_IPC_Protocol.h"
+#include "HTS_Secure_Memory.h"
 #include <new>
 #include <atomic>
 #include <cstring>
 
 namespace ProtectedEngine {
-
-    // ============================================================
-    //  보안 메모리 소거 (프로젝트 표준)
-    // ============================================================
-    static void Voice_Secure_Wipe(void* ptr, size_t size) noexcept {
-        if (ptr == nullptr || size == 0u) { return; }
-        volatile unsigned char* p =
-            static_cast<volatile unsigned char*>(ptr);
-        for (size_t i = 0u; i < size; ++i) { p[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
 
     // ============================================================
     //  Endian Helpers
@@ -79,8 +70,8 @@ namespace ProtectedEngine {
         uint8_t    cfi_violation_count;
         uint8_t    tx_seq;
         uint8_t    pad_;
-        uint32_t tx_frame_count;
-        uint32_t rx_frame_count;
+        std::atomic<uint32_t> tx_frame_count;
+        std::atomic<uint32_t> rx_frame_count;
         uint32_t current_tick;
 
         // --- TX Double Buffer ---
@@ -97,7 +88,7 @@ namespace ProtectedEngine {
 
         // --- [VCB-2] 시퀀스 검증 ---
         uint8_t  expected_rx_seq;       ///< 다음 기대 시퀀스 번호
-        uint32_t rx_seq_drop_count;     ///< 드롭된 역전 패킷 수 (통계)
+        std::atomic<uint32_t> rx_seq_drop_count; ///< 드롭된 역전 패킷 수 (통계)
 
         // --- [VCB-1] PLC 상태 ---
         uint8_t  plc_consecutive_loss;  ///< 연속 프레임 손실 카운터
@@ -173,7 +164,7 @@ namespace ProtectedEngine {
 
             ipc->Send_Frame(IPC_Command::DATA_TX,
                 pkt_buf, static_cast<uint16_t>(pos));
-            tx_frame_count++;
+            tx_frame_count.fetch_add(1u, std::memory_order_relaxed);
         }
 
         // ============================================================
@@ -181,7 +172,7 @@ namespace ProtectedEngine {
         //
         //  기존: pkt_seq 주석 처리 → 도착 순서 무조건 수용
         //  수정: 시퀀스 반원 비교 → 역전 패킷 드롭
-        //        정상 수신 시 PLC 카운터 리셋 + 직전 프레임 사본 저장
+        //  [VCB-8] PLC 사본/카운터는 Consume_RX_Frame에서만 갱신 (생산자·소비자 분리)
         // ============================================================
         void Unpack_RX(const uint8_t* payload, uint16_t len) noexcept {
             if (payload == nullptr) { return; }
@@ -213,16 +204,23 @@ namespace ProtectedEngine {
             //  반원 비교: pkt_seq가 expected_rx_seq보다 미래이거나 같으면 수용
             //  과거(역전) 패킷 → 드롭 (중복/지연 재전송)
             //  첫 패킷(expected_rx_seq==0, 초기) 시에는 무조건 수용
-            if (expected_rx_seq != 0u || rx_frame_count != 0u) {
+            if (expected_rx_seq != 0u ||
+                rx_frame_count.load(std::memory_order_relaxed) != 0u) {
                 if (pkt_seq != expected_rx_seq) {
                     if (!Seq_Is_Newer(pkt_seq, expected_rx_seq)) {
-                        rx_seq_drop_count++;
+                        rx_seq_drop_count.fetch_add(
+                            1u, std::memory_order_relaxed);
                         return;
                     }
                 }
             }
             expected_rx_seq = static_cast<uint8_t>(
                 (static_cast<uint32_t>(pkt_seq) + 1u) & 0xFFu);
+
+            // ── [VCB-7] RX 오버런 방어: 소비자가 아직 프레임을 안 가져갔으면 드롭 ──
+            if (rx_frame_ready.load(std::memory_order_acquire)) {
+                return;
+            }
 
             // ── RX 더블 버퍼 기록 ─────────────────────────────
             const uint8_t r_idx = rx_read_idx.load(std::memory_order_acquire);
@@ -235,14 +233,7 @@ namespace ProtectedEngine {
 
             rx_read_idx.store(w_idx, std::memory_order_release);
             rx_frame_ready.store(true, std::memory_order_release);
-            rx_frame_count++;
-
-            // ── [VCB-1] PLC: 정상 프레임 사본 저장 + 카운터 리셋 ─
-            for (uint8_t i = 0u; i < pkt_frame_len; ++i) {
-                last_rx_frame[i] = payload[VOICE_PKT_HEADER_SIZE + i];
-            }
-            last_rx_frame_len = pkt_frame_len;
-            plc_consecutive_loss = 0u;
+            rx_frame_count.fetch_add(1u, std::memory_order_relaxed);
         }
     };
 
@@ -288,8 +279,8 @@ namespace ProtectedEngine {
         impl->state = VoiceState::OFFLINE;
         impl->cfi_violation_count = 0u;
         impl->tx_seq = 0u;
-        impl->tx_frame_count = 0u;
-        impl->rx_frame_count = 0u;
+        impl->tx_frame_count.store(0u, std::memory_order_relaxed);
+        impl->rx_frame_count.store(0u, std::memory_order_relaxed);
         impl->current_tick = 0u;
 
         impl->tx_write_idx.store(0u, std::memory_order_relaxed);
@@ -304,7 +295,7 @@ namespace ProtectedEngine {
 
         // [VCB-2] 시퀀스 초기화
         impl->expected_rx_seq = 0u;
-        impl->rx_seq_drop_count = 0u;
+        impl->rx_seq_drop_count.store(0u, std::memory_order_relaxed);
 
         // [VCB-1] PLC 초기화
         impl->plc_consecutive_loss = 0u;
@@ -322,7 +313,7 @@ namespace ProtectedEngine {
         impl->state = VoiceState::OFFLINE;
         impl->ipc = nullptr;
         impl->~Impl();
-        Voice_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
+        SecureMemory::secureWipe(static_cast<void*>(impl_buf_), IMPL_BUF_SIZE);
         initialized_.store(false, std::memory_order_release);
     }
 
@@ -361,6 +352,11 @@ namespace ProtectedEngine {
         if (!initialized_.load(std::memory_order_relaxed)) { return false; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         if (frame_len == 0u || frame_len > impl->profile.frame_bytes) {
+            return false;
+        }
+
+        // ── [VCB-7] TX 오버런 방어: Pack이 이전 프레임을 아직 전송 안 했으면 드롭 ──
+        if (impl->tx_frame_ready.load(std::memory_order_acquire)) {
             return false;
         }
 
@@ -416,7 +412,7 @@ namespace ProtectedEngine {
     // ============================================================
     //  [VCB-1] Consume_RX_Frame — PLC(Packet Loss Concealment) 통합
     //
-    //  정상 수신: 프레임 복사 + PLC 카운터 리셋 → return true
+    //  정상 수신: 더블버퍼 복사 → last_rx_frame·plc 리셋(소비자 전용) → return true
     //  손실 감지 (rx_frame_ready==false):
     //   ① plc_consecutive_loss < PLC_MAX_CONSECUTIVE_LOSS:
     //      직전 프레임(last_rx_frame) 반복 주입 → return true
@@ -432,6 +428,7 @@ namespace ProtectedEngine {
     {
         out_len = 0u;
         if (out_frame == nullptr) { return false; }
+        if (out_buf_size == 0u) { return false; }
         if (!initialized_.load(std::memory_order_relaxed)) { return false; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
 
@@ -448,7 +445,11 @@ namespace ProtectedEngine {
                 out_frame[i] = impl->rx_buf[r_idx][i];
             }
             out_len = flen;
-            // PLC 카운터 리셋 (Unpack_RX에서도 리셋하지만 이중 방어)
+            // ── [VCB-8] PLC 스냅샷 — 소비자만 last_rx_frame / plc 갱신 (Unpack과 레이스 없음)
+            for (uint8_t i = 0u; i < flen; ++i) {
+                impl->last_rx_frame[i] = impl->rx_buf[r_idx][i];
+            }
+            impl->last_rx_frame_len = flen;
             impl->plc_consecutive_loss = 0u;
             return true;
         }
@@ -464,7 +465,10 @@ namespace ProtectedEngine {
         // 출력 버퍼 크기 검사
         if (impl->last_rx_frame_len > out_buf_size) { return false; }
 
-        impl->plc_consecutive_loss++;
+        // ── [VCB-6] PLC 카운터 포화 — uint8_t 랩 시 무음 구간에서 반복 프레임으로 오인 ──
+        if (impl->plc_consecutive_loss < 0xFFu) {
+            impl->plc_consecutive_loss++;
+        }
         const uint8_t plc_len = impl->last_rx_frame_len;
 
         if (impl->plc_consecutive_loss <= PLC_MAX_CONSECUTIVE_LOSS) {
@@ -549,12 +553,14 @@ namespace ProtectedEngine {
 
     uint32_t HTS_Voice_Codec_Bridge::Get_TX_Frame_Count() const noexcept {
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
-        return reinterpret_cast<const Impl*>(impl_buf_)->tx_frame_count;
+        return reinterpret_cast<const Impl*>(impl_buf_)->tx_frame_count.load(
+            std::memory_order_relaxed);
     }
 
     uint32_t HTS_Voice_Codec_Bridge::Get_RX_Frame_Count() const noexcept {
         if (!initialized_.load(std::memory_order_acquire)) { return 0u; }
-        return reinterpret_cast<const Impl*>(impl_buf_)->rx_frame_count;
+        return reinterpret_cast<const Impl*>(impl_buf_)->rx_frame_count.load(
+            std::memory_order_relaxed);
     }
 
 } // namespace ProtectedEngine

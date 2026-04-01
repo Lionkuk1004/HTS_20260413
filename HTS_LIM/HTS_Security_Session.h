@@ -41,6 +41,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -118,7 +119,7 @@ namespace ProtectedEngine {
         static constexpr size_t IMPL_BUF_SIZE = 4096u;
         struct Impl;  // 전방 선언 (cpp에서만 정의)
         alignas(8) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;  // placement new 성공 여부
+        std::atomic<bool> impl_valid_{ false };  // placement new 성공 여부
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

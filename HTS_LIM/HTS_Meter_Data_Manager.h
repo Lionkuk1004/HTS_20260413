@@ -18,8 +18,17 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
+// ARM Cortex-M (STM32) 전용 모듈: 비대상 플랫폼 빌드 차단
+// Visual Studio Windows 정적 라이브러리(HTS_LIM.vcxproj)는 _WIN32 로 호스트 단위검증 빌드 허용.
+#if (((!defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
+      !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)) || \
+     defined(__aarch64__)) && !defined(_WIN32))
+#error "[HTS_FATAL] HTS_Meter_Data_Manager는 STM32 전용입니다. A55/서버 빌드에서 제외하십시오."
+#endif
+
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -91,7 +100,7 @@ namespace ProtectedEngine {
         static constexpr size_t IMPL_BUF_ALIGN = 8u;
         struct Impl;
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;
     };

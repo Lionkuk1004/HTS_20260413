@@ -26,6 +26,16 @@
 static_assert(sizeof(int32_t) == 4, "int32_t must be 4 bytes");
 
 namespace ProtectedEngine {
+    static constexpr uint8_t LOC_PKT_SLOT_COUNT = 4u;
+    static constexpr uint8_t LOC_PKT_SLOT_MASK = 3u;
+    alignas(uint32_t) static uint8_t g_loc_pkt_pool[LOC_PKT_SLOT_COUNT][HTS_Location_Engine::POS_REPORT_SIZE] = {};
+    static uint8_t g_loc_pkt_slot = 0u;
+
+    static uint8_t* acquire_loc_pkt_slot() noexcept {
+        uint8_t* const pkt = g_loc_pkt_pool[g_loc_pkt_slot];
+        g_loc_pkt_slot = static_cast<uint8_t>((g_loc_pkt_slot + 1u) & LOC_PKT_SLOT_MASK);
+        return pkt;
+    }
 
     // =====================================================================
     //  보안 소거 / PRIMASK
@@ -35,7 +45,7 @@ namespace ProtectedEngine {
         volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
@@ -258,7 +268,7 @@ namespace ProtectedEngine {
             e.action = action;
             e.mode = static_cast<uint8_t>(tracking_mode);
             audit_head = static_cast<uint8_t>(
-                (audit_head + 1u) % 8u);
+                (audit_head + 1u) & 7u);
             if (audit_count < 8u) { ++audit_count; }
         }
 
@@ -294,7 +304,7 @@ namespace ProtectedEngine {
             epoch_ring[epoch_head].lat_1e4 = lat;
             epoch_ring[epoch_head].lon_1e4 = lon;
             epoch_head = static_cast<uint8_t>(
-                (epoch_head + 1u) % EPOCH_RING_SIZE);
+                (epoch_head + 1u) & 7u);
             if (epoch_count < EPOCH_RING_SIZE) { ++epoch_count; }
         }
 
@@ -340,14 +350,14 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE(512B)를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 alignas를 초과합니다");
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
     }
 
     const HTS_Location_Engine::Impl*
         HTS_Location_Engine::get_impl() const noexcept
     {
-        return impl_valid_
+        return impl_valid_.load(std::memory_order_acquire)
             ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
     }
 
@@ -360,14 +370,14 @@ namespace ProtectedEngine {
     {
         Loc_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
         ::new (static_cast<void*>(impl_buf_)) Impl(my_id, mode, dev_class);
-        impl_valid_ = true;
+        impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Location_Engine::~HTS_Location_Engine() noexcept {
-        Impl* p = get_impl();
+        impl_valid_.store(false, std::memory_order_release);
+        Impl* p = reinterpret_cast<Impl*>(impl_buf_);
         if (p != nullptr) { p->~Impl(); }
         Loc_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
-        impl_valid_ = false;
     }
 
     // =====================================================================
@@ -987,7 +997,7 @@ namespace ProtectedEngine {
         }
 
         // 패킷 조립 + 전송
-        uint8_t pkt[POS_REPORT_SIZE] = {};
+        uint8_t* const pkt = acquire_loc_pkt_slot();
         ser_u16(&pkt[0], p->my_id);
         ser_i16(&pkt[2], compress_coord(lat, LAT_OFFSET));
         ser_i16(&pkt[4], compress_coord(lon, LON_OFFSET));
@@ -1001,8 +1011,6 @@ namespace ProtectedEngine {
             pkt, POS_REPORT_SIZE,
             systick_ms);
         (void)enq;
-
-        Loc_Secure_Wipe(pkt, sizeof(pkt));
     }
 
     LocationMode HTS_Location_Engine::Get_Mode() const noexcept {

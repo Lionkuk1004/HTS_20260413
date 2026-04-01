@@ -386,10 +386,10 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Is_Provisioned — OTP 매직 확인
     // =====================================================================
-    bool HTS_Key_Provisioning::Is_Provisioned() const noexcept {
+    uint32_t HTS_Key_Provisioning::Is_Provisioned() const noexcept {
         const Impl* p = get_impl();
-        if (p == nullptr) { return false; }
-        return p->provisioned;
+        if (p == nullptr) { return SECURE_FALSE; }
+        return p->provisioned ? SECURE_TRUE : SECURE_FALSE;
     }
 
     // =====================================================================
@@ -466,17 +466,17 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Read_Master_Key — OTP에서 마스터 키 읽기
     // =====================================================================
-    bool HTS_Key_Provisioning::Read_Master_Key(
+    uint32_t HTS_Key_Provisioning::Read_Master_Key(
         uint8_t* out_buf, size_t out_len) const noexcept
     {
         const Impl* p = get_impl();
-        if (p == nullptr || out_buf == nullptr) { return false; }
-        if (out_len < MASTER_KEY_SIZE) { return false; }
-        if (!p->provisioned) { return false; }
-        if (p->key_destroyed) { return false; }
+        if (p == nullptr || out_buf == nullptr) { return SECURE_FALSE; }
+        if (out_len < MASTER_KEY_SIZE) { return SECURE_FALSE; }
+        if (!p->provisioned) { return SECURE_FALSE; }
+        if (p->key_destroyed) { return SECURE_FALSE; }
 
         otp_read_block(OTP_KEY_ADDR, out_buf, MASTER_KEY_SIZE);
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================

@@ -50,6 +50,9 @@ namespace ProtectedEngine {
 
     class AnchorDecoder {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         /// @brief RS 디코더 생성 (GF(2^8) LUT 초기화)
         explicit AnchorDecoder(AnchorManager& anchorManager) noexcept;
 
@@ -75,8 +78,8 @@ namespace ProtectedEngine {
         /// @param brokenData  손상된 데이터
         /// @param anchorData  앵커(패리티 + CRC-32)
         /// @param out         복원 결과 (사전 reserve 권장 — capacity 재사용)
-        /// @return true=복원 성공(out 유효), false=실패(out clear)
-        bool decode_inplace(
+        /// @return SECURE_TRUE=복원 성공(out 유효), SECURE_FALSE=실패(out clear)
+        uint32_t decode_inplace(
             const std::vector<uint16_t>& brokenData,
             const std::vector<uint16_t>& anchorData,
             std::vector<uint16_t>& out) const noexcept;
@@ -87,8 +90,8 @@ namespace ProtectedEngine {
         /// @brief In-place RS 복원 — data를 직접 수정
         /// @param data  brokenData 복사본 (assign으로 전달, 직접 수정됨)
         /// @param parityChunk  패리티 블록
-        /// @return true=복원 성공, false=실패
-        bool restoreBlock_inplace(
+        /// @return SECURE_TRUE=복원 성공, SECURE_FALSE=실패
+        uint32_t restoreBlock_inplace(
             std::vector<uint16_t>& data,
             const std::vector<uint16_t>& parityChunk) const noexcept;
     };

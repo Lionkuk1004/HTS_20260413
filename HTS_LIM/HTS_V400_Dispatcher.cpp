@@ -28,6 +28,7 @@
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_RF_Metrics.h"   // Tick_Adaptive_BPS 용
+#include "HTS_Secure_Memory.h"
 #include <cstring>
 #include <atomic>
 
@@ -63,16 +64,6 @@ namespace ProtectedEngine {
         return static_cast<uint32_t>((x ^ m) - m);
     }
 
-    static void sec_wipe(void* p, size_t n) noexcept {
-        if (!p || !n) return;
-        std::memset(p, 0, n);
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
-#endif
-        // [BUG-48] seq_cst → release (D-2 소거 배리어 정책 통일)
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
     static void fwht_raw(int32_t* d, int n) noexcept {
         for (int len = 1; len < n; len <<= 1)
             for (int i = 0; i < n; i += 2 * len)
@@ -89,6 +80,11 @@ namespace ProtectedEngine {
     HTS_V400_Dispatcher::SymDecResult
         HTS_V400_Dispatcher::walsh_dec_full_(
             const int16_t* I, const int16_t* Q, int n) noexcept {
+        if (I == nullptr || Q == nullptr || n <= 0) {
+            return {
+                static_cast<int8_t>(-1), 0u, 0u
+            };
+        }
         for (int i = 0; i < n; ++i) {
             dec_wI_[i] = I[i]; dec_wQ_[i] = Q[i];
         }
@@ -127,6 +123,12 @@ namespace ProtectedEngine {
     HTS_V400_Dispatcher::SymDecResultSplit
         HTS_V400_Dispatcher::walsh_dec_split_(
             const int16_t* I, const int16_t* Q, int n) noexcept {
+        if (I == nullptr || Q == nullptr || n <= 0) {
+            return {
+                static_cast<int8_t>(-1), static_cast<int8_t>(-1),
+                0u, 0u, 0u, 0u
+            };
+        }
 
         // I 채널 FWHT
         for (int i = 0; i < n; ++i) { dec_wI_[i] = I[i]; }
@@ -246,6 +248,10 @@ namespace ProtectedEngine {
     // =====================================================================
     static void soft_clip_iq(int16_t* I, int16_t* Q, int nc,
         uint32_t* mags, uint32_t* sorted) noexcept {
+        if (I == nullptr || Q == nullptr || mags == nullptr ||
+            sorted == nullptr) {
+            return;
+        }
         if (nc <= 0 || nc > 64) return;
         for (int i = 0; i < nc; ++i) { mags[i] = 0u; sorted[i] = 0u; }
         for (int i = 0; i < nc; ++i) {
@@ -302,6 +308,7 @@ namespace ProtectedEngine {
     static constexpr uint32_t k_BH_SATURATION = 8000u;  // baseline 상한 (ADC 포화 방어)
 
     void HTS_V400_Dispatcher::blackhole_(int16_t* I, int16_t* Q, int nc) noexcept {
+        if (I == nullptr || Q == nullptr || nc <= 0) return;
         if (nc > 64) return;
         // [FIX-STACK] 로컬 배열 제거 → 멤버 scratch 재활용
         for (int i = 0; i < nc; ++i) { scratch_mag_[i] = 0u; scratch_sort_[i] = 0u; }
@@ -340,6 +347,7 @@ namespace ProtectedEngine {
     // =====================================================================
     void HTS_V400_Dispatcher::cw_cancel_64_(int16_t* I, int16_t* Q) noexcept {
         if (!cw_cancel_enabled_) { return; }
+        if (I == nullptr || Q == nullptr) { return; }
 
         // Step 1: 상관 계산 (Q8 기준)
         int32_t corr_I = 0, corr_Q = 0;
@@ -420,12 +428,36 @@ namespace ProtectedEngine {
     }
 
     HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
-        // [FIX-D4] 객체 전체 보안 소거 — 패딩 영역 평문 잔류 방지
-        //  개별 멤버 소거 → 컴파일러 패딩 사각지대 발생
-        //  this 전체 소거로 패딩 포함 100% 보안 소거
-        sec_wipe(this, sizeof(*this));
-        // CCM 영역 별도 소거 (this 범위 밖)
-        sec_wipe(harq_Q_, sizeof(g_harq_Q_ccm));
+        // [FIX-D4/D-2] CCM + 내부 버퍼/시드 개별 소거 (D-2)
+        // [CRIT] sizeof(*this)로 this 전체 secureWipe 금지:
+        //   · 비트리비얼 멤버 ajc_(AntiJamEngine) 스토리지를 암시적 ~ 이전에 파쇄 → UB
+        //   · (가상 함수가 없어도) 하위 객체 수명/소멸 순서 보장 불가
+        // 순서: CCM → full_reset_(HARQ/work 버퍼) → 칩/워킹 스크래치 → 시퀀스/시드
+        //       → 콜백/메트릭 포인터 무효화 → ajc_.Reset (정상 상태로 정리 후 암시적 소멸)
+        SecureMemory::secureWipe(
+            static_cast<void*>(g_harq_Q_ccm), sizeof(g_harq_Q_ccm));
+        full_reset_();
+
+        SecureMemory::secureWipe(static_cast<void*>(buf_I_), sizeof(buf_I_));
+        SecureMemory::secureWipe(static_cast<void*>(buf_Q_), sizeof(buf_Q_));
+        SecureMemory::secureWipe(static_cast<void*>(dec_wI_), sizeof(dec_wI_));
+        SecureMemory::secureWipe(static_cast<void*>(dec_wQ_), sizeof(dec_wQ_));
+        SecureMemory::secureWipe(
+            static_cast<void*>(scratch_mag_), sizeof(scratch_mag_));
+        SecureMemory::secureWipe(
+            static_cast<void*>(scratch_sort_), sizeof(scratch_sort_));
+        SecureMemory::secureWipe(static_cast<void*>(&seed_), sizeof(seed_));
+        SecureMemory::secureWipe(static_cast<void*>(&tx_seq_), sizeof(tx_seq_));
+        SecureMemory::secureWipe(static_cast<void*>(&rx_seq_), sizeof(rx_seq_));
+        SecureMemory::secureWipe(
+            static_cast<void*>(hdr_syms_), sizeof(hdr_syms_));
+
+        on_pkt_ = nullptr;
+        on_ctrl_ = nullptr;
+        p_metrics_ = nullptr;
+
+        ajc_.Reset(16);
+        ajc_last_nc_ = 0;
     }
 
     void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept { seed_ = s; }
@@ -511,13 +543,16 @@ namespace ProtectedEngine {
         pay_recv_ = 0; v1_idx_ = 0;
         sym_idx_ = 0; harq_round_ = 0;
         harq_inited_ = false;
-        std::memset(&rx_, 0, sizeof(rx_));
-        std::memset(v1_rx_, 0, sizeof(v1_rx_));
-        std::memset(orig_I_, 0, sizeof(orig_I_));
-        std::memset(orig_Q_, 0, sizeof(orig_Q_));
-        std::memset(&orig_acc_, 0, sizeof(orig_acc_));
-        std::memset(&wb_, 0, sizeof(wb_));            // [BUG-52] 단일 wb_
-        std::memset(harq_Q_, 0, sizeof(g_harq_Q_ccm));  // [BUG-54] CCM Q채널 초기화
+        SecureMemory::secureWipe(static_cast<void*>(&rx_), sizeof(rx_));
+        SecureMemory::secureWipe(static_cast<void*>(v1_rx_), sizeof(v1_rx_));
+        SecureMemory::secureWipe(static_cast<void*>(orig_I_), sizeof(orig_I_));
+        SecureMemory::secureWipe(static_cast<void*>(orig_Q_), sizeof(orig_Q_));
+        SecureMemory::secureWipe(static_cast<void*>(&orig_acc_), sizeof(orig_acc_));
+        SecureMemory::secureWipe(static_cast<void*>(&wb_), sizeof(wb_));  // [BUG-52]
+        if (harq_Q_ != nullptr) {
+            SecureMemory::secureWipe(
+                static_cast<void*>(harq_Q_), sizeof(g_harq_Q_ccm));
+        }
     }
 
     // =====================================================================
@@ -906,7 +941,8 @@ namespace ProtectedEngine {
     int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode,
         const uint8_t* info, int ilen, int16_t amp,
         int16_t* oI, int16_t* oQ, int max_c) noexcept {
-        if (!info || !oI || !oQ) return 0;
+        if (info == nullptr || oI == nullptr || oQ == nullptr) return 0;
+        if (ilen < 0 || max_c <= 0) return 0;
         int pos = 0;
         if (pos + 128 > max_c) return 0;
         walsh_enc(PRE_SYM0, 64, amp, &oI[pos], &oQ[pos]); pos += 64;
@@ -1082,12 +1118,16 @@ namespace ProtectedEngine {
                                 FEC_HARQ::Init16(rx_.m16);
                             }
                             else if (mode == PayloadMode::DATA) {
-                                std::memset(rx_.m64_I.aI, 0,
+                                SecureMemory::secureWipe(
+                                    static_cast<void*>(rx_.m64_I.aI),
                                     sizeof(rx_.m64_I.aI));
                                 rx_.m64_I.k = 0;
                                 rx_.m64_I.ok = false;
-                                std::memset(harq_Q_, 0,
-                                    sizeof(g_harq_Q_ccm));
+                                if (harq_Q_ != nullptr) {
+                                    SecureMemory::secureWipe(
+                                        static_cast<void*>(harq_Q_),
+                                        sizeof(g_harq_Q_ccm));
+                                }
                             }
                             harq_inited_ = true;
                         }

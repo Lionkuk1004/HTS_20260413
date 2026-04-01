@@ -49,6 +49,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
@@ -87,6 +88,8 @@ namespace ProtectedEngine {
 
         /// @brief 최소 연속 송출 시간 (30초 = 60회)
         static constexpr uint32_t MIN_DURATION_MS = 30000u;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
 
         /// @brief 생성자
         /// @param device_id  장비 고유 ID (2바이트)
@@ -122,7 +125,7 @@ namespace ProtectedEngine {
         [[nodiscard]] uint16_t Get_Flags() const noexcept;
 
         /// @brief 비콘 활성 여부
-        [[nodiscard]] bool Is_Active() const noexcept;
+        [[nodiscard]] uint32_t Is_Active() const noexcept;
 
         // ─── 주기 처리 ──────────────────────────────────────
 
@@ -145,7 +148,7 @@ namespace ProtectedEngine {
         struct Impl;
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

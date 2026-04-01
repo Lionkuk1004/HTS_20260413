@@ -292,7 +292,7 @@ namespace ProtectedEngine {
 
 #if (defined(__GNUC__) || defined(__clang__)) && \
     (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH))
-        __asm__ __volatile__("" : : "r"(static_cast<uint32_t>(hash)) : "memory");
+        __asm__ __volatile__("" : : "r"(static_cast<uint32_t>(hash)));
 #endif
 
         return static_cast<uint32_t>(hash);

@@ -51,11 +51,18 @@ namespace ProtectedEngine {
 
         // ── Phase 1: 감사 로그 기록 ──
         char msg_buf[80] = {};
+        static_assert(sizeof(msg_buf) >= (10u + 8u + 1u),
+            "msg_buf too small for HALT id log");
         {
             const char* prefix = "HALT id=0x";
             int pos = 0;
-            while (prefix[pos] && pos < 60) { msg_buf[pos] = prefix[pos]; ++pos; }
+            while (prefix[pos]
+                && pos < static_cast<int>(sizeof(msg_buf) - 1u)) {
+                msg_buf[pos] = prefix[pos];
+                ++pos;
+            }
             for (int d = 7; d >= 0; --d) {
+                if (pos >= static_cast<int>(sizeof(msg_buf) - 1u)) { break; }
                 const uint32_t nibble = (session_id >> (d * 4u)) & 0xFu;
                 msg_buf[pos++] = static_cast<char>(
                     nibble < 10u ? ('0' + nibble) : ('A' + nibble - 10u));

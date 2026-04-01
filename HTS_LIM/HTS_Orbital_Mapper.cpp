@@ -24,7 +24,9 @@
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
+#if (HTS_ORBITAL_MAPPER_ARM == 0)
 #include <vector>
+#endif
 
 namespace ProtectedEngine {
 
@@ -37,7 +39,7 @@ namespace ProtectedEngine {
             static_cast<volatile unsigned char*>(ptr);
         for (size_t i = 0; i < size; ++i) p[i] = 0;
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(p) : "memory");
+        __asm__ __volatile__("" : : "r"(p));
 #endif
         // [BUG-12] seq_cst → release (소거 배리어 정책 통일)
         std::atomic_thread_fence(std::memory_order_release);
@@ -46,6 +48,7 @@ namespace ProtectedEngine {
     // =====================================================================
     //  state_map 범위 검증 [BUG-05]
     // =====================================================================
+#if (HTS_ORBITAL_MAPPER_ARM == 0)
     static bool Validate_State_Map(
         const std::vector<uint32_t>& state_map, size_t tensor_size) noexcept {
         for (size_t i = 0; i < state_map.size(); ++i) {
@@ -54,12 +57,31 @@ namespace ProtectedEngine {
         }
         return true;
     }
+#endif
 
     // =====================================================================
     //  [BUG-04] SplitMix64 PRNG — 8바이트 상태 (mt19937_64 2.5KB 대체)
     //  크로스 플랫폼 결정적: GCC/MSVC/Clang 동일 출력 보장
     // =====================================================================
     namespace {
+        struct Orbital_Busy_Guard final {
+            std::atomic_flag& f;
+            bool locked;
+            explicit Orbital_Busy_Guard(std::atomic_flag& flag) noexcept
+                : f(flag), locked(false) {
+                if (!f.test_and_set(std::memory_order_acquire)) {
+                    locked = true;
+                }
+            }
+            ~Orbital_Busy_Guard() noexcept {
+                if (locked) {
+                    f.clear(std::memory_order_release);
+                }
+            }
+        };
+
+        static std::atomic_flag g_orbital_busy = ATOMIC_FLAG_INIT;
+
         struct SplitMix64 {
             uint64_t state;
             explicit SplitMix64(uint64_t seed) noexcept : state(seed) {}
@@ -116,6 +138,8 @@ namespace ProtectedEngine {
             uint32_t* tensor,
             const uint32_t* map,
             size_t n) noexcept {
+            Orbital_Busy_Guard guard(g_orbital_busy);
+            if (!guard.locked) return false;
 
             if (n > MAX_PERM_N) return false;
 
@@ -152,6 +176,8 @@ namespace ProtectedEngine {
             uint32_t* tensor,
             const uint32_t* map,
             size_t n) noexcept {
+            Orbital_Busy_Guard guard(g_orbital_busy);
+            if (!guard.locked) return false;
 
             if (n > MAX_PERM_N) return false;
 
@@ -191,6 +217,7 @@ namespace ProtectedEngine {
     //  [BUG-03] std::shuffle → SplitMix64::fisher_yates (결정적)
     //  [BUG-02] OOM → 빈 벡터 반환 (abort 제거)
     // =====================================================================
+#if (HTS_ORBITAL_MAPPER_ARM == 0)
     std::vector<uint32_t> Orbital_Mapper::Generate_Pauli_State_Map(
         size_t tensor_size, uint64_t pqc_session_id) noexcept {
         std::vector<uint32_t> state_map(tensor_size);
@@ -302,6 +329,7 @@ namespace ProtectedEngine {
             tensor.clear();
         }
     }
+#endif
 
     // =====================================================================
     //  [BUG-11] raw 포인터 오버로드 (BB1 정적 배열 직접 전달)

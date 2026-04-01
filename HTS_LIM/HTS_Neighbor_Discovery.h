@@ -33,6 +33,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -144,6 +145,9 @@ namespace ProtectedEngine {
         /// @param pkt_len   패킷 길이
         /// @param rx_rssi   수신 시 RSSI (snr_proxy 기반)
         /// @param systick_ms 현재 시각
+        /// @note  Network_Bridge와 연동 시 Bridge 계열 보안 반환값은
+        ///        bool로 암묵 변환하지 말고
+        ///        (ret == BRIDGE_SECURE_TRUE)로 명시 비교할 것.
         void On_Beacon_Received(
             const uint8_t* pkt, size_t pkt_len,
             uint8_t rx_rssi, uint32_t systick_ms) noexcept;
@@ -153,6 +157,8 @@ namespace ProtectedEngine {
         /// @brief 주기 호출 — 비콘 송출 + 타임아웃 검사
         /// @param systick_ms  현재 시각
         /// @param scheduler   Priority_Scheduler (P2 DATA)
+        /// @note  동기화 자원(락/CAS/크리티컬 섹션)의 획득·해제는 각 모듈
+        ///        내부 구현이 단독 책임을 가지며, 외부 호출자가 중첩 획득하지 않는다.
         void Tick(uint32_t systick_ms,
             HTS_Priority_Scheduler& scheduler) noexcept;
 
@@ -183,7 +189,7 @@ namespace ProtectedEngine {
         struct Impl;
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

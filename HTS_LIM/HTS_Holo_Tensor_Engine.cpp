@@ -22,6 +22,32 @@
 #include <atomic>
 
 namespace ProtectedEngine {
+    namespace {
+        static inline int32_t holo_sat_neg_i32(int32_t x) noexcept {
+            if (x == static_cast<int32_t>(0x80000000u)) {
+                return static_cast<int32_t>(0x7FFFFFFFu);
+            }
+            return static_cast<int32_t>(-x);
+        }
+
+        // 분기 없는 조건부 부호 반전 (bit=1 -> negate, bit=0 -> keep)
+        static inline int32_t holo_cond_sat_neg_ct(int32_t x, uint32_t bit) noexcept {
+            const uint32_t ux = static_cast<uint32_t>(x);
+            const uint32_t b = bit & 1u;
+            const uint32_t mask = 0u - b;
+            uint32_t flipped = (ux ^ mask) - mask;
+            const uint32_t is_min = (flipped == 0x80000000u) ? 1u : 0u;
+            flipped -= (is_min & mask);
+            return static_cast<int32_t>(flipped);
+        }
+
+        static inline int32_t holo_clamp_i32_ct(
+            int32_t v, int32_t lo, int32_t hi) noexcept {
+            int32_t x = (v > hi) ? hi : v;
+            x = (x < lo) ? lo : x;
+            return x;
+        }
+    }
 
     // ── [FIX-CSPRNG] Xoshiro128ss — 128비트 상태 PRNG ──
     //  기존 XorShift32: 32비트 → 단일 출력으로 상태 복원 (GPU 0.4초)
@@ -132,10 +158,10 @@ namespace ProtectedEngine {
         int32_t* block4, uint32_t gyro_seed) noexcept {
         int32_t v[4] = { block4[0], block4[1], block4[2], block4[3] };
 
-        if (gyro_seed & 0x01u) v[0] = -v[0];
-        if (gyro_seed & 0x02u) v[1] = -v[1];
-        if (gyro_seed & 0x04u) v[2] = -v[2];
-        if (gyro_seed & 0x08u) v[3] = -v[3];
+        v[0] = holo_cond_sat_neg_ct(v[0], (gyro_seed >> 0u) & 1u);
+        v[1] = holo_cond_sat_neg_ct(v[1], (gyro_seed >> 1u) & 1u);
+        v[2] = holo_cond_sat_neg_ct(v[2], (gyro_seed >> 2u) & 1u);
+        v[3] = holo_cond_sat_neg_ct(v[3], (gyro_seed >> 3u) & 1u);
 
         // [BUG-11] % 24u → 마스크+조건빼기 (UDIV 제거)
         uint8_t pi = static_cast<uint8_t>((gyro_seed >> 4u) & 0x1Fu);
@@ -170,10 +196,10 @@ namespace ProtectedEngine {
         const uint8_t* ip = INV_PERM_TABLE[pi];
         int32_t rv[4] = { iv[ip[0]], iv[ip[1]], iv[ip[2]], iv[ip[3]] };
 
-        if (gyro_seed & 0x01u) rv[0] = -rv[0];
-        if (gyro_seed & 0x02u) rv[1] = -rv[1];
-        if (gyro_seed & 0x04u) rv[2] = -rv[2];
-        if (gyro_seed & 0x08u) rv[3] = -rv[3];
+        rv[0] = holo_cond_sat_neg_ct(rv[0], (gyro_seed >> 0u) & 1u);
+        rv[1] = holo_cond_sat_neg_ct(rv[1], (gyro_seed >> 1u) & 1u);
+        rv[2] = holo_cond_sat_neg_ct(rv[2], (gyro_seed >> 2u) & 1u);
+        rv[3] = holo_cond_sat_neg_ct(rv[3], (gyro_seed >> 3u) & 1u);
 
         block4[0] = rv[0]; block4[1] = rv[1];
         block4[2] = rv[2]; block4[3] = rv[3];
@@ -197,8 +223,7 @@ namespace ProtectedEngine {
         const int32_t clamp_max = Max_Safe_Amplitude(chip_count);
         const int32_t clamp_min = -clamp_max;
         for (uint32_t i = 0; i < chip_count; ++i) {
-            if (tensor[i] > clamp_max) tensor[i] = clamp_max;
-            else if (tensor[i] < clamp_min) tensor[i] = clamp_min;
+            tensor[i] = holo_clamp_i32_ct(tensor[i], clamp_min, clamp_max);
         }
 
         fwht_signed(tensor, chip_count);
@@ -258,6 +283,7 @@ namespace ProtectedEngine {
         default: {
             const uint32_t log2_n = log2_pow2(chip_count);
             shift_amt = 2u * log2_n + 2u;
+            if (shift_amt >= 31u) { return; }  // UB 방지: 1u << shift_amt
             scale = static_cast<int32_t>(1u << shift_amt);
             break;
         }
@@ -267,8 +293,7 @@ namespace ProtectedEngine {
         const int32_t decode_clamp = Max_Safe_Amplitude(chip_count) *
             static_cast<int32_t>(static_cast<uint32_t>(scale));
         for (uint32_t i = 0; i < chip_count; ++i) {
-            if (tensor[i] > decode_clamp) tensor[i] = decode_clamp;
-            else if (tensor[i] < -decode_clamp) tensor[i] = -decode_clamp;
+            tensor[i] = holo_clamp_i32_ct(tensor[i], -decode_clamp, decode_clamp);
         }
 
         // 산술 시프트 (음수 0방향 반올림 보존, branchless)

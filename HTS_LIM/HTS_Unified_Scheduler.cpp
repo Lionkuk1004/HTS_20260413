@@ -17,6 +17,10 @@
 //  [BUG-70] 소멸자 보안 소거 추가 (핑퐁 32KB 텐서 데이터 잔존 방지)
 //  [BUG-71] core_pipeline nullptr → AIRCR 즉시 리셋 (BB1 표준 통일)
 //  [BUG-72] Schedule_Next_Transfer data_len @pre 단위 문서화
+//  [BUG-74] D-2: Secure_Wipe_Sched 제거 → SecureMemory::secureWipe 통일
+//           Schedule/Trigger nullptr·length 경계 검증 (H-1/H-3)
+//  [BUG-75] Trigger 성공 후에만 current_dma_buffer 갱신 (핑퐁 소유권 레이스 방지)
+//  [BUG-76] 생성자 AIRCR: DSB 전/후 + ISB (소프트 리셋 시퀀스)
 //  [BUG-73] [CRIT] FPGA DMA BUSY 폴링 + 타임아웃 추가
 //           · FPGA 커스텀 DMA는 BUSY 상태에서 레지스터 덮어쓰기 시
 //             내부 낸드 게이트 꼬임 → 하드웨어 락업/HardFault
@@ -26,6 +30,7 @@
 // =========================================================================
 #include "HTS_Unified_Scheduler.h"
 #include "HTS_Hardware_Init.h"
+#include "HTS_Secure_Memory.h"
 
 #include <atomic>
 #include <cstdint>
@@ -39,20 +44,6 @@
 #endif
 
 namespace ProtectedEngine {
-
-    // =====================================================================
-    //  보안 메모리 소거 (프로젝트 표준 — volatile + asm clobber + release)
-    // =====================================================================
-    static void Secure_Wipe_Sched(void* ptr, size_t size) noexcept {
-        if (ptr == nullptr || size == 0u) { return; }
-        volatile unsigned char* p =
-            static_cast<volatile unsigned char*>(ptr);
-        for (size_t i = 0u; i < size; ++i) { p[i] = 0u; }
-#if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : : "r"(ptr) : "memory");
-#endif
-        std::atomic_thread_fence(std::memory_order_release);
-    }
 
     // =====================================================================
     //  DMA 레지스터 절대 주소 (보드별 커스텀 B-CDMA 모뎀)
@@ -106,10 +97,18 @@ namespace ProtectedEngine {
 
         if (!core_pipeline) {
             // [BUG-71] AIRCR 즉시 리셋 → while(true)는 도달 불가 폴백
+            // [BUG-76] CMSIS 권장: SYSRESETREQ 전후 DSB, 후속 ISB
 #if defined(HTS_PLATFORM_ARM)
-            * reinterpret_cast<volatile uint32_t*>(
-                static_cast<uintptr_t>(AIRCR_ADDR)) =
-                (AIRCR_VECTKEY | AIRCR_SYSRST);
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("dsb" ::: "memory");
+#endif
+            volatile uint32_t* const aircr = reinterpret_cast<volatile uint32_t*>(
+                reinterpret_cast<void*>(static_cast<uintptr_t>(AIRCR_ADDR)));
+            *aircr = (AIRCR_VECTKEY | AIRCR_SYSRST);
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("dsb" ::: "memory");
+            __asm__ __volatile__("isb" ::: "memory");
+#endif
 #endif
             while (true) {
 #if defined(__GNUC__) || defined(__clang__)
@@ -148,10 +147,11 @@ namespace ProtectedEngine {
     //   → BB1, TensorCodec, Anchor_Vault 소멸자 보안 소거 표준과 통일
     // =====================================================================
     Unified_Scheduler::~Unified_Scheduler() noexcept {
-        Secure_Wipe_Sched(ping_buffer, sizeof(ping_buffer));
-        Secure_Wipe_Sched(pong_buffer, sizeof(pong_buffer));
-        Secure_Wipe_Sched(&packet_sequence_nonce, sizeof(packet_sequence_nonce));
-        current_dma_buffer.store(0, std::memory_order_relaxed);
+        SecureMemory::secureWipe(static_cast<void*>(ping_buffer), sizeof(ping_buffer));
+        SecureMemory::secureWipe(static_cast<void*>(pong_buffer), sizeof(pong_buffer));
+        SecureMemory::secureWipe(
+            static_cast<void*>(&packet_sequence_nonce), sizeof(packet_sequence_nonce));
+        current_dma_buffer.store(0, std::memory_order_release);
         buffer_size = 0u;
         core_pipeline = nullptr;
     }
@@ -176,6 +176,10 @@ namespace ProtectedEngine {
     bool Unified_Scheduler::Schedule_Next_Transfer(
         uint16_t* raw_sensor_data, size_t data_len,
         std::atomic<bool>& abort_signal) noexcept {
+
+        if (raw_sensor_data == nullptr || core_pipeline == nullptr) {
+            return false;
+        }
 
         // [BUG-69] acquire 읽기 — store(release)와 쌍
         const int active_dma = current_dma_buffer.load(std::memory_order_acquire);
@@ -202,11 +206,11 @@ namespace ProtectedEngine {
             active_cpu_buffer[i] = generated_data[i];
         }
 
-        // 버퍼 스왑 (Ping ↔ Pong)
+        // [BUG-75] DMA START 성공 후에만 소유권 스왑 — BUSY 타임아웃 시 이전 버퍼와 일치 유지
+        if (!Trigger_DMA_Hardware(active_cpu_buffer, safe_len)) {
+            return false;
+        }
         current_dma_buffer.store(target_cpu_buffer, std::memory_order_release);
-
-        // DMA 전송 시작
-        Trigger_DMA_Hardware(active_cpu_buffer, safe_len);
 
         return true;
     }
@@ -237,20 +241,23 @@ namespace ProtectedEngine {
     //   ② BUSY 해제 확인 후에만 레지스터 장전
     //   ③ 캐시 플러시
     //   ④ START 비트 설정
-    //   타임아웃 시: 레지스터 쓰기 전면 차단 → return (데이터 유실이
+    //   타임아웃 시: 레지스터 쓰기 전면 차단 → false (데이터 유실이
     //   하드웨어 락업보다 안전)
     // =====================================================================
-    void Unified_Scheduler::Trigger_DMA_Hardware(
+    bool Unified_Scheduler::Trigger_DMA_Hardware(
         uint32_t* buffer_ptr, size_t length) noexcept {
-
-        (void)buffer_ptr;
-        (void)length;
 
 #if defined(HTS_PLATFORM_ARM)
         // ARM 베어메탈: 실제 DMA 하드웨어 접근
+        if (buffer_ptr == nullptr) {
+            return false;
+        }
+        if (length == 0u || length > MAX_DMA_FRAME) {
+            return false;
+        }
         if (!dma_hw.source_address || !dma_hw.transfer_length ||
             !dma_hw.control_status || !dma_hw.dest_address) {
-            return;
+            return false;
         }
 
         // ── [BUG-73] Step 0: FPGA DMA BUSY 해제 대기 ──────────────
@@ -268,7 +275,7 @@ namespace ProtectedEngine {
                     // DMA 행(Hang) — 레지스터 쓰기 전면 차단
                     // 데이터 1프레임 유실이 FPGA 락업보다 안전
                     // 호출자(Schedule_Next_Transfer)는 다음 주기에 재시도
-                    return;
+                    return false;
                 }
             }
         }
@@ -286,8 +293,12 @@ namespace ProtectedEngine {
         // ── Step 3: DMA 전송 시작 ─────────────────────────────────
         //  [BUG-68] constexpr 상수
         *dma_hw.control_status |= DMA_START_BIT;
+        return true;
 #else
-        // PC 시뮬레이션: DMA 없음 — 데이터는 이미 버퍼에 준비됨
+        // PC 시뮬레이션: DMA 없음 — 데이터는 이미 버퍼에 준비됨 (소유권 갱신 허용)
+        (void)buffer_ptr;
+        (void)length;
+        return true;
 #endif
     }
 

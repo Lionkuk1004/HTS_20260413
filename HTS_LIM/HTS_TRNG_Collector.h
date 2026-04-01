@@ -20,6 +20,9 @@
 //  - Raw 출력 (조건화 전 데이터)
 //
 // [제약] ARM 전용 (STM32 TRNG 레지스터 직접 접근)
+//
+// [RNG 오류 복구]
+//  CECS/SECS 감지 시 RM0090 절차로 SR 클리어·재가동(구현부 RNG_Clear_Error_Flags)
 // =========================================================================
 #pragma once
 
@@ -34,6 +37,7 @@ namespace ProtectedEngine {
         /// @param sample_count  수집할 바이트 수 (최소 1,000,000)
         /// @param uart_putchar  UART 1바이트 출력 콜백
         /// @return 실제 수집된 바이트 수
+        /// @note H-1: `uart_putchar==nullptr` 이면 0. 재진입 시 0 (ISR/RTOS 데드락 방지)
         static uint32_t Collect_And_Output(
             uint32_t sample_count,
             void (*uart_putchar)(uint8_t)) noexcept;
@@ -42,6 +46,7 @@ namespace ProtectedEngine {
         /// @param buffer       출력 버퍼
         /// @param buffer_size  버퍼 크기
         /// @return 실제 수집된 바이트 수
+        /// @note H-1: `buffer==nullptr` 또는 `buffer_size==0` 이면 0. 재진입 시 0
         static uint32_t Collect_To_Buffer(
             uint8_t* buffer, uint32_t buffer_size) noexcept;
 

@@ -79,6 +79,9 @@ namespace ProtectedEngine {
         template<typename T>
         static uint64_t Sign_Pointer(T* ptr) noexcept {
             Ensure_Key_Initialized();
+            if (ptr == nullptr) {
+                Halt_PAC_Violation("Attempt to sign nullptr");
+            }
 
             uint64_t raw_addr = static_cast<uint64_t>(
                 reinterpret_cast<uintptr_t>(ptr)) & ADDR_MASK;

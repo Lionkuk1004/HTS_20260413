@@ -64,7 +64,8 @@ namespace ProtectedEngine {
 
         /// @brief [A1] 국가별 OBIS 딕셔너리 주입
         /// @param dict  OBIS 딕셔너리 (ROM 상주, 수명 ≥ AMI 인스턴스)
-        /// @note  미등록 시 내부 기본 테이블 사용 (IEC 62056 표준)
+        /// @note  미등록(nullptr) 시 GET/REPORT는 객체 0개 응답으로 동작합니다.
+        ///        (기본 OBIS 테이블 자동 폴백 없음)
         void Register_OBIS_Dictionary(const OBIS_Dictionary* dict) noexcept;
 
         /// @brief [A2] 보안 Suite 등록 (ARIA-GCM / AES-GCM)

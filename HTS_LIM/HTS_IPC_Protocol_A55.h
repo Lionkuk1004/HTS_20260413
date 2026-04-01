@@ -142,7 +142,8 @@ namespace ProtectedEngine {
         /// @param[out] out_payload     페이로드 복사 대상 버퍼
         /// @param      out_buf_size    out_payload 버퍼 크기
         /// @param[out] out_payload_len 실제 페이로드 길이
-        /// @return 성공 시 IPC_Error::OK, RX 링 비어있으면 QUEUE_FULL
+        /// @return 성공 시 IPC_Error::OK, RX 링 비어있으면 QUEUE_FULL.
+        ///         페이로드가 out_buf_size를 초과하면 BUFFER_OVERFLOW (fail-closed).
         IPC_Error Receive_Frame(IPC_Command& out_cmd,
             uint8_t* out_payload,
             uint16_t      out_buf_size,

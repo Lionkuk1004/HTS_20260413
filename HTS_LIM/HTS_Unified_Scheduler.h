@@ -15,6 +15,11 @@
 //  BUG-73 [CRIT] FPGA DMA BUSY 폴링 — 레지스터 장전 전 IDLE 확인 필수
 //         · BUSY 상태에서 source_address 쓰기 → FPGA 락업/HardFault
 //         · 타임아웃 초과 시 레지스터 쓰기 전면 차단 (프레임 유실 허용)
+//  BUG-74 [HIGH] D-2: 소멸자 소거 → SecureMemory::secureWipe 통일
+//         · Schedule_Next_Transfer: raw_sensor_data/core_pipeline nullptr 거부
+//         · Trigger_DMA_Hardware: buffer_ptr/length 경계 검증 (H-3)
+//  BUG-75 [CRIT] current_dma_buffer.store 는 Trigger 성공 후에만 — BUSY 실패 시 스왑 금지
+//  BUG-76 [HIGH] 생성자 AIRCR: 쓰기 전후 DSB + 쓰기 후 ISB (CMSIS 리셋 시퀀스)
 //
 // [메모리 요구량]
 //  sizeof(Unified_Scheduler) ≈ 32KB + 48B (DMA 레지스터+atomic+포인터)
@@ -60,6 +65,8 @@ namespace ProtectedEngine {
         Unified_Scheduler& operator=(Unified_Scheduler&&) = delete;
 
         /// @brief 센서 데이터 → 듀얼 텐서 처리 → 빈 버퍼에 채움 → DMA 트리거
+        /// @note DMA 레지스터 장전·START 실패(BUSY 타임아웃 등) 시 false — 이때
+        ///       current_dma_buffer 는 갱신하지 않음 (핑퐁 소유권 일관성).
         ///
         /// @pre raw_sensor_data: uint16_t 배열, data_len개 원소
         ///      data_len >= buffer_size × 2 권장 (16비트 2개 → 32비트 1개 패킹)
@@ -90,8 +97,9 @@ namespace ProtectedEngine {
         // DMA 하드웨어 제어 블록
         Hardware_DMA_Registers dma_hw;
 
-        // DMA 레지스터에 주소/길이 장전 + 전송 시작
-        void Trigger_DMA_Hardware(uint32_t* buffer_ptr, size_t length) noexcept;
+        /// @return true=레지스터 장전 및 START 완료, false=BUSY 타임아웃/검증 실패
+        [[nodiscard]] bool Trigger_DMA_Hardware(
+            uint32_t* buffer_ptr, size_t length) noexcept;
     };
 
 } // namespace ProtectedEngine

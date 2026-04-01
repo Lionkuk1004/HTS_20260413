@@ -36,6 +36,7 @@
 
 #include <cstdint>
 #include <cstddef>
+#include <atomic>
 
 namespace ProtectedEngine {
 
@@ -53,6 +54,9 @@ namespace ProtectedEngine {
 
     class HTS_Key_Provisioning {
     public:
+        static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
+        static constexpr uint32_t SECURE_FALSE = 0xA5A5A5A5u;
+
         /// @brief 마스터 키 크기 (256비트 = 32바이트, ARIA-256/AES-256)
         static constexpr size_t MASTER_KEY_SIZE = 32u;
 
@@ -74,8 +78,8 @@ namespace ProtectedEngine {
         // ─── 프로비저닝 API ─────────────────────────────────
 
         /// @brief OTP에 마스터 키가 이미 주입되었는지 확인
-        /// @return true = 이미 프로비저닝 완료
-        [[nodiscard]] bool Is_Provisioned() const noexcept;
+        /// @return 이미 프로비저닝 완료면 SECURE_TRUE
+        [[nodiscard]] uint32_t Is_Provisioned() const noexcept;
 
         /// @brief 래핑된 마스터 키를 언래핑 → OTP에 기록 → 검증
         /// @param wrapped_key  AES-KW 래핑된 키 (24바이트)
@@ -92,10 +96,10 @@ namespace ProtectedEngine {
         /// @brief OTP에서 마스터 키를 읽어 외부 버퍼에 복사
         /// @param out_buf  출력 버퍼 (16바이트 이상)
         /// @param out_len  출력 버퍼 크기
-        /// @return true = 성공
+        /// @return 성공 시 SECURE_TRUE
         /// @note 양산 후에는 호출 차단 (Lock_Debug_Port 이후 OTP 읽기만 허용)
         [[nodiscard]]
-        bool Read_Master_Key(uint8_t* out_buf, size_t out_len) const noexcept;
+        uint32_t Read_Master_Key(uint8_t* out_buf, size_t out_len) const noexcept;
 
         /// @brief JTAG/SWD 디버그 포트 영구 잠금 (RDP Level 2)
         /// @return KeyProvResult 결과 코드
@@ -119,7 +123,7 @@ namespace ProtectedEngine {
         struct Impl;
 
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        std::atomic<bool> impl_valid_{ false };
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

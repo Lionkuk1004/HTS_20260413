@@ -59,13 +59,14 @@ namespace ProtectedEngine {
 
         /// @brief 관리자용 센서 기본 속도 설정 (단말기 설치 시 1회)
         void Set_Sensor_Base_Rate(VocoderRate target_rate) noexcept {
-            sensor_base_rate_ = target_rate;
+            sensor_base_rate_ = Normalize_Rate(target_rate);
         }
 
         /// @brief 사용자 다이얼 속도 변경 (음성 기준)
         void Set_Dial_Speed(VocoderRate new_rate) noexcept {
-            user_dial_setting_ = new_rate;
-            current_rate_ = new_rate;
+            const VocoderRate safe_rate = Normalize_Rate(new_rate);
+            user_dial_setting_ = safe_rate;
+            current_rate_ = safe_rate;
         }
 
         // =================================================================
@@ -75,11 +76,17 @@ namespace ProtectedEngine {
         //  UART_SENSOR → 관리자 설정 센서 속도
         // =================================================================
         void Auto_Detect_And_Route(InputPort source_port) noexcept {
-            if (source_port == InputPort::I2S_MIC_VOCODER) {
+            switch (source_port) {
+            case InputPort::I2S_MIC_VOCODER:
                 current_rate_ = user_dial_setting_;
-            }
-            else {
+                break;
+            case InputPort::UART_SENSOR_AMI:
                 current_rate_ = sensor_base_rate_;
+                break;
+            default:
+                // 비정상 enum 주입(static_cast) 방어: 안전 저속 모드로 fail-closed
+                current_rate_ = VocoderRate::RATE_100_BPS;
+                break;
             }
         }
 
@@ -134,6 +141,20 @@ namespace ProtectedEngine {
         }
 
     private:
+        static constexpr VocoderRate Normalize_Rate(VocoderRate rate) noexcept {
+            switch (rate) {
+            case VocoderRate::RATE_100_BPS:
+            case VocoderRate::RATE_1200_BPS:
+            case VocoderRate::RATE_2400_BPS:
+            case VocoderRate::RATE_4800_BPS:
+            case VocoderRate::RATE_9600_BPS:
+                return rate;
+            default:
+                // 비정상 enum 값(static_cast 주입) 방어
+                return VocoderRate::RATE_2400_BPS;
+            }
+        }
+
         static constexpr uint32_t FIXED_CHIP_RATE = 9830400u;
 
         VocoderRate current_rate_;

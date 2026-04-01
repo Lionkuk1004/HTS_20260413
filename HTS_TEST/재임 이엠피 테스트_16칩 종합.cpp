@@ -19,18 +19,18 @@ static void test_01_roundtrip_k16() {
     HTS_Holo_Tensor_4D eng;
     uint32_t seed[4] = { 0xDEADBEEF, 0x12345678, 0xABCDABCD, 0x99887766 };
     HoloTensor_Profile p = { 16, 64, 1, {0,0,0} };
-    CHECK(eng.Initialize(seed, &p), "Initialize");
+    CHECK(eng.Initialize(seed, &p) == HTS_Holo_Tensor_4D::SECURE_TRUE, "Initialize");
     CHECK(eng.Get_State() == HoloState::READY, "State=READY");
 
     int8_t data[16];
     for (int i = 0; i < 16; i++) data[i] = (i & 1) ? 1 : -1;
     int8_t chips[64];
-    CHECK(eng.Encode_Block(data, 16, chips, 64), "Encode");
+    CHECK(eng.Encode_Block(data, 16, chips, 64) == HTS_Holo_Tensor_4D::SECURE_TRUE, "Encode");
 
     int16_t rx[64];
     for (int i = 0; i < 64; i++) rx[i] = static_cast<int16_t>(chips[i] * 127);
     int8_t rec[16];
-    CHECK(eng.Decode_Block(rx, 64, 0xFFFFFFFFFFFFFFFFull, rec, 16), "Decode");
+    CHECK(eng.Decode_Block(rx, 64, 0xFFFFFFFFFFFFFFFFull, rec, 16) == HTS_Holo_Tensor_4D::SECURE_TRUE, "Decode");
 
     int ok = 0;
     for (int i = 0; i < 16; i++) if (rec[i] == data[i]) ok++;
@@ -184,11 +184,11 @@ static void test_07_time_diversity() {
 static void test_08_null_safety() {
     printf("\n[TEST 08] Null pointer safety\n");
     HTS_Holo_Tensor_4D eng;
-    CHECK(!eng.Initialize(nullptr, nullptr), "null seed -> false");
+    CHECK(eng.Initialize(nullptr, nullptr) == HTS_Holo_Tensor_4D::SECURE_FALSE, "null seed -> false");
     uint32_t seed[4] = { 1,2,3,4 };
     eng.Initialize(seed, nullptr);
-    CHECK(!eng.Encode_Block(nullptr, 16, nullptr, 64), "null encode -> false");
-    CHECK(!eng.Decode_Block(nullptr, 64, 0, nullptr, 16), "null decode -> false");
+    CHECK(eng.Encode_Block(nullptr, 16, nullptr, 64) == HTS_Holo_Tensor_4D::SECURE_FALSE, "null encode -> false");
+    CHECK(eng.Decode_Block(nullptr, 64, 0, nullptr, 16) == HTS_Holo_Tensor_4D::SECURE_FALSE, "null decode -> false");
     eng.Shutdown();
 }
 
@@ -197,7 +197,7 @@ static void test_09_mode_select() {
     printf("\n[TEST 09] Dispatcher auto mode selection\n");
     HTS_Holo_Dispatcher d;
     uint32_t seed[4] = { 0xAA,0xBB,0xCC,0xDD };
-    CHECK(d.Initialize(seed), "Dispatcher init");
+    CHECK(d.Initialize(seed) == HTS_Holo_Dispatcher::SECURE_TRUE, "Dispatcher init");
 
     HTS_RF_Metrics m;
     m.snr_proxy.store(15, std::memory_order_relaxed);
@@ -234,9 +234,9 @@ static void test_10_dispatcher_roundtrip() {
 
     uint8_t rec[16]; int out_len = 0;
     rx_d.Set_Current_Mode(HoloPayload::DATA_HOLO);  // RX must know TX mode (from header)
-    bool ok = rx_d.Decode_Holo_Block(outI, outQ,
+    const uint32_t ok = rx_d.Decode_Holo_Block(outI, outQ,
         static_cast<uint16_t>(chips), 0xFFFFFFFFFFFFFFFFull, rec, &out_len);
-    CHECK(ok, "Decode success");
+    CHECK(ok == HTS_Holo_Dispatcher::SECURE_TRUE, "Decode success");
     printf("    Recovered %d bytes: ", out_len);
     for (int i = 0; i < out_len && i < 4; i++) printf("%02X ", rec[i]);
     printf("\n");

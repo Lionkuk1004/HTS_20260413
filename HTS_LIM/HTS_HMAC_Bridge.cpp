@@ -4,7 +4,7 @@
 // 규격: KS X ISO/IEC 9797-2 / RFC 2104
 // Target: STM32F407 (Cortex-M4)
 //
-// [양산 수정 — 4건 결함 교정]
+// [양산 수정 — 5건 결함 교정]
 //
 //  BUG-01 [MEDIUM] Secure_Zero(SZ): pragma O0 보호 누락
 //    기존: volatile + atomic_thread_fence만 사용
@@ -23,6 +23,7 @@
 //
 //  BUG-05 [LOW] C6385 — ipad 미초기화 + k[i] 범위 오판
 //    수정: ipad = {} 초기화 + k[i] 로컬 복사
+//  BUG-44 [CRIT] Secure_Zero_HMAC 제거 → SecureMemory::secureWipe (D-2/X-5-1)
 //
 // [기존 설계 100% 보존]
 //  - KISA 부분 블록 버그 우회: 64바이트 스마트 큐 버퍼링
@@ -38,8 +39,8 @@
 //  스택 사용량: ~320바이트 (HMAC_Context 스택 할당 기준)
 // =========================================================================
 #include "HTS_HMAC_Bridge.h"
+#include "HTS_Secure_Memory.h"
 #include <cstring>
-#include <atomic>
 #include <limits>
 
 // =========================================================================
@@ -94,12 +95,11 @@ namespace ProtectedEngine {
     }
 
     // =====================================================================
-    //  Secure_Zero_HMAC — 보안 메모리 소거 (KCMVP Key Zeroization)
+    //  CT_Eq — 상수시간 바이트 배열 비교 (타이밍 사이드채널 차단)
     //
-    //  [BUG-01 수정] pragma O0 추가 — 프로젝트 3중 보호 표준
-    //  1. pragma O0: 컴파일러 최적화 차단
-    //  2. volatile: 각 쓰기가 부작용 → DCE 차단
-    //  3. atomic_thread_fence: 메모리 재배치 차단
+    //  [BUG-02 수정] pragma O0 + 컴파일러 배리어
+    //  분기 예측기의 패턴 학습을 차단하여 HMAC 검증 시
+    //  일치/불일치에 따른 타이밍 차이를 원천 제거
     // =====================================================================
 #if defined(__GNUC__) || defined(__clang__)
 #pragma GCC push_options
@@ -107,24 +107,9 @@ namespace ProtectedEngine {
 #elif defined(_MSC_VER)
 #pragma optimize("", off)
 #endif
-
-    static void Secure_Zero_HMAC(void* p, size_t n) noexcept {
-        if (!p || n == 0) return;
-        volatile uint8_t* q = static_cast<volatile uint8_t*>(p);
-        for (size_t i = 0; i < n; ++i) q[i] = 0;
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
-    // =====================================================================
-    //  CT_Eq — 상수시간 바이트 배열 비교 (타이밍 사이드채널 차단)
-    //
-    //  [BUG-02 수정] pragma O0 + 컴파일러 배리어
-    //  분기 예측기의 패턴 학습을 차단하여 HMAC 검증 시
-    //  일치/불일치에 따른 타이밍 차이를 원천 제거
-    // =====================================================================
-    static bool CT_Eq(
+    static uint32_t CT_Eq(
         const uint8_t* a, const uint8_t* b, size_t n) noexcept {
-        if (!a || !b || n == 0) return false;
+        if (!a || !b || n == 0) return HMAC_Bridge::SECURE_FALSE;
         volatile uint8_t d = 0;
         for (size_t i = 0; i < n; ++i) {
             d = static_cast<uint8_t>(d | (a[i] ^ b[i]));
@@ -132,12 +117,15 @@ namespace ProtectedEngine {
 
         // 컴파일러 배리어: d 값이 레지스터에만 남는 것을 방지
 #if defined(__GNUC__) || defined(__clang__)
-        __asm__ __volatile__("" : "+r"(d) : : "memory");
+        __asm__ __volatile__("" : "+r"(d));
 #elif defined(_MSC_VER)
         _ReadWriteBarrier();
 #endif
 
-        return (d == 0);
+        const uint32_t diff = static_cast<uint32_t>(d);
+        const uint32_t has_err = (diff | (0u - diff)) >> 31u;
+        return HMAC_Bridge::SECURE_TRUE ^
+            ((HMAC_Bridge::SECURE_TRUE ^ HMAC_Bridge::SECURE_FALSE) * has_err);
     }
 
 #if defined(__GNUC__) || defined(__clang__)
@@ -155,18 +143,18 @@ namespace ProtectedEngine {
     //  i_key_pad = key ^ 0x36 (내부 패딩)
     //  o_key_pad = key ^ 0x5C (외부 패딩 — Final에서 사용)
     // =====================================================================
-    bool HMAC_Bridge::Init(
+    uint32_t HMAC_Bridge::Init(
         HMAC_Context& ctx,
         const uint8_t* key,
         size_t         key_len) noexcept {
 
-        if (!key || key_len == 0) return false;
+        if (!key || key_len == 0) return SECURE_FALSE;
         constexpr size_t U32MAX =
             static_cast<size_t>(std::numeric_limits<uint32_t>::max());
-        if (key_len > U32MAX) return false;
+        if (key_len > U32MAX) return SECURE_FALSE;
 
-        Secure_Zero_HMAC(ctx.inner_ctx, sizeof(ctx.inner_ctx));
-        Secure_Zero_HMAC(ctx.o_key_pad, sizeof(ctx.o_key_pad));
+        SecureMemory::secureWipe(static_cast<void*>(ctx.inner_ctx), sizeof(ctx.inner_ctx));
+        SecureMemory::secureWipe(static_cast<void*>(ctx.o_key_pad), sizeof(ctx.o_key_pad));
         ctx.is_initialized = false;
 
         Inner(ctx)->partial_len = 0;
@@ -182,7 +170,7 @@ namespace ProtectedEngine {
                 static_cast<unsigned int>(key_len));
             HTS_SHA256_FINAL(&tmp,
                 reinterpret_cast<unsigned char*>(k));
-            Secure_Zero_HMAC(&tmp, sizeof(tmp));
+            SecureMemory::secureWipe(static_cast<void*>(&tmp), sizeof(tmp));
         }
         else {
             std::memcpy(k, key, key_len);
@@ -208,17 +196,17 @@ namespace ProtectedEngine {
             ipad[i] = 0x36u;
             ctx.o_key_pad[i] = 0x5Cu;
         }
-        Secure_Zero_HMAC(k, sizeof(k));
+        SecureMemory::secureWipe(static_cast<void*>(k), sizeof(k));
 
         // 내부 해시 시작: SHA256(i_key_pad || ...)
         SHA256_Init(&Inner(ctx)->sha_ctx);
         HTS_SHA256_UPDATE(&Inner(ctx)->sha_ctx,
             reinterpret_cast<const unsigned char*>(ipad),
             static_cast<unsigned int>(SHA256_BLOCK));
-        Secure_Zero_HMAC(ipad, sizeof(ipad));
+        SecureMemory::secureWipe(static_cast<void*>(ipad), sizeof(ipad));
 
         ctx.is_initialized = true;
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================
@@ -232,16 +220,16 @@ namespace ProtectedEngine {
     //  64바이트 큐 버퍼(partial_buf)에 누적 → 64바이트 꽉 찼을 때만 주입
     //  잔여 데이터는 Final에서 마지막으로 주입
     // =====================================================================
-    bool HMAC_Bridge::Update(
+    uint32_t HMAC_Bridge::Update(
         HMAC_Context& ctx,
         const uint8_t* data,
         size_t         data_len) noexcept {
 
-        if (!ctx.is_initialized) return false;
-        if (!data || data_len == 0) return true;  // 빈 청크 허용
+        if (!ctx.is_initialized) return SECURE_FALSE;
+        if (!data || data_len == 0) return SECURE_TRUE;  // 빈 청크 허용
         constexpr size_t U32MAX =
             static_cast<size_t>(std::numeric_limits<uint32_t>::max());
-        if (data_len > U32MAX) return false;
+        if (data_len > U32MAX) return SECURE_FALSE;
 
         Internal_HMAC_State* state = Inner(ctx);
         size_t offset = 0;
@@ -265,7 +253,7 @@ namespace ProtectedEngine {
                 state->partial_len = 0;
             }
         }
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================
@@ -274,18 +262,18 @@ namespace ProtectedEngine {
     //  inner_hash = SHA256(i_key_pad || message)
     //  HMAC = SHA256(o_key_pad || inner_hash)
     // =====================================================================
-    bool HMAC_Bridge::Final(
+    uint32_t HMAC_Bridge::Final(
         HMAC_Context& ctx,
         uint8_t* output_hmac_32bytes) noexcept {
 
         if (!ctx.is_initialized || !output_hmac_32bytes) {
-            Secure_Zero_HMAC(ctx.inner_ctx, sizeof(ctx.inner_ctx));
-            Secure_Zero_HMAC(ctx.o_key_pad, sizeof(ctx.o_key_pad));
+            SecureMemory::secureWipe(static_cast<void*>(ctx.inner_ctx), sizeof(ctx.inner_ctx));
+            SecureMemory::secureWipe(static_cast<void*>(ctx.o_key_pad), sizeof(ctx.o_key_pad));
             ctx.is_initialized = false;
             if (output_hmac_32bytes) {
-                Secure_Zero_HMAC(output_hmac_32bytes, SHA256_DIGEST);
+                SecureMemory::secureWipe(static_cast<void*>(output_hmac_32bytes), SHA256_DIGEST);
             }
-            return false;
+            return SECURE_FALSE;
         }
 
         Internal_HMAC_State* state = Inner(ctx);
@@ -314,62 +302,62 @@ namespace ProtectedEngine {
             static_cast<unsigned int>(SHA256_DIGEST));
 
         // 출력 버퍼 사전 소거 (이전 메모리 잔존 방지)
-        Secure_Zero_HMAC(output_hmac_32bytes, SHA256_DIGEST);
+        SecureMemory::secureWipe(static_cast<void*>(output_hmac_32bytes), SHA256_DIGEST);
         HTS_SHA256_FINAL(&outer,
             reinterpret_cast<unsigned char*>(output_hmac_32bytes));
 
         // KCMVP Key Zeroization: 모든 키 소재 소거
-        Secure_Zero_HMAC(inner_hash, sizeof(inner_hash));
-        Secure_Zero_HMAC(&outer, sizeof(outer));
-        Secure_Zero_HMAC(ctx.inner_ctx, sizeof(ctx.inner_ctx));
-        Secure_Zero_HMAC(ctx.o_key_pad, sizeof(ctx.o_key_pad));
+        SecureMemory::secureWipe(static_cast<void*>(inner_hash), sizeof(inner_hash));
+        SecureMemory::secureWipe(static_cast<void*>(&outer), sizeof(outer));
+        SecureMemory::secureWipe(static_cast<void*>(ctx.inner_ctx), sizeof(ctx.inner_ctx));
+        SecureMemory::secureWipe(static_cast<void*>(ctx.o_key_pad), sizeof(ctx.o_key_pad));
         ctx.is_initialized = false;
 
-        return true;
+        return SECURE_TRUE;
     }
 
     // =====================================================================
     //  Verify_Final — HMAC 검증 (상수시간 비교) + 컨텍스트 소거
     // =====================================================================
-    bool HMAC_Bridge::Verify_Final(
+    uint32_t HMAC_Bridge::Verify_Final(
         HMAC_Context& ctx,
         const uint8_t* received_hmac_32bytes) noexcept {
 
         if (!received_hmac_32bytes) {
-            Secure_Zero_HMAC(ctx.inner_ctx, sizeof(ctx.inner_ctx));
-            Secure_Zero_HMAC(ctx.o_key_pad, sizeof(ctx.o_key_pad));
+            SecureMemory::secureWipe(static_cast<void*>(ctx.inner_ctx), sizeof(ctx.inner_ctx));
+            SecureMemory::secureWipe(static_cast<void*>(ctx.o_key_pad), sizeof(ctx.o_key_pad));
             ctx.is_initialized = false;
-            return false;
+            return SECURE_FALSE;
         }
 
         alignas(4) uint8_t computed[SHA256_DIGEST] = {};
-        if (!Final(ctx, computed)) {
-            Secure_Zero_HMAC(computed, sizeof(computed));
-            return false;
+        if (Final(ctx, computed) != SECURE_TRUE) {
+            SecureMemory::secureWipe(static_cast<void*>(computed), sizeof(computed));
+            return SECURE_FALSE;
         }
 
-        bool match = CT_Eq(computed, received_hmac_32bytes, SHA256_DIGEST);
-        Secure_Zero_HMAC(computed, sizeof(computed));
+        const uint32_t match = CT_Eq(computed, received_hmac_32bytes, SHA256_DIGEST);
+        SecureMemory::secureWipe(static_cast<void*>(computed), sizeof(computed));
         return match;
     }
 
     // =====================================================================
     //  Generate — 단일 호출 HMAC 생성
     // =====================================================================
-    bool HMAC_Bridge::Generate(
+    uint32_t HMAC_Bridge::Generate(
         const uint8_t* message, size_t msg_len,
         const uint8_t* key, size_t key_len,
         uint8_t* output_hmac_32bytes) noexcept {
 
         if (!message || msg_len == 0 || !key ||
-            key_len == 0 || !output_hmac_32bytes) return false;
+            key_len == 0 || !output_hmac_32bytes) return SECURE_FALSE;
 
         HMAC_Context ctx;
-        if (!Init(ctx, key, key_len)) return false;
-        if (!Update(ctx, message, msg_len)) {
-            Secure_Zero_HMAC(ctx.inner_ctx, sizeof(ctx.inner_ctx));
-            Secure_Zero_HMAC(ctx.o_key_pad, sizeof(ctx.o_key_pad));
-            return false;
+        if (Init(ctx, key, key_len) != SECURE_TRUE) return SECURE_FALSE;
+        if (Update(ctx, message, msg_len) != SECURE_TRUE) {
+            SecureMemory::secureWipe(static_cast<void*>(ctx.inner_ctx), sizeof(ctx.inner_ctx));
+            SecureMemory::secureWipe(static_cast<void*>(ctx.o_key_pad), sizeof(ctx.o_key_pad));
+            return SECURE_FALSE;
         }
         return Final(ctx, output_hmac_32bytes);
     }
@@ -377,20 +365,20 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Verify — 단일 호출 HMAC 검증
     // =====================================================================
-    bool HMAC_Bridge::Verify(
+    uint32_t HMAC_Bridge::Verify(
         const uint8_t* message, size_t msg_len,
         const uint8_t* key, size_t key_len,
         const uint8_t* received_hmac_32bytes) noexcept {
 
         if (!message || msg_len == 0 || !key ||
-            key_len == 0 || !received_hmac_32bytes) return false;
+            key_len == 0 || !received_hmac_32bytes) return SECURE_FALSE;
 
         HMAC_Context ctx;
-        if (!Init(ctx, key, key_len)) return false;
-        if (!Update(ctx, message, msg_len)) {
-            Secure_Zero_HMAC(ctx.inner_ctx, sizeof(ctx.inner_ctx));
-            Secure_Zero_HMAC(ctx.o_key_pad, sizeof(ctx.o_key_pad));
-            return false;
+        if (Init(ctx, key, key_len) != SECURE_TRUE) return SECURE_FALSE;
+        if (Update(ctx, message, msg_len) != SECURE_TRUE) {
+            SecureMemory::secureWipe(static_cast<void*>(ctx.inner_ctx), sizeof(ctx.inner_ctx));
+            SecureMemory::secureWipe(static_cast<void*>(ctx.o_key_pad), sizeof(ctx.o_key_pad));
+            return SECURE_FALSE;
         }
         return Verify_Final(ctx, received_hmac_32bytes);
     }

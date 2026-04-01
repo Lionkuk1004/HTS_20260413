@@ -21,13 +21,18 @@
 ///           Barrage 경로는 clip=Q25×4 유지 → 기존 성능 퇴행 없음.
 ///  - BUG-22 @b [MED]  U-A: sizeof(Impl) ≈ 1040B (BUG-32 수치 수정)
 ///  - BUG-23 @b [MED]  U-B: sizeof ≤ 4096 static_assert SRAM 예산 검증
-///  - BUG-24 @b [LOW]  D-2: SecWipe MSVC volatile char→uint8_t 통일
+///  - BUG-24 @b [LOW]  D-2: SecWipe → SecureMemory (BUG-36 최종 통일)
 ///  - BUG-27 @b [HIGH] N % 4 == 0 static_assert 추가
 ///  - BUG-28 @b [HIGH] Calibrate() CAS 가드 (TOCTOU 방지)
 ///  - BUG-29 @b [MED]  소프트 클리핑 중복 static_cast 제거
 ///  - BUG-30 @b [LOW]  Calibrate() @pre 사전조건 문서화
 ///  - BUG-31 @b [LOW]  스레드 안전성 문서 보강
 ///  - BUG-32 @b [LOW]  sizeof(Impl) 수치 재검증 (2056B → 약 1040B)
+///  - BUG-36 @b [CRIT] SecWipe → SecureMemory::secureWipe (D-2), impl_valid_ atomic
+///  - BUG-41 @b [CRIT] D-2 소거 구현 정합 — HTS_Secure_Memory.cpp Force_Secure_Wipe
+///           (GCC/Clang memory clobber + MSVC _ReadWriteBarrier + release fence)
+///  - BUG-37 @b [HIGH] impl_buf_ alignas(64) — placement new 정렬 여유(SIMD/DMA/캐시라인)
+///  - BUG-38 @b [MED]  p_metrics_ std::atomic — Set vs Decode 핫패스 레이스 제거
 ///
 /// @warning sizeof(HTS64_Native_ECCM_Core) ≈ 2056B (impl_buf_[2048] 내장)
 ///          sizeof(Impl) ≈ 1040B (impl_buf_ 내부에 placement new)
@@ -47,6 +52,7 @@
 ///  - @c int64_t 는 소프트 클리핑 곱셈·임계값 비교 내부에서만 허용
 // =============================================================================
 #pragma once
+#include <atomic>
 #include <cstdint>
 #include <cstddef>
 
@@ -74,8 +80,8 @@ namespace ProtectedEngine {
         /// @endcond
 
         /// @brief 노이즈 캘리브레이션 — NF IIR 필터 초기화
-        /// @pre noise_I, noise_Q 배열 크기 >= CHIPS(64) * n_frames
-        ///      호출자가 배열 경계를 보장해야 합니다.
+        /// @pre noise_I, noise_Q: 각각 CHIPS(64)개 이상, int16_t 2바이트 정렬 필수 (Cortex-M 비정렬 UsageFault 방지)
+        /// @note n_frames>1 은 OOB 방지를 위해 내부에서 1로 클램프 — 실질 단일 64칩 프레임만 사용
         /// @note [BUG-28] CAS 가드: 동시 호출 시 1스레드만 진입, 나머지 즉시 true 반환
         [[nodiscard]]
         bool Calibrate(const int16_t* noise_I, const int16_t* noise_Q,
@@ -85,14 +91,17 @@ namespace ProtectedEngine {
         void reset_calibration() noexcept;
         void Reseed(uint32_t epoch_seed) noexcept;
 
+        /// @param rx_I, rx_Q  CHIPS(64) 샘플, 2바이트 정렬 필수
         [[nodiscard]]
         int8_t Decode_BareMetal_IQ(const int16_t* rx_I,
             const int16_t* rx_Q) noexcept;
 
+        /// @param rx_I, rx_Q  CHIPS(64), 2바이트 정렬 / fwht_* 4바이트 정렬 필수
         [[nodiscard]]
         int8_t Decode_Soft_IQ(const int16_t* rx_I, const int16_t* rx_Q,
             int32_t* fwht_I, int32_t* fwht_Q) noexcept;
 
+        /// @param rx_I, rx_Q, out_I, out_Q  각 CHIPS(64), 2바이트 정렬 필수
         void Descramble_IQ(const int16_t* rx_I, const int16_t* rx_Q,
             int16_t* out_I, int16_t* out_Q) noexcept;
 
@@ -105,12 +114,15 @@ namespace ProtectedEngine {
 
     private:
         static constexpr size_t IMPL_BUF_SIZE = 2048u;
+        /// Pimpl 버퍼 정렬 — Impl 요구 ≤ 이 값(컴파일 타임 assert, .cpp)
+        static constexpr size_t IMPL_BUF_ALIGN = 64u;
         struct Impl;
-        alignas(8) uint8_t impl_buf_[IMPL_BUF_SIZE];
-        bool impl_valid_ = false;
+        alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];
+        /// placement 생존 — const get_impl()에서 load 가능하도록 mutable
+        mutable std::atomic<bool> impl_valid_{ false };
 
-        /// 비소유 포인터 — nullptr이면 측정값 기록 안 함
-        HTS_RF_Metrics* p_metrics_{ nullptr };
+        /// 비소유 포인터 — nullptr이면 측정값 기록 안 함 (원자적 load/store)
+        std::atomic<HTS_RF_Metrics*> p_metrics_{ nullptr };
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;

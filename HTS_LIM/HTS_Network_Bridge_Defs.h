@@ -26,6 +26,8 @@
 #include <cstddef>
 
 namespace ProtectedEngine {
+    static constexpr uint32_t BRIDGE_SECURE_TRUE = 0x5A5A5A5Au;
+    static constexpr uint32_t BRIDGE_SECURE_FALSE = 0xA5A5A5A5u;
 
     // ============================================================
     //  브릿지 프로토콜 상수
@@ -120,12 +122,12 @@ namespace ProtectedEngine {
         | static_cast<uint8_t>(BridgeState::ERROR);
 
     /// @brief BridgeState 단일 유효 상태 검증
-    inline bool Bridge_Is_Valid_State(BridgeState s) noexcept
+    inline uint32_t Bridge_Is_Valid_State(BridgeState s) noexcept
     {
         const uint8_t v = static_cast<uint8_t>(s);
-        if (v == 0u) { return true; }  // DISABLED is valid
-        if ((v & ~BRIDGE_VALID_STATE_MASK) != 0u) { return false; }
-        return ((v & (v - 1u)) == 0u);
+        if (v == 0u) { return BRIDGE_SECURE_TRUE; }  // DISABLED is valid
+        if ((v & ~BRIDGE_VALID_STATE_MASK) != 0u) { return BRIDGE_SECURE_FALSE; }
+        return (((v & (v - 1u)) == 0u) ? BRIDGE_SECURE_TRUE : BRIDGE_SECURE_FALSE);
     }
 
     /// @brief CFI 검증된 브릿지 상태 전이
@@ -135,9 +137,9 @@ namespace ProtectedEngine {
     ///        FRAGMENTING  -> IDLE | ERROR
     ///        REASSEMBLING -> IDLE | ERROR
     ///        ERROR        -> IDLE | DISABLED
-    inline bool Bridge_Is_Legal_Transition(BridgeState from, BridgeState to) noexcept
+    inline uint32_t Bridge_Is_Legal_Transition(BridgeState from, BridgeState to) noexcept
     {
-        if (!Bridge_Is_Valid_State(to)) { return false; }
+        if (Bridge_Is_Valid_State(to) != BRIDGE_SECURE_TRUE) { return BRIDGE_SECURE_FALSE; }
 
         static constexpr uint8_t k_legal[5] = {
             /* DISABLED     -> */ static_cast<uint8_t>(BridgeState::IDLE),
@@ -163,7 +165,7 @@ namespace ProtectedEngine {
         case BridgeState::FRAGMENTING:  idx = 2u; break;
         case BridgeState::REASSEMBLING: idx = 3u; break;
         case BridgeState::ERROR:        idx = 4u; break;
-        default: return false;
+        default: return BRIDGE_SECURE_FALSE;
         }
 
         if (static_cast<uint8_t>(to) == 0u) {
@@ -171,10 +173,14 @@ namespace ProtectedEngine {
             static constexpr uint8_t k_disabled_sources = static_cast<uint8_t>(
                 static_cast<uint8_t>(BridgeState::IDLE)
                 | static_cast<uint8_t>(BridgeState::ERROR));  // 0x09
-            return (static_cast<uint8_t>(from) & k_disabled_sources) != 0u;
+            return ((static_cast<uint8_t>(from) & k_disabled_sources) != 0u)
+                ? BRIDGE_SECURE_TRUE
+                : BRIDGE_SECURE_FALSE;
         }
 
-        return (k_legal[idx] & static_cast<uint8_t>(to)) != 0u;
+        return ((k_legal[idx] & static_cast<uint8_t>(to)) != 0u)
+            ? BRIDGE_SECURE_TRUE
+            : BRIDGE_SECURE_FALSE;
     }
 
 } // namespace ProtectedEngine

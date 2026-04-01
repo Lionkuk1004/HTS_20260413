@@ -4,7 +4,7 @@
 // 규격: KS X 1213-1 (2009)
 // Target: STM32F407 (Cortex-M4)
 //
-// [양산 수정 — 5건 결함 교정]
+// [양산 수정 — 6건 결함 교정]
 //
 //  BUG-01 [MEDIUM] C26495 — 멤버 기본값 미초기화
 //    기존: round_keys[272] → 값 초기화 없음 (생성자에서 Secure_Zero)
@@ -26,6 +26,7 @@
 //    수정: ARIA_Bridge::ROUND_KEY_BUF_SIZE 명명 상수 사용
 //
 //  BUG-05 [LOW] KCMVP 인증 문서화 보강
+//  BUG-43 [CRIT] Secure_Zero 제거 → SecureMemory::secureWipe (D-2/X-5-1, MSVC 배리어)
 //
 // [KISA ARIA C 구현체 연결]
 //  aria.c (KISA 공식 배포) → extern "C" 선언으로 링크
@@ -39,8 +40,8 @@
 //  Flash: ~500바이트 (브릿지) + ~2KB (aria.c KISA 원본)
 // =========================================================================
 #include "HTS_ARIA_Bridge.h"
+#include "HTS_Secure_Memory.h"
 #include <cstring>
-#include <atomic>
 
 // =========================================================================
 //  KISA ARIA C 구현체 extern "C" 링크
@@ -69,33 +70,8 @@ namespace ProtectedEngine {
 
     // =====================================================================
     //  보안 메모리 소거 — KCMVP 키 소재 잔존 방지(Key Zeroization)
-    //
-    //  [BUG-02 수정] pragma O0 추가
-    //  3중 DCE 방지: pragma O0 + volatile + atomic_thread_fence
-    //  → 가장 공격적인 최적화에서도 소거 코드가 삭제되지 않음 보장
+    //  [BUG-43] HTS_Secure_Memory::secureWipe 단일화 (D-2 / X-5-1)
     // =====================================================================
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC push_options
-#pragma GCC optimize("O0")
-#elif defined(_MSC_VER)
-#pragma optimize("", off)
-#endif
-
-    static void Secure_Zero(void* ptr, size_t size) noexcept {
-        if (!ptr || size == 0) return;
-        volatile uint8_t* p = static_cast<volatile uint8_t*>(ptr);
-        for (size_t i = 0; i < size; ++i) {
-            p[i] = 0;
-        }
-        // [BUG] seq_cst → release (소거 배리어 정책 통일)
-        std::atomic_thread_fence(std::memory_order_release);
-    }
-
-#if defined(__GNUC__) || defined(__clang__)
-#pragma GCC pop_options
-#elif defined(_MSC_VER)
-#pragma optimize("", on)
-#endif
 
     // =====================================================================
     //  내부 키 스케줄 공통 로직 — 암호화/복호화 중복 제거
@@ -115,20 +91,28 @@ namespace ProtectedEngine {
 
         // 이전 키 소재 소거 후 재설정
         is_initialized = false;
-        Secure_Zero(round_keys, ARIA_Bridge::ROUND_KEY_BUF_SIZE);
+        SecureMemory::secureWipe(static_cast<void*>(round_keys),
+            ARIA_Bridge::ROUND_KEY_BUF_SIZE);
+
+        alignas(4) uint8_t aligned_mk[32] = {};
+        const size_t mk_size = static_cast<size_t>(key_bits / 8);
+        std::memcpy(aligned_mk, master_key, mk_size);
 
         int rounds = is_enc
             ? EncKeySetup(
-                reinterpret_cast<const Byte*>(master_key),
+                reinterpret_cast<const Byte*>(aligned_mk),
                 reinterpret_cast<Byte*>(round_keys),
                 key_bits)
             : DecKeySetup(
-                reinterpret_cast<const Byte*>(master_key),
+                reinterpret_cast<const Byte*>(aligned_mk),
                 reinterpret_cast<Byte*>(round_keys),
                 key_bits);
 
+        SecureMemory::secureWipe(static_cast<void*>(aligned_mk), sizeof(aligned_mk));
+
         if (!Is_Valid_Round_Count(rounds)) {
-            Secure_Zero(round_keys, ARIA_Bridge::ROUND_KEY_BUF_SIZE);
+            SecureMemory::secureWipe(static_cast<void*>(round_keys),
+            ARIA_Bridge::ROUND_KEY_BUF_SIZE);
             num_rounds = 0;
             return false;
         }
@@ -146,15 +130,15 @@ namespace ProtectedEngine {
         , num_rounds(0)
         , is_initialized(false) {
         // round_keys는 = {} 값 초기화로 이미 0이지만,
-        // KCMVP 감사 투명성을 위해 명시적 Secure_Zero 호출 유지
-        Secure_Zero(round_keys, ROUND_KEY_BUF_SIZE);
+        // KCMVP 감사 투명성을 위해 명시적 SecureMemory::secureWipe 유지
+        SecureMemory::secureWipe(static_cast<void*>(round_keys), ROUND_KEY_BUF_SIZE);
     }
 
     // =====================================================================
     //  소멸자 — KCMVP 요건: 키 소재 반드시 소거
     // =====================================================================
     ARIA_Bridge::~ARIA_Bridge() noexcept {
-        Secure_Zero(round_keys, ROUND_KEY_BUF_SIZE);
+        SecureMemory::secureWipe(static_cast<void*>(round_keys), ROUND_KEY_BUF_SIZE);
         num_rounds = 0;
         is_initialized = false;
     }
@@ -163,7 +147,7 @@ namespace ProtectedEngine {
     //  Reset — 명시적 키 소재 소거
     // =====================================================================
     void ARIA_Bridge::Reset() noexcept {
-        Secure_Zero(round_keys, ROUND_KEY_BUF_SIZE);
+        SecureMemory::secureWipe(static_cast<void*>(round_keys), ROUND_KEY_BUF_SIZE);
         num_rounds = 0;
         is_initialized = false;
     }
@@ -208,23 +192,32 @@ namespace ProtectedEngine {
             !Is_Valid_Round_Count(num_rounds)) {
             // [BUG-03] 실패 시 출력 소거 (output이 유효한 경우에만)
             if (output_16bytes) {
-                Secure_Zero(output_16bytes, 16);
+                SecureMemory::secureWipe(static_cast<void*>(output_16bytes), 16u);
             }
             return false;
         }
 
         // in-place 미지원 (KISA Crypt 함수 제약)
         if (input_16bytes == output_16bytes) {
-            Secure_Zero(output_16bytes, 16);
+            SecureMemory::secureWipe(static_cast<void*>(output_16bytes), 16u);
             return false;
         }
 
+        alignas(4) uint8_t aligned_in[16];
+        alignas(4) uint8_t aligned_out[16];
+        std::memcpy(aligned_in, input_16bytes, sizeof(aligned_in));
+        SecureMemory::secureWipe(static_cast<void*>(aligned_out), sizeof(aligned_out));
+
         Crypt(
-            reinterpret_cast<const Byte*>(input_16bytes),
+            reinterpret_cast<const Byte*>(aligned_in),
             num_rounds,
             reinterpret_cast<const Byte*>(round_keys),
-            reinterpret_cast<Byte*>(output_16bytes)
+            reinterpret_cast<Byte*>(aligned_out)
         );
+
+        std::memcpy(output_16bytes, aligned_out, sizeof(aligned_out));
+        SecureMemory::secureWipe(static_cast<void*>(aligned_in), sizeof(aligned_in));
+        SecureMemory::secureWipe(static_cast<void*>(aligned_out), sizeof(aligned_out));
 
         return true;
     }
