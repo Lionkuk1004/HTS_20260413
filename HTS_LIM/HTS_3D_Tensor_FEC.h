@@ -61,44 +61,45 @@
 #if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
     !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
 
-#include <vector>
 #include <string>
 #include <random>
 
 namespace HTS_Engine {
 
+    // ── [BUG-22] PC 시뮬: std::vector 제거, float + 파일 정적(BSS) 버퍼 ──
+    static constexpr size_t TEXT_CODEC_MAX_CHARS = 4096u;
+    static constexpr size_t TEXT_CODEC_MAX_BITS = TEXT_CODEC_MAX_CHARS * 8u;
+
     class Text_Codec {
     public:
-        static std::vector<double> String_To_Bits(const std::string& text);
-        static std::string Bits_To_String(const std::vector<double>& bits);
+        /// 내부 정적 버퍼에 기록(재진입 불가). 반환: 비트 개수.
+        static size_t String_To_Bits(const std::string& text);
+        static const float* String_To_Bits_Data() noexcept;
+        static size_t String_To_Bits_Count() noexcept;
+        static std::string Bits_To_String(const float* bits, size_t num_bits);
     };
 
     class CRC16 {
     public:
-        static std::vector<double> Append(const std::vector<double>& data);
-        static bool Check(const std::vector<double>& data_with_crc);
+        /// out에 n+16 소프트 비트 기록. out_cap >= n+16 필수. 반환: n+16 또는 0.
+        static size_t Append(const float* data, size_t n,
+            float* out, size_t out_cap);
+        static bool Check(const float* data_with_crc, size_t len);
     private:
-        static uint16_t compute(const std::vector<double>& data);
+        static uint16_t compute(const float* data, size_t n);
     };
 
     class Tensor_Interleaver {
     public:
         explicit Tensor_Interleaver(size_t dim = 64);
         size_t Get_Size() const;
-        std::vector<double> Interleave(
-            const std::vector<double>& input) const;
-        std::vector<double> Deinterleave(
-            const std::vector<double>& input) const;
-
-        // ── [OPT-3] Buffer-reuse API (HARQ 루프 힙 할당 제거) ──
-        void Interleave_To(const std::vector<double>& in,
-            std::vector<double>& out) const;
-        void Deinterleave_To(const std::vector<double>& in,
-            std::vector<double>& out) const;
+        /// out_cap >= Get_Size() 권장. 실제 기록은 min(in_len,total_size) 등.
+        void Interleave_To(const float* in, size_t in_len,
+            float* out, size_t out_cap) const;
+        void Deinterleave_To(const float* in, size_t in_len,
+            float* out, size_t out_cap) const;
 
         // ── [BUG-21] ARM Raw API (int8_t, zero-heap) ──
-        //  순수 인덱스 치환 → int8_t(±1) 안전
-        //  in/out 크기 = min(input_len, dim³)
         size_t Interleave_Raw(const int8_t* in, size_t in_len,
             int8_t* out, size_t out_max) const noexcept;
         size_t Deinterleave_Raw(const int8_t* in, size_t in_len,
@@ -110,49 +111,35 @@ namespace HTS_Engine {
 
     class Soft_Tensor_FEC {
     public:
-        std::vector<double> Encode(
-            const std::vector<double>& bits,
-            unsigned int frame_seed) const;
-        std::vector<double> Decode_Soft(
-            const std::vector<double>& tensor,
-            size_t num_bits,
-            unsigned int frame_seed) const;
+        static constexpr size_t TENSOR_CAPACITY = 262144u;
 
         // ── [BUG-21] ARM Raw API (int8_t ±1, zero-heap) ──
-        //  Tag()는 ±1만 반환 → bits[i] * Tag() = ±1 × ±1 = ±1
-        //  int8_t 안전. out_max가 TENSOR_SIZE를 대체 (ARM 축소용)
-        //  npb = min(out_max / n_bits, TENSOR_SIZE / n_bits)
-        //  반환값 = 실제 출력 크기
         size_t Encode_Raw(const int8_t* bits, size_t n_bits,
             int8_t* out, size_t out_max,
             unsigned int frame_seed) const noexcept;
 
-        // ── [OPT-3] Buffer-reuse API ──
-        void Encode_To(const std::vector<double>& bits,
+        /// out_cap ≥ TENSOR_CAPACITY 권장 (PC 시뮬). float 소프트 비트.
+        void Encode_To(const float* bits, size_t n_bits,
             unsigned int frame_seed,
-            std::vector<double>& out) const;
-        void Decode_Soft_To(const std::vector<double>& tensor,
+            float* out, size_t out_cap) const;
+        void Decode_Soft_To(const float* tensor, size_t tensor_len,
             size_t num_bits, unsigned int frame_seed,
-            std::vector<double>& out) const;
+            float* out, size_t out_cap) const;
 
     private:
-        static constexpr size_t TENSOR_SIZE = 262144;
-        static double Tag(unsigned int seed, size_t index);
-        // [BUG-21] int8_t 버전 (±1 반환)
+        static constexpr size_t TENSOR_SIZE = TENSOR_CAPACITY;
+        static float Tag(unsigned int seed, size_t index) noexcept;
         static int8_t Tag_i8(unsigned int seed, size_t index) noexcept;
     };
 
     class LTE_Channel {
     public:
-        static constexpr double JS_DB = 50.0;
-        static constexpr int    NUM_CHIPS = 128;
-        static constexpr double EMP_RATE = 0.03;
-        static constexpr double EMP_AMP = 99999.0;
-        static std::vector<double> Transmit(
-            const std::vector<double>& tensor, std::mt19937& rng);
-        // [OPT-3] Buffer-reuse
-        static void Transmit_To(const std::vector<double>& tensor,
-            std::mt19937& rng, std::vector<double>& out);
+        static constexpr float JS_DB = 50.0f;
+        static constexpr int   NUM_CHIPS = 128;
+        static constexpr float EMP_RATE = 0.03f;
+        static constexpr float EMP_AMP = 99999.0f;
+        static void Transmit_To(const float* tensor, size_t N,
+            std::mt19937& rng, float* out, size_t out_cap);
     };
 
     class LTE_HARQ_Controller {
@@ -161,19 +148,20 @@ namespace HTS_Engine {
         static constexpr int    CRC_BITS = 16;
         static constexpr int    REP_FACTOR = 5;
         static constexpr int    MAX_HARQ = 12;
-        static constexpr double HARQ_RTT_MS = 8.0;
+        static constexpr float  HARQ_RTT_MS = 8.0f;
         static constexpr int    PROTECTED_BITS = MTU / REP_FACTOR;
         static constexpr int    INFO_PER_BLOCK = PROTECTED_BITS - CRC_BITS;
 
         struct BlockResult {
-            std::vector<double> info_bits;
+            std::array<float, static_cast<size_t>(INFO_PER_BLOCK)> info_bits{};
             int    harq_rounds = 0;
             bool   success = false;
-            double latency_ms = 0.0;
+            float  latency_ms = 0.0f;
         };
 
+        /// info_len ≤ INFO_PER_BLOCK. 내부 파이프라인은 파일 정적 버퍼 사용.
         static BlockResult TransmitBlock(
-            const std::vector<double>& info_bits,
+            const float* info_bits, size_t info_len,
             unsigned int block_seed,
             Soft_Tensor_FEC& fec,
             Tensor_Interleaver& interleaver,
