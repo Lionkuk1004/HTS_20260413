@@ -4,6 +4,7 @@
 // Target: STM32F407 (Cortex-M4)
 //
 #include "HTS_Hardware_Init.h"
+#include "HTS_Anti_Debug.h"
 #include <cstdio>
 #include <cstdlib>
 
@@ -134,6 +135,7 @@ namespace ProtectedEngine {
     // =====================================================================
     void Hardware_Init_Manager::Initialize_System() noexcept {
 #ifdef HTS_TARGET_ARM_BAREMETAL
+        AntiDebugManager::pollHardwareOrFault();
         // ── WDT 활성화 (RDP 검사 전) ─────────────────────────────────
         //  RDP 실패 시 Terminal_Fault_Action → AIRCR 리셋 외에도 WDT가 동작하도록 선행
         volatile uint32_t* wdt_ctrl = reinterpret_cast<volatile uint32_t*>(
@@ -231,7 +233,7 @@ namespace ProtectedEngine {
     //  Initialize_MPU — STM32F407 MPU 8개 리전 (K-1, R-11)
     //
     //  Region 5·1 중복(0x20000000): 번호 큰 리전 우선 → 하위 4KB는 Region 5
-    //    Region 5: Strongly-ordered 분리(TEX=0,S=1,C=0,B=0) — Region 1 Normal WB와 구분
+    //    Region 5: Strongly-ordered 분리 — HTS_SECURE_MPU_LOCK_REGION==5면 Secure_Memory 동적 전용
     //  Region 4: 스택 가드 SIZE=7(256B) — 예외 8워드 push(32B) 한 번에 가드 우회 방지
     //  Region 7: 원안 512MB는 Flash(0x08000000)와 중첩 위험 → SIZE=26(128MB)로
     //            [0, 0x08000000)만 No Access (저주소/널 가드, Flash 제외)
@@ -287,12 +289,15 @@ namespace ProtectedEngine {
             (1u << 28) | (0u << 24) | (7u << 1) | (1u));
 
         // Region 5: DMA 버퍼 4KB @ SRAM 선두 — RW Both, XN=1
+        //   HTS_SECURE_MPU_LOCK_REGION==5 일 때는 Secure_Memory가 동적 전용 → 정적 맵 생략
+#if !defined(HTS_SECURE_MPU_LOCK_REGION) || (HTS_SECURE_MPU_LOCK_REGION != 5u)
         //   TEX=0,S=1,C=0,B=0 → Shareable Device (Region 1 Normal WBWA와 속성 분리)
         *MPU_RNR = 5u;
         *MPU_RBAR = 0x20000000u;
         *MPU_RASR = static_cast<uint32_t>(
             (1u << 28) | (3u << 24) | (0u << 19) | (1u << 18) | (0u << 17)
             | (0u << 16) | (11u << 1) | (1u));
+#endif
 
         // Region 6: CoreSight/시스템 — RO Priv, XN=1, 256MB
         *MPU_RNR = 6u;

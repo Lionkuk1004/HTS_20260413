@@ -28,6 +28,8 @@
 //  S-5: 콜백 종료 후 즉시 정지가 필요하면 AntiDebugManager::trustedHalt 호출 권장 (cpp 연동)
 //
 // [제약] try-catch 0, float/double 0, heap 0
+// [보안] ARM Release: Poll_Tamper_Status·Case_Open_ISR 진입 시 DHCSR·OPTCR(RDP) 이중 샘플
+//        — 비활성: HTS_TAMPER_HAL_SKIP_PHYS_TRUST=1 또는 HTS_ALLOW_OPEN_DEBUG/NDEBUG
 // =========================================================================
 #pragma once
 // ─────────────────────────────────────────────────────────
@@ -67,7 +69,7 @@ namespace ProtectedEngine {
         /// @param pin_number 핀 번호 (0~15)
         /// @param response   탬퍼 응답 콜백
         /// @note H-1: `response==nullptr` 또는 `gpio_port==0` 또는 `pin_number>15` 이면 등록 무시
-        /// @note X-1-2: MODER RMW는 PRIMASK 크리티컬 섹션에서 수행
+        /// @note MODER RMW는 PRIMASK 없이 수행(실시간 IRQ 지연 방지) — 보드별 동시 GPIO 갱신 시 tearing 주의
         static void Register_Case_Open(
             uint32_t gpio_port, uint8_t pin_number,
             TamperResponseFunc response) noexcept;
@@ -89,8 +91,7 @@ namespace ProtectedEngine {
 
         /// @brief 탬퍼 상태 주기적 폴링 (메인 루프에서 호출)
         /// @note GPIO/ADC 인터럽트 방식 권장, 폴링은 보조 수단
-        /// @note DMA 미사용: SQR1(L=0)+SQR3(SQ1=ch)+SWSTART 후 EOC 상한 대기 → DR
-        /// @note ⑮/X-4-4: EOC 미수신 시 상한 스핀 후 해당 폴링 주기만 중단(케이스 GPIO는 이미 처리됨)
+        /// @note DMA 미사용: SWSTART 후 EOC는 비차단 FSM(다음 Poll 틱에서 DR) — PRIMASK·스핀 대기 없음
         static void Poll_Tamper_Status() noexcept;
 
         /// @brief 탬퍼 ISR — EXTI 인터럽트 핸들러에서 호출

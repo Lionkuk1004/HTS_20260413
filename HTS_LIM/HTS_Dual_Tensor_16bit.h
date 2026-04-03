@@ -33,7 +33,7 @@
 //   중간 암호 파생 데이터: RAII_Secure_Wiper로 모든 경로 소거 보장
 //   impl_buf_: 소멸자에서 SecWipe — Impl 전체 이중 소거
 //   복사/이동: = delete (키 소재/암호 상태 복제 경로 원천 차단)
-//   Get_Master_Seed: Raw API (힙 0회, ARM Zero-Heap 준수)
+//   Session_Gateway::Derive_Session_Material — 도메인 분리 KDF, 원시 시드 비반출 (힙 0회)
 //
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once

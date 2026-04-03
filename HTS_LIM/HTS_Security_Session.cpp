@@ -19,18 +19,121 @@
 #include <cstdint>
 #include <climits>
 #include <new>     // placement new (힙 할당 아님)
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+#include "HTS_Anti_Debug.h"
+#include "HTS_Hardware_Init.h"
+#endif
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 namespace ProtectedEngine {
-    // =====================================================================
-    //  루프 오버헤드를 없애고 N개의 블록을 한 번에 더하는 O(1) 알고리즘
-    // =====================================================================
+
+#if (defined(__cpp_lib_launder) && __cpp_lib_launder >= 201606L) || \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || \
+    (!defined(_MSVC_LANG) && defined(__cplusplus) && __cplusplus >= 201703L)
+#define HTS_SECURITY_SESSION_USE_STD_LAUNDER 1
+#else
+#define HTS_SECURITY_SESSION_USE_STD_LAUNDER 0
+#endif
+
+#if !defined(HTS_SECURITY_SESSION_SKIP_PHYS_TRUST)
+#if defined(HTS_ALLOW_OPEN_DEBUG) || !defined(NDEBUG)
+#define HTS_SECURITY_SESSION_SKIP_PHYS_TRUST 1
+#else
+#define HTS_SECURITY_SESSION_SKIP_PHYS_TRUST 0
+#endif
+#endif
+
+#if HTS_SECURITY_SESSION_SKIP_PHYS_TRUST == 0 && \
+    (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH))
+    [[noreturn]] static void SecuritySession_PhysicalTrust_Fault() noexcept {
+        Hardware_Init_Manager::Terminal_Fault_Action();
+    }
+
+    static void SecuritySession_AssertPhysicalTrustOrFault() noexcept {
+        volatile const uint32_t* const dhcsr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
+        const uint32_t d0 = *dhcsr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t d1 = *dhcsr;
+        if (d0 != d1) {
+            SecuritySession_PhysicalTrust_Fault();
+        }
+        if ((d0 & DHCSR_DEBUG_MASK) != 0u) {
+            SecuritySession_PhysicalTrust_Fault();
+        }
+        volatile const uint32_t* const optcr =
+            reinterpret_cast<volatile const uint32_t*>(HTS_FLASH_OPTCR_ADDR);
+        const uint32_t o0 = *optcr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t o1 = *optcr;
+        if (o0 != o1) {
+            SecuritySession_PhysicalTrust_Fault();
+        }
+        const uint32_t rdp = (o0 & HTS_RDP_OPTCR_MASK) >> 8u;
+        if (rdp != HTS_RDP_EXPECTED_BYTE_VAL) {
+            SecuritySession_PhysicalTrust_Fault();
+        }
+    }
+#else
+    static void SecuritySession_AssertPhysicalTrustOrFault() noexcept {}
+#endif
+
+    // 128-bit big-endian 카운터(counter[0]=MSB … counter[15]=LSB)에 blocks를 O(1)로 가산
+    static inline uint64_t ctr_load_be64(const uint8_t* p) noexcept {
+        uint64_t w = 0u;
+        std::memcpy(&w, p, sizeof(w));
+#if defined(__GNUC__) || defined(__clang__)
+        return __builtin_bswap64(w);
+#elif defined(_MSC_VER)
+        return _byteswap_uint64(w);
+#else
+        uint64_t v = 0u;
+        for (int i = 0; i < 8; ++i) {
+            v = (v << 8) | static_cast<uint64_t>(p[i]);
+        }
+        return v;
+#endif
+    }
+
+    static inline void ctr_store_be64(uint8_t* p, uint64_t v) noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+        uint64_t w = __builtin_bswap64(v);
+#elif defined(_MSC_VER)
+        uint64_t w = _byteswap_uint64(v);
+#else
+        uint64_t w = v;
+        for (int i = 7; i >= 0; --i) {
+            p[i] = static_cast<uint8_t>(w & 0xFFu);
+            w >>= 8u;
+        }
+        return;
+#endif
+        std::memcpy(p, &w, sizeof(w));
+    }
+
     static void Add_To_Counter(uint8_t* counter, uint64_t blocks) noexcept {
-        if (blocks == 0) return;
-        uint64_t carry = blocks;
-        for (int i = 15; i >= 0 && carry > 0; --i) {
-            carry += counter[i];
-            counter[i] = static_cast<uint8_t>(carry & 0xFFu);
-            carry >>= 8u;
+        if (blocks == 0ull) {
+            return;
+        }
+        const uint64_t hi = ctr_load_be64(counter);
+        const uint64_t lo = ctr_load_be64(counter + 8u);
+        const uint64_t new_lo = lo + blocks;
+        const uint64_t c = (new_lo < lo) ? 1ull : 0ull;
+        const uint64_t new_hi = hi + c;
+        ctr_store_be64(counter + 8u, new_lo);
+        ctr_store_be64(counter, new_hi);
+    }
+
+    static inline void ctr_hi_lo_add_one(uint64_t& hi, uint64_t& lo) noexcept {
+        ++lo;
+        if (lo == 0ull) {
+            ++hi;
         }
     }
 
@@ -103,7 +206,11 @@ namespace ProtectedEngine {
             SecureMemory::secureWipe(&rx_mac_ctx, sizeof(rx_mac_ctx));
 
             SecureMemory::secureWipe(&cached_lea_key, sizeof(cached_lea_key));
-            // cached_aria: ARIA_Bridge 소멸자가 라운드 키 소거 보장 (계약)
+            // Terminate_Session/Clean_State 경로: 객체 소멸 없음 → 라운드 키 명시 소거 필수
+            cached_aria.Reset();
+#if defined(HTS_CRYPTO_FIPS) || defined(HTS_CRYPTO_DUAL)
+            cached_aes.Reset();
+#endif
             crypto_ctx_ready = false;
             deferred_terminate = false;
             SecureMemory::secureWipe(scratch_ctr, sizeof(scratch_ctr));
@@ -153,28 +260,41 @@ namespace ProtectedEngine {
                 if (!crypto_ctx_ready) return false;  // Initialize 미호출 방어
 
                 if (cipher_alg == CipherAlgorithm::ARIA_256_CTR) {
+                    uint64_t ctr_hi = ctr_load_be64(counter);
+                    uint64_t ctr_lo = ctr_load_be64(counter + 8u);
+                    uint8_t ctr_blk[16];
                     for (size_t b = 0; b < full_blocks_bytes; b += 16) {
+                        ctr_store_be64(ctr_blk, ctr_hi);
+                        ctr_store_be64(ctr_blk + 8u, ctr_lo);
                         uint8_t keystream[16];
-                        if (!cached_aria.Process_Block(counter, keystream)) return false;
+                        if (!cached_aria.Process_Block(ctr_blk, keystream)) return false;
                         for (int i = 0; i < 16; ++i) {
                             output[offset + b + i] = input[offset + b + i] ^ keystream[i];
                         }
                         SecureMemory::secureWipe(keystream, sizeof(keystream));
-                        Add_To_Counter(counter, 1);
+                        ctr_hi_lo_add_one(ctr_hi, ctr_lo);
                     }
+                    ctr_store_be64(counter, ctr_hi);
+                    ctr_store_be64(counter + 8u, ctr_lo);
                 }
 #if defined(HTS_CRYPTO_FIPS) || defined(HTS_CRYPTO_DUAL)
                 else if (cipher_alg == CipherAlgorithm::AES_256_CTR) {
-                    // [🟡 8] AES-256-CTR: ARIA와 동일 패턴 (블록 암호 교체)
+                    uint64_t ctr_hi = ctr_load_be64(counter);
+                    uint64_t ctr_lo = ctr_load_be64(counter + 8u);
+                    uint8_t ctr_blk[16];
                     for (size_t b = 0; b < full_blocks_bytes; b += 16) {
+                        ctr_store_be64(ctr_blk, ctr_hi);
+                        ctr_store_be64(ctr_blk + 8u, ctr_lo);
                         uint8_t keystream[16];
-                        if (!cached_aes.Process_Block(counter, keystream)) return false;
+                        if (!cached_aes.Process_Block(ctr_blk, keystream)) return false;
                         for (int i = 0; i < 16; ++i) {
                             output[offset + b + i] = input[offset + b + i] ^ keystream[i];
                         }
                         SecureMemory::secureWipe(keystream, sizeof(keystream));
-                        Add_To_Counter(counter, 1);
+                        ctr_hi_lo_add_one(ctr_hi, ctr_lo);
                     }
+                    ctr_store_be64(counter, ctr_hi);
+                    ctr_store_be64(counter + 8u, ctr_lo);
                 }
 #endif
                 else {
@@ -229,9 +349,22 @@ namespace ProtectedEngine {
             return true;
         }
     };
+
 #if defined(_MSC_VER)
 #pragma warning(pop)
 #endif
+
+    bool HTS_Security_Session::impl_ok_no_deferred(Impl* impl) noexcept {
+        SecuritySession_AssertPhysicalTrustOrFault();
+        if (impl == nullptr) {
+            return false;
+        }
+        if (impl->deferred_terminate) {
+            impl->Clean_State();
+            return false;
+        }
+        return true;
+    }
 
     // 아래 static_assert는 get_impl() 함수 내부로 이동
 
@@ -244,14 +377,24 @@ namespace ProtectedEngine {
         static_assert(alignof(Impl) <= 8,
             "Impl alignment exceeds impl_buf_ alignment");
 
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<Impl*>(impl_buf_)
-            : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS_SECURITY_SESSION_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<Impl*>(impl_buf_);
+#endif
     }
     const HTS_Security_Session::Impl* HTS_Security_Session::get_impl() const noexcept {
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<const Impl*>(impl_buf_)
-            : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS_SECURITY_SESSION_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<const Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<const Impl*>(impl_buf_);
+#endif
     }
 
     // =====================================================================
@@ -270,16 +413,24 @@ namespace ProtectedEngine {
     // =====================================================================
     HTS_Security_Session::HTS_Security_Session() noexcept
         : impl_valid_(false) {
-        // volatile 기반 SecureWipe → 컴파일러가 "어차피 덮어쓸 거니까" 생략 불가
         SecureMemory::secureWipe(impl_buf_, sizeof(impl_buf_));
+        // LTO: placement new 직전 소거 DCE 방지 + 패딩 0 유지(입력 의존 asm)
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(impl_buf_) : "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
+#endif
 
-        // placement new: 0클린된 버퍼 위에 Impl 구축 (힙 접근 0)
         ::new (static_cast<void*>(impl_buf_)) Impl();
         impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Security_Session::~HTS_Security_Session() noexcept {
+#if HTS_SECURITY_SESSION_USE_STD_LAUNDER
+        Impl* const p = std::launder(reinterpret_cast<Impl*>(impl_buf_));
+#else
         Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
+#endif
         const bool was_valid = impl_valid_.exchange(false, std::memory_order_acq_rel);
         if (was_valid) {
             p->Clean_State();       // 멤버 필드 보안 소거
@@ -290,13 +441,12 @@ namespace ProtectedEngine {
 
     bool HTS_Security_Session::Is_Active() const noexcept {
         const Impl* p = get_impl();
-        return p && p->is_session_active;
+        return p && p->is_session_active && !p->deferred_terminate;
     }
 
     // =====================================================================
     //  Initialize — 세션 키/IV 주입
-    //  ⚠ TX/RX 동일 IV 사용 시 Two-Time Pad 취약점 발생
-    //  호출자는 통신 방향별 독립 IV 주입 필수
+    //  RX 카운터는 IV 복사 후 도메인 분리 비트 XOR(동일 IV 입력 시에도 TX≠RX 키스트림)
     // =====================================================================
     bool HTS_Security_Session::Initialize(
         CipherAlgorithm c_alg, MacAlgorithm m_alg,
@@ -304,8 +454,14 @@ namespace ProtectedEngine {
         const uint8_t* iv_16bytes) noexcept {
 
         if (!get_impl() || !enc_key || !mac_key || !iv_16bytes) return false;
-        auto* impl = get_impl(); if (!impl) return false;
+        auto* impl = get_impl();
+        if (!impl) return false;
 
+        SecuritySession_AssertPhysicalTrustOrFault();
+
+        if (impl->deferred_terminate) {
+            impl->Clean_State();
+        }
         if (impl->is_session_active) Terminate_Session();
 
         // [R-2] nonce/IV 재사용 차단: 직전 세션과 동일 IV 금지.
@@ -325,6 +481,7 @@ namespace ProtectedEngine {
         std::memcpy(impl->session_mac_key, mac_key, 32);
         std::memcpy(impl->tx_counter, iv_16bytes, 16);
         std::memcpy(impl->rx_counter, iv_16bytes, 16);
+        impl->rx_counter[0] ^= 0x80u;
         std::memcpy(impl->last_init_iv, iv_16bytes, 16);
         impl->last_iv_valid = true;
 
@@ -357,9 +514,11 @@ namespace ProtectedEngine {
     //  송신 스트리밍 API
     // =====================================================================
     bool HTS_Security_Session::Protect_Begin() noexcept {
-        if (!get_impl() || !get_impl()->is_session_active) return false;
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active) return false;
+        if (!impl_ok_no_deferred(impl)) return false;
         return HMAC_Bridge::Init(
-            get_impl()->tx_mac_ctx, get_impl()->session_mac_key, 32)
+            impl->tx_mac_ctx, impl->session_mac_key, 32)
             == HMAC_Bridge::SECURE_TRUE;
     }
 
@@ -367,24 +526,28 @@ namespace ProtectedEngine {
         const uint8_t* plaintext_chunk, size_t chunk_len,
         uint8_t* ciphertext_out) noexcept {
 
-        if (!get_impl() || !get_impl()->is_session_active ||
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active ||
             !plaintext_chunk || !ciphertext_out || chunk_len == 0)
             return false;
+        if (!impl_ok_no_deferred(impl)) return false;
 
-        if (!get_impl()->Do_CTR_Chunk(plaintext_chunk, chunk_len,
-            ciphertext_out, get_impl()->tx_counter,
-            get_impl()->tx_partial_block, get_impl()->tx_partial_len))
+        if (!impl->Do_CTR_Chunk(plaintext_chunk, chunk_len,
+            ciphertext_out, impl->tx_counter,
+            impl->tx_partial_block, impl->tx_partial_len))
             return false;
 
         return HMAC_Bridge::Update(
-            get_impl()->tx_mac_ctx, ciphertext_out, chunk_len)
+            impl->tx_mac_ctx, ciphertext_out, chunk_len)
             == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Protect_End(uint8_t* mac_tag_out) noexcept {
-        if (!get_impl() || !get_impl()->is_session_active || !mac_tag_out)
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active || !mac_tag_out)
             return false;
-        return HMAC_Bridge::Final(get_impl()->tx_mac_ctx, mac_tag_out)
+        if (!impl_ok_no_deferred(impl)) return false;
+        return HMAC_Bridge::Final(impl->tx_mac_ctx, mac_tag_out)
             == HMAC_Bridge::SECURE_TRUE;
     }
 
@@ -392,50 +555,59 @@ namespace ProtectedEngine {
     //  수신 스트리밍 API
     // =====================================================================
     bool HTS_Security_Session::Unprotect_Begin() noexcept {
-        if (!get_impl() || !get_impl()->is_session_active) return false;
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active) return false;
+        if (!impl_ok_no_deferred(impl)) return false;
         return HMAC_Bridge::Init(
-            get_impl()->rx_mac_ctx, get_impl()->session_mac_key, 32)
+            impl->rx_mac_ctx, impl->session_mac_key, 32)
             == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Unprotect_Feed(
         const uint8_t* ciphertext_chunk, size_t chunk_len) noexcept {
 
-        if (!get_impl() || !get_impl()->is_session_active ||
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active ||
             !ciphertext_chunk || chunk_len == 0)
             return false;
+        if (!impl_ok_no_deferred(impl)) return false;
         return HMAC_Bridge::Update(
-            get_impl()->rx_mac_ctx, ciphertext_chunk, chunk_len)
+            impl->rx_mac_ctx, ciphertext_chunk, chunk_len)
             == HMAC_Bridge::SECURE_TRUE;
     }
 
     bool HTS_Security_Session::Unprotect_Verify(
         const uint8_t* received_mac_tag) noexcept {
 
-        if (!get_impl() || !get_impl()->is_session_active || !received_mac_tag)
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active || !received_mac_tag)
             return false;
+        if (!impl_ok_no_deferred(impl)) return false;
 
         const bool mac_ok = (HMAC_Bridge::Verify_Final(
-            get_impl()->rx_mac_ctx, received_mac_tag)
+            impl->rx_mac_ctx, received_mac_tag)
             == HMAC_Bridge::SECURE_TRUE);
         if (!mac_ok) {
-            Terminate_Session();
-            return false;
+            SecureMemory::secureWipe(impl->session_enc_key, sizeof(impl->session_enc_key));
+            SecureMemory::secureWipe(impl->session_mac_key, sizeof(impl->session_mac_key));
+            impl->deferred_terminate = true;
         }
-        return true;
+        return mac_ok;
     }
 
     bool HTS_Security_Session::Decrypt_Chunk(
         const uint8_t* ciphertext_chunk, size_t chunk_len,
         uint8_t* plaintext_out) noexcept {
 
-        if (!get_impl() || !get_impl()->is_session_active ||
+        Impl* const impl = get_impl();
+        if (!impl || !impl->is_session_active ||
             !ciphertext_chunk || !plaintext_out || chunk_len == 0)
             return false;
+        if (!impl_ok_no_deferred(impl)) return false;
 
-        return get_impl()->Do_CTR_Chunk(ciphertext_chunk, chunk_len,
-            plaintext_out, get_impl()->rx_counter,
-            get_impl()->rx_partial_block, get_impl()->rx_partial_len);
+        return impl->Do_CTR_Chunk(ciphertext_chunk, chunk_len,
+            plaintext_out, impl->rx_counter,
+            impl->rx_partial_block, impl->rx_partial_len);
     }
 
     // =====================================================================

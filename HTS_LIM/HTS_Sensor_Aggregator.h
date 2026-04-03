@@ -20,10 +20,10 @@
 //   FAST:    100ms (경보 상태)
 //
 //  [센서 건강 감시]
-//   ADC 값이 0 또는 4095 고착 → SENSOR_FAIL 장애
-//   I2C NACK → SENSOR_FAIL 장애
+//   ADC: EMA 대비 과도 편차(노이즈/단선 진동) → FAIL, 0/4095 고착 → STUCK, 동일값 장기 → STALE
+//   가속도: I2C 실패 → FAIL(Tick에서만); mg 레일은 ADC와 별도
 //
-//  @warning sizeof ≈ 132B — 전역/정적 배치 권장
+//  @warning 전역/정적 배치 권장 — IMPL_BUF_SIZE는 구현체 크기에 맞춤
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 // ─────────────────────────────────────────────────────────
@@ -100,10 +100,11 @@ namespace ProtectedEngine {
         void Tick(uint32_t systick_ms,
             HTS_Sensor_Fusion& fusion) noexcept;
 
+        /// @brief ADC·가속도 원시값 및 채널 건강 이력(ch) 소거, 샘플링 타이머 리셋(소멸 없이 anti-forensics)
         void Shutdown() noexcept;
 
     private:
-        static constexpr size_t IMPL_BUF_SIZE = 128u;
+        static constexpr size_t IMPL_BUF_SIZE = 160u;
         static constexpr size_t IMPL_BUF_ALIGN = 8u;
         struct Impl;
         alignas(IMPL_BUF_ALIGN) uint8_t impl_buf_[IMPL_BUF_SIZE];

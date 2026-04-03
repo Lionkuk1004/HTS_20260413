@@ -7,7 +7,8 @@
 //  · ADC DMA ISR → On_ADC_DMA_Complete (4채널 일괄)
 //  · I2C ISR → On_Accel_Read (가속도)
 //  · Tick: 주기 샘플링 + Fusion 전달 + 건강 감시
-//  · 센서 고착: 동일값 10회 연속 → STUCK 판정
+//  · 센서 고착: 동일값 카운터(산술) + ADC 레일 0/4095 → STUCK/STALE; EMA 이탈 누적 → FAIL
+//  · Tick 상단: ARM Release 시 DHCSR·OPTCR(RDP) 폴링(디버그/퓨즈 이완 시 자폭)
 // =========================================================================
 #include "HTS_Sensor_Aggregator.h"
 #include "HTS_Sensor_Fusion.h"
@@ -17,10 +18,73 @@
 #include <cstdint>
 #include <new>
 
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+#include "HTS_Anti_Debug.h"
+#include "HTS_Hardware_Init.h"
+#endif
+
 namespace ProtectedEngine {
 
+#if (defined(__cpp_lib_launder) && __cpp_lib_launder >= 201606L) || \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || \
+    (!defined(_MSVC_LANG) && defined(__cplusplus) && __cplusplus >= 201703L)
+#define HTS_SENSOR_AGG_USE_STD_LAUNDER 1
+#else
+#define HTS_SENSOR_AGG_USE_STD_LAUNDER 0
+#endif
+
+#if !defined(HTS_SENSOR_AGG_SKIP_PHYS_TRUST)
+#if defined(HTS_ALLOW_OPEN_DEBUG) || !defined(NDEBUG)
+#define HTS_SENSOR_AGG_SKIP_PHYS_TRUST 1
+#else
+#define HTS_SENSOR_AGG_SKIP_PHYS_TRUST 0
+#endif
+#endif
+
+#if HTS_SENSOR_AGG_SKIP_PHYS_TRUST == 0 && \
+    (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH))
+    [[noreturn]] static void SensorAgg_PhysicalTrust_Fault() noexcept {
+        Hardware_Init_Manager::Terminal_Fault_Action();
+    }
+
+    static void SensorAgg_AssertPhysicalTrustOrFault() noexcept {
+        volatile const uint32_t* const dhcsr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
+        const uint32_t d0 = *dhcsr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t d1 = *dhcsr;
+        if (d0 != d1) {
+            SensorAgg_PhysicalTrust_Fault();
+        }
+        if ((d0 & DHCSR_DEBUG_MASK) != 0u) {
+            SensorAgg_PhysicalTrust_Fault();
+        }
+        volatile const uint32_t* const optcr =
+            reinterpret_cast<volatile const uint32_t*>(HTS_FLASH_OPTCR_ADDR);
+        const uint32_t o0 = *optcr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t o1 = *optcr;
+        if (o0 != o1) {
+            SensorAgg_PhysicalTrust_Fault();
+        }
+        const uint32_t rdp = (o0 & HTS_RDP_OPTCR_MASK) >> 8u;
+        if (rdp != HTS_RDP_EXPECTED_BYTE_VAL) {
+            SensorAgg_PhysicalTrust_Fault();
+        }
+    }
+#else
+    static void SensorAgg_AssertPhysicalTrustOrFault() noexcept {}
+#endif
+
     // =====================================================================
-    //  보안 소거 / PRIMASK
+    //  보안 소거 (PRIMASK 미사용 — ADC/가속도는 atomic<uint16_t> lock-free)
     // =====================================================================
     static void Agg_Secure_Wipe(void* p, size_t n) noexcept {
         if (p == nullptr || n == 0u) { return; }
@@ -28,24 +92,11 @@ namespace ProtectedEngine {
         for (size_t i = 0u; i < n; ++i) { q[i] = 0u; }
 #if defined(__GNUC__) || defined(__clang__)
         __asm__ __volatile__("" : : "r"(q) : "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
 #endif
         std::atomic_thread_fence(std::memory_order_release);
     }
-
-#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
-    static inline uint32_t agg_critical_enter() noexcept {
-        uint32_t primask;
-        __asm volatile ("MRS %0, PRIMASK\n CPSID I"
-        : "=r"(primask) :: "memory");
-        return primask;
-    }
-    static inline void agg_critical_exit(uint32_t pm) noexcept {
-        __asm volatile ("MSR PRIMASK, %0" :: "r"(pm) : "memory");
-    }
-#else
-    static inline uint32_t agg_critical_enter() noexcept { return 0u; }
-    static inline void agg_critical_exit(uint32_t) noexcept {}
-#endif
 
     // =====================================================================
     //  ADC → 물리값 변환 (NTC 서미스터 근사)
@@ -54,11 +105,11 @@ namespace ProtectedEngine {
     //   ADC 12비트 (0-4095) → 전압 비 → 온도
     //   간소화: 선형 근사 (0°C=ADC2048, 100°C=ADC512)
     //   temp_x10 = (2048 - adc) × 650 / 1536
-    //   → (2048 - adc) × 650 >> 10 (근사, ÷1024)
+    //   MISRA: 음수 비트 시프트 금지 → 상수 나눗셈(/1024)으로 근사(컴파일러가 안전 시프트로 치환)
     // =====================================================================
     static int16_t adc_to_temp_x10(uint16_t adc) noexcept {
         const int32_t diff = 2048 - static_cast<int32_t>(adc);
-        return static_cast<int16_t>((diff * 650) >> 10);
+        return static_cast<int16_t>((diff * 650) / 1024);
     }
 
     // 풍속: 열선 풍속계 선형 근사
@@ -74,7 +125,7 @@ namespace ProtectedEngine {
     // 근사: adc × 100 >> 12
     static uint8_t adc_to_humid_pct(uint16_t adc) noexcept {
         const uint32_t pct = (static_cast<uint32_t>(adc) * 100u) >> 12u;
-        return (pct > 100u) ? 100u : static_cast<uint8_t>(pct);
+        return static_cast<uint8_t>(pct);
     }
 
     // =====================================================================
@@ -82,12 +133,14 @@ namespace ProtectedEngine {
     // =====================================================================
     struct ChannelState {
         uint16_t     last_raw;
-        uint8_t      stuck_count;   // 동일값 연속 횟수
+        uint16_t     ema;           // IIR 저역 (EMA) — 진동/단선 노이즈 대비 기준
+        uint8_t      stuck_count;   // 동일값 연속 (산술 갱신, 분기 최소화)
+        uint8_t      noise_count;   // EMA 대비 과도 편차 연속
         SensorHealth health;
-        uint8_t      pad;
+        uint8_t      flags;         // bit0: ema 시드 완료
     };
 
-    static_assert(sizeof(ChannelState) == 6u, "ChannelState size");
+    static_assert(sizeof(ChannelState) == 8u, "ChannelState size");
 
     // (센서 고착 임계는 Impl::STALE_THRESHOLD / STUCK_EXT_THRESHOLD에서 정의)
 
@@ -95,10 +148,10 @@ namespace ProtectedEngine {
     //  Pimpl 구현 구조체
     // =====================================================================
     struct HTS_Sensor_Aggregator::Impl {
-        // ADC 원시값 (DMA ISR에서 기록)
-        uint16_t adc_raw[NUM_ADC_CH] = {};   // temp, smoke, humid, wind
-        uint16_t accel_raw = 0u;
-        bool     accel_ok = false;
+        // ADC/가속도: ISR·Tick lock-free (aligned 16-bit atomic)
+        std::atomic<uint16_t> adc_raw[NUM_ADC_CH] = {};   // temp, smoke, humid, wind
+        std::atomic<uint16_t> accel_raw{ 0u };
+        std::atomic<bool>     accel_ok{ false };
 
         // 채널 건강
         ChannelState ch[NUM_ADC_CH + 1u] = {};  // +1 = 가속도
@@ -130,33 +183,58 @@ namespace ProtectedEngine {
         // ──────────────────────────────────────────────────
         static constexpr uint8_t STALE_THRESHOLD = 10u;
         static constexpr uint8_t STUCK_EXT_THRESHOLD = 20u;
+        static constexpr uint32_t OUTLIER_DEV = 320u;       // 12비트 풀스케일 대비 ~8%
+        static constexpr uint8_t NOISE_FAIL_THRESHOLD = 8u;
 
         void check_stuck(size_t idx, uint16_t raw) noexcept {
             if (idx > NUM_ADC_CH) { return; }
             ChannelState& c = ch[idx];
 
-            if (raw == c.last_raw) {
-                // 동일값 연속
-                if (c.stuck_count < 255u) { c.stuck_count++; }
-
-                if (raw == 0u || raw == 4095u) {
-                    // 극단값 고착: STALE_THRESHOLD 이상 → STUCK (확정)
-                    if (c.stuck_count >= STALE_THRESHOLD) {
-                        c.health = SensorHealth::STUCK;
-                    }
-                }
-                else {
-                    // 일반값 고착: 더 긴 임계 → STALE (의심)
-                    if (c.stuck_count >= STUCK_EXT_THRESHOLD) {
-                        c.health = SensorHealth::STALE;
-                    }
-                }
+            if ((c.flags & 1u) == 0u) {
+                c.ema = raw;
+                c.flags |= 1u;
             }
             else {
-                // 값 변경 → 무조건 OK 복귀 (어떤 상태에서든)
-                c.stuck_count = 0u;
-                c.health = SensorHealth::OK;
+                if (idx < NUM_ADC_CH) {
+                    const int32_t d_prev =
+                        static_cast<int32_t>(raw) - static_cast<int32_t>(c.ema);
+                    const uint32_t absd =
+                        static_cast<uint32_t>(d_prev < 0 ? -d_prev : d_prev);
+                    const uint32_t outlier = (absd > OUTLIER_DEV) ? 1u : 0u;
+                    c.noise_count = static_cast<uint8_t>(
+                        (static_cast<uint32_t>(c.noise_count) + 1u) * outlier);
+                }
+                c.ema = static_cast<uint16_t>(
+                    (static_cast<uint32_t>(c.ema) * 15u + static_cast<uint32_t>(raw)) / 16u);
             }
+
+            const uint32_t is_same = (raw == c.last_raw) ? 1u : 0u;
+            c.stuck_count = static_cast<uint8_t>(
+                (static_cast<uint32_t>(c.stuck_count) + 1u) * is_same);
+            const uint32_t is_diff = 1u - is_same;
+
+            const uint32_t is_ext_adc =
+                (idx < NUM_ADC_CH)
+                ? (static_cast<uint32_t>(raw == 0u) | static_cast<uint32_t>(raw == 4095u))
+                : 0u;
+
+            uint8_t h = static_cast<uint8_t>(
+                static_cast<uint8_t>(c.health) * is_same
+                + static_cast<uint8_t>(SensorHealth::OK) * is_diff);
+
+            if (c.noise_count >= NOISE_FAIL_THRESHOLD) {
+                h = static_cast<uint8_t>(SensorHealth::FAIL);
+            }
+            else if (is_same != 0u) {
+                if (is_ext_adc != 0u && c.stuck_count >= STALE_THRESHOLD) {
+                    h = static_cast<uint8_t>(SensorHealth::STUCK);
+                }
+                else if (is_ext_adc == 0u && c.stuck_count >= STUCK_EXT_THRESHOLD) {
+                    h = static_cast<uint8_t>(SensorHealth::STALE);
+                }
+            }
+
+            c.health = static_cast<SensorHealth>(h);
             c.last_raw = raw;
         }
     };
@@ -171,15 +249,31 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 초과");
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS_SENSOR_AGG_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<Impl*>(impl_buf_);
+#endif
     }
 
     const HTS_Sensor_Aggregator::Impl*
         HTS_Sensor_Aggregator::get_impl() const noexcept
     {
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<const Impl*>(impl_buf_) : nullptr;
+        static_assert(sizeof(Impl) <= IMPL_BUF_SIZE,
+            "Impl이 IMPL_BUF_SIZE를 초과합니다");
+        static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
+            "Impl 정렬 초과");
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS_SENSOR_AGG_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<const Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<const Impl*>(impl_buf_);
+#endif
     }
 
     // =====================================================================
@@ -189,12 +283,22 @@ namespace ProtectedEngine {
         : impl_valid_(false)
     {
         Agg_Secure_Wipe(impl_buf_, sizeof(impl_buf_));
+        // LTO: placement new 직전 소거 DCE 방지 + 패딩 0 유지
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(impl_buf_) : "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
+#endif
         ::new (static_cast<void*>(impl_buf_)) Impl();
         impl_valid_.store(true, std::memory_order_release);
     }
 
     HTS_Sensor_Aggregator::~HTS_Sensor_Aggregator() noexcept {
+#if HTS_SENSOR_AGG_USE_STD_LAUNDER
+        Impl* const p = std::launder(reinterpret_cast<Impl*>(impl_buf_));
+#else
         Impl* const p = reinterpret_cast<Impl*>(impl_buf_);
+#endif
         const bool was_valid = impl_valid_.exchange(false, std::memory_order_acq_rel);
         if (was_valid) { p->~Impl(); }
         Agg_Secure_Wipe(impl_buf_, IMPL_BUF_SIZE);
@@ -211,7 +315,7 @@ namespace ProtectedEngine {
 
         // ISR 콜백에서 호출되므로 PRIMASK 재조작 없이 즉시 스냅샷 반영
         for (size_t i = 0u; i < NUM_ADC_CH; ++i) {
-            p->adc_raw[i] = adc_buf[i];
+            p->adc_raw[i].store(adc_buf[i], std::memory_order_relaxed);
         }
     }
 
@@ -221,15 +325,13 @@ namespace ProtectedEngine {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
 
-        // ISR 콜백에서 호출되므로 PRIMASK 재조작 없이 즉시 갱신
+        // ISR: 원시값·통신 성공 플래그만 갱신 — health는 Tick 단일 컨텍스트에서만 갱신
         if (success) {
-            p->accel_raw = accel_mg;
-            p->accel_ok = true;
-            p->ch[NUM_ADC_CH].health = SensorHealth::OK;
+            p->accel_raw.store(accel_mg, std::memory_order_relaxed);
+            p->accel_ok.store(true, std::memory_order_relaxed);
         }
         else {
-            p->accel_ok = false;
-            p->ch[NUM_ADC_CH].health = SensorHealth::FAIL;
+            p->accel_ok.store(false, std::memory_order_relaxed);
         }
     }
 
@@ -269,6 +371,8 @@ namespace ProtectedEngine {
         uint32_t systick_ms,
         HTS_Sensor_Fusion& fusion) noexcept
     {
+        SensorAgg_AssertPhysicalTrustOrFault();
+
         Impl* p = get_impl();
         if (p == nullptr) { return; }
 
@@ -291,22 +395,29 @@ namespace ProtectedEngine {
             p->last_sample_ms += period;     // 정상: 주기 누적
         }
 
-        // 원시값 스냅샷 (크리티컬 보호)
         uint16_t snap_adc[NUM_ADC_CH] = {};
-        uint16_t snap_accel = 0u;
-
-        const uint32_t pm = agg_critical_enter();
         for (size_t i = 0u; i < NUM_ADC_CH; ++i) {
-            snap_adc[i] = p->adc_raw[i];
+            snap_adc[i] = p->adc_raw[i].load(std::memory_order_relaxed);
         }
-        snap_accel = p->accel_raw;
-        agg_critical_exit(pm);
+        const uint16_t snap_accel =
+            p->accel_raw.load(std::memory_order_relaxed);
 
-        // 건강 감시 (고착 검사)
         for (size_t i = 0u; i < NUM_ADC_CH; ++i) {
             p->check_stuck(i, snap_adc[i]);
         }
-        p->check_stuck(NUM_ADC_CH, snap_accel);
+
+        if (!p->accel_ok.load(std::memory_order_relaxed)) {
+            ChannelState& ac = p->ch[NUM_ADC_CH];
+            ac.health = SensorHealth::FAIL;
+            ac.stuck_count = 0u;
+            ac.noise_count = 0u;
+            ac.flags = 0u;
+            ac.last_raw = 0xFFFFu;
+            ac.ema = 0u;
+        }
+        else {
+            p->check_stuck(NUM_ADC_CH, snap_accel);
+        }
 
         // ADC → 물리값 변환 + Fusion 전달
         fusion.Feed_Temperature(adc_to_temp_x10(snap_adc[0]));
@@ -317,13 +428,20 @@ namespace ProtectedEngine {
     }
 
     // =====================================================================
-    //  Shutdown
+    //  Shutdown — 객체가 살아 있는 채 종료 시에도 ADC/채널 이력 잔류 방지
     // =====================================================================
     void HTS_Sensor_Aggregator::Shutdown() noexcept {
         Impl* p = get_impl();
         if (p == nullptr) { return; }
-        Agg_Secure_Wipe(p->adc_raw, sizeof(p->adc_raw));
-        p->accel_raw = 0u;
+        for (size_t i = 0u; i < NUM_ADC_CH; ++i) {
+            p->adc_raw[i].store(0u, std::memory_order_relaxed);
+        }
+        p->accel_raw.store(0u, std::memory_order_relaxed);
+        p->accel_ok.store(false, std::memory_order_relaxed);
+        Agg_Secure_Wipe(p->ch, sizeof(p->ch));
+        p->last_sample_ms = 0u;
+        p->fast_mode = false;
+        p->first_tick = true;
     }
 
 } // namespace ProtectedEngine

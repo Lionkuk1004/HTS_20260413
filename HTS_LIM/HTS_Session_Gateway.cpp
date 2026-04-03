@@ -6,6 +6,7 @@
 #include "HTS_Session_Gateway.hpp"
 #include "HTS_Secure_Memory.h"
 #include "HTS_Secure_Logger.h"
+#include "HTS_SHA256_Bridge.h"
 #include "HTS_Auto_Rollback_Manager.hpp"
 #include "HTS_Physical_Entropy_Engine.h"
 #include "HTS_Anti_Debug.h"
@@ -15,45 +16,83 @@
 #include <atomic>
 #include <cstring>
 
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+#include "HTS_Hardware_Init.h"
+#endif
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+
 namespace ProtectedEngine {
 
-    // ── 매직 넘버 상수화 (J-3) ───────────────────────────────────
+#if !defined(HTS_SESSION_GATEWAY_SKIP_PHYS_TRUST)
+#if defined(HTS_ALLOW_OPEN_DEBUG) || !defined(NDEBUG)
+#define HTS_SESSION_GATEWAY_SKIP_PHYS_TRUST 1
+#else
+#define HTS_SESSION_GATEWAY_SKIP_PHYS_TRUST 0
+#endif
+#endif
+
+#if HTS_SESSION_GATEWAY_SKIP_PHYS_TRUST == 0 && \
+    (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH))
+    [[noreturn]] static void SessionGateway_PhysicalTrust_Fault() noexcept {
+        Hardware_Init_Manager::Terminal_Fault_Action();
+    }
+
+    static void SessionGateway_AssertPhysicalTrustOrFault() noexcept {
+        volatile const uint32_t* const dhcsr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
+        const uint32_t d0 = *dhcsr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t d1 = *dhcsr;
+        if (d0 != d1) {
+            SessionGateway_PhysicalTrust_Fault();
+        }
+        if ((d0 & DHCSR_DEBUG_MASK) != 0u) {
+            SessionGateway_PhysicalTrust_Fault();
+        }
+        volatile const uint32_t* const optcr =
+            reinterpret_cast<volatile const uint32_t*>(HTS_FLASH_OPTCR_ADDR);
+        const uint32_t o0 = *optcr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t o1 = *optcr;
+        if (o0 != o1) {
+            SessionGateway_PhysicalTrust_Fault();
+        }
+        const uint32_t rdp = (o0 & HTS_RDP_OPTCR_MASK) >> 8u;
+        if (rdp != HTS_RDP_EXPECTED_BYTE_VAL) {
+            SessionGateway_PhysicalTrust_Fault();
+        }
+    }
+#else
+    static void SessionGateway_AssertPhysicalTrustOrFault() noexcept {}
+#endif
+
     namespace {
         constexpr uint32_t HEAL_ALLOC_FAIL = 0xDEAD0001u;  ///< 세션 초기화 실패
         constexpr uint32_t HEAL_TRAP_CODE = 0xFA11FA11u;  ///< 하드웨어 탬퍼 코드
         constexpr uint32_t SESSION_LOCK_MAX_ATTEMPTS = 128u; ///< bounded spin
+        constexpr size_t kDomainCap = 79u;
+        constexpr size_t kIkmMax = 1u + MAX_SEED_SIZE + kDomainCap;
 
-#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
-        /// 락 미획득 시 secureWipe — ISR/스레드와의 seed 경쟁 방지 (X-5-1, N-1)
-        static inline uint32_t trap_wipe_crit_enter() noexcept {
-            uint32_t primask;
-            __asm volatile ("MRS %0, PRIMASK\n CPSID I"
-                : "=r"(primask) :: "memory");
-            return primask;
-        }
-        static inline void trap_wipe_crit_exit(uint32_t pm) noexcept {
-            __asm volatile ("MSR PRIMASK, %0" :: "r"(pm) : "memory");
-        }
+        static inline void compiler_memory_fence() noexcept {
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("" ::: "memory");
+#elif defined(_MSC_VER)
+            _ReadWriteBarrier();
 #else
-        static inline uint32_t trap_wipe_crit_enter() noexcept { return 0u; }
-        static inline void trap_wipe_crit_exit(uint32_t) noexcept {}
+            std::atomic_thread_fence(std::memory_order_seq_cst);
 #endif
+        }
     }
 
     static std::atomic<bool> g_Session_Active{ false };
     static std::atomic_flag g_Session_Busy = ATOMIC_FLAG_INIT;
 
-    /// Execute_Self_Healing 진입 직전: g_Session_Busy + g_Session_Active 원자적 해제
-    /// @note Open_Session 이 Session_Busy_Guard 를 잡은 채 Init() 실패 시
-    ///       noreturn/호스트 대기 경로에서 락이 영구 잠길 수 있어 선행 해제.
-    static void session_release_locks_before_fatal() noexcept {
-        g_Session_Busy.clear(std::memory_order_release);
-        g_Session_Active.store(false, std::memory_order_release);
-    }
-
-    // =====================================================================
-    //  세션 컨텍스트 — 힙 할당 0 (static 로컬 + 고정 배열)
-    // =====================================================================
     struct Secure_Session_Context {
         alignas(4) uint8_t master_seed[MAX_SEED_SIZE] = {};
         size_t seed_len = 0;
@@ -69,20 +108,32 @@ namespace ProtectedEngine {
             glitchShield.unlockSystem();
             glitchShield.verifyCriticalExecution();
 
-            // 물리 엔트로피 엔진(TRNG+DWT 혼합)으로 마스터 시드 256비트 채움 (힙 0)
             constexpr size_t kHwSeedBytes = 32u;
             static_assert(kHwSeedBytes <= MAX_SEED_SIZE, "master seed capacity");
-            for (size_t i = 0u; i < kHwSeedBytes; i += 4u) {
-                const uint32_t word = Physical_Entropy_Engine::Extract_Quantum_Seed();
-                master_seed[static_cast<size_t>(i) + 0u] =
-                    static_cast<uint8_t>((word >> 24u) & 0xFFu);
-                master_seed[static_cast<size_t>(i) + 1u] =
-                    static_cast<uint8_t>((word >> 16u) & 0xFFu);
-                master_seed[static_cast<size_t>(i) + 2u] =
-                    static_cast<uint8_t>((word >> 8u) & 0xFFu);
-                master_seed[static_cast<size_t>(i) + 3u] =
-                    static_cast<uint8_t>(word & 0xFFu);
+            static_assert((kHwSeedBytes % 4u) == 0u, "word fill");
+
+            auto* const wseed = reinterpret_cast<uint32_t*>(master_seed);
+            for (size_t wi = 0u; wi < (kHwSeedBytes / 4u); ++wi) {
+                wseed[wi] = Physical_Entropy_Engine::Extract_Quantum_Seed();
             }
+
+            uint32_t orv = 0u;
+            uint32_t andv = 0xFFFFFFFFu;
+            for (size_t wi = 0u; wi < (kHwSeedBytes / 4u); ++wi) {
+                orv |= wseed[wi];
+                andv &= wseed[wi];
+            }
+            const uint32_t bad_or =
+                static_cast<uint32_t>(orv == 0u);
+            const uint32_t bad_and =
+                static_cast<uint32_t>(andv == 0xFFFFFFFFu);
+            if ((bad_or | bad_and) != 0u) {
+                SecureMemory::secureWipe(master_seed, sizeof(master_seed));
+                seed_len = 0u;
+                is_valid = false;
+                return;
+            }
+
             seed_len = kHwSeedBytes;
 
             SecureMemory::lockMemory(master_seed, seed_len);
@@ -102,14 +153,8 @@ namespace ProtectedEngine {
         }
     };
 
-    // =====================================================================
-    //  세션 싱글톤 — static 객체 (BSS 영초기화)
-    // =====================================================================
     static Secure_Session_Context g_Session_Ctx;
 
-    /// 세션 컨텍스트 접근 직렬화 (bounded spin, 힙 0)
-    /// @note std::atomic_flag::test_and_set 은 이전 값을 반환한다.
-    ///       이전이 clear(false)이면 획득 성공 → 반환 false → !false 로 진입.
     class Session_Busy_Guard final {
     private:
         bool locked_;
@@ -121,6 +166,7 @@ namespace ProtectedEngine {
             for (uint32_t i = 0u; i < SESSION_LOCK_MAX_ATTEMPTS; ++i) {
                 if (!g_Session_Busy.test_and_set(std::memory_order_acquire)) {
                     locked_ = true;
+                    compiler_memory_fence();
                     break;
                 }
             }
@@ -128,6 +174,7 @@ namespace ProtectedEngine {
 
         ~Session_Busy_Guard() noexcept {
             if (locked_) {
+                compiler_memory_fence();
                 g_Session_Busy.clear(std::memory_order_release);
             }
         }
@@ -139,86 +186,142 @@ namespace ProtectedEngine {
     };
 
     void Session_Gateway::Open_Session() noexcept {
-        // load→Init 사이 ISR 재진입 시 이중 Init 방지
         bool expected = false;
         if (!g_Session_Active.compare_exchange_strong(
             expected, true, std::memory_order_acq_rel)) {
-            return;  // 이미 활성 또는 다른 컨텍스트가 Init 중
-        }
-
-        Session_Busy_Guard guard;
-        if (!guard.locked()) {
-            g_Session_Active.store(false, std::memory_order_release);
             return;
         }
 
-        g_Session_Ctx.Init();
-        if (!g_Session_Ctx.is_valid) {
-            // Init 실패: 락 해제 후 self-healing (AIRCR 리셋은 Execute_Self_Healing 내부)
-            session_release_locks_before_fatal();
+        bool init_ok = false;
+        {
+            Session_Busy_Guard guard;
+            if (static_cast<uint32_t>(guard.locked()) == 0u) {
+                g_Session_Active.store(false, std::memory_order_release);
+                return;
+            }
+            g_Session_Ctx.Init();
+            init_ok = g_Session_Ctx.is_valid;
+        }
+
+        if (static_cast<uint32_t>(init_ok) == 0u) {
+            g_Session_Active.store(false, std::memory_order_release);
             Auto_Rollback_Manager::Execute_Self_Healing(HEAL_ALLOC_FAIL);
         }
-        // CAS에서 이미 true 설정 완료 — 추가 store 불필요
     }
 
     void Session_Gateway::Close_Session() noexcept {
         Session_Busy_Guard guard;
-        if (!guard.locked()) { return; }
-        g_Session_Active.store(false, std::memory_order_release);
+        if (static_cast<uint32_t>(guard.locked()) == 0u) { return; }
         g_Session_Ctx.Clean();
+        g_Session_Active.store(false, std::memory_order_release);
     }
 
     bool Session_Gateway::Is_Session_Active() noexcept {
         Session_Busy_Guard guard;
-        if (!guard.locked()) { return false; }
-        return g_Session_Active.load(std::memory_order_acquire)
-            && g_Session_Ctx.is_valid
-            && g_Session_Ctx.seed_len > 0;
+        if (static_cast<uint32_t>(guard.locked()) == 0u) { return false; }
+        const uint32_t a = static_cast<uint32_t>(
+            g_Session_Active.load(std::memory_order_acquire));
+        const uint32_t v = static_cast<uint32_t>(g_Session_Ctx.is_valid);
+        const uint32_t z = static_cast<uint32_t>(g_Session_Ctx.seed_len > 0u);
+        return (a & v & z) != 0u;
     }
 
-    size_t Session_Gateway::Get_Master_Seed_Raw(
-        uint8_t* out_buf, size_t buf_size) noexcept {
+    size_t Session_Gateway::Derive_Session_Material(
+        const char* domain_label,
+        uint8_t* out_buf,
+        size_t out_len) noexcept {
 
-        if ((out_buf == nullptr) || (buf_size == 0u)) { return 0u; }
-
-        Session_Busy_Guard guard;
-        if (!guard.locked()) { return 0u; }
-
-        if (!g_Session_Active.load(std::memory_order_acquire)
-            || !g_Session_Ctx.is_valid
-            || g_Session_Ctx.seed_len == 0) {
+        const uint32_t ok_ptr = static_cast<uint32_t>(out_buf != nullptr);
+        const uint32_t ok_len = static_cast<uint32_t>(out_len != 0u);
+        if ((ok_ptr & ok_len) == 0u) {
             return 0u;
         }
 
-        const size_t copy_len = (g_Session_Ctx.seed_len < buf_size)
-            ? g_Session_Ctx.seed_len : buf_size;
-        std::memcpy(out_buf, g_Session_Ctx.master_seed, copy_len);
-        return copy_len;
+        const char* dom = domain_label ? domain_label : "";
+        size_t dlen = 0u;
+        while (dom[dlen] != '\0' && dlen < kDomainCap) {
+            ++dlen;
+        }
+
+        Session_Busy_Guard guard;
+        if (static_cast<uint32_t>(guard.locked()) == 0u) {
+            return 0u;
+        }
+
+        const uint32_t sa = static_cast<uint32_t>(
+            g_Session_Active.load(std::memory_order_acquire));
+        const uint32_t sv = static_cast<uint32_t>(g_Session_Ctx.is_valid);
+        const uint32_t sz = static_cast<uint32_t>(g_Session_Ctx.seed_len > 0u);
+        if ((sa & sv & sz) == 0u) {
+            return 0u;
+        }
+
+        SessionGateway_AssertPhysicalTrustOrFault();
+
+        const size_t slen = g_Session_Ctx.seed_len;
+        if ((1u + slen + dlen) > kIkmMax) {
+            return 0u;
+        }
+
+        size_t written = 0u;
+        for (uint32_t ctr = 0u; written < out_len; ++ctr) {
+            uint8_t ikm[kIkmMax];
+            size_t bl = 0u;
+            ikm[bl++] = static_cast<uint8_t>(ctr & 0xFFu);
+            std::memcpy(ikm + bl, g_Session_Ctx.master_seed, slen);
+            bl += slen;
+            std::memcpy(ikm + bl, dom, dlen);
+            bl += dlen;
+
+            uint8_t dig[SHA256_Bridge::DIGEST_LEN];
+            if (static_cast<uint32_t>(SHA256_Bridge::Hash(ikm, bl, dig)) == 0u) {
+                SecureMemory::secureWipe(out_buf, written);
+                SecureMemory::secureWipe(ikm, sizeof(ikm));
+                SecureMemory::secureWipe(dig, sizeof(dig));
+                return 0u;
+            }
+            const size_t chunk = (out_len - written < SHA256_Bridge::DIGEST_LEN)
+                ? (out_len - written)
+                : SHA256_Bridge::DIGEST_LEN;
+            std::memcpy(out_buf + written, dig, chunk);
+            written += chunk;
+            SecureMemory::secureWipe(dig, sizeof(dig));
+            SecureMemory::secureWipe(ikm, sizeof(ikm));
+            if (ctr >= 255u) {
+                break;
+            }
+        }
+
+        return written;
     }
 
     void Session_Gateway::Trigger_Hardware_Trap(
         const char* reason) noexcept {
 
+        SessionGateway_AssertPhysicalTrustOrFault();
+
         {
             Session_Busy_Guard guard;
-            g_Session_Active.store(false, std::memory_order_release);
             if (guard.locked()) {
                 g_Session_Ctx.Clean();
             }
             else {
-                const uint32_t pm = trap_wipe_crit_enter();
                 SecureMemory::secureWipe(
                     g_Session_Ctx.master_seed,
                     sizeof(g_Session_Ctx.master_seed));
                 g_Session_Ctx.seed_len = 0u;
                 g_Session_Ctx.is_valid = false;
-                trap_wipe_crit_exit(pm);
             }
+            g_Session_Active.store(false, std::memory_order_release);
         }
 
         SecureLogger::logSecurityEvent(
             "HARDWARE_TRAP",
             reason ? reason : "UNKNOWN");
+
+        SecureLogger::flushAuditRingForTrap();
+
+        SessionGateway_AssertPhysicalTrustOrFault();
 
         Auto_Rollback_Manager::Execute_Self_Healing(HEAL_TRAP_CODE);
     }

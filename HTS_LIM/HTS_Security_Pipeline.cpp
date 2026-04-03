@@ -10,6 +10,7 @@
 #include "HTS_Sparse_Recovery.h"
 #include "HTS_AntiAnalysis_Shield.h"
 #include "HTS_Secure_Memory.h"
+#include "HTS_Hardware_Init.h"
 
 #include <atomic>
 #include <cstddef>
@@ -30,29 +31,98 @@ namespace ProtectedEngine {
 
         constexpr uint32_t FNV32_PRIME = 0x01000193u;  // FNV-1a 32비트 표준 소수
 
-        // CFI 상태 (초경량 32비트 원자 상태머신)
+        // CFI: 상위 16비트 = 상태, 하위 16비트 = 동일 모드 활성 워커 수
         constexpr uint32_t CFI_IDLE = 0xC100u;
         constexpr uint32_t CFI_WORKER = 0xC101u;
         constexpr uint32_t CFI_AEAD = 0xC102u;
-        constexpr uint32_t CFI_ABORT = 0xC1FFu;
 
-        std::atomic<uint32_t> g_pipeline_cfi{ CFI_IDLE };
+        constexpr uint32_t cfi_pack(uint32_t state16, uint32_t count16) noexcept {
+            return (state16 << 16) | (count16 & 0xFFFFu);
+        }
+
+        std::atomic<uint32_t> g_pipeline_cfi{ cfi_pack(CFI_IDLE, 0u) };
+
+        [[noreturn]] static void pipeline_security_terminal_fault(
+            uint32_t* data, size_t start, size_t end,
+            size_t buffer_total_words) noexcept;
 
         static bool cfi_enter(uint32_t target) noexcept {
-            const uint32_t cur = g_pipeline_cfi.load(std::memory_order_acquire);
-            if (cur != CFI_IDLE) { return false; }
-            g_pipeline_cfi.store(target, std::memory_order_release);
-            return true;
+            for (;;) {
+                const uint32_t cur = g_pipeline_cfi.load(std::memory_order_acquire);
+                const uint32_t st = cur >> 16;
+                const uint32_t cnt = cur & 0xFFFFu;
+                uint32_t next = 0u;
+                if (cnt == 0u) {
+                    if (st != CFI_IDLE) {
+                        return false;
+                    }
+                    next = cfi_pack(target, 1u);
+                } else {
+                    if (st != target) {
+                        return false;
+                    }
+                    if (cnt >= 0xFFFFu) {
+                        return false;
+                    }
+                    next = cfi_pack(st, cnt + 1u);
+                }
+                uint32_t expected = cur;
+                if (g_pipeline_cfi.compare_exchange_weak(
+                        expected, next,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire)) {
+                    return true;
+                }
+            }
         }
 
         static void cfi_leave(uint32_t from) noexcept {
-            const uint32_t cur = g_pipeline_cfi.load(std::memory_order_acquire);
-            if (cur == from) {
-                g_pipeline_cfi.store(CFI_IDLE, std::memory_order_release);
+            for (;;) {
+                const uint32_t cur = g_pipeline_cfi.load(std::memory_order_acquire);
+                const uint32_t st = cur >> 16;
+                const uint32_t cnt = cur & 0xFFFFu;
+                if (st != from || cnt == 0u) {
+                    Hardware_Init_Manager::Terminal_Fault_Action();
+                }
+                const uint32_t next =
+                    (cnt == 1u) ? cfi_pack(CFI_IDLE, 0u) : cfi_pack(st, cnt - 1u);
+                uint32_t expected = cur;
+                if (g_pipeline_cfi.compare_exchange_weak(
+                        expected, next,
+                        std::memory_order_acq_rel,
+                        std::memory_order_acquire)) {
+                    return;
+                }
             }
-            else {
-                g_pipeline_cfi.store(CFI_ABORT, std::memory_order_release);
+        }
+
+        // 0 = 정상, 0xFFFFFFFF = 실패 (비트 OR·감산으로 마스크 생성)
+        static uint32_t security_fail_mask(uint64_t session_id) noexcept {
+            volatile bool obs = AntiAnalysis_Shield::Is_Under_Observation();
+            volatile bool ses = !Universal_API::Continuous_Session_Verification(
+                session_id);
+            const uint32_t bits =
+                static_cast<uint32_t>(obs) | static_cast<uint32_t>(ses);
+            return static_cast<uint32_t>(0u - bits);
+        }
+
+        static void wipe_pipeline_buffer_on_fault(
+            uint32_t* data, size_t start, size_t end,
+            size_t buffer_total_words) noexcept {
+            if (buffer_total_words != 0u) {
+                SecureMemory::secureWipe(
+                    data, buffer_total_words * sizeof(uint32_t));
+            } else {
+                SecureMemory::secureWipe(
+                    data + start, (end - start) * sizeof(uint32_t));
             }
+        }
+
+        [[noreturn]] static void pipeline_security_terminal_fault(
+            uint32_t* data, size_t start, size_t end,
+            size_t buffer_total_words) noexcept {
+            wipe_pipeline_buffer_on_fault(data, start, end, buffer_total_words);
+            Hardware_Init_Manager::Terminal_Fault_Action();
         }
 
         // division-free start % 20 (Cortex-M4 friendly)
@@ -75,35 +145,12 @@ namespace ProtectedEngine {
         "FNV32_PRIME must be non-zero");
 
     // =====================================================================
-    //
-    //  if (Is_Under_Observation() || !Continuous_Session_Verification())
-    //  → 글리치로 첫 번째 BNE 스킵 시 두 번째 검사 건너뜀!
-    //
-    //  각 검사를 volatile bool에 개별 저장 → 비트 OR 합산
-    //  → 단일 분기로 축소 (Anti_Glitch와 동일 원리)
-    // =====================================================================
-    static bool security_check_failed(uint64_t session_id) noexcept {
-        // 각 검사 결과를 volatile에 개별 저장
-        // → 컴파일러가 검사를 생략하거나 재배치 불가
-        volatile bool obs = AntiAnalysis_Shield::Is_Under_Observation();
-        volatile bool ses = !Universal_API::Continuous_Session_Verification(
-            session_id);
-
-        // 비트 OR → 단일 분기 (단축평가 제거)
-        // 정상: obs=false, ses=false → 0|0=0 → return false
-        // 이상: 어느 하나라도 true → return true
-        uint32_t fail = 0u;
-        fail |= (obs ? 1u : 0u);
-        fail |= (ses ? 1u : 0u);
-        return (fail != 0u);
-    }
-
-    // =====================================================================
     //  Secure_Master_Worker — 기본 파이프라인 (AEAD 없음)
     // =====================================================================
     void Security_Pipeline::Secure_Master_Worker(
         uint32_t* data, size_t start, size_t end,
-        std::atomic<bool>& abort_signal) noexcept {
+        std::atomic<bool>& abort_signal,
+        size_t buffer_total_words) noexcept {
 
         if (data == nullptr || start >= end) return;
         if (abort_signal.load(std::memory_order_relaxed)) return;
@@ -112,13 +159,11 @@ namespace ProtectedEngine {
             return;
         }
 
-        if (security_check_failed(PIPELINE_SESSION_ID)) {
-            abort_signal.store(true, std::memory_order_release);
-            cfi_leave(CFI_WORKER);
-            return;
+        const uint32_t m_entry = security_fail_mask(PIPELINE_SESSION_ID);
+        if (m_entry != 0u) {
+            pipeline_security_terminal_fault(data, start, end, buffer_total_words);
         }
 
-        // [개선] start % 20의 UDIV 제거 (division-free reciprocal)
         uint32_t sparse_cnt = fast_mod20_u32(static_cast<uint32_t>(start));
 
         for (size_t i = start; i < end; ++i) {
@@ -137,10 +182,11 @@ namespace ProtectedEngine {
                     return;
                 }
 
-                if (security_check_failed(PIPELINE_SESSION_ID)) {
-                    abort_signal.store(true, std::memory_order_release);
-                    cfi_leave(CFI_WORKER);
-                    return;
+                const uint32_t m = security_fail_mask(PIPELINE_SESSION_ID);
+                data[i] |= m;
+                if (m != 0u) {
+                    pipeline_security_terminal_fault(
+                        data, start, end, buffer_total_words);
                 }
             }
 
@@ -152,10 +198,8 @@ namespace ProtectedEngine {
     // =====================================================================
     //  Secure_Master_Worker_AEAD — AEAD 태그 포함 파이프라인
     //
-    //  비트 회전(RotL13)이 XOR 결합법칙을 파괴하므로,
-    //  스레드 분할 단위(start, end)가 달라지면 global_tag 변동.
-    //  이 태그는 엄밀한 MAC 검증이 아닌
-    //  '청크 단위 훼손 탐지용 체크섬'으로만 사용하십시오.
+    //  요소별 기여: (data[i], 인덱스 i)만으로 h_lo/h_hi 계산 후 XOR 누적.
+    //  XOR는 가환·결합 → 청크 경계(start,end)와 처리 순서에 무관하게 global_tag 일치.
     //
     //  ARM Cortex-M4: 64비트 원자적 연산 미지원
     //  fetch_xor(__atomic_fetch_xor_8) → libatomic 소프트웨어 락
@@ -166,7 +210,8 @@ namespace ProtectedEngine {
         uint32_t* data, size_t start, size_t end,
         std::atomic<bool>& abort_signal,
         std::atomic<uint32_t>& global_tag_hi,
-        std::atomic<uint32_t>& global_tag_lo) noexcept {
+        std::atomic<uint32_t>& global_tag_lo,
+        size_t buffer_total_words) noexcept {
 
         if (data == nullptr || start >= end) return;
         if (abort_signal.load(std::memory_order_relaxed)) return;
@@ -175,17 +220,11 @@ namespace ProtectedEngine {
             return;
         }
 
-        if (security_check_failed(PIPELINE_SESSION_ID)) {
-            abort_signal.store(true, std::memory_order_release);
-            cfi_leave(CFI_AEAD);
-            return;
+        const uint32_t m_entry = security_fail_mask(PIPELINE_SESSION_ID);
+        if (m_entry != 0u) {
+            pipeline_security_terminal_fault(data, start, end, buffer_total_words);
         }
 
-        // uint64_t local_tag × FNV_PRIME(64bit) + rotl64(13)
-        //  → __aeabi_lmul(30cyc) + 64bit shift(8cyc) = 요소당 ~50cyc
-        // tag_hi/tag_lo 독립 FNV-1a 32비트 × FNV32_PRIME
-        //  → UMULL(1cyc) + ROR(1cyc) = 요소당 ~6cyc (8× 가속)
-        // 출력 호환: global_tag_hi/lo에 직접 XOR 병합 (분할 불필요)
         uint32_t tag_hi = 0u;
         uint32_t tag_lo = 0u;
         const uint32_t tag_key =
@@ -211,30 +250,31 @@ namespace ProtectedEngine {
                     return;
                 }
 
-                if (security_check_failed(PIPELINE_SESSION_ID)) {
-                    abort_signal.store(true, std::memory_order_release);
-                    cfi_leave(CFI_AEAD);
-                    return;
+                const uint32_t m = security_fail_mask(PIPELINE_SESSION_ID);
+                data[i] |= m;
+                if (m != 0u) {
+                    pipeline_security_terminal_fault(
+                        data, start, end, buffer_total_words);
                 }
             }
 
             data[i] = ~data[i];
 
-            // hi: data^tag_key_hi 혼합, lo: data^tag_key 혼합
-            // 독립 누적 → 크로스 XOR로 엔트로피 확산
             const uint32_t data_word = static_cast<uint32_t>(data[i]);
-            const uint32_t mixed = static_cast<uint32_t>(data_word ^ tag_key);
-            tag_lo ^= mixed;
-            tag_lo *= FNV32_PRIME;     // ARM UMULL 1cyc
-            tag_lo = static_cast<uint32_t>((tag_lo << 13u) | (tag_lo >> 19u));  // ROR 1cyc
+            const uint64_t i64 = static_cast<uint64_t>(i);
+            const uint32_t i_lo = static_cast<uint32_t>(i64);
+            const uint32_t i_hi = static_cast<uint32_t>(i64 >> 32u);
 
-            const uint32_t mixed_hi = static_cast<uint32_t>(data_word ^ tag_key_hi);
-            tag_hi ^= mixed_hi;
-            tag_hi *= FNV32_PRIME;
-            tag_hi = static_cast<uint32_t>((tag_hi << 7u) | (tag_hi >> 25u));  // 다른 회전량 → 독립성
+            uint32_t h_lo = data_word ^ tag_key ^ i_lo;
+            h_lo *= FNV32_PRIME;
+            h_lo = static_cast<uint32_t>((h_lo << 13u) | (h_lo >> 19u));
 
-            // 크로스 XOR: hi↔lo 상호 의존성 주입
-            tag_hi ^= tag_lo;
+            uint32_t h_hi = data_word ^ tag_key_hi ^ i_hi ^ (i_lo * 0xB5297A4Du);
+            h_hi *= FNV32_PRIME;
+            h_hi = static_cast<uint32_t>((h_hi << 7u) | (h_hi >> 25u));
+
+            tag_lo ^= h_lo;
+            tag_hi ^= h_hi;
         }
 
         global_tag_hi.fetch_xor(tag_hi, std::memory_order_relaxed);

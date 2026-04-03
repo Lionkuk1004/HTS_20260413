@@ -1,24 +1,22 @@
 // =========================================================================
 // HTS_Secure_Memory_Manager.hpp
-// SecureMemory 인라인 래퍼 (헤더 전용, 제로코스트 추상화)
+// SecureMemory RAII 스코프 가드 (헤더 전용)
 // Target: STM32F407 (Cortex-M4)
 //
-// [제로코스트 추상화]
-//  인라인 구현으로 BL 호출 + 스택 프레임 오버헤드 제거
-//  컴파일러가 호출 지점에서 SecureMemory::lockMemory를 직접 치환
-//  래퍼 함수는 바이너리에서 완전 소멸
+// [설계]
+//  외주·애플리케이션 계층에는 Scoped_Region 만 노출.
+//  lockMemory / secureWipe 수동 페어는 본 클래스에 두지 않음(MPU 미해제·MemManage Fault 오용 방지).
+//  코어/프레임워크 저수준 직접 호출이 필요하면 SecureMemory.h 를 사용.
 //
 #pragma once
 // ─────────────────────────────────────────────────────────
 //  외주 업체 통합 가이드
 // ─────────────────────────────────────────────────────────
-//  [사용법] 기본 사용 예시를 여기에 기재하세요.
-//  [메모리] sizeof(클래스명) 확인 후 전역/정적 배치 필수.
-//  [보안]   복사/이동 연산자 = delete (키 소재 복제 차단).
-//
-//  ⚠ [파트너사 필수 확인]
-//    HW 레지스터 주소(UART/WDT 등)는 보드 설계에 맞게 교체.
-//    IRQ 번호는 STM32F407 RM0090 벡터 테이블 기준으로 교체.
+//  [필수] 민감 버퍼는 Secure_Memory_Manager::Scoped_Region 만 사용.
+//        조기 return 경로에서도 소멸자가 secureWipe 호출 → MPU 해제 + 파쇄.
+//  [주의] HTS_SECURE_MPU_LOCK_REGION 빌드에서 lockMemory 는 MPU RBAR/RASR 실제 프로그램.
+//        고빈도 루프·ISR 에서 Scoped_Region 남용 금지.
+//  [보안] Scoped_Region 복사/이동 금지.
 // ─────────────────────────────────────────────────────────
 
 #include "HTS_Secure_Memory.h"
@@ -27,22 +25,35 @@
 
 namespace ProtectedEngine {
 
-    /// @brief SecureMemory 인라인 래퍼 (정적 유틸리티)
+    /// @brief RAII 전용 — SecureMemory 잠금/소거를 스코프에 바인딩
     class Secure_Memory_Manager {
     public:
-        /// @brief 물리 RAM 고정 (ARM: no-op)
-        static inline void Lock_Memory_Region(
-            void* ptr, size_t size) noexcept {
-            SecureMemory::lockMemory(ptr, size);
-        }
+        /// @brief 생성 시 lockMemory, 소멸 시 secureWipe(MPU 해제·파쇄).
+        class Scoped_Region final {
+        public:
+            explicit Scoped_Region(void* ptr, size_t size) noexcept
+                : ptr_(ptr), size_(size) {
+                if (ptr_ != nullptr && size_ != 0u) {
+                    SecureMemory::lockMemory(ptr_, size_);
+                }
+            }
 
-        /// @brief 안티포렌식 소거 + 잠금 해제
-        static inline void Unlock_And_Erase_Memory(
-            void* ptr, size_t size) noexcept {
-            SecureMemory::secureWipe(ptr, size);
-        }
+            ~Scoped_Region() noexcept {
+                if (ptr_ != nullptr && size_ != 0u) {
+                    SecureMemory::secureWipe(ptr_, size_);
+                }
+            }
 
-        // 정적 전용 — 인스턴스화 차단 (6종)
+            Scoped_Region(const Scoped_Region&) = delete;
+            Scoped_Region& operator=(const Scoped_Region&) = delete;
+            Scoped_Region(Scoped_Region&&) = delete;
+            Scoped_Region& operator=(Scoped_Region&&) = delete;
+
+        private:
+            void* ptr_;
+            size_t size_;
+        };
+
         Secure_Memory_Manager() = delete;
         ~Secure_Memory_Manager() = delete;
         Secure_Memory_Manager(const Secure_Memory_Manager&) = delete;

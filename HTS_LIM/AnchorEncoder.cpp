@@ -124,9 +124,9 @@ namespace ProtectedEngine {
         static constexpr size_t MAX_SEED = 64u;
         uint8_t masterSeed[MAX_SEED] = {};
         RAII_Seed_Wiper_ENC seed_wiper(masterSeed, MAX_SEED);
-        const size_t mseed_len =
-            Session_Gateway::Get_Master_Seed_Raw(masterSeed, MAX_SEED);
-        if (mseed_len == 0u) {
+        const size_t mseed_len = Session_Gateway::Derive_Session_Material(
+            Session_Gateway::DOMAIN_ANCHOR_HMAC, masterSeed, 32u);
+        if (mseed_len < 32u) {
             Session_Gateway::Trigger_Hardware_Trap(
                 "Unauthorized Data Plane Access (Encoder)");
             return {};

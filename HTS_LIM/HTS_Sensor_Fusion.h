@@ -18,7 +18,8 @@
 //   ALERT:     1+ 센서 경고 임계 돌파 or 2+ WATCH
 //   EMERGENCY: 화재 확정 (온도+연기 동시) or SOS
 //
-//  @warning sizeof ≈ 260B — 전역/정적 배치 권장
+//  Feed_*: ISR 가능(raw atomic). Tick/Get_*: 동일 논리 스레드(메인)에서 호출 가정.
+//  @warning 전역/정적 배치 권장 — IMPL_BUF_SIZE는 atomic 포함 Impl에 맞출 것
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 // ─────────────────────────────────────────────────────────
@@ -92,6 +93,7 @@ namespace ProtectedEngine {
         [[nodiscard]] AlertLevel   Get_Level() const noexcept;
         [[nodiscard]] bool         Is_Moving() const noexcept;
 
+        /// @brief IIR + 경보 재평가 — ISR에서 호출 금지. ARM Release: Tick 진입 시 DHCSR/RDP 폴링
         void Tick() noexcept;
         void Shutdown() noexcept;
 

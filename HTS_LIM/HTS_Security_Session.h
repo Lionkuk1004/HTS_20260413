@@ -53,7 +53,7 @@ namespace ProtectedEngine {
         HTS_Security_Session(HTS_Security_Session&&) = delete;
         HTS_Security_Session& operator=(HTS_Security_Session&&) = delete;
 
-        /// @brief 세션 초기화 (키/IV 주입)
+        /// @brief 세션 초기화 (키/IV 주입). RX CTR은 IV와 동일 입력이어도 내부에서 도메인 분리(상위 바이트 XOR) 적용. ARM Release: DHCSR·OPTCR(RDP) 폴링
         [[nodiscard]] bool Initialize(
             CipherAlgorithm c_alg,
             MacAlgorithm    m_alg,
@@ -74,6 +74,7 @@ namespace ProtectedEngine {
         [[nodiscard]] bool Unprotect_Feed(
             const uint8_t* ciphertext_chunk,
             size_t chunk_len) noexcept;
+        /// @brief MAC 검증 — 실패 시 enc/mac 세션 키 즉시 소거 + deferred_terminate(타이밍 완화), 이후 API에서 나머지 Clean_State
         [[nodiscard]] bool Unprotect_Verify(
             const uint8_t* received_mac_tag) noexcept;
         [[nodiscard]] bool Decrypt_Chunk(
@@ -112,6 +113,9 @@ namespace ProtectedEngine {
 
         Impl* get_impl() noexcept;
         const Impl* get_impl() const noexcept;
+
+        /// MAC 실패 등 deferred_terminate 시 다음 API에서 Clean_State 후 거부
+        static bool impl_ok_no_deferred(Impl* p) noexcept;
     };
 
 } // namespace ProtectedEngine

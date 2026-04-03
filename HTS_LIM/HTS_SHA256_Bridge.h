@@ -40,6 +40,7 @@ namespace ProtectedEngine {
         /// @param output_32  출력 버퍼 (32바이트 이상)
         /// @return true=성공
         /// @note  실패 경로에서는 output_32 가 SecureMemory::secureWipe 로 소거될 수 있음
+        /// @note  ARM Release: 진입 시 DHCSR·OPTCR(RDP) 폴링. 빌드: HTS_SHA256_BRIDGE_SKIP_PHYS_TRUST / HTS_ALLOW_OPEN_DEBUG
         /// @see   KISA_SHA256.h (SHA256_Init / SHA256_Process / SHA256_Close)
         [[nodiscard]] static bool Hash(
             const uint8_t* data, size_t data_len,

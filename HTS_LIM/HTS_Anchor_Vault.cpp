@@ -156,7 +156,8 @@ namespace ProtectedEngine {
 
         // [HTS-12] export: payload||HMAC(tag) appended (fail-closed if session/key unavailable)
         uint8_t masterSeed[MAX_SEED_SIZE] = {};
-        const size_t seed_len = Session_Gateway::Get_Master_Seed_Raw(
+        const size_t seed_len = Session_Gateway::Derive_Session_Material(
+            Session_Gateway::DOMAIN_ANCHOR_HMAC,
             masterSeed, MAX_SEED_SIZE);
         if (seed_len < 32u) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
@@ -229,7 +230,8 @@ namespace ProtectedEngine {
 
         // [HTS-12] import: verify (block_id||payload) HMAC first
         uint8_t masterSeed[MAX_SEED_SIZE] = {};
-        const size_t seed_len = Session_Gateway::Get_Master_Seed_Raw(
+        const size_t seed_len = Session_Gateway::Derive_Session_Material(
+            Session_Gateway::DOMAIN_ANCHOR_HMAC,
             masterSeed, MAX_SEED_SIZE);
         if (seed_len < 32u) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));

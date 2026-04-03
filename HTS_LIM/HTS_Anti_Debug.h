@@ -32,7 +32,12 @@ namespace ProtectedEngine {
     // ARM DDI 0403E (ARMv7-M Architecture Reference Manual) 기준
     static constexpr uint32_t ADDR_DHCSR = 0xE000EDF0u;  ///< Debug Halting Control/Status
     static constexpr uint32_t ADDR_AIRCR = 0xE000ED0Cu;  ///< App Interrupt/Reset Control
+    static constexpr uint32_t ADDR_DBGMCU_CR = 0xE0042004u;  ///< DBGMCU Control (STM32F4 RM0090)
     static constexpr uint32_t ADDR_DBGMCU_FZ = 0xE0042008u;  ///< DBGMCU APB1 Freeze (STM32F4)
+
+    /// DBGMCU_CR 비트 0..2: DBG_SLEEP / DBG_STOP / DBG_STANDBY (디버거 세션에서 호스트가 설정 가능)
+    static constexpr uint32_t DBGMCU_CR_DEBUG_MASK =
+        (1u << 0) | (1u << 1) | (1u << 2);
 
     // ── DHCSR 비트 필드 상수 ───────────────────────────────────
     static constexpr uint32_t DHCSR_C_DEBUGEN = 0x00000001u;  ///< bit 0:  디버거 활성화
@@ -65,6 +70,10 @@ namespace ProtectedEngine {
     /// @brief 디버거/JTAG 탐지 및 강제 시스템 정지 (정적 유틸리티)
     class AntiDebugManager {
     public:
+        /// @brief SysTick·스케줄러 Tick·부트 등 주기 경로에서 호출 — DHCSR+DBGMCU_CR 교차 검증, 탐지 시 감사링 소거 후 자폭
+        /// @note 로거 전용 수동 API에만 두지 말 것 — ISR/비마스크 가능 경로에서 상시 호출
+        static void pollHardwareOrFault() noexcept;
+
         /// @brief 디버거 연결 여부 확인 — 탐지 시 forceHalt 호출
         /// @note  ARM: DHCSR 2회 샘플 기반 C_DEBUGEN Attach 탐지 +
         ///        (C_HALT|S_HALT) Halt 교차 검증

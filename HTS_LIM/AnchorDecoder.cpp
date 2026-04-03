@@ -342,9 +342,9 @@ namespace ProtectedEngine {
 
         RAII_Seed_Wiper seed_wiper(masterSeed, MAX_SEED);
 
-        const size_t mseed_len =
-            Session_Gateway::Get_Master_Seed_Raw(masterSeed, MAX_SEED);
-        if (mseed_len == 0u) {
+        const size_t mseed_len = Session_Gateway::Derive_Session_Material(
+            Session_Gateway::DOMAIN_ANCHOR_HMAC, masterSeed, 32u);
+        if (mseed_len < 32u) {
             Session_Gateway::Trigger_Hardware_Trap(
                 "Unauthorized Data Plane Access (Decoder)");
             return SECURE_FALSE;

@@ -106,6 +106,28 @@ namespace ProtectedEngine {
     }
 
     // =====================================================================
+    //  pollHardwareOrFault — SysTick/스케줄러 등 주기 경로 (DHCSR + DBGMCU_CR)
+    // =====================================================================
+    void AntiDebugManager::pollHardwareOrFault() noexcept {
+
+#if (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)) && \
+    (defined(__GNUC__) || defined(__clang__))
+        volatile const uint32_t* const dhcsr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
+        volatile const uint32_t* const dbgcr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DBGMCU_CR);
+        const uint32_t v = *dhcsr;
+        const uint32_t cr = *dbgcr;
+        if ((v & DHCSR_DEBUG_MASK) != 0u) {
+            SecureLogger_WipeRingAndFault();
+        }
+        if ((cr & DBGMCU_CR_DEBUG_MASK) != 0u) {
+            SecureLogger_WipeRingAndFault();
+        }
+#endif
+    }
+
+    // =====================================================================
     //  checkDebuggerPresence — 플랫폼별 디버거 탐지
     // =====================================================================
     void AntiDebugManager::checkDebuggerPresence() noexcept {

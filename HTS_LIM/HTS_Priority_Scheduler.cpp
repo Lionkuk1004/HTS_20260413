@@ -18,6 +18,7 @@
 //   ④ RDP: HTS_Hardware_Init 부트 검사.
 // =========================================================================
 #include "HTS_Priority_Scheduler.h"
+#include "HTS_Anti_Debug.h"
 #include "HTS_Secure_Memory.h"
 
 #include <atomic>
@@ -347,6 +348,7 @@ namespace ProtectedEngine {
     void HTS_Priority_Scheduler::Tick(
         uint32_t systick_ms, uint32_t current_nf) noexcept
     {
+        AntiDebugManager::pollHardwareOrFault();
         Impl* p = get_impl();
         if (p == nullptr) { return; }
 

@@ -314,13 +314,14 @@ namespace ProtectedEngine {
 
         // ── ③ Security_Pipeline 보안 변환 ──
         impl.sec_pipeline.Secure_Master_Worker(
-            impl.temp_sec, 0, packed_len, abort_signal);
+            impl.temp_sec, 0, packed_len, abort_signal, packed_len);
         if (abort_signal.load(std::memory_order_acquire)) {
             return false;
         }
 
         // ── ④ 3D FEC + 인터리빙 (int8_t Raw API) ──
-        fec_mseed_len = Session_Gateway::Get_Master_Seed_Raw(
+        fec_mseed_len = Session_Gateway::Derive_Session_Material(
+            Session_Gateway::DOMAIN_DUAL_FEC,
             fec_master_seed_buf, sizeof(fec_master_seed_buf));
 
         fec_seed = packet_nonce;
@@ -407,7 +408,8 @@ namespace ProtectedEngine {
                 : (total_16bit_words - 1u));
         size_t logical_idx = 0u;
 
-        mseed_len = Session_Gateway::Get_Master_Seed_Raw(
+        mseed_len = Session_Gateway::Derive_Session_Material(
+            Session_Gateway::DOMAIN_DUAL_PRNG,
             master_seed_buf, sizeof(master_seed_buf));
 
         // ─────────────────────────────────────────────────────────────

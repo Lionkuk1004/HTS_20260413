@@ -1,0 +1,11 @@
+# HTS_LIM — 소스 줄간격(빈 줄) 남발 방지: 에디터·일부 도구가 trim/개행만 정리
+root = true
+
+[*]
+insert_final_newline = true
+trim_trailing_whitespace = true
+charset = utf-8
+
+[*.{c,cpp,h,hpp,hxx,cxx,cc}]
+indent_style = space
+indent_size = 4
