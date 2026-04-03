@@ -13,18 +13,18 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="host_aarch64">
+      <UniqueIdentifier>{C8E4A1B2-9D3F-4E71-8A5C-2B6D7E8F9012}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Layer 15 - AMI OTA">
+      <UniqueIdentifier>{E1F2A3B4-C5D6-7890-ABCD-EF1234567890}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Layer 16 - IoT Sensor">
+      <UniqueIdentifier>{F2A3B4C5-D6E7-8901-BCDE-F12345678901}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="HTS_Security_Pipeline.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="AnchorManager.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="AnchorEncoder.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="AnchorDecoder.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Crc32Util.cpp">
@@ -45,8 +45,8 @@
     <ClCompile Include="HTS_Universal_API.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Anchor_Vault.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="host_aarch64\HTS_Anchor_Vault.cpp">
+      <Filter>host_aarch64</Filter>
     </ClCompile>
     <ClCompile Include="HTS_AntiAnalysis_Shield.cpp">
       <Filter>소스 파일</Filter>
@@ -64,7 +64,7 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Gyro_Engine.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Hardware_Shield.cpp">
       <Filter>소스 파일</Filter>
@@ -93,8 +93,8 @@
     <ClCompile Include="HTS_Sparse_Recovery.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Storage_Interface.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="host_aarch64\HTS_Storage_Interface.cpp">
+      <Filter>host_aarch64</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Anti_Debug.cpp">
       <Filter>소스 파일</Filter>
@@ -130,9 +130,6 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_API.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="TensorCodec.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Session_Gateway.cpp">
@@ -234,8 +231,8 @@
     <ClCompile Include="lsh512.c">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_IPC_Protocol_A55.cpp">
-      <Filter>소스 파일</Filter>
+    <ClCompile Include="host_aarch64\HTS_IPC_Protocol_A55.cpp">
+      <Filter>host_aarch64</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Console_Manager.cpp">
       <Filter>소스 파일</Filter>
@@ -244,22 +241,22 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_IoT_Codec.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Network_Bridge.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_AMI_Protocol.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClCompile>
     <ClCompile Include="HTS_BLE_NFC_Gateway.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Voice_Codec_Bridge.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_CCTV_Security.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Power_Manager.cpp">
       <Filter>소스 파일</Filter>
@@ -301,7 +298,7 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Emergency_Beacon.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Neighbor_Discovery.cpp">
       <Filter>소스 파일</Filter>
@@ -310,7 +307,7 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Location_Engine.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Device_Status_Reporter.cpp">
       <Filter>소스 파일</Filter>
@@ -319,25 +316,25 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Sensor_Fusion.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Sensor_Aggregator.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClCompile>
     <ClCompile Include="HTS_CoAP_Engine.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Meter_Data_Manager.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClCompile>
     <ClCompile Include="HTS_OTA_AMI_Manager.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClCompile>
     <ClCompile Include="HTS_OTA_Manager.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Modbus_Gateway.cpp">
-      <Filter>소스 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClCompile>
     <ClCompile Include="HTS_KT_DSN_Adapter.cpp">
       <Filter>소스 파일</Filter>
@@ -350,67 +347,67 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\..\CORE\HTS_Anchor_Vault.hpp">
+    <ClInclude Include="HTS_Anchor_Vault.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_AntiAnalysis_Shield.h">
+    <ClInclude Include="HTS_AntiAnalysis_Shield.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Antipodal_Core.h">
+    <ClInclude Include="HTS_Antipodal_Core.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Dynamic_Config.h">
+    <ClInclude Include="HTS_Dynamic_Config.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Entropy_Arrow.hpp">
+    <ClInclude Include="HTS_Entropy_Arrow.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Gyro_Engine.h">
+    <ClInclude Include="HTS_Gyro_Engine.h">
+      <Filter>Layer 16 - IoT Sensor</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Hardware_Bridge.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Hardware_Bridge.hpp">
+    <ClInclude Include="HTS_Hardware_Shield.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Hardware_Shield.h">
+    <ClInclude Include="HTS_Orbital_Mapper.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Orbital_Mapper.hpp">
+    <ClInclude Include="HTS_Physical_Entropy_Engine.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Physical_Entropy_Engine.h">
+    <ClInclude Include="HTS_Quantum_Decoy_VDF.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Quantum_Decoy_VDF.h">
+    <ClInclude Include="HTS_Polymorphic_Shield.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Polymorphic_Shield.h">
+    <ClInclude Include="HTS_Sparse_Recovery.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Sparse_Recovery.h">
+    <ClInclude Include="HTS_Storage_Interface.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Storage_Interface.h">
+    <ClInclude Include="HTS_Universal_API.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Universal_API.h">
+    <ClInclude Include="HTS_Universal_API.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Universal_API.hpp">
+    <ClInclude Include="BB1_Core_Engine.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\BB1_Core_Engine.hpp">
+    <ClInclude Include="HTS_Creator_Telemetry.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Creator_Telemetry.h">
+    <ClInclude Include="HTS_Security_Pipeline.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Security_Pipeline.h">
+    <ClInclude Include="HTS_Universal_Adapter.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Universal_Adapter.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\..\CORE\HTS_Universal_Adapter.hpp">
+    <ClInclude Include="HTS_Universal_Adapter.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Secure_Memory_Manager.hpp">
@@ -429,15 +426,6 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Auto_Rollback_Manager.hpp">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="AnchorManager.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="AnchorEncoder.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="AnchorDecoder.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Crc32Util.h">
@@ -483,9 +471,6 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_MAC_RateController.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="TensorCodec.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Types.h">
@@ -620,10 +605,13 @@
     <ClInclude Include="lsh512.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="HTS_IPC_Protocol_A55.h">
-      <Filter>헤더 파일</Filter>
+    <ClInclude Include="host_aarch64\HTS_IPC_Protocol_A55.h">
+      <Filter>host_aarch64</Filter>
     </ClInclude>
     <ClInclude Include="HTS_IPC_Protocol.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_AP_Bridge_Defs.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_IPC_Protocol_Defs.h">
@@ -642,10 +630,10 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_IoT_Codec.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_IoT_Codec_Defs.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Network_Bridge.h">
       <Filter>헤더 파일</Filter>
@@ -654,16 +642,16 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_AMI_Protocol.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_AMI_Protocol_Defs.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_BLE_NFC_Gateway.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_BLE_NFC_Gateway_Defs.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Voice_Codec_Bridge.h">
       <Filter>헤더 파일</Filter>
@@ -672,16 +660,16 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_CCTV_Security.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_CCTV_Security_Defs.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_OTA_Manager.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_OTA_Manager_Defs.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Power_Manager.h">
       <Filter>헤더 파일</Filter>
@@ -696,10 +684,10 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Modbus_Gateway.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Modbus_Gateway_Defs.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Holo_Tensor_4D.h">
       <Filter>헤더 파일</Filter>
@@ -747,7 +735,7 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Emergency_Beacon.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Neighbor_Discovery.h">
       <Filter>헤더 파일</Filter>
@@ -756,7 +744,7 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Location_Engine.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Device_Status_Reporter.h">
       <Filter>헤더 파일</Filter>
@@ -765,24 +753,36 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Sensor_Fusion.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Sensor_Aggregator.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 16 - IoT Sensor</Filter>
     </ClInclude>
     <ClInclude Include="HTS_CoAP_Engine.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Meter_Data_Manager.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="HTS_OTA_AMI_Manager.h">
-      <Filter>헤더 파일</Filter>
+      <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
     <ClInclude Include="cpu_info.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="arm_arch.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Storage_Adapter.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Server_Stress_Test.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Data_Loader.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Quantum_Key_Bridge.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>
@@ -793,5 +793,14 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="# HTS B-CDMA 전수검사 통합 기준서.md" />
+    <None Include="HTS_Universal_API.def">
+      <Filter>소스 파일</Filter>
+    </None>
+    <None Include="HTS_Universal_Adapter.def">
+      <Filter>소스 파일</Filter>
+    </None>
+    <None Include="HTS_Storage_Adapter.def">
+      <Filter>소스 파일</Filter>
+    </None>
   </ItemGroup>
 </Project>

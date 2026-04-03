@@ -462,9 +462,13 @@ namespace ProtectedEngine {
         uint64_t vs = session_id;
 
         if (!is_test_mode) {
-            if (!Universal_API::Secure_Gate_Open(session_id)) HTS_BB1_UNLIKELY{
-                Universal_API::Absolute_Trace_Erasure(
-                    tensor_data, elements * sizeof(T));
+            const uint32_t gate_mask = Universal_API::Secure_Gate_Open(session_id);
+            const size_t trace_b = elements * sizeof(T);
+            const uint32_t gate_fail =
+                static_cast<uint32_t>((~gate_mask) >> 31) & 1u;
+            Universal_API::Absolute_Trace_Erasure(
+                tensor_data, trace_b * static_cast<size_t>(gate_fail));
+            if (gate_fail != 0u) HTS_BB1_UNLIKELY{
                 return false;
             }
             vs = m.tx_time_arrow.Validate_Or_Destroy(session_id);
@@ -594,9 +598,13 @@ namespace ProtectedEngine {
         const T EM = static_cast<T>(~static_cast<T>(0));
 
         if (!is_test_mode) {
-            if (!Universal_API::Secure_Gate_Open(session_id)) HTS_BB1_UNLIKELY{
-                Universal_API::Absolute_Trace_Erasure(
-                    damaged_tensor, elements * sizeof(T));
+            const uint32_t gate_mask = Universal_API::Secure_Gate_Open(session_id);
+            const size_t trace_b = elements * sizeof(T);
+            const uint32_t gate_fail =
+                static_cast<uint32_t>((~gate_mask) >> 31) & 1u;
+            Universal_API::Absolute_Trace_Erasure(
+                damaged_tensor, trace_b * static_cast<size_t>(gate_fail));
+            if (gate_fail != 0u) HTS_BB1_UNLIKELY{
                 return false;
             }
             vs = m.rx_time_arrow.Validate_Or_Destroy(session_id);

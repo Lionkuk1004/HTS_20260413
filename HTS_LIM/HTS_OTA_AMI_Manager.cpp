@@ -95,7 +95,13 @@ namespace ProtectedEngine {
         *dbgmcu_fz &= ~(DBGMCU_WWDG_STOP | DBGMCU_IWDG_STOP);
         __asm__ __volatile__("dsb sy\n\t" "isb\n\t" ::: "memory");
 #endif
-        for (;;) {}
+        for (;;) {
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("wfi");
+#else
+            __asm__ __volatile__("nop");
+#endif
+        }
     }
 #else
     static bool flash_write(uint32_t, const uint8_t*, size_t) noexcept { return true; }

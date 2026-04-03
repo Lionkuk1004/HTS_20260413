@@ -12,7 +12,8 @@
 //  RF 전송단(ISR/모뎀)이 팝하여 DMA로 전송합니다.
 //
 //  [운용 모드 — SPSC (Single Producer, Single Consumer)]
-//   프로듀서: Unified_Scheduler / 메인 루프 → Push_Waveform_Chunk()
+//   프로듀서: HTS_API::Service_Unified_Tx_If_Due() / Service_Unified_Tx_Main_Tick_Default()
+//            (메인 틱, 기본 23ms 게이트) → 내부에서 Schedule_Unified_Tx_And_Queue → Push_Waveform_Chunk()
 //   컨슈머:  DMA ISR / RF 전송단 → Pop_Tx_Payload()
 //   ⚠ 단일 프로듀서 + 단일 컨슈머 전용 — 다중 스레드에서 동시 Push 불가
 //
@@ -49,6 +50,10 @@
 //   tx_ring_buffer / impl_buf_ / current_config: SecureMemory::secureWipe (D항)
 //   AlignedIndex(std::atomic): 바이트 소거 금지 — store(0)만 (UB 방지)
 //   복사/이동: = delete (링 버퍼 + atomic 복제 방지)
+//   ARM Release: Initialize·Flush·Push·Pop 진입 시 DHCSR·OPTCR(RDP) 폴링(.cpp)
+//   HTS_TX_SCHEDULER_SKIP_PHYS_TRUST / HTS_ALLOW_OPEN_DEBUG 로 스킵 가능
+//   get_impl: C++17 std::launder (LTO 객체 생명주기) — Sensor_Fusion·Security_Session 동일 매크로
+//   Flush: is_active=false → fence → 인덱스·secureWipe → fence → is_active=true (ISR 레이스 차단)
 //
 //  [STM32F407 성능]
 //   Push/Pop (256 words): ~300사이클 ≈ 1.8µs @168MHz
@@ -130,7 +135,8 @@ namespace ProtectedEngine {
         //    tx_ring_buffer[16384] × 4B = 64KB + metadata ≈ 66KB
         //    AlignedIndex alignas(64) — 멀티 코어 False Sharing 방어
         //
-#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
         static constexpr size_t IMPL_BUF_SIZE = 8704u;   // 8.5KB (ring[2048]+meta)
         static constexpr size_t IMPL_BUF_ALIGN = 8u;     // Cortex-M4: 단일 코어
 #else

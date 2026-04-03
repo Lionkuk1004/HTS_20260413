@@ -53,7 +53,7 @@ namespace ProtectedEngine {
             "SELF_HEALING", msg_buf);
 
         // 로그 I/O 완료 후 하드웨어 리셋 경로로만 진행 (LTO 재배치 억제)
-        std::atomic_thread_fence(std::memory_order_seq_cst);
+        std::atomic_thread_fence(std::memory_order_release);
 #if defined(__GNUC__) || defined(__clang__)
         __asm__ __volatile__("" ::: "memory");
 #endif

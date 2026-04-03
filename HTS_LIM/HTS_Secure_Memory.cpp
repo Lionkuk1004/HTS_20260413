@@ -146,7 +146,7 @@ static void MpuHardwareBarrier() noexcept {
 #if defined(__GNUC__) || defined(__clang__)
     __asm__ __volatile__("dsb sy\n\tisb" ::: "memory");
 #else
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    std::atomic_thread_fence(std::memory_order_acq_rel);
 #endif
 }
 
@@ -317,7 +317,7 @@ void SecureMemory::lockMemory(void* ptr, size_t size) noexcept {
     (void)size;
 }
 
-static void UnlockMpuIfMatches(void* /*ptr*/, size_t /*size*/) noexcept {}
+// 비-ARM: secureWipe에서 Unlock 호출이 #if __arm__로 배제 — 스텁 불필요(C4505).
 
 #endif
 

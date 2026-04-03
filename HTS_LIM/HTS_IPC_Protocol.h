@@ -68,6 +68,7 @@
 #endif
 
 #include "HTS_IPC_Protocol_Defs.h"
+#include "HTS_AP_Bridge_Defs.h"
 #include <cstdint>
 #include <cstddef>
 #include <atomic>

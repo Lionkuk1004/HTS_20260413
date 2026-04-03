@@ -1,13 +1,69 @@
-// =============================================================================
+﻿// =============================================================================
 // HTS_FEC_HARQ.cpp — V400 3모드 (1칩/16칩/64칩)
 // Target: STM32F407VGT6 (Cortex-M4F) / PC
 //
 #include "HTS_FEC_HARQ.hpp"
 #include <array>
 #include <climits>
+#include <cstdint>
 #include <cstring>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+#if defined(HTS_FEC_PROFILE)
+#include <chrono>
+#if defined(_WIN32)
+#include <intrin.h>
+#endif
+#endif
 
 namespace ProtectedEngine {
+
+#if defined(HTS_FEC_PROFILE)
+    namespace {
+        struct FecProfG {
+            uint64_t sym{};
+            uint64_t deint{};
+            uint64_t rep{};
+            uint64_t vit{};
+            uint64_t tail{};
+            uint64_t calls{};
+        };
+        FecProfG g_fec_prof{};
+
+        static inline uint64_t fec_prof_now() noexcept {
+#if defined(_WIN32)
+            return static_cast<uint64_t>(__rdtsc());
+#elif ((defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+        defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)) && \
+       !defined(HTS_ALLOW_HOST_BUILD))
+            return static_cast<uint64_t>(
+                *reinterpret_cast<volatile uint32_t*>(0xE0001004u));
+#else
+            using clock = std::chrono::steady_clock;
+            return static_cast<uint64_t>(
+                std::chrono::duration_cast<std::chrono::nanoseconds>(
+                    clock::now().time_since_epoch())
+                    .count());
+#endif
+        }
+    } // namespace
+
+    void FEC_HARQ::Profile_Reset() noexcept {
+        g_fec_prof = {};
+    }
+
+    FEC_HARQ::DecodeProfileStats FEC_HARQ::Profile_Get() noexcept {
+        DecodeProfileStats s{};
+        s.ticks_sym_prep_and_loop = g_fec_prof.sym;
+        s.ticks_bit_deinterleave = g_fec_prof.deint;
+        s.ticks_rep_combine = g_fec_prof.rep;
+        s.ticks_viterbi = g_fec_prof.vit;
+        s.ticks_tail = g_fec_prof.tail;
+        s.calls = g_fec_prof.calls;
+        return s;
+    }
+#endif // HTS_FEC_PROFILE
 
     // 컴파일 타임 고정 스택 버퍼 — VLA/alloca 경로 배제 (임베디드 규약)
     static constexpr std::size_t k_conv_out_sz =
@@ -22,19 +78,86 @@ namespace ProtectedEngine {
     static_assert(FEC_HARQ::BPS64_MAX <= FEC_HARQ::C64,
         "Bin_To_LLR bps exceeds scratch");
 
-    template <int N>
-    static inline void FWHT_Fixed(int32_t* d) noexcept {
-        for (int len = 1; len < N; len <<= 1) {
-            for (int i = 0; i < N; i += (len << 1)) {
-                for (int j = 0; j < len; ++j) {
-                    const int32_t u = d[i + j];
-                    const int32_t v = d[i + len + j];
-                    d[i + j] = u + v;
-                    d[i + len + j] = u - v;
-                }
-            }
-        }
+    // FWHT 나비 연산 — 루프 전개용 (데이터 의존 분기 없음)
+#define HTS_FWHT_BF(d_, i_, j_)                         \
+        do {                                            \
+            int32_t _u = (d_)[(i_)];                    \
+            int32_t _v = (d_)[(j_)];                    \
+            (d_)[(i_)] = static_cast<int32_t>(_u + _v); \
+            (d_)[(j_)] = static_cast<int32_t>(_u - _v); \
+        } while (0)
+
+    // N=16: 기존 삼중 for 와 동일 순서로 32회 나비 전개 (분기/루프 없음)
+    static inline void FWHT_Unroll16(int32_t* d) noexcept {
+        HTS_FWHT_BF(d, 0, 1);
+        HTS_FWHT_BF(d, 2, 3);
+        HTS_FWHT_BF(d, 4, 5);
+        HTS_FWHT_BF(d, 6, 7);
+        HTS_FWHT_BF(d, 8, 9);
+        HTS_FWHT_BF(d, 10, 11);
+        HTS_FWHT_BF(d, 12, 13);
+        HTS_FWHT_BF(d, 14, 15);
+        HTS_FWHT_BF(d, 0, 2);
+        HTS_FWHT_BF(d, 1, 3);
+        HTS_FWHT_BF(d, 4, 6);
+        HTS_FWHT_BF(d, 5, 7);
+        HTS_FWHT_BF(d, 8, 10);
+        HTS_FWHT_BF(d, 9, 11);
+        HTS_FWHT_BF(d, 12, 14);
+        HTS_FWHT_BF(d, 13, 15);
+        HTS_FWHT_BF(d, 0, 4);
+        HTS_FWHT_BF(d, 1, 5);
+        HTS_FWHT_BF(d, 2, 6);
+        HTS_FWHT_BF(d, 3, 7);
+        HTS_FWHT_BF(d, 8, 12);
+        HTS_FWHT_BF(d, 9, 13);
+        HTS_FWHT_BF(d, 10, 14);
+        HTS_FWHT_BF(d, 11, 15);
+        HTS_FWHT_BF(d, 0, 8);
+        HTS_FWHT_BF(d, 1, 9);
+        HTS_FWHT_BF(d, 2, 10);
+        HTS_FWHT_BF(d, 3, 11);
+        HTS_FWHT_BF(d, 4, 12);
+        HTS_FWHT_BF(d, 5, 13);
+        HTS_FWHT_BF(d, 6, 14);
+        HTS_FWHT_BF(d, 7, 15);
     }
+
+    // 열 c (0..15): 인덱스 c, c+16, c+32, c+48 에 대한 in-place WHT₄
+#define HTS_FWHT_WHT4_COL(d_, c_)          \
+        do {                               \
+            HTS_FWHT_BF(d_, c_, (c_) + 16); \
+            HTS_FWHT_BF(d_, (c_) + 32, (c_) + 48); \
+            HTS_FWHT_BF(d_, c_, (c_) + 32); \
+            HTS_FWHT_BF(d_, (c_) + 16, (c_) + 48); \
+        } while (0)
+
+    // N=64 = H₄ ⊗ H₁₆: 행(연속 16)별 FWHT₁₆ ×4 → 열 16개에 stride-16 WHT₄ (총 나비 192 = 32×6)
+    static inline void FWHT_Unroll64(int32_t* d) noexcept {
+        FWHT_Unroll16(d + 0);
+        FWHT_Unroll16(d + 16);
+        FWHT_Unroll16(d + 32);
+        FWHT_Unroll16(d + 48);
+        HTS_FWHT_WHT4_COL(d, 0);
+        HTS_FWHT_WHT4_COL(d, 1);
+        HTS_FWHT_WHT4_COL(d, 2);
+        HTS_FWHT_WHT4_COL(d, 3);
+        HTS_FWHT_WHT4_COL(d, 4);
+        HTS_FWHT_WHT4_COL(d, 5);
+        HTS_FWHT_WHT4_COL(d, 6);
+        HTS_FWHT_WHT4_COL(d, 7);
+        HTS_FWHT_WHT4_COL(d, 8);
+        HTS_FWHT_WHT4_COL(d, 9);
+        HTS_FWHT_WHT4_COL(d, 10);
+        HTS_FWHT_WHT4_COL(d, 11);
+        HTS_FWHT_WHT4_COL(d, 12);
+        HTS_FWHT_WHT4_COL(d, 13);
+        HTS_FWHT_WHT4_COL(d, 14);
+        HTS_FWHT_WHT4_COL(d, 15);
+    }
+
+#undef HTS_FWHT_WHT4_COL
+#undef HTS_FWHT_BF
 
     // ── CRC-16/CCITT ──
     uint16_t FEC_HARQ::CRC16(const uint8_t* d, int len) noexcept {
@@ -42,10 +165,11 @@ namespace ProtectedEngine {
         uint16_t crc = 0xFFFFu;
         for (int i = 0; i < len; ++i) {
             crc ^= static_cast<uint16_t>(d[i]) << 8u;
-            for (int b = 0; b < 8; ++b)
-                crc = (crc & 0x8000u)
-                ? static_cast<uint16_t>((crc << 1u) ^ 0x1021u)
-                : static_cast<uint16_t>(crc << 1u);
+            for (int b = 0; b < 8; ++b) {
+                const uint16_t poly_mask =
+                    static_cast<uint16_t>(0u - ((crc >> 15u) & 1u));
+                crc = static_cast<uint16_t>((crc << 1u) ^ (0x1021u & poly_mask));
+            }
         }
         return crc;
     }
@@ -53,8 +177,14 @@ namespace ProtectedEngine {
     // ── FWHT (int32_t, 가변 크기: 16 또는 64) ───────────────────
     void FEC_HARQ::FWHT(int32_t* d, int n) noexcept {
         if (d == nullptr || n <= 1) { return; }
-        if (n == 16) { FWHT_Fixed<16>(d); return; }
-        if (n == 64) { FWHT_Fixed<64>(d); return; }
+        if (n == 16) {
+            FWHT_Unroll16(d);
+            return;
+        }
+        if (n == 64) {
+            FWHT_Unroll64(d);
+            return;
+        }
 
         for (int len = 1; len < n; len <<= 1) {
             for (int i = 0; i < n; i += (len << 1)) {
@@ -118,7 +248,9 @@ namespace ProtectedEngine {
             int32_t s0 = soft[2 * t], s1 = soft[2 * t + 1];
 
             for (int st = 0; st < 64; ++st) {
-                if (wb.pm[cur][st] <= DEAD_STATE) continue;
+                const int32_t pm_st = wb.pm[cur][st];
+                const uint32_t m_alive =
+                    0u - static_cast<uint32_t>(pm_st > DEAD_STATE);
                 for (int bit = 0; bit <= 1; ++bit) {
                     uint8_t r = static_cast<uint8_t>(
                         (static_cast<uint8_t>(bit) << 6u) |
@@ -127,11 +259,17 @@ namespace ProtectedEngine {
                     int e0 = pc7(static_cast<uint8_t>(r & G0)) & 1;
                     int e1 = pc7(static_cast<uint8_t>(r & G1)) & 1;
                     int32_t bm = s0 * (1 - 2 * e0) + s1 * (1 - 2 * e1);
-                    int32_t np = wb.pm[cur][st] + bm;
-                    if (np > wb.pm[nxt][ns]) {
-                        wb.pm[nxt][ns] = np;
-                        wb.surv[t][ns] = static_cast<uint8_t>(st);
-                    }
+                    int32_t np = pm_st + bm;
+                    const int32_t old_pm = wb.pm[nxt][ns];
+                    const uint32_t take =
+                        (0u - static_cast<uint32_t>(np > old_pm)) & m_alive;
+                    wb.pm[nxt][ns] = static_cast<int32_t>(
+                        (static_cast<uint32_t>(np) & take)
+                        | (static_cast<uint32_t>(old_pm) & ~take));
+                    const uint32_t new_st_u = static_cast<uint32_t>(st);
+                    const uint32_t old_st_u = static_cast<uint32_t>(wb.surv[t][ns]);
+                    wb.surv[t][ns] = static_cast<uint8_t>(
+                        (new_st_u & take) | (old_st_u & ~take));
                 }
             }
             cur = nxt;
@@ -139,8 +277,9 @@ namespace ProtectedEngine {
 
         int state = 0;
         for (int t = steps - 1; t >= 0; --t) {
+            state &= 63;
             wb.tb[t] = static_cast<uint8_t>((state >> 5) & 1);
-            state = static_cast<int>(wb.surv[t][state]);
+            state = static_cast<int>(wb.surv[t][state]) & 63;
         }
         for (int i = 0; i < no && i < steps; ++i) out[i] = wb.tb[i];
     }
@@ -172,49 +311,89 @@ namespace ProtectedEngine {
             const uint64_t sq_q = static_cast<uint64_t>(abs_q) *
                 static_cast<uint64_t>(abs_q);
             const uint64_t e64 = sq_i + sq_q;
-            const uint32_t e32 = (e64 > 0xFFFFFFFFull)
-                ? 0xFFFFFFFFu : static_cast<uint32_t>(e64);
+            const uint32_t ov = 0u - static_cast<uint32_t>(e64 > 0xFFFFFFFFull);
+            const uint32_t e32 =
+                (static_cast<uint32_t>(e64) & ~ov) | (0xFFFFFFFFu & ov);
 
             energy[m] = e32;
-            if (e32 > peak) { peak = e32; }
+            const uint32_t gt_pk = 0u - static_cast<uint32_t>(e32 > peak);
+            peak = (e32 & gt_pk) | (peak & ~gt_pk);
         }
 
-        int shift = 0;
         //
-        //  오버플로 경로: combined = REP(4) × llr_max
-        //                bm = 2 × combined
-        //                pm = VIT_STEPS(88) × bm
+        //  오버플로 경로: combined = REP(4) × llr_max … (주석 동일)
+        //  시프트: 가변 while 제거 — ceil(log2(ceil(peak/LIMIT))) 를 CLZ/BSR 로 O(1) 산출
         //
-        //  LIMIT=1M: pm_max = 88×2×4×1M = 704M (INT32_MAX의 32.8%, 마진 3배)
-        //  LIMIT=100K: pm_max = 88×2×4×100K = 70.4M (INT32_MAX의 3.3%, 마진 30배)
-        //
-        //  100K에서도 Soft Decision 정밀도 충분:
-        //   High SNR: energy~10^12 → shift~27 → llr=max0-max1 ≈ ±100K
-        //   Low SNR:  energy~10^6  → shift~0  → llr=max0-max1 ≈ ±50K
-        //   양자화 해상도: 100,000 단계 (17비트 상당) → Viterbi 성능 영향 0
         static constexpr uint32_t VITERBI_SAFE_LIMIT = 100000u;
-        while (peak > VITERBI_SAFE_LIMIT && shift < 31) {
-            peak >>= 1;
-            shift++;
+        uint32_t shift = 0u;
+        if (peak > VITERBI_SAFE_LIMIT) {
+            const uint64_t lim_u = static_cast<uint64_t>(VITERBI_SAFE_LIMIT);
+            uint32_t ratio = static_cast<uint32_t>(
+                (static_cast<uint64_t>(peak) + lim_u - 1u) / lim_u);
+            if (ratio < 2u) {
+                ratio = 2u;
+            }
+            const uint32_t r = ratio - 1u;
+#if defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+            unsigned long idx = 0u;
+            if (_BitScanReverse(&idx, r) != 0) {
+                shift = static_cast<uint32_t>(idx) + 1u;
+            } else {
+                shift = 1u;
+            }
+#elif defined(_MSC_VER) && defined(_M_ARM64)
+            unsigned long idx = 0u;
+            if (_BitScanReverse64(&idx, static_cast<unsigned __int64>(r)) != 0) {
+                shift = static_cast<uint32_t>(idx) + 1u;
+            } else {
+                shift = 1u;
+            }
+#elif defined(__GNUC__) || defined(__clang__)
+            // r|1u: __builtin_clz(0) 미정의 회피, fls = floor(log2(r))+1
+            shift = 32u - static_cast<uint32_t>(__builtin_clz(r | 1u));
+#else
+            // MSVC ARM32 등: 항상 32회 — 반복 횟수 데이터 비의존
+            {
+                uint32_t fls = 0u;
+                for (uint32_t k = 0u; k < 32u; ++k) {
+                    const uint32_t bit = (r >> k) & 1u;
+                    const uint32_t m = 0u - bit;
+                    fls = (fls & ~m) | (((k + 1u) & 63u) & m);
+                }
+                const uint32_t z = static_cast<uint32_t>(fls == 0u);
+                shift = fls + (z & 1u);
+            }
+#endif
+            if (shift > 31u) {
+                shift = 31u;
+            }
         }
 
         for (int b = 0; b < bps; ++b) {
             uint32_t max0 = 0u, max1 = 0u;
+            const int sh_bit = bps - 1 - b;
             for (int m = 0; m < valid; ++m) {
                 const uint32_t e = energy[m] >> static_cast<uint32_t>(shift);
-                if ((m >> (bps - 1 - b)) & 1) {
-                    if (e > max1) { max1 = e; }
-                }
-                else {
-                    if (e > max0) { max0 = e; }
-                }
+                const uint32_t use1 =
+                    0u - static_cast<uint32_t>((static_cast<uint32_t>(m >> sh_bit) & 1u) != 0u);
+                const uint32_t use0 = ~use1;
+
+                const uint32_t gt0 = 0u - static_cast<uint32_t>(e > max0);
+                const uint32_t cand0 = (e & gt0) | (max0 & ~gt0);
+                max0 = (max0 & ~use0) | (cand0 & use0);
+
+                const uint32_t gt1 = 0u - static_cast<uint32_t>(e > max1);
+                const uint32_t cand1 = (e & gt1) | (max1 & ~gt1);
+                max1 = (max1 & ~use1) | (cand1 & use1);
             }
-            if (max0 >= max1) {
-                llr[b] = static_cast<int32_t>(max0 - max1);
-            }
-            else {
-                llr[b] = -static_cast<int32_t>(max1 - max0);
-            }
+            const uint32_t ge = 0u - static_cast<uint32_t>(max0 >= max1);
+            const uint32_t d01 = max0 - max1;
+            const uint32_t d10 = max1 - max0;
+            const uint32_t mag_u = (d01 & ge) | (d10 & ~ge);
+            const int32_t v = static_cast<int32_t>(mag_u);
+            const uint32_t neg = 0u - static_cast<uint32_t>(max0 < max1);
+            llr[b] = static_cast<int32_t>(
+                (static_cast<uint32_t>(v) ^ neg) + (neg >> 31u));
         }
     }
 
@@ -278,7 +457,7 @@ namespace ProtectedEngine {
             wb.perm[i] = wb.perm[static_cast<size_t>(j)];
             wb.perm[static_cast<size_t>(j)] = t;
         }
-        std::memset(wb.tmp_soft, 0, sizeof(wb.tmp_soft));
+        // perm 이 0..n-1 순열이므로 아래 루프가 tmp_soft[0..n-1] 전부를 한 번씩 덮어씀 — memset 불필요
         for (int i = 0; i < n; ++i) {
             wb.tmp_soft[static_cast<size_t>(wb.perm[i])] = soft[i];
         }
@@ -339,9 +518,9 @@ namespace ProtectedEngine {
 
         for (int r = 0; r < REP; ++r)
             for (int i = 0; i < CONV_OUT; ++i)
-                wb.rep[r * CONV_OUT + i] = conv[static_cast<std::size_t>(i)];
+                wb.ru.rep[r * CONV_OUT + i] = conv[static_cast<std::size_t>(i)];
 
-        Bit_Interleave(wb.rep, TOTAL_CODED, il);
+        Bit_Interleave(wb.ru.rep, TOTAL_CODED, il);
 
         int idx = 0;
         for (int s = 0; s < nsym; ++s) {
@@ -349,7 +528,7 @@ namespace ProtectedEngine {
             for (int b = 0; b < bps; ++b) {
                 int bi = s * bps + b;
                 if (bi < TOTAL_CODED)
-                    sym |= static_cast<uint8_t>(wb.rep[bi] << (bps - 1 - b));
+                    sym |= static_cast<uint8_t>(wb.ru.rep[bi] << (bps - 1 - b));
             }
             syms[idx++] = sym;
         }
@@ -368,6 +547,10 @@ namespace ProtectedEngine {
             *olen = 0;
             return false;
         }
+        if (nsym > NSYM64) {
+            *olen = 0;
+            return false;
+        }
 
         // Encode 경로는 항상 TOTAL_CODED 비트를 인터리브함(Bit_Interleave(..., TOTAL_CODED)).
         // 심볼 격자(nsym×bps)가 그보다 작으면 LLR 슬롯이 비어 복호화가 붕괴됨.
@@ -378,8 +561,12 @@ namespace ProtectedEngine {
             return false;
         }
 
-        std::memset(wb.all_llr, 0, sizeof(wb.all_llr));
+#if defined(HTS_FEC_PROFILE)
+        ++g_fec_prof.calls;
+        uint64_t fec_t0 = fec_prof_now();
+#endif
 
+        // llr_slots >= TOTAL_CODED 이면 (sym,b) 격자가 bi=0..TOTAL_CODED-1 전부를 한 번씩 기록 — all_llr memset 불필요
         // FWHT(d, nc) / Bin_To_LLR 는 [0, nc) / [0, bps) 만 사용 — nc·bps 칩 이후 슬롯은 미사용
         std::array<int32_t, k_fwht_buf_sz> fI;
         std::array<int32_t, k_fwht_buf_sz> fQ;
@@ -403,21 +590,49 @@ namespace ProtectedEngine {
             for (int b = 0; b < bps; ++b) {
                 const int bi = sym * bps + b;
                 if (bi < TOTAL_CODED) {
-                    wb.all_llr[bi] = llr[static_cast<std::size_t>(b)];
+                    wb.ru.all_llr[bi] = llr[static_cast<std::size_t>(b)];
                 }
             }
         }
 
-        // 역순열 길이는 인코더와 동일하게 TOTAL_CODED(perm/tmp_soft/all_llr 경계와 일치)
-        Bit_Deinterleave(wb.all_llr, TOTAL_CODED, il, wb);
+#if defined(HTS_FEC_PROFILE)
+        uint64_t fec_t1 = fec_prof_now();
+        g_fec_prof.sym += (fec_t1 - fec_t0);
+        fec_t0 = fec_t1;
+#endif
 
-        std::memset(wb.combined, 0, sizeof(wb.combined));
-        for (int r = 0; r < REP; ++r)
-            for (int i = 0; i < CONV_OUT; ++i)
-                wb.combined[i] += wb.all_llr[r * CONV_OUT + i];
+        // 역순열 길이는 인코더와 동일하게 TOTAL_CODED(perm/tmp_soft/all_llr 경계와 일치)
+        Bit_Deinterleave(wb.ru.all_llr, TOTAL_CODED, il, wb);
+
+#if defined(HTS_FEC_PROFILE)
+        fec_t1 = fec_prof_now();
+        g_fec_prof.deint += (fec_t1 - fec_t0);
+        fec_t0 = fec_t1;
+#endif
+
+        // REP 슬롯 합산 in-place: all_llr[0..CONV_OUT) 에 합성 → 별도 combined 제거
+        for (int i = 0; i < CONV_OUT; ++i) {
+            int32_t acc = wb.ru.all_llr[i];
+            for (int r = 1; r < REP; ++r) {
+                acc += wb.ru.all_llr[r * CONV_OUT + i];
+            }
+            wb.ru.all_llr[i] = acc;
+        }
+
+#if defined(HTS_FEC_PROFILE)
+        fec_t1 = fec_prof_now();
+        g_fec_prof.rep += (fec_t1 - fec_t0);
+        fec_t0 = fec_t1;
+#endif
 
         std::array<uint8_t, static_cast<std::size_t>(CONV_IN)> dec{};
-        Viterbi_Decode(wb.combined, CONV_OUT, dec.data(), CONV_IN, wb);
+        Viterbi_Decode(wb.ru.all_llr, CONV_OUT, dec.data(), CONV_IN, wb);
+
+#if defined(HTS_FEC_PROFILE)
+        fec_t1 = fec_prof_now();
+        g_fec_prof.vit += (fec_t1 - fec_t0);
+        fec_t0 = fec_t1;
+#endif
 
         std::array<uint8_t, static_cast<std::size_t>(MAX_INFO + 2)> rx{};
         for (int i = 0; i < INFO_BITS; ++i)
@@ -430,6 +645,11 @@ namespace ProtectedEngine {
         uint16_t stored = (static_cast<uint16_t>(
             rx[static_cast<std::size_t>(MAX_INFO)]) << 8u) |
             static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO + 1)]);
+
+#if defined(HTS_FEC_PROFILE)
+        fec_t1 = fec_prof_now();
+        g_fec_prof.tail += (fec_t1 - fec_t0);
+#endif
 
         if (calc == stored) {
             for (int i = 0; i < MAX_INFO; ++i) {
@@ -499,7 +719,8 @@ namespace ProtectedEngine {
     // ── 적응형 64칩 API ──
     int FEC_HARQ::Encode64_A(const uint8_t* info, int len,
         uint8_t* syms, uint32_t il, int bps, WorkBuf& wb) noexcept {
-        if (bps < BPS64_MIN || bps > BPS64_MAX) return 0;
+        if (bps < BPS64_MIN_OPERABLE || bps > BPS64_MAX) return 0;
+        if (nsym_for_bps(bps) > NSYM64) return 0;
         return Encode_Core(info, len, syms, il, bps, nsym_for_bps(bps), wb);
     }
 
@@ -550,7 +771,8 @@ namespace ProtectedEngine {
 
     bool FEC_HARQ::Decode64_A(const RxState64& s, uint8_t* out,
         int* len, uint32_t il, int bps, WorkBuf& wb) noexcept {
-        if (bps < BPS64_MIN || bps > BPS64_MAX) return false;
+        if (bps < BPS64_MIN_OPERABLE || bps > BPS64_MAX) return false;
+        if (nsym_for_bps(bps) > NSYM64) return false;
         return Decode_Core(&s.aI[0][0], &s.aQ[0][0],
             nsym_for_bps(bps), C64, bps, out, len, il, wb);
     }
@@ -562,7 +784,11 @@ namespace ProtectedEngine {
         uint8_t* out, int* len, uint32_t il, WorkBuf& wb) noexcept {
         if (!accI || !accQ || !out || !len) return false;
         if (nsym <= 0 || nc <= 0) return false;
-        if (bps < BPS64_MIN || bps > BPS64_MAX) return false;
+        if (bps < BPS64_MIN_OPERABLE || bps > BPS64_MAX) return false;
+        if (nsym > NSYM64) {
+            *len = 0;
+            return false;
+        }
         return Decode_Core(accI, accQ, nsym, nc, bps, out, len, il, wb);
     }
 

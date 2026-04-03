@@ -10,6 +10,8 @@
 //  [사용법] 기본 사용 예시를 여기에 기재하세요.
 //  [메모리] sizeof(클래스명) 확인 후 전역/정적 배치 필수.
 //  [보안]   복사/이동 연산자 = delete (키 소재 복제 차단).
+//           ARM Release: Schedule_Next_Transfer·Trigger_DMA_Hardware 진입 시 DHCSR·OPTCR(RDP)(.cpp)
+//           HTS_UNIFIED_SCHEDULER_SKIP_PHYS_TRUST / HTS_ALLOW_OPEN_DEBUG 로 스킵 가능
 //
 //  ⚠ [파트너사 필수 확인]
 //    HW 레지스터 주소(UART/WDT 등)는 보드 설계에 맞게 교체.

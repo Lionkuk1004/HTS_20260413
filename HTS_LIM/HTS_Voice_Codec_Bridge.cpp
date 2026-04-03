@@ -7,7 +7,6 @@
 /// @copyright INNOViD 2026. All rights reserved.
 
 #include "HTS_Voice_Codec_Bridge.h"
-#include "HTS_IPC_Protocol.h"
 #include "HTS_Secure_Memory.h"
 #include <new>
 #include <atomic>
@@ -45,7 +44,8 @@ namespace ProtectedEngine {
     //  Impl Structure
     // ============================================================
     struct HTS_Voice_Codec_Bridge::Impl {
-        HTS_IPC_Protocol* ipc;
+        VoicePacketTxSinkFn packet_tx_fn;
+        void*               packet_tx_user;
         VocoderCodec   codec;
         VocoderProfile profile;
         VoiceState state;
@@ -109,16 +109,16 @@ namespace ProtectedEngine {
         }
 
         // ============================================================
-        //  Pack TX Frame → IPC Send
+        //  Pack TX Frame → UDP sink (VoicePacketTxSinkFn)
         // ============================================================
         void Pack_And_Send() noexcept {
-            if (ipc == nullptr) { return; }
-
             const uint8_t sv = static_cast<uint8_t>(state);
             const bool tx_on =
                 ((sv & static_cast<uint8_t>(VoiceState::TX_ACTIVE)) != 0u)
                 || ((sv & static_cast<uint8_t>(VoiceState::DUPLEX)) != 0u);
             if (!tx_on) { return; }
+
+            if (packet_tx_fn == nullptr) { return; }
 
             if (!tx_frame_ready.load(std::memory_order_acquire)) { return; }
             tx_frame_ready.store(false, std::memory_order_relaxed);
@@ -144,8 +144,7 @@ namespace ProtectedEngine {
             Voice_Write_U16(&pkt_buf[pos], crc);
             pos += VOICE_PKT_CRC_SIZE;
 
-            ipc->Send_Frame(IPC_Command::DATA_TX,
-                pkt_buf, static_cast<uint16_t>(pos));
+            packet_tx_fn(pkt_buf, static_cast<uint16_t>(pos), packet_tx_user);
             tx_frame_count.fetch_add(1u, std::memory_order_relaxed);
         }
 
@@ -234,21 +233,15 @@ namespace ProtectedEngine {
         Shutdown();
     }
 
-    IPC_Error HTS_Voice_Codec_Bridge::Initialize(
-        HTS_IPC_Protocol* ipc, VocoderCodec codec) noexcept
+    IPC_Error HTS_Voice_Codec_Bridge::Initialize(VocoderCodec codec) noexcept
     {
         bool expected = false;
         if (!initialized_.compare_exchange_strong(
             expected, true, std::memory_order_acq_rel)) {
             return IPC_Error::OK;
         }
-        if (ipc == nullptr) {
-            initialized_.store(false, std::memory_order_release);
-            return IPC_Error::NOT_INITIALIZED;
-        }
 
         Impl* impl = new (impl_buf_) Impl{};
-        impl->ipc = ipc;
         impl->codec = codec;
 
         if (!Impl::Lookup_Profile(codec, impl->profile)) {
@@ -287,12 +280,30 @@ namespace ProtectedEngine {
         return IPC_Error::OK;
     }
 
+    void HTS_Voice_Codec_Bridge::Set_Packet_Tx_Sink(
+        VoicePacketTxSinkFn fn, void* user_data) noexcept
+    {
+        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
+        impl->packet_tx_fn = fn;
+        impl->packet_tx_user = user_data;
+    }
+
+    void HTS_Voice_Codec_Bridge::Clear_Packet_Tx_Sink() noexcept
+    {
+        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
+        impl->packet_tx_fn = nullptr;
+        impl->packet_tx_user = nullptr;
+    }
+
     // [VCB-3] Shutdown: impl_buf_ 전체 보안 소거
     void HTS_Voice_Codec_Bridge::Shutdown() noexcept {
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->state = VoiceState::OFFLINE;
-        impl->ipc = nullptr;
+        impl->packet_tx_fn = nullptr;
+        impl->packet_tx_user = nullptr;
         impl->~Impl();
         SecureMemory::secureWipe(static_cast<void*>(impl_buf_), IMPL_BUF_SIZE);
         initialized_.store(false, std::memory_order_release);

@@ -13,6 +13,7 @@
 ///   (HTS_Anti_Debug forceHalt Phase 3 동일 — 디버거 STOP 시 IWDG 리셋 보장)
 
 #include "HTS_IPC_Protocol.h"
+#include "HTS_API.h"
 #include <cstring>    // memset (secure wipe uses volatile loop instead)
 #include <atomic>
 #include <new>        // placement new
@@ -772,6 +773,10 @@ namespace ProtectedEngine {
                 Handle_Pong(seq);
                 break;
 
+            case IPC_Command::AP_CONTRACT_REQ:
+                Handle_Ap_Contract_Req(seq);
+                break;
+
             case IPC_Command::ACK:
             case IPC_Command::NACK:
                 // ACK/NACK from master: update tracking (future: retry logic)
@@ -829,6 +834,28 @@ namespace ProtectedEngine {
         {
             // Update heartbeat timestamp (set by Tick caller via state_entry_tick)
             last_pong_recv_tick = state_entry_tick;  // Will be updated in next Tick
+        }
+
+        void Handle_Ap_Contract_Req(uint8_t seq) noexcept
+        {
+            uint8_t pl[APBridge::CONTRACT_HANDSHAKE_BYTES];
+            pl[0] = APBridge::CONTRACT_RSP_MAGIC;
+            pl[1] = APBridge::CONTRACT_MAJOR;
+            pl[2] = APBridge::CONTRACT_MINOR;
+            pl[3] = 0u;
+
+            uint8_t frame_buf[IPC_HEADER_SIZE + APBridge::CONTRACT_HANDSHAKE_BYTES
+                + IPC_CRC_SIZE];
+            const Scoped_IPC_Frame_Wipe wipe_frame(
+                frame_buf, static_cast<uint32_t>(sizeof(frame_buf)));
+            uint32_t flen = 0u;
+            if (IPC_Serialize_Frame(
+                    frame_buf, seq, IPC_Command::AP_CONTRACT_RSP,
+                    pl, static_cast<uint16_t>(APBridge::CONTRACT_HANDSHAKE_BYTES),
+                    flen) == IPC_Error::OK
+                && flen > 0u) {
+                Ring_TX_Push(frame_buf, static_cast<uint16_t>(flen));
+            }
         }
 
         void Queue_ACK(uint8_t seq) noexcept
@@ -1229,6 +1256,11 @@ namespace ProtectedEngine {
 
         // --- TX Pump: send queued responses ---
         impl->Pump_TX();
+
+        // 통합 TX 파이프라인: 메인 루프 핫 경로 — 주기는 kDefaultUnifiedTxServicePeriodMs(23ms),
+        // B-CDMA 심볼/칩 레이트에 맞추려면 HTS_API::Set_Unified_Tx_Service_Period_Ms.
+        // 실센서 입력은 Service_Unified_Tx_If_Due(systick_ms, adc_buf, n)로 대체 권장.
+        (void)HTS_API::Service_Unified_Tx_Main_Tick_Default(systick_ms);
     }
 
     IPC_Error HTS_IPC_Protocol::Send_Frame(

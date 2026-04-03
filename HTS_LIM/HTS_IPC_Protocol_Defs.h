@@ -88,6 +88,8 @@ namespace ProtectedEngine {
         CONFIG_RSP = 0x32u,    ///< 설정 응답
         STATUS_REQ = 0x40u,    ///< 상태 요청
         STATUS_RSP = 0x41u,    ///< 상태 응답
+        AP_CONTRACT_REQ = 0x42u,    ///< A55→M4: 앱 계약 버전 조회 (페이로드 0바이트)
+        AP_CONTRACT_RSP = 0x43u,    ///< M4→A55: 계약 응답 — 페이로드는 HTS_AP_Bridge_Defs.h 규격(4B)
         DIAG_REQ = 0x50u,    ///< 진단 요청
         DIAG_RSP = 0x51u,    ///< 진단 응답
         BPS_NOTIFY = 0x60u,    ///< BPS 변경 알림 (STM32->A55)

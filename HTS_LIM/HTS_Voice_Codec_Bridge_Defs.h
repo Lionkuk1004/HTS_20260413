@@ -14,12 +14,17 @@
 /// @file  HTS_Voice_Codec_Bridge_Defs.h
 /// @brief HTS 음성 코덱 브릿지 공통 정의부
 /// @details
-///   보코더(MELP/CELP) 파라미터 프레임 B-CDMA 패킹/언패킹.
+///   보코더(MELP/CELP) 파라미터 프레임 — UDP 페이로드 패킹/언패킹.
 ///
 ///   - PLC(Packet Loss Concealment): 프레임 손실 시 Comfort Noise 주입
 ///   - 시퀀스 검증: 역전/중복 패킷 탐지 + 드롭
 ///   - 패딩 제거 + ASIC ROM 합성 최적화
 ///   - 힙 0, float/double 0, 나눗셈 0
+///
+///  [폰 연계: UDP 전용]
+///   - Datagram 페이로드 = [codec][seq][len][frame…][CRC16] (빅엔디안 CRC)
+///   - 수신: recvfrom → Feed_RX_Packet
+///   - 송신: Set_Packet_Tx_Sink 에서 sendto(또는 LWIP udp_send) 콜백 등록 → Tick 시 전달
 ///
 /// @author 임영준 (Lim Young-jun)
 /// @copyright INNOViD 2026. All rights reserved.
@@ -55,12 +60,16 @@ namespace ProtectedEngine {
     };
     static_assert(sizeof(VocoderProfile) == 8u, "VocoderProfile must be 8 bytes");
 
-    static constexpr VocoderProfile k_vocoder_profiles[4] = {
+    static constexpr VocoderProfile k_vocoder_profiles[] = {
         { VocoderCodec::MELP_600,  7u,   3u, 0u, 23u, 600u  },
         { VocoderCodec::MELP_1200, 11u,  2u, 0u, 23u, 1200u },
         { VocoderCodec::CELP_2400, 54u,  1u, 0u, 23u, 2400u },
         { VocoderCodec::CELP_4800, 108u, 1u, 0u, 23u, 4800u }
     };
+    static_assert(
+        sizeof(k_vocoder_profiles) / sizeof(k_vocoder_profiles[0])
+            == static_cast<size_t>(VocoderCodec::CODEC_COUNT) - 1u,
+        "k_vocoder_profiles[] must have CODEC_COUNT-1 entries (one per payload codec)");
 
     // ============================================================
     //  음성 프레임 상수
@@ -116,60 +125,56 @@ namespace ProtectedEngine {
         | static_cast<uint8_t>(VoiceState::DUPLEX)
         | static_cast<uint8_t>(VoiceState::ERROR);
 
-    inline bool Voice_Is_Valid_State(VoiceState s) noexcept {
-        const uint8_t v = static_cast<uint8_t>(s);
-        if (v == 0u) { return true; }
-        if ((v & ~VOICE_VALID_STATE_MASK) != 0u) { return false; }
-        return ((v & (v - 1u)) == 0u);
+    /// 목적 상태 OFFLINE(0)은 to_mask 비트 8(0x100)으로 인코딩 — (&) 단일 검사용
+    static constexpr uint32_t VOICE_TO_OFFLINE_BIT = 1u << 8u;
+
+    /// @brief 유효 상태: 0(OFFLINE) 또는 마스크 내 단일 비트 플래그
+    inline uint32_t Voice_Valid_State_U32(VoiceState s) noexcept {
+        const uint32_t v = static_cast<uint32_t>(static_cast<uint8_t>(s));
+        const uint32_t mask = static_cast<uint32_t>(VOICE_VALID_STATE_MASK);
+        const uint32_t is_zero = static_cast<uint32_t>(v == 0u);
+        const uint32_t in_mask = static_cast<uint32_t>((v & ~mask) == 0u);
+        const uint32_t one_bit = static_cast<uint32_t>((v & (v - 1u)) == 0u);
+        return is_zero | (in_mask & one_bit);
     }
 
+    inline bool Voice_Is_Valid_State(VoiceState s) noexcept {
+        return Voice_Valid_State_U32(s) != 0u;
+    }
+
+    /// from 값(0..255) 직접 인덱스 — 미정의 슬롯 0 (switch/점프테이블 없음)
+    static constexpr uint32_t k_voice_legal_from_mask[256] = {
+        /*0 OFFLINE*/  static_cast<uint32_t>(VoiceState::IDLE),
+        /*1 IDLE*/     static_cast<uint32_t>(VoiceState::TX_ACTIVE)
+            | static_cast<uint32_t>(VoiceState::RX_ACTIVE)
+            | static_cast<uint32_t>(VoiceState::DUPLEX)
+            | VOICE_TO_OFFLINE_BIT,
+        /*2 TX_ACTIVE*/ static_cast<uint32_t>(VoiceState::DUPLEX)
+            | static_cast<uint32_t>(VoiceState::IDLE)
+            | static_cast<uint32_t>(VoiceState::ERROR),
+        /*3*/           0u,
+        /*4 RX_ACTIVE*/ static_cast<uint32_t>(VoiceState::DUPLEX)
+            | static_cast<uint32_t>(VoiceState::IDLE)
+            | static_cast<uint32_t>(VoiceState::ERROR),
+        /*5..7*/        0u, 0u, 0u,
+        /*8 DUPLEX*/    static_cast<uint32_t>(VoiceState::TX_ACTIVE)
+            | static_cast<uint32_t>(VoiceState::RX_ACTIVE)
+            | static_cast<uint32_t>(VoiceState::IDLE)
+            | static_cast<uint32_t>(VoiceState::ERROR),
+        /*9..15*/       0u, 0u, 0u, 0u, 0u, 0u, 0u,
+        /*16 ERROR*/    static_cast<uint32_t>(VoiceState::IDLE)
+            | VOICE_TO_OFFLINE_BIT
+    };
+
     inline bool Voice_Is_Legal_Transition(VoiceState from, VoiceState to) noexcept {
-        if (!Voice_Is_Valid_State(to)) { return false; }
-
-        static constexpr uint8_t k_legal[6] = {
-            /* OFFLINE    */ static_cast<uint8_t>(VoiceState::IDLE),
-            /* IDLE       */ static_cast<uint8_t>(
-                static_cast<uint8_t>(VoiceState::TX_ACTIVE)
-              | static_cast<uint8_t>(VoiceState::RX_ACTIVE)
-              | static_cast<uint8_t>(VoiceState::DUPLEX)
-              | static_cast<uint8_t>(VoiceState::OFFLINE)),
-            /* TX_ACTIVE  */ static_cast<uint8_t>(
-                static_cast<uint8_t>(VoiceState::DUPLEX)
-              | static_cast<uint8_t>(VoiceState::IDLE)
-              | static_cast<uint8_t>(VoiceState::ERROR)),
-            /* RX_ACTIVE  */ static_cast<uint8_t>(
-                static_cast<uint8_t>(VoiceState::DUPLEX)
-              | static_cast<uint8_t>(VoiceState::IDLE)
-              | static_cast<uint8_t>(VoiceState::ERROR)),
-            /* DUPLEX     */ static_cast<uint8_t>(
-                static_cast<uint8_t>(VoiceState::TX_ACTIVE)
-              | static_cast<uint8_t>(VoiceState::RX_ACTIVE)
-              | static_cast<uint8_t>(VoiceState::IDLE)
-              | static_cast<uint8_t>(VoiceState::ERROR)),
-            /* ERROR      */ static_cast<uint8_t>(
-                static_cast<uint8_t>(VoiceState::IDLE)
-              | static_cast<uint8_t>(VoiceState::OFFLINE))
-        };
-
-        uint8_t idx;
-        switch (from) {
-        case VoiceState::OFFLINE:   idx = 0u; break;
-        case VoiceState::IDLE:      idx = 1u; break;
-        case VoiceState::TX_ACTIVE: idx = 2u; break;
-        case VoiceState::RX_ACTIVE: idx = 3u; break;
-        case VoiceState::DUPLEX:    idx = 4u; break;
-        case VoiceState::ERROR:     idx = 5u; break;
-        default:                    return false;
-        }
-
-        if (static_cast<uint8_t>(to) == 0u) {
-            static constexpr uint8_t k_off_src = static_cast<uint8_t>(
-                static_cast<uint8_t>(VoiceState::IDLE)
-                | static_cast<uint8_t>(VoiceState::ERROR));
-            return (static_cast<uint8_t>(from) & k_off_src) != 0u;
-        }
-
-        return (k_legal[idx] & static_cast<uint8_t>(to)) != 0u;
+        const uint32_t fv = static_cast<uint32_t>(static_cast<uint8_t>(from));
+        const uint32_t tv = static_cast<uint32_t>(static_cast<uint8_t>(to));
+        const uint32_t allowed = k_voice_legal_from_mask[fv];
+        const uint32_t to_mask = tv
+            | (static_cast<uint32_t>(tv == 0u) * VOICE_TO_OFFLINE_BIT);
+        const uint32_t to_ok = Voice_Valid_State_U32(to);
+        const uint32_t edge_ok = static_cast<uint32_t>((allowed & to_mask) != 0u);
+        return (to_ok & edge_ok) != 0u;
     }
 
 } // namespace ProtectedEngine

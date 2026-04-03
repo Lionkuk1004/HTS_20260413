@@ -99,10 +99,12 @@ namespace ProtectedEngine {
         // 0 = 정상, 0xFFFFFFFF = 실패 (비트 OR·감산으로 마스크 생성)
         static uint32_t security_fail_mask(uint64_t session_id) noexcept {
             volatile bool obs = AntiAnalysis_Shield::Is_Under_Observation();
-            volatile bool ses = !Universal_API::Continuous_Session_Verification(
-                session_id);
+            const uint32_t gate_ok =
+                Universal_API::Continuous_Session_Verification(session_id);
+            const uint32_t ses_fail =
+                static_cast<uint32_t>((~gate_ok) >> 31) & 1u;
             const uint32_t bits =
-                static_cast<uint32_t>(obs) | static_cast<uint32_t>(ses);
+                static_cast<uint32_t>(obs) | ses_fail;
             return static_cast<uint32_t>(0u - bits);
         }
 

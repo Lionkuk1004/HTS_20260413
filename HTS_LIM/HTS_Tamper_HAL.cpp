@@ -63,7 +63,8 @@ namespace ProtectedEngine {
         }
     }
 #else
-    static void TamperHAL_AssertPhysicalTrustOrFault() noexcept {}
+    // 비-ARM·스킵 구성: TU에 미참조 static을 두지 않음(C4505). 호출부는 HTS_TAMPER_ARM 가드 안.
+#define TamperHAL_AssertPhysicalTrustOrFault() ((void)0)
 #endif
     static std::atomic<TamperResponseFunc> s_case_response{ nullptr };
     static std::atomic<TamperResponseFunc> s_temp_response{ nullptr };

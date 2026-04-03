@@ -22,6 +22,11 @@
 // PHY RX: V400/Sparse 경로 — HTS_PHY_Receiver 헤더 미사용
 #include "HTS_Sparse_Recovery.h"
 
+#include "HTS_Dual_Tensor_16bit.h"
+#include "HTS_Dynamic_Config.h"
+#include "HTS_Tx_Scheduler.hpp"
+#include "HTS_Unified_Scheduler.hpp"
+
 #include <atomic>
 
 #if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
@@ -48,6 +53,32 @@ namespace HTS_API {
         volatile uint32_t* g_hw_irq_status;
         volatile uint32_t* g_hw_irq_clear;
         volatile int16_t* g_hw_rx_fifo;
+
+        // ── TX: Dual_Tensor → Unified_Scheduler(DMA) → HTS_Tx_Scheduler ──
+        //  EMBEDDED_MINI temporal_slice_chunk(16)과 Push 정렬 일치 — tier 변경 시 동기화
+        static constexpr size_t kTxPushChunk = 16u;
+        static constexpr uint32_t kTensorBtQ16 = 19661u; ///< ~0.3 × 65536
+        static constexpr size_t kTensorTaps = 31u;
+
+        ProtectedEngine::Dual_Tensor_Pipeline g_tensor_pipe(
+            kTensorBtQ16, kTensorTaps);
+        ProtectedEngine::Unified_Scheduler g_unified_sched(&g_tensor_pipe);
+        ProtectedEngine::HTS_Tx_Scheduler g_tx_sched(
+            ProtectedEngine::HTS_Sys_Tier::EMBEDDED_MINI);
+
+        std::atomic<bool> g_pipeline_abort{ false };
+        bool g_tx_ring_ready{ false };
+
+        // 메인 틱 주기 게이트(기본 23ms = 보코더 프레임). 0 = 매 틱 실행.
+        std::atomic<uint32_t> g_unified_tx_period_ms{
+            kDefaultUnifiedTxServicePeriodMs };
+        std::atomic<uint32_t> g_last_unified_tx_service_ms{ 0u };
+        std::atomic<uint32_t> g_unified_tx_service_run_count{ 0u };
+        std::atomic<uint32_t> g_unified_tx_service_skip_count{ 0u };
+
+        // Service_Unified_Tx_Main_Tick_Default 전용 — Dual_Tensor 입력 상한(ARM)과 여유
+        static constexpr size_t kUnifiedTxScratchUint16 = 1024u;
+        static uint16_t g_unified_tx_scratch[kUnifiedTxScratchUint16];
     }
 
     static bool Is_Valid_Medium(HTS_CommMedium m) noexcept {
@@ -105,6 +136,16 @@ namespace HTS_API {
         g_active_medium.store(
             static_cast<uint32_t>(target_medium),
             std::memory_order_relaxed);
+
+        g_tx_ring_ready = false;
+        if (!g_tx_sched.Initialize()) {
+            g_hw_irq_status = nullptr;
+            g_hw_irq_clear = nullptr;
+            g_hw_rx_fifo = nullptr;
+            g_init_state.store(INIT_NONE, std::memory_order_release);
+            return HTS_Status::ERR_POST_FAILED;
+        }
+        g_tx_ring_ready = true;
 
         //  release 배리어 → 다른 스레드에서 READY를 보면 포인터도 반드시 가시
         g_init_state.store(INIT_READY, std::memory_order_release);
@@ -197,6 +238,110 @@ namespace HTS_API {
         const bool ok =
             (g_init_state.load(std::memory_order_acquire) == INIT_READY);
         return ok ? SECURE_TRUE : SECURE_FALSE;
+    }
+
+    void Set_Unified_Tx_Service_Period_Ms(uint32_t period_ms) noexcept {
+        g_unified_tx_period_ms.store(period_ms, std::memory_order_relaxed);
+    }
+
+    uint32_t Get_Unified_Tx_Service_Period_Ms() noexcept {
+        return g_unified_tx_period_ms.load(std::memory_order_relaxed);
+    }
+
+    uint32_t Get_Unified_Tx_Service_Run_Count() noexcept {
+        return g_unified_tx_service_run_count.load(std::memory_order_relaxed);
+    }
+
+    uint32_t Get_Unified_Tx_Service_Skip_Count() noexcept {
+        return g_unified_tx_service_skip_count.load(std::memory_order_relaxed);
+    }
+
+    HTS_Status Service_Unified_Tx_If_Due(
+        uint32_t  monotonic_ms,
+        uint16_t* sensor_samples,
+        size_t    sample_count) noexcept
+    {
+        if (g_init_state.load(std::memory_order_acquire) != INIT_READY) {
+            return HTS_Status::ERR_NOT_INITIALIZED;
+        }
+        if (!sensor_samples || sample_count == 0u) {
+            return HTS_Status::ERR_NULL_POINTER;
+        }
+
+        const uint32_t period =
+            g_unified_tx_period_ms.load(std::memory_order_relaxed);
+        const uint32_t last =
+            g_last_unified_tx_service_ms.load(std::memory_order_relaxed);
+        const uint32_t elapsed = monotonic_ms - last;
+        const uint32_t first_u = static_cast<uint32_t>(last == 0u);
+        const uint32_t period_zero_u = static_cast<uint32_t>(period == 0u);
+        const uint32_t elapsed_ge =
+            static_cast<uint32_t>(elapsed >= period);
+        const uint32_t due_u =
+            period_zero_u | first_u | elapsed_ge;
+        if (due_u == 0u) {
+            g_unified_tx_service_skip_count.fetch_add(
+                1u, std::memory_order_relaxed);
+            return HTS_Status::OK;
+        }
+
+        const HTS_Status st =
+            Schedule_Unified_Tx_And_Queue(sensor_samples, sample_count);
+        if (st == HTS_Status::OK) {
+            g_last_unified_tx_service_ms.store(
+                monotonic_ms, std::memory_order_relaxed);
+            g_unified_tx_service_run_count.fetch_add(
+                1u, std::memory_order_relaxed);
+        }
+        return st;
+    }
+
+    HTS_Status Service_Unified_Tx_Main_Tick_Default(
+        uint32_t monotonic_ms) noexcept
+    {
+        return Service_Unified_Tx_If_Due(
+            monotonic_ms,
+            g_unified_tx_scratch,
+            kUnifiedTxScratchUint16);
+    }
+
+    HTS_Status Schedule_Unified_Tx_And_Queue(
+        uint16_t* sensor_samples,
+        size_t sample_count) noexcept
+    {
+        if (g_init_state.load(std::memory_order_acquire) != INIT_READY) {
+            return HTS_Status::ERR_NOT_INITIALIZED;
+        }
+        if (!g_tx_ring_ready) {
+            return HTS_Status::ERR_NOT_INITIALIZED;
+        }
+        if (!sensor_samples || sample_count == 0u) {
+            return HTS_Status::ERR_NULL_POINTER;
+        }
+
+        if (!g_unified_sched.Schedule_Next_Transfer(
+            sensor_samples, sample_count, g_pipeline_abort)) {
+            return HTS_Status::ERR_TX_PIPELINE_FAILED;
+        }
+
+        const uint32_t* lane = g_tensor_pipe.Get_Dual_Lane_Data();
+        const size_t lane_words = g_tensor_pipe.Get_Dual_Lane_Size();
+        if (!lane || lane_words == 0u) {
+            return HTS_Status::ERR_TX_PIPELINE_FAILED;
+        }
+
+        const size_t push_words =
+            (lane_words / kTxPushChunk) * kTxPushChunk;
+        if (push_words == 0u) {
+            return HTS_Status::OK;
+        }
+
+        const auto* as_i32 = reinterpret_cast<const int32_t*>(lane);
+        if (!g_tx_sched.Push_Waveform_Chunk(as_i32, push_words)) {
+            return HTS_Status::ERR_TX_PIPELINE_FAILED;
+        }
+
+        return HTS_Status::OK;
     }
 
 } // namespace HTS_API

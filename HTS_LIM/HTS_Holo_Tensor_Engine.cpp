@@ -4,7 +4,11 @@
 //
 #include "HTS_Holo_Tensor_Engine.h"
 #include "HTS_Secure_Memory.h"
+#include <atomic>
 #include <cstring>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 namespace ProtectedEngine {
     namespace {
@@ -19,10 +23,16 @@ namespace ProtectedEngine {
             return static_cast<int32_t>(flipped);
         }
 
+        // 상한/하한 클램프 — 삼항·비교 분기 없음 (마스크 + 산술, O(1))
+        // v>hi → mask_hi=-1 … (hi&mask)|(v&~mask) = min(v,hi)
         static inline int32_t holo_clamp_i32_ct(
             int32_t v, int32_t lo, int32_t hi) noexcept {
-            int32_t x = (v > hi) ? hi : v;
-            x = (x < lo) ? lo : x;
+            const int32_t diff_hi = hi - v;
+            const int32_t mask_hi = diff_hi >> 31;
+            int32_t x = (hi & mask_hi) | (v & ~mask_hi);
+            const int32_t diff_lo = x - lo;
+            const int32_t mask_lo = diff_lo >> 31;
+            x = (lo & mask_lo) | (x & ~mask_lo);
             return x;
         }
     }
@@ -34,8 +44,8 @@ namespace ProtectedEngine {
 
         static uint32_t rotl(uint32_t x, int k) noexcept {
             const uint32_t kk = static_cast<uint32_t>(k) & 31u;
-            if (kk == 0u) { return x; }
-            return (x << kk) | (x >> (32u - kk));
+            const uint32_t sh = (32u - kk) & 31u;
+            return (x << kk) | (x >> sh);
         }
         uint32_t next() noexcept {
             const uint32_t result = rotl(s[1] * 5u, 7u) * 9u;
@@ -65,10 +75,343 @@ namespace ProtectedEngine {
     }
 
     static uint32_t log2_pow2(uint32_t n) noexcept {
-        uint32_t r = 0;
-        while (n > 1) { n >>= 1; ++r; }
+        if (n <= 1u) { return 0u; }
+#if defined(__GNUC__) || defined(__clang__)
+        return 31u - static_cast<uint32_t>(__builtin_clz(n));
+#elif defined(_MSC_VER) && (defined(_M_IX86) || defined(_M_X64))
+        unsigned long idx = 0u;
+        if (_BitScanReverse(&idx, static_cast<unsigned long>(n)) == 0) { return 0u; }
+        return static_cast<uint32_t>(idx);
+#elif defined(_MSC_VER) && defined(_M_ARM64)
+        unsigned long idx = 0u;
+        if (_BitScanReverse64(&idx, static_cast<unsigned __int64>(n)) == 0) { return 0u; }
+        return static_cast<uint32_t>(idx);
+#else
+        uint32_t r = 0u;
+        while (n > 1u) { n >>= 1u; ++r; }
         return r;
+#endif
     }
+
+    // ── FWHT 나비 (FEC_HARQ와 동일 순서 — in-place, 수학 동치) ─────────
+#define HOLO_FWHT_BF_S(d_, i_, j_)                          \
+        do {                                                  \
+            int32_t _u = (d_)[(i_)];                          \
+            int32_t _v = (d_)[(j_)];                          \
+            (d_)[(i_)] = static_cast<int32_t>(_u + _v);      \
+            (d_)[(j_)] = static_cast<int32_t>(_u - _v);       \
+        } while (0)
+
+#define HOLO_FWHT_BF_U(d_, i_, j_)                                      \
+        do {                                                              \
+            uint32_t _u = static_cast<uint32_t>((d_)[(i_)]);            \
+            uint32_t _v = static_cast<uint32_t>((d_)[(j_)]);            \
+            (d_)[(i_)] = static_cast<int32_t>(_u + _v);                   \
+            (d_)[(j_)] = static_cast<int32_t>(_u - _v);                   \
+        } while (0)
+
+    static void fwht_signed_unroll16(int32_t* d) noexcept {
+        HOLO_FWHT_BF_S(d, 0, 1);
+        HOLO_FWHT_BF_S(d, 2, 3);
+        HOLO_FWHT_BF_S(d, 4, 5);
+        HOLO_FWHT_BF_S(d, 6, 7);
+        HOLO_FWHT_BF_S(d, 8, 9);
+        HOLO_FWHT_BF_S(d, 10, 11);
+        HOLO_FWHT_BF_S(d, 12, 13);
+        HOLO_FWHT_BF_S(d, 14, 15);
+        HOLO_FWHT_BF_S(d, 0, 2);
+        HOLO_FWHT_BF_S(d, 1, 3);
+        HOLO_FWHT_BF_S(d, 4, 6);
+        HOLO_FWHT_BF_S(d, 5, 7);
+        HOLO_FWHT_BF_S(d, 8, 10);
+        HOLO_FWHT_BF_S(d, 9, 11);
+        HOLO_FWHT_BF_S(d, 12, 14);
+        HOLO_FWHT_BF_S(d, 13, 15);
+        HOLO_FWHT_BF_S(d, 0, 4);
+        HOLO_FWHT_BF_S(d, 1, 5);
+        HOLO_FWHT_BF_S(d, 2, 6);
+        HOLO_FWHT_BF_S(d, 3, 7);
+        HOLO_FWHT_BF_S(d, 8, 12);
+        HOLO_FWHT_BF_S(d, 9, 13);
+        HOLO_FWHT_BF_S(d, 10, 14);
+        HOLO_FWHT_BF_S(d, 11, 15);
+        HOLO_FWHT_BF_S(d, 0, 8);
+        HOLO_FWHT_BF_S(d, 1, 9);
+        HOLO_FWHT_BF_S(d, 2, 10);
+        HOLO_FWHT_BF_S(d, 3, 11);
+        HOLO_FWHT_BF_S(d, 4, 12);
+        HOLO_FWHT_BF_S(d, 5, 13);
+        HOLO_FWHT_BF_S(d, 6, 14);
+        HOLO_FWHT_BF_S(d, 7, 15);
+    }
+
+#define HOLO_FWHT_WHT4_COL_S(d_, c_)               \
+        do {                                       \
+            HOLO_FWHT_BF_S(d_, c_, (c_) + 16);     \
+            HOLO_FWHT_BF_S(d_, (c_) + 32, (c_) + 48); \
+            HOLO_FWHT_BF_S(d_, c_, (c_) + 32);     \
+            HOLO_FWHT_BF_S(d_, (c_) + 16, (c_) + 48); \
+        } while (0)
+
+    static void fwht_signed_unroll64(int32_t* d) noexcept {
+        fwht_signed_unroll16(d + 0);
+        fwht_signed_unroll16(d + 16);
+        fwht_signed_unroll16(d + 32);
+        fwht_signed_unroll16(d + 48);
+        HOLO_FWHT_WHT4_COL_S(d, 0);
+        HOLO_FWHT_WHT4_COL_S(d, 1);
+        HOLO_FWHT_WHT4_COL_S(d, 2);
+        HOLO_FWHT_WHT4_COL_S(d, 3);
+        HOLO_FWHT_WHT4_COL_S(d, 4);
+        HOLO_FWHT_WHT4_COL_S(d, 5);
+        HOLO_FWHT_WHT4_COL_S(d, 6);
+        HOLO_FWHT_WHT4_COL_S(d, 7);
+        HOLO_FWHT_WHT4_COL_S(d, 8);
+        HOLO_FWHT_WHT4_COL_S(d, 9);
+        HOLO_FWHT_WHT4_COL_S(d, 10);
+        HOLO_FWHT_WHT4_COL_S(d, 11);
+        HOLO_FWHT_WHT4_COL_S(d, 12);
+        HOLO_FWHT_WHT4_COL_S(d, 13);
+        HOLO_FWHT_WHT4_COL_S(d, 14);
+        HOLO_FWHT_WHT4_COL_S(d, 15);
+    }
+
+#undef HOLO_FWHT_WHT4_COL_S
+
+    static void fwht_signed_n4(int32_t* t) noexcept {
+        HOLO_FWHT_BF_S(t, 0, 1);
+        HOLO_FWHT_BF_S(t, 2, 3);
+        HOLO_FWHT_BF_S(t, 0, 2);
+        HOLO_FWHT_BF_S(t, 1, 3);
+    }
+
+    static void fwht_signed_n8(int32_t* t) noexcept {
+        HOLO_FWHT_BF_S(t, 0, 1);
+        HOLO_FWHT_BF_S(t, 2, 3);
+        HOLO_FWHT_BF_S(t, 4, 5);
+        HOLO_FWHT_BF_S(t, 6, 7);
+        HOLO_FWHT_BF_S(t, 0, 2);
+        HOLO_FWHT_BF_S(t, 1, 3);
+        HOLO_FWHT_BF_S(t, 4, 6);
+        HOLO_FWHT_BF_S(t, 5, 7);
+        HOLO_FWHT_BF_S(t, 0, 4);
+        HOLO_FWHT_BF_S(t, 1, 5);
+        HOLO_FWHT_BF_S(t, 2, 6);
+        HOLO_FWHT_BF_S(t, 3, 7);
+    }
+
+    static void fwht_signed_n32(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 32u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 32u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    int32_t u = t[ia];
+                    int32_t v = t[ib];
+                    t[ia] = u + v;
+                    t[ib] = u - v;
+                }
+            }
+        }
+    }
+
+    static void fwht_signed_n128(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 128u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 128u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    int32_t u = t[ia];
+                    int32_t v = t[ib];
+                    t[ia] = u + v;
+                    t[ib] = u - v;
+                }
+            }
+        }
+    }
+
+    static void fwht_signed_n256(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 256u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 256u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    int32_t u = t[ia];
+                    int32_t v = t[ib];
+                    t[ia] = u + v;
+                    t[ib] = u - v;
+                }
+            }
+        }
+    }
+
+    static void fwht_signed_n512(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 512u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 512u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    int32_t u = t[ia];
+                    int32_t v = t[ib];
+                    t[ia] = u + v;
+                    t[ib] = u - v;
+                }
+            }
+        }
+    }
+
+    static void fwht_safe_unroll16(int32_t* d) noexcept {
+        HOLO_FWHT_BF_U(d, 0, 1);
+        HOLO_FWHT_BF_U(d, 2, 3);
+        HOLO_FWHT_BF_U(d, 4, 5);
+        HOLO_FWHT_BF_U(d, 6, 7);
+        HOLO_FWHT_BF_U(d, 8, 9);
+        HOLO_FWHT_BF_U(d, 10, 11);
+        HOLO_FWHT_BF_U(d, 12, 13);
+        HOLO_FWHT_BF_U(d, 14, 15);
+        HOLO_FWHT_BF_U(d, 0, 2);
+        HOLO_FWHT_BF_U(d, 1, 3);
+        HOLO_FWHT_BF_U(d, 4, 6);
+        HOLO_FWHT_BF_U(d, 5, 7);
+        HOLO_FWHT_BF_U(d, 8, 10);
+        HOLO_FWHT_BF_U(d, 9, 11);
+        HOLO_FWHT_BF_U(d, 12, 14);
+        HOLO_FWHT_BF_U(d, 13, 15);
+        HOLO_FWHT_BF_U(d, 0, 4);
+        HOLO_FWHT_BF_U(d, 1, 5);
+        HOLO_FWHT_BF_U(d, 2, 6);
+        HOLO_FWHT_BF_U(d, 3, 7);
+        HOLO_FWHT_BF_U(d, 8, 12);
+        HOLO_FWHT_BF_U(d, 9, 13);
+        HOLO_FWHT_BF_U(d, 10, 14);
+        HOLO_FWHT_BF_U(d, 11, 15);
+        HOLO_FWHT_BF_U(d, 0, 8);
+        HOLO_FWHT_BF_U(d, 1, 9);
+        HOLO_FWHT_BF_U(d, 2, 10);
+        HOLO_FWHT_BF_U(d, 3, 11);
+        HOLO_FWHT_BF_U(d, 4, 12);
+        HOLO_FWHT_BF_U(d, 5, 13);
+        HOLO_FWHT_BF_U(d, 6, 14);
+        HOLO_FWHT_BF_U(d, 7, 15);
+    }
+
+#define HOLO_FWHT_WHT4_COL_U(d_, c_)               \
+        do {                                       \
+            HOLO_FWHT_BF_U(d_, c_, (c_) + 16);     \
+            HOLO_FWHT_BF_U(d_, (c_) + 32, (c_) + 48); \
+            HOLO_FWHT_BF_U(d_, c_, (c_) + 32);     \
+            HOLO_FWHT_BF_U(d_, (c_) + 16, (c_) + 48); \
+        } while (0)
+
+    static void fwht_safe_unroll64(int32_t* d) noexcept {
+        fwht_safe_unroll16(d + 0);
+        fwht_safe_unroll16(d + 16);
+        fwht_safe_unroll16(d + 32);
+        fwht_safe_unroll16(d + 48);
+        HOLO_FWHT_WHT4_COL_U(d, 0);
+        HOLO_FWHT_WHT4_COL_U(d, 1);
+        HOLO_FWHT_WHT4_COL_U(d, 2);
+        HOLO_FWHT_WHT4_COL_U(d, 3);
+        HOLO_FWHT_WHT4_COL_U(d, 4);
+        HOLO_FWHT_WHT4_COL_U(d, 5);
+        HOLO_FWHT_WHT4_COL_U(d, 6);
+        HOLO_FWHT_WHT4_COL_U(d, 7);
+        HOLO_FWHT_WHT4_COL_U(d, 8);
+        HOLO_FWHT_WHT4_COL_U(d, 9);
+        HOLO_FWHT_WHT4_COL_U(d, 10);
+        HOLO_FWHT_WHT4_COL_U(d, 11);
+        HOLO_FWHT_WHT4_COL_U(d, 12);
+        HOLO_FWHT_WHT4_COL_U(d, 13);
+        HOLO_FWHT_WHT4_COL_U(d, 14);
+        HOLO_FWHT_WHT4_COL_U(d, 15);
+    }
+
+#undef HOLO_FWHT_WHT4_COL_U
+
+    static void fwht_safe_n4(int32_t* t) noexcept {
+        HOLO_FWHT_BF_U(t, 0, 1);
+        HOLO_FWHT_BF_U(t, 2, 3);
+        HOLO_FWHT_BF_U(t, 0, 2);
+        HOLO_FWHT_BF_U(t, 1, 3);
+    }
+
+    static void fwht_safe_n8(int32_t* t) noexcept {
+        HOLO_FWHT_BF_U(t, 0, 1);
+        HOLO_FWHT_BF_U(t, 2, 3);
+        HOLO_FWHT_BF_U(t, 4, 5);
+        HOLO_FWHT_BF_U(t, 6, 7);
+        HOLO_FWHT_BF_U(t, 0, 2);
+        HOLO_FWHT_BF_U(t, 1, 3);
+        HOLO_FWHT_BF_U(t, 4, 6);
+        HOLO_FWHT_BF_U(t, 5, 7);
+        HOLO_FWHT_BF_U(t, 0, 4);
+        HOLO_FWHT_BF_U(t, 1, 5);
+        HOLO_FWHT_BF_U(t, 2, 6);
+        HOLO_FWHT_BF_U(t, 3, 7);
+    }
+
+    static void fwht_safe_n32(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 32u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 32u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    uint32_t u = static_cast<uint32_t>(t[ia]);
+                    uint32_t v = static_cast<uint32_t>(t[ib]);
+                    t[ia] = static_cast<int32_t>(u + v);
+                    t[ib] = static_cast<int32_t>(u - v);
+                }
+            }
+        }
+    }
+
+    static void fwht_safe_n128(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 128u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 128u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    uint32_t u = static_cast<uint32_t>(t[ia]);
+                    uint32_t v = static_cast<uint32_t>(t[ib]);
+                    t[ia] = static_cast<int32_t>(u + v);
+                    t[ib] = static_cast<int32_t>(u - v);
+                }
+            }
+        }
+    }
+
+    static void fwht_safe_n256(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 256u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 256u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    uint32_t u = static_cast<uint32_t>(t[ia]);
+                    uint32_t v = static_cast<uint32_t>(t[ib]);
+                    t[ia] = static_cast<int32_t>(u + v);
+                    t[ib] = static_cast<int32_t>(u - v);
+                }
+            }
+        }
+    }
+
+    static void fwht_safe_n512(int32_t* t) noexcept {
+        for (uint32_t len = 1u; len < 512u; len <<= 1u) {
+            for (uint32_t i = 0u; i < 512u; i += 2u * len) {
+                for (uint32_t j = 0u; j < len; ++j) {
+                    const uint32_t ia = i + j;
+                    const uint32_t ib = i + len + j;
+                    uint32_t u = static_cast<uint32_t>(t[ia]);
+                    uint32_t v = static_cast<uint32_t>(t[ib]);
+                    t[ia] = static_cast<int32_t>(u + v);
+                    t[ib] = static_cast<int32_t>(u - v);
+                }
+            }
+        }
+    }
+
+#undef HOLO_FWHT_BF_S
+#undef HOLO_FWHT_BF_U
 
     // =====================================================================
     //  Max_Safe_Amplitude — N에 따른 안전 입력 한계
@@ -89,6 +432,17 @@ namespace ProtectedEngine {
     //           safe=true:  uint32_t 모듈로 (Decode — 악성 패킷 방어)
     // =====================================================================
     static void fwht_signed(int32_t* tensor, uint32_t n) noexcept {
+        switch (n) {
+        case 4u:  fwht_signed_n4(tensor); return;
+        case 8u:  fwht_signed_n8(tensor); return;
+        case 16u: fwht_signed_unroll16(tensor); return;
+        case 32u: fwht_signed_n32(tensor); return;
+        case 64u: fwht_signed_unroll64(tensor); return;
+        case 128u: fwht_signed_n128(tensor); return;
+        case 256u: fwht_signed_n256(tensor); return;
+        case 512u: fwht_signed_n512(tensor); return;
+        default: break;
+        }
         const size_t n_sz = static_cast<size_t>(n);
         for (size_t len = 1u; len < n_sz; len <<= 1u) {
             for (size_t i = 0u; i < n_sz; i += 2u * len) {
@@ -105,6 +459,17 @@ namespace ProtectedEngine {
     }
 
     static void fwht_safe(int32_t* tensor, uint32_t n) noexcept {
+        switch (n) {
+        case 4u:  fwht_safe_n4(tensor); return;
+        case 8u:  fwht_safe_n8(tensor); return;
+        case 16u: fwht_safe_unroll16(tensor); return;
+        case 32u: fwht_safe_n32(tensor); return;
+        case 64u: fwht_safe_unroll64(tensor); return;
+        case 128u: fwht_safe_n128(tensor); return;
+        case 256u: fwht_safe_n256(tensor); return;
+        case 512u: fwht_safe_n512(tensor); return;
+        default: break;
+        }
         const size_t n_sz = static_cast<size_t>(n);
         for (size_t len = 1u; len < n_sz; len <<= 1u) {
             for (size_t i = 0u; i < n_sz; i += 2u * len) {
@@ -134,6 +499,14 @@ namespace ProtectedEngine {
         {1,2,3,0}, {1,3,2,0}, {2,1,3,0}, {3,1,2,0}, {2,3,1,0}, {3,2,1,0}
     };
 
+    // (gyro_seed>>4)&31 → PERM 인덱스 0..23 (기존 if(pi>=24) pi-=24 와 동일)
+    static constexpr uint8_t PERM_IDX_FROM_5BIT[32] = {
+        0u,  1u,  2u,  3u,  4u,  5u,  6u,  7u,
+        8u,  9u, 10u, 11u, 12u, 13u, 14u, 15u,
+        16u, 17u, 18u, 19u, 20u, 21u, 22u, 23u,
+        0u,  1u,  2u,  3u,  4u,  5u,  6u,  7u
+    };
+
     // ── 정방향 4D 회전 (Encode 전용 — signed, 클램핑 보장) ──
     static void rotate_4d_signed(
         int32_t* block4, uint32_t gyro_seed) noexcept {
@@ -144,8 +517,8 @@ namespace ProtectedEngine {
         v[2] = holo_cond_sat_neg_ct(v[2], (gyro_seed >> 2u) & 1u);
         v[3] = holo_cond_sat_neg_ct(v[3], (gyro_seed >> 3u) & 1u);
 
-        uint8_t pi = static_cast<uint8_t>((gyro_seed >> 4u) & 0x1Fu);
-        if (pi >= 24u) { pi = static_cast<uint8_t>(pi - 24u); }
+        const uint8_t pi = PERM_IDX_FROM_5BIT[
+            static_cast<size_t>((gyro_seed >> 4u) & 0x1Fu)];
         const uint8_t* const p = PERM_TABLE[static_cast<size_t>(pi)];
         int32_t pv[4] = {
             v[static_cast<size_t>(p[static_cast<size_t>(0)])],
@@ -175,8 +548,8 @@ namespace ProtectedEngine {
             static_cast<int32_t>(uw - ux - uy + uz)
         };
 
-        uint8_t pi = static_cast<uint8_t>((gyro_seed >> 4u) & 0x1Fu);
-        if (pi >= 24u) { pi = static_cast<uint8_t>(pi - 24u); }
+        const uint8_t pi = PERM_IDX_FROM_5BIT[
+            static_cast<size_t>((gyro_seed >> 4u) & 0x1Fu)];
         const uint8_t* const ip = INV_PERM_TABLE[static_cast<size_t>(pi)];
         int32_t rv[4] = {
             iv[static_cast<size_t>(ip[static_cast<size_t>(0)])],
@@ -223,6 +596,10 @@ namespace ProtectedEngine {
 
         fwht_signed(tensor, chip_count);
         SecureMemory::secureWipe(static_cast<void*>(&rng), sizeof(rng));
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" ::: "memory");
+#endif
+        std::atomic_thread_fence(std::memory_order_seq_cst);
     }
 
     // =====================================================================
@@ -248,69 +625,46 @@ namespace ProtectedEngine {
 
         fwht_safe(tensor, chip_count);
 
-        //  chip_count = 2의 거듭제곱 (가드 통과)
-        //  shift = 2 + 2×log2(N): N=4→4, N=8→8, N=16→10,
-        //                          N=32→12, N=64→14, N=128→16
-        uint32_t shift_amt = 0u;
-        int32_t scale = 0;
-        bool skip_decode_tail = false;
-        switch (chip_count) {
-        case 4u:   shift_amt = 4u;  scale = static_cast<int32_t>(1u << 4u);  break;
-        case 8u:   shift_amt = 8u;  scale = static_cast<int32_t>(1u << 8u);  break;
-        case 16u:  shift_amt = 10u; scale = static_cast<int32_t>(1u << 10u); break;
-        case 32u:  shift_amt = 12u; scale = static_cast<int32_t>(1u << 12u); break;
-        case 64u:  shift_amt = 14u; scale = static_cast<int32_t>(1u << 14u); break;
-        case 128u: shift_amt = 16u; scale = static_cast<int32_t>(1u << 16u); break;
-        case 256u: shift_amt = 18u; scale = static_cast<int32_t>(1u << 18u); break;
-        default: {
-            const uint32_t chip_count_log2 = log2_pow2(chip_count);
-            shift_amt = 2u * chip_count_log2 + 2u;
-            if (shift_amt >= 31u) {
-                skip_decode_tail = true;
-            } else {
-                scale = static_cast<int32_t>(1u << shift_amt);
-            }
-            break;
-        }
-        }
-
-        if (skip_decode_tail) {
-            SecureMemory::secureWipe(static_cast<void*>(tensor), static_cast<size_t>(chip_count) * sizeof(int32_t));
-            SecureMemory::secureWipe(static_cast<void*>(&rng), sizeof(rng));
-            return SECURE_FALSE;
-        }
+        // chip_count = 2의 거듭제곱 (가드 통과)
+        // shift = 2 + 2×log2(N); 32비트 시프트 UB 방지 → shift_amt 산술 상한 30
+        uint32_t shift_amt = 2u * log2_pow2(chip_count) + 2u;
+        const uint32_t over_30 = 0u - static_cast<uint32_t>(shift_amt > 30u);
+        shift_amt = (30u & over_30) | (shift_amt & ~over_30);
+        const int32_t scale = static_cast<int32_t>(1u << shift_amt);
 
         {
-            // 정규화 전 클램핑 복원 (악성 패킷 안전)
+            // 클램프 + 정규화 단일 패스 (tensor 1회 스캔 — 동일 수식)
             const int32_t decode_clamp = Max_Safe_Amplitude(chip_count) *
                 static_cast<int32_t>(static_cast<uint32_t>(scale));
+            const int32_t round_bias = scale - 1;
             for (uint32_t i = 0u; i < chip_count; ++i) {
-                tensor[static_cast<size_t>(i)] = holo_clamp_i32_ct(
+                const int32_t x = holo_clamp_i32_ct(
                     tensor[static_cast<size_t>(i)],
                     static_cast<int32_t>(0) - decode_clamp,
                     decode_clamp);
-            }
-
-            // 정규화: 부호 비트는 uint32_t로 추출; 산술 시프트는 uint32_t 경로만 사용
-            const int32_t round_bias = scale - 1;
-            for (uint32_t i = 0u; i < chip_count; ++i) {
-                const int32_t x = tensor[static_cast<size_t>(i)];
-                const uint32_t is_neg = static_cast<uint32_t>(x) >> 31u;
+                const uint32_t is_neg_x = static_cast<uint32_t>(x) >> 31u;
                 const int32_t adj = static_cast<int32_t>(
-                    static_cast<uint32_t>(is_neg) * static_cast<uint32_t>(round_bias));
+                    static_cast<uint32_t>(is_neg_x) *
+                    static_cast<uint32_t>(round_bias));
                 const int32_t val = x + adj;
-                int32_t normalized;
-                if (val >= 0) {
-                    normalized = static_cast<int32_t>(
-                        static_cast<uint32_t>(val) >> shift_amt);
-                } else {
-                    const uint32_t mag = 0u - static_cast<uint32_t>(val);
-                    normalized = -static_cast<int32_t>(mag >> shift_amt);
-                }
-                tensor[static_cast<size_t>(i)] = normalized;
+                const uint32_t mask_neg =
+                    static_cast<uint32_t>(static_cast<int32_t>(val >> 31));
+                const uint32_t abs_u =
+                    (static_cast<uint32_t>(val) ^ mask_neg) - mask_neg;
+                const int32_t q_mag =
+                    static_cast<int32_t>(abs_u >> shift_amt);
+                const uint32_t sign_v =
+                    static_cast<uint32_t>(val) >> 31u;
+                tensor[static_cast<size_t>(i)] = static_cast<int32_t>(
+                    q_mag * (static_cast<int32_t>(1) -
+                        static_cast<int32_t>(2 * static_cast<int32_t>(sign_v))));
             }
         }
         SecureMemory::secureWipe(static_cast<void*>(&rng), sizeof(rng));
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" ::: "memory");
+#endif
+        std::atomic_thread_fence(std::memory_order_seq_cst);
         return SECURE_TRUE;
     }
 

@@ -19,10 +19,15 @@
 //  - 연속 수집 (중간 리셋 없음)
 //  - Raw 출력 (조건화 전 데이터)
 //
-// [제약] ARM 전용 (STM32 TRNG 레지스터 직접 접근)
+// [제약] ARM 전용 (STM32 TRNG 레지스터 직접 접근), 힙 0
+// [보안] ARM Release: Collect_* 진입 시 DHCSR·OPTCR(RDP) 이중 샘플(.cpp)
+//        비활성: HTS_TRNG_COLLECTOR_SKIP_PHYS_TRUST=1 또는 HTS_ALLOW_OPEN_DEBUG/NDEBUG
 //
 // [RNG 오류 복구]
 //  CECS/SECS 감지 시 RM0090 절차로 SR 클리어·재가동(구현부 RNG_Clear_Error_Flags)
+// [Collect_To_Buffer] 전량 성공 시에만 buffer_size 반환 — 중도 실패 시 버퍼 전체 secureWipe 후 0
+// [버스] 4바이트 정렬 구간은 32비트 스토어( may_alias ) / 비정렬은 memcpy(4); 잔여는 memcpy(1~3)
+// [물리 신뢰] 수집 루프 매 주기 DHCSR·OPTCR 재폴링(.cpp)
 // =========================================================================
 #pragma once
 // ─────────────────────────────────────────────────────────

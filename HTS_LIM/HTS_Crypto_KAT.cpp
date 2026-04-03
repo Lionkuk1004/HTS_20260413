@@ -305,7 +305,7 @@ namespace ProtectedEngine {
 #elif defined(_MSC_VER)
             _ReadWriteBarrier();
 #else
-            std::atomic_thread_fence(std::memory_order_seq_cst);
+            std::atomic_thread_fence(std::memory_order_acq_rel);
 #endif
         }
         if (nz_check == 0u) {

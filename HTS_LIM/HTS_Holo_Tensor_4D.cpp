@@ -1,4 +1,4 @@
-/// @file  HTS_Holo_Tensor_4D.cpp
+﻿/// @file  HTS_Holo_Tensor_4D.cpp
 /// @brief HTS 4D Holographic Tensor Engine -- True Holographic Spread/Despread
 /// @note  ARM only. Pure ASCII. No PC/server code.
 ///        Every output chip = f(ALL input bits, ALL phases, ALL layers)
@@ -11,6 +11,9 @@
 #include <new>
 #include <atomic>
 #include <cstring>
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+#include <intrin.h>
+#endif
 
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
@@ -112,28 +115,40 @@ namespace ProtectedEngine {
             SecureMemory::secureWipe(static_cast<void*>(scratch_perm), sizeof(scratch_perm));
             SecureMemory::secureWipe(static_cast<void*>(scratch_rx), sizeof(scratch_rx));
             SecureMemory::secureWipe(static_cast<void*>(accum), sizeof(accum));
+            // LTO/DSE: 소거가 다음 사용 전까지 “죽은 저장”으로 제거되지 않도록 펜스 고정
+#if defined(__GNUC__) || defined(__clang__)
+            __asm__ __volatile__("" ::: "memory");
+#endif
+            std::atomic_thread_fence(std::memory_order_seq_cst);
         }
 
         // ============================================================
-        //  Walsh-Hadamard code: walsh(row, col) = (-1)^popcount(row & col)
-        //  All 64 rows are mutually orthogonal: sum_i w(r1,i)*w(r2,i) = 0
+        //  Walsh-Hadamard: walsh(row,col) = (-1)^popcount(row & col)
+        //  HOLO_CHIP_COUNT ≤ 64 → ROM 64×64 LUT (핫루프 패리티·분기 제거, 수식 동일)
         // ============================================================
+        struct Walsh64Lut final {
+            int8_t t[64][64];
+            // MSVC: 루프 constexpr ctor + static constexpr 객체는 C2131(비상수) — static const 런타임 1회 초기화
+            Walsh64Lut() noexcept : t{} {
+                for (uint32_t r = 0u; r < 64u; ++r) {
+                    for (uint32_t c = 0u; c < 64u; ++c) {
+                        uint32_t x = r & c;
+                        x ^= (x >> 16u);
+                        x ^= (x >> 8u);
+                        x ^= (x >> 4u);
+                        x ^= (x >> 2u);
+                        x ^= (x >> 1u);
+                        t[r][c] = static_cast<int8_t>(
+                            1 - 2 * static_cast<int32_t>(x & 1u));
+                    }
+                }
+            }
+        };
+        static inline const Walsh64Lut k_walsh64{};
+
         static int8_t Walsh_Code(uint32_t row, uint32_t col) noexcept
         {
-            const uint32_t x = row & col;
-#if defined(__GNUC__) || defined(__clang__)
-            // ARM/GCC: single-instruction parity
-            return static_cast<int8_t>(1 - 2 * __builtin_parity(x));
-#else
-            // Portable: manual parity fold
-            uint32_t p = x;
-            p ^= (p >> 16u);
-            p ^= (p >> 8u);
-            p ^= (p >> 4u);
-            p ^= (p >> 2u);
-            p ^= (p >> 1u);
-            return static_cast<int8_t>(1 - 2 * static_cast<int8_t>(p & 1u));
-#endif
+            return k_walsh64.t[row & 63u][col & 63u];
         }
 
         // ============================================================
@@ -172,8 +187,12 @@ namespace ProtectedEngine {
                 const uint32_t range = static_cast<uint32_t>(j) + 1u;
                 const uint32_t r = static_cast<uint32_t>(
                     (static_cast<uint64_t>(rng.Next()) * range) >> 32u);
-                const uint16_t r_idx = (r < N) ? static_cast<uint16_t>(r)
-                    : static_cast<uint16_t>(N - 1u);
+                // 글리치·분기 왜곡 완화: r ∈ [0, range) 산술 클램프 (분기 없음, O(1))
+                const int32_t dr =
+                    static_cast<int32_t>(r) - static_cast<int32_t>(range);
+                const uint32_t mask = static_cast<uint32_t>(dr >> 31);
+                const uint16_t r_idx = static_cast<uint16_t>(
+                    (r & mask) | ((range - 1u) & ~mask));
                 const uint16_t tmp = scratch_rows[static_cast<size_t>(j)];
                 scratch_rows[static_cast<size_t>(j)] =
                     scratch_rows[static_cast<size_t>(r_idx)];
@@ -200,8 +219,11 @@ namespace ProtectedEngine {
                 const uint32_t range2 = static_cast<uint32_t>(j) + 1u;
                 const uint32_t r = static_cast<uint32_t>(
                     (static_cast<uint64_t>(rng.Next()) * range2) >> 32u);
-                const uint16_t r_idx = (r < N) ? static_cast<uint16_t>(r)
-                    : static_cast<uint16_t>(N - 1u);
+                const int32_t dr2 =
+                    static_cast<int32_t>(r) - static_cast<int32_t>(range2);
+                const uint32_t mask2 = static_cast<uint32_t>(dr2 >> 31);
+                const uint16_t r_idx = static_cast<uint16_t>(
+                    (r & mask2) | ((range2 - 1u) & ~mask2));
                 const uint16_t tmp = scratch_perm[static_cast<size_t>(j)];
                 scratch_perm[static_cast<size_t>(j)] =
                     scratch_perm[static_cast<size_t>(r_idx)];
@@ -259,32 +281,59 @@ namespace ProtectedEngine {
             std::memset(accum, 0, static_cast<size_t>(N) * sizeof(int32_t));
 
             // ── 통합 Walsh 홀로그램 투영 (16/64칩 공통) ──
-            //  chip[pi[i]] = mask[i] × SUM(L,k) data[k] × walsh(σ[k], i)
-            //  직교성: mask² = 1 → Walsh 직교성 100% 보존
-            //  자가치유: 균일 에너지(±1) → 최적 홀로그램
-            for (uint8_t layer = 0u; layer < L; ++layer) {
-                const uint16_t row_offset = static_cast<uint16_t>(
-                    static_cast<uint32_t>(layer) * K32e);
-                const uint16_t* row_sel = &scratch_rows[static_cast<size_t>(row_offset)];
-
-                for (uint16_t i = 0u; i < N; ++i) {
+            //  chip[π[i]] = mask[i] × Σ_L Σ_k data[k]×walsh(σ[k],i)  — ms(i)는 L과 무관
+            //  루프: i 바깥 → ms·phys 1회, Σ_L 후 accum[phys] += sumL×ms (동치·마스크 추출 L배↓)
+            //  최적화: k 루프 4비트(4요소) 전개 → 분기·루프 오버헤드 감소, MAC 연속성 향상
+            for (uint16_t i = 0u; i < N; ++i) {
+                const int32_t ms = 1 - (static_cast<int32_t>(
+                    (mask_bits >> static_cast<uint64_t>(i)) & 1ull) << 1);
+                const uint16_t phys = scratch_perm[static_cast<size_t>(i)];
+                const uint32_t col_i = static_cast<uint32_t>(i);
+                int32_t sumL = 0;
+                for (uint8_t layer = 0u; layer < L; ++layer) {
+                    const uint16_t row_offset = static_cast<uint16_t>(
+                        static_cast<uint32_t>(layer) * K32e);
+                    const uint16_t* row_sel =
+                        &scratch_rows[static_cast<size_t>(row_offset)];
                     int32_t chip_acc = 0;
-                    for (uint16_t k = 0u; k < K; ++k) {
+                    uint16_t k = 0u;
+                    for (; k + 3u < K; k += 4u) {
+                        const int32_t dk0 =
+                            static_cast<int32_t>(data[static_cast<size_t>(k)]);
+                        const int32_t dk1 =
+                            static_cast<int32_t>(data[static_cast<size_t>(k + 1u)]);
+                        const int32_t dk2 =
+                            static_cast<int32_t>(data[static_cast<size_t>(k + 2u)]);
+                        const int32_t dk3 =
+                            static_cast<int32_t>(data[static_cast<size_t>(k + 3u)]);
+                        const uint32_t rk0 =
+                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]);
+                        const uint32_t rk1 =
+                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k + 1u)]);
+                        const uint32_t rk2 =
+                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k + 2u)]);
+                        const uint32_t rk3 =
+                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k + 3u)]);
+                        const int32_t w0 =
+                            static_cast<int32_t>(Walsh_Code(rk0, col_i));
+                        const int32_t w1 =
+                            static_cast<int32_t>(Walsh_Code(rk1, col_i));
+                        const int32_t w2 =
+                            static_cast<int32_t>(Walsh_Code(rk2, col_i));
+                        const int32_t w3 =
+                            static_cast<int32_t>(Walsh_Code(rk3, col_i));
+                        chip_acc += dk0 * w0 + dk1 * w1 + dk2 * w2 + dk3 * w3;
+                    }
+                    for (; k < K; ++k) {
                         const int8_t w = Walsh_Code(
                             static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]),
-                            static_cast<uint32_t>(i));
+                            col_i);
                         chip_acc += static_cast<int32_t>(data[static_cast<size_t>(k)]) *
                             static_cast<int32_t>(w);
                     }
-                    // Binary Phase Mask: ±1 부호 반전 (XOR 등가)
-                    //  mask bit=0 → +1, mask bit=1 → -1
-                    const int32_t ms = 1 - (static_cast<int32_t>(
-                        (mask_bits >> static_cast<uint64_t>(i)) & 1ull) << 1);
-                    const uint16_t phys = scratch_perm[static_cast<size_t>(i)];
-                    if (phys < N) {
-                        accum[static_cast<size_t>(phys)] += chip_acc * ms;
-                    }
+                    sumL += chip_acc;
                 }
+                accum[static_cast<size_t>(phys)] += sumL * ms;
             }
 
             // Soft output: clamp to int8_t range
@@ -348,12 +397,12 @@ namespace ProtectedEngine {
             std::memset(scratch_rx, 0, static_cast<size_t>(N) * sizeof(int16_t));
             for (uint16_t i = 0u; i < N; ++i) {
                 const uint16_t phys = scratch_perm[static_cast<size_t>(i)];
-                if (phys >= N) { continue; }
+                const uint32_t phys_u = static_cast<uint32_t>(phys) & 63u;
                 const uint32_t vbit = static_cast<uint32_t>(
-                    (valid_mask >> static_cast<uint32_t>(phys)) & 1ull);
+                    (valid_mask >> phys_u) & 1ull);
                 const int32_t chip_valid = -static_cast<int32_t>(vbit);
                 int32_t rx_val =
-                    static_cast<int32_t>(rx_chips[static_cast<size_t>(phys)]) & chip_valid;
+                    static_cast<int32_t>(rx_chips[static_cast<size_t>(phys_u)]) & chip_valid;
                 // Binary Phase Mask 적용 (mask²=1 → 역투영 자동 성립)
                 const int32_t ms = 1 - (static_cast<int32_t>(
                     (mask_bits >> static_cast<uint64_t>(i)) & 1ull) << 1);
@@ -364,25 +413,51 @@ namespace ProtectedEngine {
             std::memset(accum, 0, static_cast<size_t>(K) * sizeof(int32_t));
 
             // ── 통합 Walsh 상관 디코딩 (16/64칩 공통) ──
-            //  bit[k] = SUM(L) SUM(valid_i) rx'[i] × walsh(σ[k], i)
-            //  rx'[i]에 이미 mask 적용됨 → 내부 루프 동일
-            for (uint8_t layer = 0u; layer < L; ++layer) {
-                const uint16_t row_offset = static_cast<uint16_t>(
-                    static_cast<uint32_t>(layer) * K32d);
-                const uint16_t* row_sel = &scratch_rows[static_cast<size_t>(row_offset)];
-
-                for (uint16_t k = 0u; k < K; ++k) {
-                    int32_t acc = 0;
+            //  bit[k] = Σ_L Σ_i rx'[i]×walsh(σ[k],i) — k 바깥: accum[k] 1회 가산
+            //  최적화: i 루프 4칩(4요소) 전개 → 역상관 MAC 연속성·브랜치 예측 부담 완화
+            for (uint16_t k = 0u; k < K; ++k) {
+                int32_t sumL = 0;
+                for (uint8_t layer = 0u; layer < L; ++layer) {
+                    const uint16_t row_offset = static_cast<uint16_t>(
+                        static_cast<uint32_t>(layer) * K32d);
+                    const uint16_t* row_sel =
+                        &scratch_rows[static_cast<size_t>(row_offset)];
                     const uint32_t row_k =
                         static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]);
-                    for (uint16_t i = 0u; i < N; ++i) {
+                    int32_t acc = 0;
+                    uint16_t ii = 0u;
+                    for (; ii + 3u < N; ii += 4u) {
+                        const uint32_t i0 = static_cast<uint32_t>(ii);
+                        const uint32_t i1 = static_cast<uint32_t>(ii + 1u);
+                        const uint32_t i2 = static_cast<uint32_t>(ii + 2u);
+                        const uint32_t i3 = static_cast<uint32_t>(ii + 3u);
+                        const int32_t w0 =
+                            static_cast<int32_t>(Walsh_Code(row_k, i0));
+                        const int32_t w1 =
+                            static_cast<int32_t>(Walsh_Code(row_k, i1));
+                        const int32_t w2 =
+                            static_cast<int32_t>(Walsh_Code(row_k, i2));
+                        const int32_t w3 =
+                            static_cast<int32_t>(Walsh_Code(row_k, i3));
+                        const int32_t r0 =
+                            static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii)]);
+                        const int32_t r1 =
+                            static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii + 1u)]);
+                        const int32_t r2 =
+                            static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii + 2u)]);
+                        const int32_t r3 =
+                            static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii + 3u)]);
+                        acc += r0 * w0 + r1 * w1 + r2 * w2 + r3 * w3;
+                    }
+                    for (; ii < N; ++ii) {
                         const int8_t w = Walsh_Code(
-                            row_k, static_cast<uint32_t>(i));
-                        acc += static_cast<int32_t>(scratch_rx[static_cast<size_t>(i)]) *
+                            row_k, static_cast<uint32_t>(ii));
+                        acc += static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii)]) *
                             static_cast<int32_t>(w);
                     }
-                    accum[static_cast<size_t>(k)] += acc;
+                    sumL += acc;
                 }
+                accum[static_cast<size_t>(k)] += sumL;
             }
 
             // Hard decision: 부호 비트는 uint32_t로 추출 (>>/<< on signed UB·MISRA 회피)
@@ -412,15 +487,56 @@ namespace ProtectedEngine {
 
     HTS_Holo_Tensor_4D::~HTS_Holo_Tensor_4D() noexcept
     {
-        // Shutdown() 경유 금지 — try-lock 실패 시 시드/버퍼 파쇄 누락 방지 (D-2 / Holo_Dispatcher 동일 정책)
         if (!initialized_.load(std::memory_order_acquire)) {
             return;
         }
+        // 진행 중 Encode/Decode가 impl_buf_를 사용하는 동안 파쇄 금지 → 락 확보까지 스핀
+        while (op_busy_.test_and_set(std::memory_order_acq_rel)) {
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+            _mm_pause();
+#elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+            __builtin_ia32_pause();
+#elif defined(__arm__) && !defined(__aarch64__)
+            // Cortex-M3+: WFE/완화 스핀; 미지원 툴체인은 컴파일러 배리어만
+#if defined(__ARM_ARCH) && (__ARM_ARCH >= 7)
+            __asm__ __volatile__("yield" ::: "memory");
+#else
+            __asm__ __volatile__("" ::: "memory");
+#endif
+#else
+            ;
+#endif
+        }
+
+        // Cortex-M: 동일 코어 ISR이 락을 쓰지 않는 경로까지 차단(단일코어 전제)
+#if defined(__arm__) && !defined(__aarch64__)
+        uint32_t primask_saved = 0u;
+        __asm__ __volatile__(
+            "mrs %0, primask\n\t"
+            "cpsid i"
+            : "=&r"(primask_saved)
+            :
+            : "memory");
+#endif
+
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->~Impl();
         SecureMemory::secureWipe(static_cast<void*>(impl_buf_), IMPL_BUF_SIZE);
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" ::: "memory");
+#endif
+        std::atomic_thread_fence(std::memory_order_seq_cst);
+
         initialized_.store(false, std::memory_order_release);
         op_busy_.clear(std::memory_order_release);
+
+#if defined(__arm__) && !defined(__aarch64__)
+        __asm__ __volatile__(
+            "msr primask, %0"
+            :
+            : "r"(primask_saved)
+            : "memory");
+#endif
     }
 
     uint32_t HTS_Holo_Tensor_4D::Initialize(const uint32_t master_seed[4],

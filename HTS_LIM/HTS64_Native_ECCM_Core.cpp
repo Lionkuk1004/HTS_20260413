@@ -10,6 +10,7 @@
 #include "HTS_Secure_Memory.h"
 #include <atomic>
 #include <climits>
+#include <cstddef>
 #include <cstdint>
 #include <new>
 #if defined(_MSC_VER)
@@ -21,6 +22,14 @@ static_assert(sizeof(int16_t) == 2u, "int16_t must be 2 bytes");
 static_assert(sizeof(int32_t) == 4u, "int32_t must be 4 bytes");
 
 namespace ProtectedEngine {
+
+#if (defined(__cpp_lib_launder) && __cpp_lib_launder >= 201606L) || \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || \
+    (!defined(_MSVC_LANG) && defined(__cplusplus) && __cplusplus >= 201703L)
+#define HTS64_USE_STD_LAUNDER 1
+#else
+#define HTS64_USE_STD_LAUNDER 0
+#endif
 
     // =============================================================================
     //  모듈 상수
@@ -86,7 +95,7 @@ namespace ProtectedEngine {
             && ptr_aligned_for(b, alignof(int32_t));
     }
 
-    /// @brief Q8 비율 clip8/m — 런타임 UDIV 없음 (CLZ 역수 근사)
+    /// @brief Q8 비율 clip8/m — 런타임 UDIV 없음 (CLZ 역수 근사), r>255 클램프 브랜치리스
     /// @details m≥2^msb 이므로 clip8/m ≤ clip8/2^msb = clip8>>msb. 상한 근사로 소프트 클립(피크 억제)에 적합.
     static uint32_t ratio_q8_from_clip8_m(uint32_t clip8, uint32_t m) noexcept {
         m |= 1u;
@@ -102,7 +111,8 @@ namespace ProtectedEngine {
         for (uint32_t t = m; t > 1u; t >>= 1u) { ++msb; }
 #endif
         uint32_t r = clip8 >> msb;
-        if (r > 255u) { r = 255u; }
+        const uint32_t over = 0u - static_cast<uint32_t>(r > 255u);
+        r = (r & ~over) | (255u & over);
         return r;
     }
 
@@ -112,35 +122,37 @@ namespace ProtectedEngine {
         return static_cast<int16_t>(v);
     }
 
-    static void swap_u32(uint32_t& a, uint32_t& b) noexcept {
-        const uint32_t t = a; a = b; b = t;
+    /// @brief N=64 고정 — 항상 N(N-1)/2=2016회 인접 비교·산술 마스크 스왑(데이터 종속 분기 없음)
+    static_assert(
+        static_cast<size_t>(N) * static_cast<size_t>(N - 1) / 2u == 2016u,
+        "constant-time bubble trip count must be 2016 for N=64");
+    static void sort_u32_constant_time_adjacent(uint32_t* a) noexcept {
+        if (a == nullptr) {
+            return;
+        }
+        for (int pass = 0; pass < N - 1; ++pass) {
+            const int imax = N - 1 - pass;
+            for (int i = 0; i < imax; ++i) {
+                const uint32_t x = a[i];
+                const uint32_t y = a[i + 1];
+                const uint32_t gt = static_cast<uint32_t>(x > y);
+                const uint32_t m = 0u - gt;
+                a[i]     = (x & ~m) | (y & m);
+                a[i + 1] = (y & ~m) | (x & m);
+            }
+        }
     }
 
-    /// @brief Quickselect O(N) — k번째 최솟값 반환
-    /// 가드 카운터: guard = N×4 = 256 → WCET 결정론
-    static uint32_t nth_select(uint32_t* a, int n, int k) noexcept {
-        if (a == nullptr || n <= 0 || k < 0 || k >= n) {
-            return 0u;
+    namespace {
+        /// FWHT 나비 연산 — Impl::FWHT 및 파일 단위에서 공용(선언·정의 동일 TU)
+        static inline void hts64_fwht_butterfly_(
+            int32_t* d, int base, int j, int len) noexcept {
+            const int32_t u = d[base + j];
+            const int32_t v = d[base + len + j];
+            d[base + j] = u + v;
+            d[base + len + j] = u - v;
         }
-        int lo = 0, hi = n - 1;
-        int guard = n << 2;
-        while (lo < hi && --guard > 0) {
-            const int mid = lo + ((hi - lo) >> 1);
-            if (a[mid] < a[lo]) { swap_u32(a[lo], a[mid]); }
-            if (a[hi] < a[lo]) { swap_u32(a[lo], a[hi]); }
-            if (a[mid] < a[hi]) { swap_u32(a[mid], a[hi]); }
-            const uint32_t pivot = a[hi];
-            int store = lo;
-            for (int i = lo; i < hi; ++i) {
-                if (a[i] < pivot) { swap_u32(a[store], a[i]); ++store; }
-            }
-            swap_u32(a[store], a[hi]);
-            if (store == k) { return a[store]; }
-            if (store < k) { lo = store + 1; }
-            else { hi = store - 1; }
-        }
-        return a[lo];
-    }
+    } // namespace
 
     // =============================================================================
     //  Pimpl 구현체
@@ -160,12 +172,11 @@ namespace ProtectedEngine {
         std::atomic<bool>     cal{ false };
 
         uint32_t mags[N] = {};
-        //  sorted: extract_and_descramble 전반부에서 nth_select용 (파괴적)
-        //  sI:     extract_and_descramble 후반부 + FWHT에서 사용
-        //  sorted 소비 완료 후 sI 기록 → 메모리 공유 안전
+        //  sorted: extract_and_descramble에서 진폭 복사 후 삽입 정렬 → Q25/Q75 조회
+        //  sI:     extract_and_descramble 후반부 + FWHT에서 사용(정렬 단계 이후 sorted 덮어씀)
         //  절감: 256B (uint32_t[64])
         union {
-            uint32_t sorted[N];   // nth_select 전용 (파괴적 읽기)
+            uint32_t sorted[N];   // 분위수용 정렬 버퍼 → 이후 sI로 재사용
             int32_t  sI[N];       // 스크램블 해제 I + FWHT
         } scratch_ = {};          // 익명 union 제로 초기화 (MSVC C26495)
         int32_t  sQ[N] = {};
@@ -219,25 +230,38 @@ namespace ProtectedEngine {
             nf_q16.store(nw, std::memory_order_relaxed);
         }
 
-        // ── FWHT 64점 In-Place ──
+        // ── FWHT 64점 In-Place — len=1,2,4 단계는 내부 j 루프 완전 전개(V400 계열) ──
         static void FWHT(int32_t* d) noexcept {
-            for (int len = 1; len < N; len <<= 1) {
+            for (int i = 0; i < N; i += 2) {
+                hts64_fwht_butterfly_(d, i, 0, 1);
+            }
+            for (int i = 0; i < N; i += 4) {
+                hts64_fwht_butterfly_(d, i, 0, 2);
+                hts64_fwht_butterfly_(d, i, 1, 2);
+            }
+            for (int i = 0; i < N; i += 8) {
+                hts64_fwht_butterfly_(d, i, 0, 4);
+                hts64_fwht_butterfly_(d, i, 1, 4);
+                hts64_fwht_butterfly_(d, i, 2, 4);
+                hts64_fwht_butterfly_(d, i, 3, 4);
+            }
+            for (int len = 8; len < N; len <<= 1) {
                 for (int i = 0; i < N; i += 2 * len) {
                     for (int j = 0; j < len; ++j) {
-                        const int32_t u = d[i + j];
-                        const int32_t v = d[i + len + j];
-                        d[i + j] = u + v;
-                        d[i + len + j] = u - v;
+                        hts64_fwht_butterfly_(d, i, j, len);
                     }
                 }
             }
         }
 
-        // ── ECCM 키 비트 추출 ──
-        static bool kb(uint32_t kH, uint32_t kL, int i) noexcept {
-            return i < 32
-                ? (((kH >> (31u - static_cast<uint32_t>(i))) & 1u) != 0u)
-                : (((kL >> (31u - static_cast<uint32_t>(i - 32))) & 1u) != 0u);
+        // ── ECCM 키 비트 — 0/1 (부호 반전 마스크용)
+        static uint32_t kb_mask_u32(uint32_t kH, uint32_t kL, int i) noexcept {
+            const uint32_t u = static_cast<uint32_t>(i);
+            const uint32_t hi = static_cast<uint32_t>(static_cast<uint32_t>(i) < 32u);
+            const uint32_t sh = 31u - (u & 31u);
+            const uint32_t bitH = (kH >> sh) & 1u;
+            const uint32_t bitL = (kL >> sh) & 1u;
+            return (bitH & hi) | (bitL & (1u - hi));
         }
 
         // =========================================================================
@@ -253,47 +277,76 @@ namespace ProtectedEngine {
                 scratch_.sorted[i] = mags[i];
             }
 
-            uint32_t baseline = nth_select(scratch_.sorted, N, Q25_IDX);
-            if (baseline < MIN_NF) { baseline = MIN_NF; }
+            sort_u32_constant_time_adjacent(scratch_.sorted);
+            uint32_t baseline = scratch_.sorted[Q25_IDX];
+            {
+                const uint32_t u = baseline;
+                const uint32_t mnf = MIN_NF;
+                const uint32_t lt = static_cast<uint32_t>(u < mnf);
+                const uint32_t mm = 0u - lt;
+                baseline = (mnf & mm) | (u & ~mm);
+            }
 
-            uint32_t q75 = nth_select(scratch_.sorted, N, Q75_IDX);
-            if (q75 < baseline) { q75 = baseline; }
+            uint32_t q75 = scratch_.sorted[Q75_IDX];
+            {
+                const uint32_t u = q75;
+                const uint32_t b = baseline;
+                const uint32_t lt = static_cast<uint32_t>(u < b);
+                const uint32_t mm = 0u - lt;
+                q75 = (b & mm) | (u & ~mm);
+            }
 
-            const bool is_cw_like = (q75 > baseline * CW_RATIO_TH);
-            const bool is_clean = (baseline < CLEAN_TH);
-            //  하드코딩 << 3u — PUNCH_SHIFT 상수화
+            const uint32_t prod = baseline * CW_RATIO_TH;
+            const uint32_t is_cw_u = static_cast<uint32_t>(q75 > prod);
+            const uint32_t is_clean_u = static_cast<uint32_t>(baseline < CLEAN_TH);
+            const uint32_t dirty_u = 1u - is_clean_u;
             const uint32_t punch = baseline << static_cast<uint32_t>(PUNCH_SHIFT);
 
-            int32_t clip = is_cw_like
-                ? static_cast<int32_t>(q75 << 2u)
-                : static_cast<int32_t>(baseline << 2u);
-            if (clip < 4) { clip = 4; }
+            const int32_t clip_cw = static_cast<int32_t>(q75 << 2u);
+            const int32_t clip_nm = static_cast<int32_t>(baseline << 2u);
+            const int32_t cw_sel = -static_cast<int32_t>(is_cw_u);
+            int32_t clip = (clip_nm & ~cw_sel) | (clip_cw & cw_sel);
+            {
+                const int32_t under = clip - 4;
+                const int32_t mask = under >> 31;
+                clip = clip + ((-under) & mask);
+            }
 
-            //
-            //  clip_u = min(clip_u_raw, punch) — clip와 punch 사이 갭 제거, mags>punch는 영점 소거
-            //
             const uint32_t clip_u_raw = static_cast<uint32_t>(clip);
-            const uint32_t clip_u = (clip_u_raw < punch) ? clip_u_raw : punch;
+            const uint32_t clip_u = clip_u_raw
+                + ((punch - clip_u_raw)
+                    & (0u - static_cast<uint32_t>(clip_u_raw > punch)));
             const uint32_t clip8 = clip_u << 8u;
 
             for (int i = 0; i < N; ++i) {
                 int32_t si = static_cast<int32_t>(rI[i]);
                 int32_t sq = static_cast<int32_t>(rQ[i]);
+                const uint32_t mi = mags[i];
+                const uint32_t kill =
+                    dirty_u & static_cast<uint32_t>(mi > punch);
+                const uint32_t soft =
+                    dirty_u
+                    & (1u - static_cast<uint32_t>(mi > punch))
+                    & static_cast<uint32_t>(mi > clip_u);
+                const uint32_t pass_d =
+                    dirty_u & (1u - kill) & (1u - soft);
+                const uint32_t ratio_q8 =
+                    ratio_q8_from_clip8_m(clip8, mi | 1u);
+                const int32_t r_q8 = static_cast<int32_t>(ratio_q8);
+                const int32_t si_soft = (si * r_q8) >> 8;
+                const int32_t sq_soft = (sq * r_q8) >> 8;
+                const int32_t sm = -static_cast<int32_t>(soft);
+                const int32_t pm = -static_cast<int32_t>(pass_d);
+                const int32_t clean_m = -static_cast<int32_t>(is_clean_u);
+                const int32_t si_d = (si_soft & sm) | (si & pm);
+                const int32_t sq_d = (sq_soft & sm) | (sq & pm);
+                si = (si & clean_m) | (si_d & ~clean_m);
+                sq = (sq & clean_m) | (sq_d & ~clean_m);
 
-                if (!is_clean) {
-                    if (mags[i] > punch) {
-                        si = 0; sq = 0;
-                    }
-                    else if (mags[i] > clip_u) {
-                        // si/sq는 이미 int32_t — ratio_q8만 캐스트
-                        const uint32_t ratio_q8 = ratio_q8_from_clip8_m(clip8, mags[i]);
-                        const int32_t r_q8 = static_cast<int32_t>(ratio_q8);
-                        si = (si * r_q8) >> 8;
-                        sq = (sq * r_q8) >> 8;
-                    }
-                }
-
-                if (kb(kH, kL, i)) { si = -si; sq = -sq; }
+                const uint32_t kb1 = kb_mask_u32(kH, kL, i);
+                const int32_t mul = 1 - 2 * static_cast<int32_t>(kb1);
+                si *= mul;
+                sq *= mul;
                 scratch_.sI[i] = si;
                 sQ[i] = sq;
             }
@@ -303,7 +356,13 @@ namespace ProtectedEngine {
         // ── NF 기반 적응형 에너지 임계 (th = nf² × N) ──
         uint64_t adaptive_threshold() const noexcept {
             uint32_t nf = nf_q16.load(std::memory_order_relaxed) >> 16u;
-            if (nf < MIN_NF) { nf = MIN_NF; }
+            {
+                const uint32_t u = nf;
+                const uint32_t mnf = MIN_NF;
+                const uint32_t lt = static_cast<uint32_t>(u < mnf);
+                const uint32_t mm = 0u - lt;
+                nf = (mnf & mm) | (u & ~mm);
+            }
             //  th = nf^2 * N  (α=1.0)
             //    → 오경보 조건: best_actual >= th 에서 α=1.0은
             //      노이즈 피크가 통계적으로 th를 넘을 확률이 높음
@@ -348,46 +407,67 @@ namespace ProtectedEngine {
                 for (int i = 0; i < N; ++i) { fI[i] = scratch_.sI[i]; fQ[i] = sQ[i]; }
             }
 
-            // Step 1: 피크 탐색 → 적응형 시프트 결정
+            // Step 1: 피크 탐색 — V400형 c_gt 마스킹(분기 없음)
             uint32_t peak = 0u;
             for (int m = 0; m < N; ++m) {
                 const uint32_t a = fast_abs(scratch_.sI[m]);
                 const uint32_t b = fast_abs(sQ[m]);
-                if (a > peak) { peak = a; }
-                if (b > peak) { peak = b; }
-            }
-            int shift = 0;
-            while ((peak > static_cast<uint32_t>(ARGMAX_SAFE_PEAK)) && (shift < 16)) {
-                peak >>= 1u;
-                ++shift;
+                const uint32_t c_gt_a = static_cast<uint32_t>(a > peak);
+                peak = peak * (1u - c_gt_a) + a * c_gt_a;
+                const uint32_t c_gt_b = static_cast<uint32_t>(b > peak);
+                peak = peak * (1u - c_gt_b) + b * c_gt_b;
             }
 
-            // Step 2: 32비트 argmax 루프
+            // Step 1b: 시프트 — 16회 고정 전개, peak>TH 일 때만 >>1 (데이터 마스크)
+            const uint32_t th_pk = static_cast<uint32_t>(ARGMAX_SAFE_PEAK);
+            uint32_t peak_w = peak;
+            unsigned shift_acc = 0u;
+            for (int k = 0; k < 16; ++k) {
+                const uint32_t need = static_cast<uint32_t>(peak_w > th_pk);
+                peak_w >>= need;
+                shift_acc += need;
+            }
+            const int shift = static_cast<int>(shift_acc);
+
+            // Step 2: 32비트 argmax — c_gt_best 마스킹
             uint32_t best_scaled = 0u;
-            uint8_t  dec = 0xFFu;
+            uint32_t dec_u = 0xFFu;
             for (int m = 0; m < N; ++m) {
-                const int32_t  si_s = scratch_.sI[m] >> shift;
-                const int32_t  sq_s = sQ[m] >> shift;
+                const int32_t si_s = scratch_.sI[m] >> shift;
+                const int32_t sq_s = sQ[m] >> shift;
                 const int64_t si64 = static_cast<int64_t>(si_s);
                 const int64_t sq64 = static_cast<int64_t>(sq_s);
                 const uint64_t e64 =
                     static_cast<uint64_t>(si64 * si64 + sq64 * sq64);
-                const uint32_t e = static_cast<uint32_t>(
-                    (e64 > static_cast<uint64_t>(UINT32_MAX))
-                        ? static_cast<uint64_t>(UINT32_MAX)
-                        : e64);
-                if (e > best_scaled) { best_scaled = e; dec = static_cast<uint8_t>(m); }
+                const uint32_t lo = static_cast<uint32_t>(e64);
+                const uint32_t over =
+                    static_cast<uint32_t>(
+                        e64 > static_cast<uint64_t>(UINT32_MAX));
+                const uint32_t e =
+                    lo + ((UINT32_MAX - lo) & (0u - over));
+                const uint32_t c_gt = static_cast<uint32_t>(e > best_scaled);
+                best_scaled = best_scaled * (1u - c_gt) + e * c_gt;
+                dec_u = dec_u * (1u - c_gt)
+                    + static_cast<uint32_t>(m) * c_gt;
             }
 
-            // Step 3: 최선 빈 1회 64비트 임계값 비교
-            if (dec == 0xFFu) { return -1; }
+            // Step 3: 임계값 — dec·에너지 마스크 합성(단일 return 경로)
+            const uint32_t valid_dec = static_cast<uint32_t>(dec_u != 0xFFu);
+            const uint32_t safe_ix_u =
+                static_cast<uint32_t>(dec_u & 0xFFu) & (0u - valid_dec);
+            const size_t sx = static_cast<size_t>(safe_ix_u);
             const uint64_t best_actual =
                 static_cast<uint64_t>(
-                    static_cast<int64_t>(scratch_.sI[dec]) * scratch_.sI[dec]
-                    + static_cast<int64_t>(sQ[dec]) * sQ[dec]);
+                    static_cast<int64_t>(scratch_.sI[sx]) * scratch_.sI[sx]
+                    + static_cast<int64_t>(sQ[sx]) * sQ[sx]);
             const uint64_t th = adaptive_threshold();
-            return (best_actual < th) ? static_cast<int8_t>(-1)
-                : static_cast<int8_t>(dec);
+            const uint32_t pass_th =
+                static_cast<uint32_t>(best_actual >= th);
+            const uint32_t ok = valid_dec & pass_th;
+            const int32_t sym = static_cast<int32_t>(dec_u & 0xFFu);
+            return static_cast<int8_t>(
+                static_cast<int32_t>(-1) * static_cast<int32_t>(1u - ok)
+                + sym * static_cast<int32_t>(ok));
         }
 
         // ── 스크램블 해제 전용 (FWHT 생략) ──
@@ -427,16 +507,26 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다 — 버퍼 크기를 늘려주세요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_(IMPL_BUF_ALIGN)를 초과합니다");
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<Impl*>(impl_buf_)
-            : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS64_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<Impl*>(impl_buf_);
+#endif
     }
 
     const HTS64_Native_ECCM_Core::Impl*
         HTS64_Native_ECCM_Core::get_impl() const noexcept {
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<const Impl*>(impl_buf_)
-            : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS64_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<const Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<const Impl*>(impl_buf_);
+#endif
     }
 
     // =============================================================================
@@ -510,10 +600,14 @@ namespace ProtectedEngine {
         }
 
         for (uint32_t f = 0u; f < nf; ++f) {
+            const int16_t* rowI =
+                nI + static_cast<ptrdiff_t>(f) * static_cast<ptrdiff_t>(N);
+            const int16_t* rowQ =
+                nQ + static_cast<ptrdiff_t>(f) * static_cast<ptrdiff_t>(N);
             uint32_t s = 0u;
             for (int i = 0; i < N; ++i) {
-                s += fast_abs(static_cast<int32_t>(nI[i]))
-                    + fast_abs(static_cast<int32_t>(nQ[i]));
+                s += fast_abs(static_cast<int32_t>(rowI[i]))
+                    + fast_abs(static_cast<int32_t>(rowQ[i]));
             }
             p->update_nf(s >> 6u);
         }

@@ -1,0 +1,8 @@
+; =========================================================================
+; HTS_Storage_Adapter.def
+; 모듈 정의 — Windows 호스트 DLL/테스트 빌드에서 선택 사용
+; Cortex-M 베어메탈 정적 링크 시 일반적으로 링커 인자에 포함하지 않음
+; 구현(.cpp) 연동 시: EXPORTS 절에 Backup/Restore 심볼만 추가
+; =========================================================================
+LIBRARY HTS_Storage_Adapter
+DESCRIPTION "HTS Raw volume anchor backup/restore adapter"

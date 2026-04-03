@@ -96,11 +96,15 @@ namespace ProtectedEngine {
 
     /// @brief 디코딩 완료 패킷 구조체
     struct DecodedPacket {
+        static constexpr uint32_t DECODE_MASK_OK = 0xFFFFFFFFu;
+        static constexpr uint32_t DECODE_MASK_FAIL = 0x00000000u;
+
         PayloadMode mode;       ///< 페이로드 모드
         uint8_t data[8];        ///< 디코딩된 데이터 (최대 8바이트)
         int data_len;           ///< 유효 데이터 길이
         int harq_k;             ///< HARQ 라운드 수 (1 = 단일 전송 성공)
-        bool success;           ///< CRC 검증 통과 여부
+        /// CRC/디코드 성공: DECODE_MASK_OK, 실패: DECODE_MASK_FAIL (호출부 & 마스크 결합)
+        uint32_t success_mask{ DECODE_MASK_FAIL };
     };
 
     // ── CCM 섹션 매크로 ─────────────────────────────────────────
@@ -148,7 +152,7 @@ namespace ProtectedEngine {
 
         /// @brief 디스패처 생성 (WAIT_SYNC 초기 상태)
         HTS_V400_Dispatcher() noexcept;
-        /// @brief 소멸자 — CCM·버퍼·시드 개별 secureWipe (this 통째 wipe 없음: ajc_ UB 방지)
+        /// @brief 소멸자 — CCM·버퍼·시드·ajc_ 스토리지 개별 secureWipe (this 통째 wipe 없음)
         ~HTS_V400_Dispatcher() noexcept;
 
         /// 상태 복제/이동 방지 (HARQ 누적 버퍼 + AJC 학습 상태)
@@ -230,6 +234,9 @@ namespace ProtectedEngine {
         int16_t buf_I_[64] = {};        ///< 칩 수집 버퍼 I
         int16_t buf_Q_[64] = {};        ///< 칩 수집 버퍼 Q
         int     buf_idx_;               ///< 버퍼 현재 인덱스
+        /// WAIT_SYNC 전용: 64칩 링(물리 시프트 없음), 선형 복사는 orig_ 로만
+        int     wait_sync_head_{ 0 };
+        int     wait_sync_count_{ 0 };
 
         int     pre_phase_;             ///< 프리앰블 매칭 단계 (0 또는 1)
         uint8_t hdr_syms_[2] = {};      ///< 수신된 헤더 심볼
@@ -372,15 +379,20 @@ namespace ProtectedEngine {
         //   나머지 전이 = 불법 (ROP/글리치/헤더 인증 우회)
         //   → full_reset_()으로 안전 상태 강제 복귀
         //
-        //  Constant-time: 분기 0개, 시프트+AND 1회 (~2cyc ARM)
+        //  구현: 12슬롯 LUT + key 클램프(>=12 → 불법 슬롯), 반환은 풀비트 마스크
 
-        bool set_phase_(RxPhase target) noexcept;
+        static constexpr uint32_t PHASE_TRANSFER_MASK_OK = 0xFFFFFFFFu;
+        static constexpr uint32_t PHASE_TRANSFER_MASK_FAIL = 0x00000000u;
 
-        /// @brief 내부 도우미 함수
-        bool parse_hdr_(PayloadMode& mode, int& plen) noexcept;
+        uint32_t set_phase_(RxPhase target) noexcept;
+
+        /// @brief 내부 도우미 함수 — 성공 시 PARSE_HDR_MASK_OK
+        static constexpr uint32_t PARSE_HDR_MASK_OK = 0xFFFFFFFFu;
+        static constexpr uint32_t PARSE_HDR_MASK_FAIL = 0x00000000u;
+        uint32_t parse_hdr_(PayloadMode& mode, int& plen) noexcept;
         void on_sym_() noexcept;
         void try_decode_() noexcept;
-        void handle_video_(bool ok) noexcept;
+        void handle_video_(uint32_t decode_ok_mask) noexcept;
         void full_reset_() noexcept;
         void harq_feedback_seed_(const uint8_t* data, int data_len,
             int nc, uint32_t il) noexcept;

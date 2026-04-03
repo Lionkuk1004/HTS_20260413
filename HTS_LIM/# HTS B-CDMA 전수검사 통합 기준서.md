@@ -113,19 +113,11 @@
   → 파일 상단 ARM 빌드 시 #error 명시된 PC 전용 파일
   → Dual_Tensor_16bit의 PENDING 의존 항목 → N/A 처리
 
-[Layer 18 — 테스트 파일 전체 제외]
-  HTS_HMAC_Bridge_Test.cpp
-  HTS_Adaptive_BPS_Test.cpp
-  AJC_TEST.cpp
-  AMI_종합_TEST.cpp
-  HTS_AMI_Measurement_Test.cpp
-  HTS_AMI_Industrial_Field_Stress_Test.cpp
-  HTS_AMI_Realistic_Integration_Test.cpp
-  재밍_종합_테스트.cpp
-  재밍_이엠피테스트_16칩.cpp
-  재임_이엠피_테스트_16칩_종합.cpp
-  재밍테스트_노드2048_16칩_64칩.cpp
-  홀로그램_4D_4096_TEST.cpp
+[Layer 18 — HTS_TEST PC 검증 전용 (펌웨어 TU 제외)]
+  HTS_TEST\KCMVP_암호_4종_종합_테스트.cpp      ← HTS_검증_KCMVP.vcxproj (ARIA/HMAC/LEA/LSH 단일 exe)
+  HTS_TEST\종합재밍_종합_테스트.cpp            ← HTS_검증_종합재밍.vcxproj (Tensor+HARQ 시뮬)
+  HTS_TEST\AMI_종합_통합_테스트.cpp            ← HTS_검증_AMI.vcxproj (AMI S1~S10)
+  (구 레거시 개별 KAT·재밍·AMI 파일명은 제거됨 — HTS_Development.sln 동기화)
   HTS_Server_Stress_Test.h
 ```
 
@@ -178,6 +170,7 @@ PC 전용 제외:  -14개
 Layer 0  — 플랫폼 기반 [최우선]
   HTS_Types.h / HTS_BitOps.h / HTS_PHY_Config.h
   common.h / config.h / util.h / arm_arch.h
+  util.c (ClCompile — C 런타임 유틸, §8-7)
 
 Layer 1  — 하드웨어 초기화
   HTS_Hardware_Init.h → .cpp
@@ -209,8 +202,10 @@ Layer 3  — KCMVP/FIPS 암호 엔진
 
 Layer 4  — KAT 검증
   HTS_Crypto_KAT.h → .cpp
-  HTS_ARIA_KCMVP_KAT.cpp / HTS_LEA_KCMVP_KAT.cpp
-  HTS_LSH256_KCMVP_KAT.cpp / HTS_HMAC_KCMVP_KAT.cpp
+    ※ ARIA/LEA/LSH256/HMAC/DRBG 벡터는 별도 *_KCMVP_KAT.cpp 가 아니라
+      Crypto_KAT::KAT_ARIA / KAT_LEA / KAT_LSH256 / KAT_HMAC_SHA256 / KAT_DRBG 로
+      단일 TU에 통합됨 (§8-5)
+    ※ PC 독립 재검: HTS_TEST\KCMVP_암호_4종_종합_테스트.cpp + HTS_검증_KCMVP.vcxproj
   HTS_Conditional_SelfTest.h → .cpp
 
 Layer 5  — 키 관리 / 보안 부팅
@@ -218,7 +213,7 @@ Layer 5  — 키 관리 / 보안 부팅
   HTS_Key_Rotator.h → .cpp
   HTS_Dynamic_Key_Rotator.hpp → .cpp
   HTS_Secure_Boot_Verify.h → .cpp
-  HTS_Anchor_Vault.hpp → .cpp
+  HTS_Anchor_Vault.hpp → host_aarch64\HTS_Anchor_Vault.cpp (A55/서버 TU — ARM-M4 단독 빌드 시 제외)
   HTS_Entropy_Arrow.hpp → .cpp
 
 Layer 6  — 안티디버그 / 물리 보안
@@ -244,10 +239,10 @@ Layer 8  — DSP/PHY 코어
   HTS_Rx_Sync_Detector.h → .cpp
   HTS_Antipodal_Core.h → .cpp
   HTS_Adaptive_BPS_Controller.h → .cpp
-  AnchorEncoder.h → .cpp
-  AnchorDecoder.h → .cpp
-  AnchorManager.h → .cpp
-  TensorCodec.hpp → .cpp
+  HTS_AntiJam_Engine.h → .cpp
+    ※ 3층 항재밍(AJC·Punch·Spatial Null). HTS_V400_Dispatcher.hpp 가 본 헤더를 include.
+  AnchorEncoder.h → .cpp / AnchorDecoder.h → .cpp / AnchorManager.h → .cpp / TensorCodec.hpp → .cpp
+    ※ 현재 HTS_LIM.vcxproj 에 단독 TU 없음 — BB1_Core_Engine / Holo·Sparse 등에 흡수된 것으로 검수 (§8-7)
   HTS_Orbital_Mapper.hpp → .cpp
   HTS_Sparse_Recovery.h → .cpp
   HTS_Quantum_Decoy_VDF.h → .cpp (CORE 헤더 / HTS_LIM 구현 TU)
@@ -267,6 +262,7 @@ Layer 10 — FEC/HARQ
 Layer 11 — 디스패처
   HTS_Holo_Dispatcher.h → .cpp
   HTS_V400_Dispatcher.hpp → .cpp
+    ※ 내부적으로 HTS_AntiJam_Engine.h 의존 (Layer 8 TU와 링크)
 
 Layer 12 — 보안 파이프라인 / 세션
   HTS_AEAD_Integrity.hpp
@@ -277,46 +273,51 @@ Layer 12 — 보안 파이프라인 / 세션
   HTS_Role_Auth.h → .cpp
 
 Layer 13 — 스토리지
-  HTS_Storage_Interface.h → .cpp
+  HTS_Storage_Interface.h → host_aarch64\HTS_Storage_Interface.cpp (호스트 TU — ARM-M4 단독 빌드 시 제외)
   HTS_Storage_Adapter.hpp
 
 Layer 14 — 통신 프로토콜
   HTS_IPC_Protocol.h → .cpp
-  HTS_IPC_Protocol_A55.h → .cpp
+  HTS_IPC_Protocol_A55.h → host_aarch64\HTS_IPC_Protocol_A55.cpp (A55 IPC TU — 타깃별 제외 검토)
   HTS_Network_Bridge.h → .cpp
   HTS_KT_DSN_Adapter.h → .cpp
   HTS_CoAP_Engine.h → .cpp
+  HTS_Voice_Codec_Bridge.h / HTS_Voice_Codec_Bridge_Defs.h → .cpp
+    ※ 보코더·PLC·IPC_Error; HTS_API.h 기본 틱 주기 주석과 Defs 정합
   HTS_Mesh_Router.h → .cpp
   HTS_Mesh_Sync.h → .cpp
   HTS_Neighbor_Discovery.h → .cpp
   HTS_Universal_Adapter.h / .hpp → .cpp
 
 Layer 15 — AMI / OTA
-  HTS_AMI_Protocol.h → .cpp
+  HTS_AMI_Protocol.h / HTS_AMI_Protocol_Defs.h → .cpp
   HTS_OTA_AMI_Manager.h → .cpp
-  HTS_OTA_Manager.h → .cpp
+  HTS_OTA_Manager.h / HTS_OTA_Manager_Defs.h → .cpp
   HTS_Meter_Data_Manager.h → .cpp
-  HTS_Modbus_Gateway.h → .cpp
-  HTS_BLE_NFC_Gateway.h → .cpp
+  HTS_Modbus_Gateway.h / HTS_Modbus_Gateway_Defs.h → .cpp
+  HTS_BLE_NFC_Gateway.h / HTS_BLE_NFC_Gateway_Defs.h → .cpp
 
 Layer 16 — IoT / 센서 / 비상
-  HTS_IoT_Codec.h → .cpp
+  HTS_IoT_Codec.h / HTS_IoT_Codec_Defs.h → .cpp
   HTS_Sensor_Aggregator.h → .cpp
   HTS_Sensor_Fusion.h → .cpp
   HTS_Gyro_Engine.h → .cpp
   HTS_Location_Engine.h → .cpp
   HTS_Emergency_Beacon.h → .cpp
-  HTS_CCTV_Security.h → .cpp
+  HTS_CCTV_Security.h / HTS_CCTV_Security_Defs.h → .cpp
 
 Layer 17 — 스케줄러 / 최상위 API
   HTS_Priority_Scheduler.h → .cpp
   HTS_Unified_Scheduler.hpp → .cpp
-  HTS_Console_Manager.h → .cpp
+  HTS_Console_Manager.h / HTS_Console_Manager_Defs.h → .cpp
   HTS_Universal_API.h / .hpp → .cpp
+    ※ `HTS_Universal_API.def` — vcxproj `None`(링커보내기), TU 아님
   HTS_API.h → .cpp
 
 Layer 18 — 테스트 [전체 SKIP — PC 전용]
 ```
+
+※ **섹션 3 ↔ §8 부록 동기화:** Layer 4(KAT 통합), Layer 5·13·14(호스트 TU), Layer 8·11(AntiJam), Layer 14(Voice Codec), Layer 0(`util.c`), **Layer 15~17(`*_Defs.h`·`Universal_API.def`)** 는 `HTS_LIM.vcxproj` `ClCompile`/`ClInclude`/`None` 과 정합. TU 목록 §8-7, Defs·필터 §8-2·§8-8. **M4 SRAM 합계·`.map`** 은 정적 라이브러리 단독 빌드로는 미완 — §8-11.
 
 ---
 
@@ -583,4 +584,252 @@ Layer 18 — 테스트 [전체 SKIP — PC 전용]
 | [요검토] | 자동 수정 불가 → 최종 보고서에 목록화 |
 | N/A | PC 전용 / 해당 없음 |
 | SKIP | 파일 전체 제외 (PC 전용 파일) |
+
+---
+
+## 8. 부록 — `HTS_LIM.vcxproj` 연결·파이프라인 (2026 유지보수)
+
+섹션 3 레이어 순서와 정적 라이브러리 빌드 단위(`ClCompile`)를 맞출 때 참고한다.
+**헤더 전용(.hpp만)** / **C 소스** / **호스트 전용** 은 표에 별도 표기한다.
+
+### 8-1. 빌드 매트릭스 예외 (`HTS_LIM.vcxproj` 주석과 동일)
+
+| 항목 | Win32/x64 | ARM-M4 타깃 추가 시 |
+|------|-----------|---------------------|
+| `HTS_3D_Tensor_FEC.cpp` | 포함 가능 | **제외** (PC 시뮬 전용) |
+| `host_aarch64\HTS_Anchor_Vault.cpp` | 포함 | **제외** (A55/서버) |
+| `host_aarch64\HTS_Storage_Interface.cpp` | 포함 | **제외** (A55/서버) |
+| `host_aarch64\HTS_IPC_Protocol_A55.cpp` | 포함 | 보드 정책에 따름 |
+
+### 8-2. Layer 0~17 ↔ 주요 `ClCompile` (`.cpp`)
+
+- **Layer 0**: `common.h` / `config.h` / `util.c` / `arm_arch.h` — C 유틸은 `util.c` 등으로 TU 연결.
+- **Layer 1**: `HTS_Hardware_Init.cpp`, `HTS_Hardware_Bridge.cpp`, `HTS_Hardware_Auto_Scaler.cpp`, `HTS_Hardware_Shield.cpp`, `HTS_POST_Manager.cpp`, `HTS_Power_Manager.cpp`
+- **Layer 2**: `HTS_Secure_Memory.cpp`, `HTS_ConstantTimeUtil.cpp`, `HTS_Crc32Util.cpp` — `HTS_Secure_Memory_Manager.hpp`는 헤더만.
+- **Layer 3**: `aria050117.c`, `hmac.c`, `lea_*.c`, `lsh*.c`, `KISA_*.c`, `HTS_*_Bridge.cpp`, `HTS_CTR_DRBG.cpp`, `HTS_TRNG_Collector.cpp`, `HTS_Physical_Entropy_Engine.cpp`, `HTS_Entropy_Monitor.cpp` + `lsh256.h` 등 헤더
+- **Layer 4**: `HTS_Crypto_KAT.cpp`, `HTS_Conditional_SelfTest.cpp` — 개별 `*_KCMVP_KAT.cpp`는 **§8-5**와 같이 `HTS_Crypto_KAT.cpp`에 함수로 통합됨. PC용 정적 KAT는 `HTS_TEST\KCMVP_암호_4종_종합_테스트.cpp`(별도 exe).
+- **Layer 5**: `HTS_Key_Provisioning.cpp`, `HTS_Key_Rotator.cpp`, `HTS_Dynamic_Key_Rotator.cpp`, `HTS_Secure_Boot_Verify.cpp`, `HTS_Entropy_Arrow.cpp`, `host_aarch64\HTS_Anchor_Vault.cpp` (Anchor_Vault.hpp 구현 TU)
+- **Layer 6**: `HTS_Anti_Debug.cpp`, `HTS_Anti_Glitch.cpp`, `HTS_Tamper_HAL.cpp`, `HTS_AntiAnalysis_Shield.cpp`, `HTS_Polymorphic_Shield.cpp`, `HTS_Pointer_Auth.cpp`, `HTS_Auto_Rollback_Manager.cpp`
+- **Layer 7**: `HTS_Secure_Logger.cpp`, `HTS_Config.cpp`, `HTS_Dynamic_Config.cpp`, `HTS_Device_Profile.cpp`, `HTS_Device_Status_Reporter.cpp`, `HTS_Creator_Telemetry.cpp`
+- **Layer 8**: `HTS_Gaussian_Pulse.cpp`, `HTS_Rx_Matched_Filter.cpp`, `HTS_Rx_Sync_Detector.cpp`, `HTS_Antipodal_Core.cpp`, `HTS_Adaptive_BPS_Controller.cpp`, `HTS_AntiJam_Engine.cpp`, `HTS_Orbital_Mapper.cpp`, `HTS_Sparse_Recovery.cpp`, `HTS_Quantum_Decoy_VDF.cpp` — Anchor/Tensor 단독 TU 없음 시 `BB1_Core_Engine.cpp` 등에 흡수 (섹션 3 Layer 8 주석).
+- **Layer 9**: `HTS_Holo_Tensor_Engine.cpp`, `HTS_Holo_Tensor_4D.cpp`, `HTS_Dual_Tensor_16bit.cpp`, `HTS_3D_Tensor_FEC.cpp` (SKIP 정책 준수)
+- **Layer 10**: `HTS_FEC_HARQ.cpp`, `HTS_Tx_Scheduler.cpp`, `BB1_Core_Engine.cpp`, `HTS64_Native_ECCM_Core.cpp`
+- **Layer 11**: `HTS_Holo_Dispatcher.cpp`, `HTS_V400_Dispatcher.cpp` (헤더가 `HTS_AntiJam_Engine.h` 의존)
+- **Layer 12**: `HTS_Security_Pipeline.cpp`, `HTS_Security_Session.cpp`, `HTS_Session_Gateway.cpp`, `HTS_Remote_Attestation.cpp`, `HTS_Role_Auth.cpp` — `HTS_AEAD_Integrity.hpp`는 헤더만.
+- **Layer 13**: `host_aarch64\HTS_Storage_Interface.cpp` (호스트 TU), `HTS_Storage_Adapter.hpp` 헤더
+- **Layer 14**: `HTS_IPC_Protocol.cpp`, `host_aarch64\HTS_IPC_Protocol_A55.cpp`, `HTS_Network_Bridge.cpp`, `HTS_KT_DSN_Adapter.cpp`, `HTS_CoAP_Engine.cpp`, `HTS_Voice_Codec_Bridge.cpp`, `HTS_Mesh_Router.cpp`, `HTS_Mesh_Sync.cpp`, `HTS_Neighbor_Discovery.cpp`, `HTS_Universal_Adapter.cpp`
+- **Layer 15**: `HTS_AMI_Protocol.cpp` + `HTS_AMI_Protocol_Defs.h`, `HTS_OTA_AMI_Manager.cpp`, `HTS_OTA_Manager.cpp` + `HTS_OTA_Manager_Defs.h`, `HTS_Meter_Data_Manager.cpp`, `HTS_Modbus_Gateway.cpp` + `HTS_Modbus_Gateway_Defs.h`, `HTS_BLE_NFC_Gateway.cpp` + `HTS_BLE_NFC_Gateway_Defs.h`
+- **Layer 16**: `HTS_IoT_Codec.cpp` + `HTS_IoT_Codec_Defs.h`, `HTS_Sensor_Aggregator.cpp`, `HTS_Sensor_Fusion.cpp`, `HTS_Gyro_Engine.cpp`, `HTS_Location_Engine.cpp`, `HTS_Emergency_Beacon.cpp`, `HTS_CCTV_Security.cpp` + `HTS_CCTV_Security_Defs.h`
+- **Layer 17**: `HTS_Priority_Scheduler.cpp`, `HTS_Unified_Scheduler.cpp`, `HTS_Console_Manager.cpp` + `HTS_Console_Manager_Defs.h`, `HTS_Universal_API.cpp` + `HTS_Universal_API.h` / `.hpp` + `HTS_Universal_API.def`(`None`), `HTS_API.cpp`
+
+### 8-3. 최상위 API 파이프라인 (`HTS_API.cpp` 요약)
+
+1. `Initialize_Core` — `HTS_Secure_Boot_Is_Verified` → `POST_Manager::executePowerOnSelfTest` → `HTS_Tx_Scheduler::Initialize`
+2. `Fetch_And_Heal_Rx_Payload` — HW FIFO → `Sparse_Recovery_Engine::Execute_L1_Reconstruction`
+3. `Schedule_Unified_Tx_And_Queue` / `Service_Unified_Tx_*` — `Unified_Scheduler` → `Dual_Tensor_Pipeline` → `HTS_Tx_Scheduler::Push_Waveform_Chunk`
+
+보드 부팅 시 `HTS_Hardware_Init`와의 호출 순서는 제품 펌웨어에서 명시할 것 (현재 `HTS_API.cpp`는 해당 심볼을 직접 호출하지 않음).
+
+### 8-4. 동시성 검수 메모 (§2 ①)
+
+- **Secure Wipe / KAT 소거** MSVC 분기의 `memory_order_seq_cst`는 **다운그레이드 금지** (본문 §2 ① 단서).
+- 그 외 TRNG·세션·감사 플러시·MPU 배리어 등은 `release` / `acq_rel` 로 정합 가능 — 변경 시 회귀 빌드 권장.
+
+### 8-5. Layer 4 KAT 통합 — 코드 확정 (펌웨어 TU + PC 독립 검증)
+
+**펌웨어(HTS_LIM.lib):** `HTS_Crypto_KAT.cpp` 단일 TU에 다음이 **함수 단위로 통합**되어 있다. 아래 예시 파일명은 **레거시 명명**이며 소스 트리에는 없을 수 있다.
+
+| 기준서 예시 파일 | 실제 구현 |
+|------------------|-----------|
+| `HTS_ARIA_KCMVP_KAT.cpp` | `Crypto_KAT::KAT_ARIA()` |
+| `HTS_LEA_KCMVP_KAT.cpp` | `Crypto_KAT::KAT_LEA()` |
+| `HTS_LSH256_KCMVP_KAT.cpp` | `Crypto_KAT::KAT_LSH256()` |
+| `HTS_HMAC_KCMVP_KAT.cpp` | `Crypto_KAT::KAT_HMAC_SHA256()` |
+| (DRBG) | `Crypto_KAT::KAT_DRBG()` |
+
+**PC 전용(HTS_TEST):** `KCMVP_암호_4종_종합_테스트.cpp` + `HTS_검증_KCMVP.vcxproj` — 동일 알고리즘 **정적 KAT**를 단일 exe로 재검 (브릿지·KISA/NSR C 소스 링크).
+
+`HTS_Conditional_SelfTest.cpp`는 별도 TU로 유지.
+
+### 8-6. 섹션 3에 반영 완료 — 추가 TU 귀속 (코드 근거)
+
+| 파일 | 확정 귀속 | 근거 |
+|------|-----------|------|
+| `HTS_AntiJam_Engine.cpp` | **Layer 8 (DSP/PHY)** | `HTS_V400_Dispatcher.hpp` 가 `HTS_AntiJam_Engine.h` include — 재밍은 PHY·디스패처 경계 |
+| `HTS_Voice_Codec_Bridge.cpp` | **Layer 14 (통신)** | `IPC_Error`·패킷 싱크 API; `HTS_Secure_Memory.h` 의존(Layer 2). `HTS_API.h` 주기 주석과 Defs 연계 |
+| `host_aarch64\HTS_IPC_Protocol_A55.cpp` | **Layer 14 (호스트 확장)** | 파일 경로·이름 규약. ARM-M4 단독 빌드 시 `vcxproj` 제외 |
+
+### 8-7. `ClCompile` 전체 인벤토리 (`HTS_LIM.vcxproj` 동기화, 107 TU)
+
+**검증:** `ClCompile` 항목 수 = **107**. TU 추가/삭제 시 아래로 목록을 덤프해 본 블록과 diff 한다.
+
+```powershell
+Select-String -Path "HTS_LIM\HTS_LIM.vcxproj" -Pattern 'ClCompile Include="([^"]+)"' |
+  ForEach-Object { $_.Matches.Groups[1].Value } | Sort-Object
+```
+
+```text
+aria050117.c
+BB1_Core_Engine.cpp
+hmac.c
+host_aarch64\HTS_Anchor_Vault.cpp
+host_aarch64\HTS_IPC_Protocol_A55.cpp
+host_aarch64\HTS_Storage_Interface.cpp
+HTS_3D_Tensor_FEC.cpp
+HTS_Adaptive_BPS_Controller.cpp
+HTS_AES_Bridge.cpp
+HTS_AMI_Protocol.cpp
+HTS_Anti_Debug.cpp
+HTS_Anti_Glitch.cpp
+HTS_AntiAnalysis_Shield.cpp
+HTS_AntiJam_Engine.cpp
+HTS_Antipodal_Core.cpp
+HTS_API.cpp
+HTS_ARIA_Bridge.cpp
+HTS_Auto_Rollback_Manager.cpp
+HTS_BLE_NFC_Gateway.cpp
+HTS_CCTV_Security.cpp
+HTS_CoAP_Engine.cpp
+HTS_Conditional_SelfTest.cpp
+HTS_Config.cpp
+HTS_Console_Manager.cpp
+HTS_ConstantTimeUtil.cpp
+HTS_Crc32Util.cpp
+HTS_Creator_Telemetry.cpp
+HTS_Crypto_KAT.cpp
+HTS_CTR_DRBG.cpp
+HTS_Device_Profile.cpp
+HTS_Device_Status_Reporter.cpp
+HTS_Dual_Tensor_16bit.cpp
+HTS_Dynamic_Config.cpp
+HTS_Dynamic_Key_Rotator.cpp
+HTS_Emergency_Beacon.cpp
+HTS_Entropy_Arrow.cpp
+HTS_Entropy_Monitor.cpp
+HTS_FEC_HARQ.cpp
+HTS_Gaussian_Pulse.cpp
+HTS_Gyro_Engine.cpp
+HTS_Hardware_Auto_Scaler.cpp
+HTS_Hardware_Bridge.cpp
+HTS_Hardware_Init.cpp
+HTS_Hardware_Shield.cpp
+HTS_HMAC_Bridge.cpp
+HTS_Holo_Dispatcher.cpp
+HTS_Holo_Tensor_4D.cpp
+HTS_Holo_Tensor_Engine.cpp
+HTS_IoT_Codec.cpp
+HTS_IPC_Protocol.cpp
+HTS_Key_Provisioning.cpp
+HTS_Key_Rotator.cpp
+HTS_KT_DSN_Adapter.cpp
+HTS_LEA_Bridge.cpp
+HTS_Location_Engine.cpp
+HTS_LSH256_Bridge.cpp
+HTS_Mesh_Router.cpp
+HTS_Mesh_Sync.cpp
+HTS_Meter_Data_Manager.cpp
+HTS_Modbus_Gateway.cpp
+HTS_Neighbor_Discovery.cpp
+HTS_Network_Bridge.cpp
+HTS_Orbital_Mapper.cpp
+HTS_OTA_AMI_Manager.cpp
+HTS_OTA_Manager.cpp
+HTS_Physical_Entropy_Engine.cpp
+HTS_Pointer_Auth.cpp
+HTS_Polymorphic_Shield.cpp
+HTS_POST_Manager.cpp
+HTS_Power_Manager.cpp
+HTS_Priority_Scheduler.cpp
+HTS_Quantum_Decoy_VDF.cpp
+HTS_Remote_Attestation.cpp
+HTS_Role_Auth.cpp
+HTS_Rx_Matched_Filter.cpp
+HTS_Rx_Sync_Detector.cpp
+HTS_Secure_Boot_Verify.cpp
+HTS_Secure_Logger.cpp
+HTS_Secure_Memory.cpp
+HTS_Security_Pipeline.cpp
+HTS_Security_Session.cpp
+HTS_Sensor_Aggregator.cpp
+HTS_Sensor_Fusion.cpp
+HTS_Session_Gateway.cpp
+HTS_SHA256_Bridge.cpp
+HTS_Sparse_Recovery.cpp
+HTS_Tamper_HAL.cpp
+HTS_TRNG_Collector.cpp
+HTS_Tx_Scheduler.cpp
+HTS_Unified_Scheduler.cpp
+HTS_Universal_Adapter.cpp
+HTS_Universal_API.cpp
+HTS_V400_Dispatcher.cpp
+HTS_Voice_Codec_Bridge.cpp
+HTS64_Native_ECCM_Core.cpp
+KISA_HMAC.c
+KISA_SHA256.c
+lea_base.c
+lea_core.c
+lea_gcm_generic.c
+lea_online.c
+lea_t_fallback.c
+lea_t_generic.c
+lsh.c
+lsh256.c
+lsh512.c
+util.c
+```
+
+### 8-8. `HTS_LIM.vcxproj.filters` (IDE)
+
+Layer 15·16 모듈은 필터 `Layer 15 - AMI OTA`, `Layer 16 - IoT Sensor`에 묶여 있다. TU 추가 시 동일 필터 규칙을 따른다.
+
+### 8-9. §2 최우선 스캔(17+4) × 레이어 검수 힌트
+
+파일 1-Pass 시 아래 **우선 레이어**부터 해당 항목을 스캔하면 누락을 줄인다. (항목은 전 레이어에 적용될 수 있음 — 힌트는 **집중도**이다.)
+
+| 항목 | 검수 집중 레이어 (힌트) |
+|------|-------------------------|
+| ① 배리어 | 전 레이어 — Secure Wipe·KAT 소거 MSVC `seq_cst` **유지** (§8-4) |
+| ② std::abs | 8, 9, 10, 16 (PHY·텐서·FEC·센서 산술) |
+| ③ 힙 | 전 `.cpp` — ARM 경로 `new`/`vector`/`string` 금지, **placement new**만 |
+| ④ double | 3, 8, 9, 10, 16 |
+| ⑤ 예외 | 전 `.cpp` |
+| ⑥ 스택 | 전 `.cpp` — 512B+ 로컬 배열 |
+| ⑦ 주석 | 전 파일 (§6 BUG 이력 규칙) |
+| ⑧ Pimpl SRAM | 15~16 다수, 14 일부 — `static_assert(sizeof(Impl)≤…)` |
+| ⑨ 나눗셈 | 8~11, 16 |
+| ⑩ Zero-copy | 전 공개 API |
+| ⑪ 엔디안 | 14, 15, 16 (프로토콜·페이로드) |
+| ⑫ 캐스팅 | 전 `.cpp` |
+| ⑬ CFI | 10, 11, 14, 15 (OTA·라우터·상태기) |
+| ⑭ PC 헤더 | 7, 17 |
+| ⑮ 타임아웃 | 1, 14, TRNG 등 HW 폴링 |
+| ⑯ 플래시 | 5, 15 (부팅·OTA) |
+| ⑰ NVIC/ISR | 1, 6, 14 |
+| A sizeof | 대형 정적 버퍼 TU (텐서·버퍼 모듈) |
+| B 래퍼 | 동일 |
+| C CAS | 12 세션, **17** `HTS_API` 초기화 등 |
+| D `[[likely]]` | 17 (`HTS_LIKELY` 매크로) |
+
+### 8-10. Layer 15~17 대조 체크 (섹션 3 ≡ §8-2)
+
+- [ ] Layer 15의 6개 `ClCompile`이 §8-7 목록에 모두 존재
+- [ ] `HTS_OTA_AMI_Manager` 전용 `*_Defs.h` 없음 — 섹션 3에 Defs 미기재 **정상**
+- [ ] Layer 16 `Sensor_*` / `Gyro` / `Location` / `Emergency` — Defs 없음 **정상**
+- [ ] Layer 17 `HTS_Universal_API.def`가 프로젝트 `None`에 등록, `.cpp`와 쌍 검수
+
+### 8-11. SRAM·Flash 산출 — `.map` / `size` (vcxproj와의 관계)
+
+**전제:** `HTS_LIM.vcxproj`는 **정적 라이브러리(`StaticLibrary`)** 이다. `HTS_LIM_V3.lib`만 빌드하면 **링커가 최종 이미지를 만들지 않으므로** RAM 합계·`.map` 파일은 **기본적으로 생성되지 않는다.** Cortex-M4용 **실제 SRAM 사용량**은 `HTS_LIM` 오브젝트를 끌어다 쓰는 **보드 앱(펌웨어) 프로젝트의 최종 링크**에서 확정한다.
+
+| 도구체인 | 산출물 | 명령 / 설정 (요지) |
+|----------|--------|---------------------|
+| **GNU Arm Embedded** (`arm-none-eabi-*`) | 링커 맵 | 최종 링크에 `-Wl,-Map=firmware.map` (경로는 툴체인 규약에 맞출 것) |
+| ↑ 동일 | 섹션 크기 | `arm-none-eabi-size -A -d firmware.elf` — `.text` / `.data` / `.bss` 등 |
+| **Keil µVision** | `.map` | Project → Options for Target → Listing → **Linker Listing** 에서 map 생성 |
+| **IAR EWARM** | `.map` | Linker → List → **Generate map file** |
+| **MSVC (호스트 Win32/x64)** | `.map` | **실행 파일(.exe)** 링크하는 프로젝트에서만 의미 있음. 링커 `/MAP` 또는 속성 **Linker → Debugging → Generate Map File** (버전에 따라 명칭 상이). **`HTS_LIM` 정적 라이브러리 단독 빌드에는 적용되지 않음.** |
+
+**정적 추정:** 각 TU의 `IMPL_BUF_SIZE`·헤더 주석 `sizeof`·대형 `constexpr` ROM 테이블은 코드 검색으로 **상한**을 잡을 수 있다. §0-3 **메인 SRAM 112KB / CCM 64KB**와 대조할 때는 **동시에 상주하는 전역 인스턴스**와 **FEC `RxState64` 등 스택 배치 금지 대상**을 함께 검토한다. **FEC/HARQ RAM 절감 우선순위·트레이드오프**는 `HTS_FEC_HARQ.hpp` 상단 `[메모리 절감 대책]` 블록과 동기화한다.
+
+**요약:** “전체 코드 RAM” 질문에 답하려면 **M4 앱 링크 한 번**에서 나온 **`.map` + `size`** 를 기준으로 삼는다 — `HTS_LIM.vcxproj`만으로는 수치가 완결되지 않으며, 본 절은 그 간극을 문서·프로젝트 주석과 맞춘 것이다.
 

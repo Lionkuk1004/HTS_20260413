@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 /// @file  HTS_FEC_HARQ.hpp
 /// @brief V400 3모드 FEC + HARQ (1칩/16칩/64칩)
 /// @target STM32F407VGT6 (Cortex-M4F) / PC
@@ -31,17 +31,27 @@
 //   }
 //
 //  [적응형 BPS — 64칩 4단]
-//   BPS=3(230심볼): 군용/강재밍 — 최대 보호
-//   BPS=4(172심볼): 중간 간섭
+//   BPS=3(230심볼): 레이아웃 비-M4 호스트만. M4·HTS_FEC_SIMULATE_M4_RAM_LAYOUT PC는 BPS≥4(NSYM64=172).
+//   BPS=4(172심볼): 중간 간섭 / M4 최대 보호 단
 //   BPS=5(138심볼): 약한 간섭
 //   BPS=6(115심볼): AMI 평시 — 최고 속도
 //   TX: Encode64_A(info, len, syms, il, bps, wb)
 //   RX: Feed64_1sym(state, I, Q, sym_idx) → Decode64_A(state, out, len, il, bps, wb)
 //
 //  [메모리 요구량]
-//   WorkBuf: ~15KB (Viterbi 실측 사용량 최적화)
-//   RxState64: ~115KB (HARQ 누적 I/Q 버퍼)
+//   WorkBuf: perm/tmp_soft + Viterbi + rep|all_llr 공용·in-place REP (~13KB급)
+//   RxState64: 레이아웃 비-M4 ~115KB(NSYM64=230). HTS_FEC_M4_RAM_LAYOUT(실M4 또는 PC 시뮬 동일) ~85KB(NSYM64=172,BPS≥4)
 //   ⚠ 스택 배치 시 ARM 스택 한계 주의
+//
+//  [메모리 절감 대책 — 우선순위·트레이드오프]
+//   P0 배치: RxState64·WorkBuf 전역/정적 1세트 또는 CCM+SRAM 분리(Decode_Core_Split).
+//            Decode 경로에서 두 버퍼를 동일 스택 프레임에 두지 말 것(~130KB 초과 위험).
+//   P1 운용: VOICE(RxState16)·VIDEO는 64칩 DATA 대비 누적 버퍼 대폭 감소 — RAM 한정 보드는 모드 고정.
+//   P2 프로파일(컴파일 타임): 최악 심볼 수 NSYM64 행만 줄이면 선형 절감.
+//            예) BPS 하한을 4로 보장 가능하면 행 172 → 약 −30KB, 하한 6만이면 행 115 → 약 −58KB.
+//            (프로토콜·상대국과 최소 BPS 계약 필수 — 위반 시 버퍼 오버런)
+//   P3 정밀도: int32 누적은 DATA_K·재전송 합의에 따른 상한 설계 결과 — int16 전환은 재분석·K 상한·포화 정책 필수.
+//   P4 아키텍처: Dual Tensor·IPC 등과 동시 상주 시 §8-11 `.map`으로 합산 검증.
 //
 //  [보안 설계]
 //   CRC-16/CCITT: 데이터 무결성 검증
@@ -52,6 +62,17 @@
 #pragma once
 #include <cstdint>
 #include <cstddef>
+
+// HTS_FEC_M4_RAM_LAYOUT:
+//   · 실칩: ARM 계열 && !HTS_ALLOW_HOST_BUILD
+//   · PC 시뮬을 실M4와 동일하게: vcxproj 등에 HTS_FEC_SIMULATE_M4_RAM_LAYOUT 정의
+//   비활성(매크로 없음·호스트만): NSYM64=230·BPS3 허용 — 펌웨어와 불일치 시 시험 결과 왜곡
+#if defined(HTS_FEC_SIMULATE_M4_RAM_LAYOUT) || \
+    ((defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+      defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)) && \
+     !defined(HTS_ALLOW_HOST_BUILD))
+#define HTS_FEC_M4_RAM_LAYOUT 1
+#endif
 
 namespace ProtectedEngine {
 
@@ -89,10 +110,15 @@ namespace ProtectedEngine {
         //  BPS=2: 발전소/극한 (344심볼, 24.4dB)
         //  BPS=1: 변전소 탭전환 (688심볼, 27.4dB) — BPSK
         //
-        static constexpr int BPS64_MIN = 3;   // 양산: 최대 보호 (군용급)
+        static constexpr int BPS64_MIN = 3;   // 양산: 최대 보호 (군용급) — M4에서는 누적 버퍼 한계로 TX/RX 기본 4+
         static constexpr int BPS64_MAX = 6;   // 양산: 최고 속도 (AMI 평시)
-        static constexpr int BPS64 = BPS64_MIN;  // 버퍼 크기 결정용
+#if defined(HTS_FEC_M4_RAM_LAYOUT)
+        static constexpr int BPS64 = 4;       // M4: Encode64/Decode64 기본 (172심볼)
+        static constexpr int NSYM64 = (TOTAL_CODED + BPS64 - 1) / BPS64;
+#else
+        static constexpr int BPS64 = BPS64_MIN;
         static constexpr int NSYM64 = (TOTAL_CODED + BPS64_MIN - 1) / BPS64_MIN;
+#endif
 
         /// @brief BPS → 심볼 수 (컴파일 타임 계산)
         static constexpr int nsym_for_bps(int bps) noexcept {
@@ -115,11 +141,31 @@ namespace ProtectedEngine {
         //                                                   // ≤200 청정 → BPS=6
 
         /// @brief NF → BPS 결정 (적응형 변조의 핵심 — 4단)
+        /// @note M4 RAM_LAYOUT: BPS<4 는 NSYM64 초과 → 하한 4로 클램프
         static constexpr int bps_from_nf(uint32_t nf) noexcept {
-            if (nf > NF_HEAVY_JAM) return BPS64_MIN;    // 3: 최대 보호
-            if (nf > NF_MED_JAM)   return 4;            // 16-ary
-            if (nf > NF_LIGHT_JAM) return 5;            // 32-ary
-            return BPS64_MAX;                             // 6: 최고 속도
+            int b = (nf > NF_HEAVY_JAM) ? BPS64_MIN :
+                (nf > NF_MED_JAM) ? 4 :
+                (nf > NF_LIGHT_JAM) ? 5 : BPS64_MAX;
+#if defined(HTS_FEC_M4_RAM_LAYOUT)
+            if (b < 4) { b = 4; }
+#endif
+            return b;
+        }
+
+        /// 이 바이너리에서 64칩 DATA Encode64_A/Decode64_A·HARQ 누적이 가능한 최소 BPS
+        /// (프로토콜 하한 BPS64_MIN=3 과 구분 — M4는 NSYM64=172 로 BPS3 상호운용 불가)
+        static constexpr int BPS64_MIN_OPERABLE =
+#if defined(HTS_FEC_M4_RAM_LAYOUT)
+            4
+#else
+            BPS64_MIN
+#endif
+            ;
+
+        static int bps_clamp_runtime(int b) noexcept {
+            if (b > BPS64_MAX) b = BPS64_MAX;
+            if (b < BPS64_MIN_OPERABLE) b = BPS64_MIN_OPERABLE;
+            return b;
         }
 
         static constexpr int C1 = 1;
@@ -145,16 +191,18 @@ namespace ProtectedEngine {
 
         // ── 워킹 버퍼 (호출자가 할당, DI 주입) ─────────────────────
         // 재진입성 100% 보장. 전역/스택/동적 할당 자유.
-        /// @warning sizeof(WorkBuf) ≈ 15KB — ARM에서 전역 또는 정적 배치 권장.
+        // rep(TX)·all_llr(RX) 동시 미사용 → 공용 저장 + REP 합산 후 all_llr[0..CONV_OUT) 가 Viterbi 입력
+        /// @warning sizeof(WorkBuf) ≈ 13KB — ARM에서 전역 또는 정적 배치 권장.
         struct WorkBuf {
             int32_t  pm[2][64];
             uint8_t  surv[VIT_STEPS][64];       // Viterbi 경로 256→88
             uint8_t  tb[VIT_STEPS];             // traceback 256→88
             uint16_t perm[TOTAL_CODED];       // 순열 인덱스 1024→688
             int32_t  tmp_soft[TOTAL_CODED];     // 소프트 메트릭 1024→688
-            uint8_t  rep[TOTAL_CODED];
-            int32_t  all_llr[TOTAL_CODED];      // LLR 1024→688
-            int32_t  combined[CONV_OUT];
+            union {
+                uint8_t  rep[TOTAL_CODED];      // Encode 경로 전용
+                int32_t  all_llr[TOTAL_CODED];  // Decode 경로 (REP in-place 후 앞 CONV_OUT 슬롯이 soft)
+            } ru;
         };
 
         // ── int64_t → int32_t (메모리 50% 절감) ───────────────────
@@ -166,8 +214,7 @@ namespace ProtectedEngine {
             int k;
             bool ok;
         };
-        /// @warning sizeof(RxState64) ≈ 115KB (aI/aQ[230][64]×int32_t×2)
-        ///          ARM 스택 배치 금지 — 반드시 전역/정적 변수로 배치할 것.
+        /// @warning sizeof(RxState64): PC~115KB / M4 RAM_LAYOUT~85KB — 스택 금지, 전역·정적만
         struct RxState64 {
             int32_t aI[NSYM64][C64];
             int32_t aQ[NSYM64][C64];
@@ -273,6 +320,21 @@ namespace ProtectedEngine {
         static void Deinterleave(int16_t* I, int16_t* Q,
             const uint8_t* p, int n) noexcept;
 
+#if defined(HTS_FEC_PROFILE)
+        /// Decode_Core 구간 누적 (HTS_FEC_PROFILE 빌드 전용). 틱: Win32=__rdtsc,
+        /// Cortex-M(호스트 빌드 아님)=DWT CYCCNT, 기타=steady_clock 나노초.
+        struct DecodeProfileStats {
+            uint64_t ticks_sym_prep_and_loop;
+            uint64_t ticks_bit_deinterleave;
+            uint64_t ticks_rep_combine;
+            uint64_t ticks_viterbi;
+            uint64_t ticks_tail;
+            uint64_t calls;
+        };
+        static void Profile_Reset() noexcept;
+        static DecodeProfileStats Profile_Get() noexcept;
+#endif
+
     private:
         static void FWHT(int32_t* d, int n) noexcept;
         static void Conv_Encode(const uint8_t* in, int n, uint8_t* out) noexcept;
@@ -299,8 +361,8 @@ namespace ProtectedEngine {
         "VIT_STEPS too small for Viterbi traceback");
     static_assert(FEC_HARQ::TOTAL_CODED <= 1024,
         "TOTAL_CODED exceeds original buffer limit");
-    static_assert(sizeof(FEC_HARQ::WorkBuf) <= 15360u,
-        "WorkBuf exceeds 15KB — perm[] storage shrink required");
+    static_assert(sizeof(FEC_HARQ::WorkBuf) <= 14000u,
+        "WorkBuf exceeds 14KB — rep|all_llr union·in-place REP 재검토");
     static_assert(sizeof(FEC_HARQ::RxState64) <= 128u * 1024u,
         "RxState64 exceeds 128KB — NSYM64 또는 C64 재검토 필요");
 

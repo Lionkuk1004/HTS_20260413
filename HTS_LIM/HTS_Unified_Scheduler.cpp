@@ -1,24 +1,76 @@
-// =========================================================================
+﻿// =========================================================================
 // HTS_Unified_Scheduler.cpp
 // DMA 핑퐁 이중 버퍼 기반 통합 송신 스케줄러 구현부
 // Target: STM32F407 (Cortex-M4)
 //
+// [보안] ARM Release: Schedule_Next_Transfer·Trigger_DMA_Hardware 진입 시 DHCSR·OPTCR(RDP)
+// [제약] 힙 0, try-catch 0
+// =========================================================================
 #include "HTS_Unified_Scheduler.hpp"
 #include "HTS_Hardware_Init.h"
 #include "HTS_Secure_Memory.h"
-
 #include <atomic>
 #include <cstdint>
 #include <cstddef>
 #include <cstring>
-
-// 플랫폼 감지
+#include <cstdlib>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+#if defined(__GNUC__) || defined(__clang__)
+typedef uint32_t __attribute__((__may_alias__)) uni_sched_u32_alias_t;
+#else
+typedef uint32_t uni_sched_u32_alias_t;
+#endif
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
 #define HTS_PLATFORM_ARM
+#include "HTS_Anti_Debug.h"
 #endif
-
 namespace ProtectedEngine {
+#if !defined(HTS_UNIFIED_SCHEDULER_SKIP_PHYS_TRUST)
+#if defined(HTS_ALLOW_OPEN_DEBUG) || !defined(NDEBUG)
+#define HTS_UNIFIED_SCHEDULER_SKIP_PHYS_TRUST 1
+#else
+#define HTS_UNIFIED_SCHEDULER_SKIP_PHYS_TRUST 0
+#endif
+#endif
+#if HTS_UNIFIED_SCHEDULER_SKIP_PHYS_TRUST == 0 && defined(HTS_PLATFORM_ARM)
+    [[noreturn]] static void UnifiedScheduler_PhysicalTrust_Fault() noexcept {
+        Hardware_Init_Manager::Terminal_Fault_Action();
+    }
+    static void UnifiedScheduler_AssertPhysicalTrustOrFault() noexcept {
+        volatile const uint32_t* const dhcsr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
+        const uint32_t d0 = *dhcsr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t d1 = *dhcsr;
+        if (d0 != d1) {
+            UnifiedScheduler_PhysicalTrust_Fault();
+        }
+        if ((d0 & DHCSR_DEBUG_MASK) != 0u) {
+            UnifiedScheduler_PhysicalTrust_Fault();
+        }
+        volatile const uint32_t* const optcr =
+            reinterpret_cast<volatile const uint32_t*>(HTS_FLASH_OPTCR_ADDR);
+        const uint32_t o0 = *optcr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t o1 = *optcr;
+        if (o0 != o1) {
+            UnifiedScheduler_PhysicalTrust_Fault();
+        }
+        const uint32_t rdp = (o0 & HTS_RDP_OPTCR_MASK) >> 8u;
+        if (rdp != HTS_RDP_EXPECTED_BYTE_VAL) {
+            UnifiedScheduler_PhysicalTrust_Fault();
+        }
+    }
+#else
+    static void UnifiedScheduler_AssertPhysicalTrustOrFault() noexcept {}
+#endif
 
     // =====================================================================
     //  DMA 레지스터 절대 주소 (보드별 커스텀 B-CDMA 모뎀)
@@ -40,21 +92,12 @@ namespace ProtectedEngine {
     //    → FPGA 내부 낸드 게이트 꼬임 → 시스템 락업/HardFault
     //  보드별 비트맵이 다를 수 있음 — FPGA RTL 또는 보드 설계서 참조
     static constexpr uint32_t DMA_BUSY_BIT = 0x02u;   ///< bit[1] FPGA DMA 전송 중
-    // 타임아웃: 168MHz × ~600us ≈ 100,000 루프
-    //  MAX_DMA_FRAME(4096) × 32bit = 16KB, FSMC 8비트 모드 최악
-    //  16KB ÷ 30MB/s(FSMC) ≈ 530us → 100,000 루프로 충분
-    static constexpr uint32_t DMA_BUSY_TIMEOUT = 100000u;
-
     static constexpr uintptr_t AIRCR_ADDR = 0xE000ED0Cu;
     static constexpr uint32_t  AIRCR_VECTKEY = 0x05FA0000u;
     static constexpr uint32_t  AIRCR_SYSRST = 0x04u;
 
     // =====================================================================
-    //  생성자
-    //
-    //   while(true) 무한 루프 — 워치독 만료까지 CPU 점유
-    //   AIRCR SYSRESETREQ → 즉시 하드웨어 리셋 (BB1 표준)
-    //         while(true)는 AIRCR 실패 시 폴백으로 유지
+    //  생성자 — pipeline==nullptr: AIRCR 시도 후 Terminal_Fault_Action(무한 루프 제거)
     // =====================================================================
     Unified_Scheduler::Unified_Scheduler(Dual_Tensor_Pipeline* pipeline) noexcept
         : core_pipeline(pipeline)
@@ -65,7 +108,8 @@ namespace ProtectedEngine {
         , packet_sequence_nonce(0)
         , dma_hw{} {
 
-        if (!core_pipeline) {
+        const uint32_t bad_pipe = static_cast<uint32_t>(core_pipeline == nullptr);
+        if (bad_pipe != 0u) {
 #if defined(HTS_PLATFORM_ARM)
 #if defined(__GNUC__) || defined(__clang__)
             __asm__ __volatile__("dsb" ::: "memory");
@@ -77,12 +121,10 @@ namespace ProtectedEngine {
             __asm__ __volatile__("dsb" ::: "memory");
             __asm__ __volatile__("isb" ::: "memory");
 #endif
+            Hardware_Init_Manager::Terminal_Fault_Action();
+#else
+            std::abort();
 #endif
-            while (true) {
-#if defined(__GNUC__) || defined(__clang__)
-                __asm__ __volatile__("" ::: "memory");
-#endif
-            }
         }
 
         // Output buffer capacity는 ping/pong 배열 크기(MAX_DMA_FRAME)로 고정.
@@ -111,13 +153,17 @@ namespace ProtectedEngine {
     //   → 콜드부트/힙 스캔 공격으로 직전 송신 데이터 복원 가능
     //
     //  volatile 소거 + asm clobber + release fence
-    //   → BB1, TensorCodec, Anchor_Vault 소멸자 보안 소거 표준과 통일
+    //   → BB1, Anchor_Vault 소멸자 보안 소거 표준과 통일
     // =====================================================================
     Unified_Scheduler::~Unified_Scheduler() noexcept {
         SecureMemory::secureWipe(static_cast<void*>(ping_buffer), sizeof(ping_buffer));
         SecureMemory::secureWipe(static_cast<void*>(pong_buffer), sizeof(pong_buffer));
+        SecureMemory::secureWipe(static_cast<void*>(ping_buffer), sizeof(ping_buffer));
+        SecureMemory::secureWipe(static_cast<void*>(pong_buffer), sizeof(pong_buffer));
         SecureMemory::secureWipe(
             static_cast<void*>(&packet_sequence_nonce), sizeof(packet_sequence_nonce));
+        SecureMemory::secureWipe(static_cast<void*>(&dma_hw), sizeof(dma_hw));
+        std::atomic_thread_fence(std::memory_order_release);
         current_dma_buffer.store(0, std::memory_order_release);
         buffer_size = 0u;
         core_pipeline = nullptr;
@@ -142,34 +188,61 @@ namespace ProtectedEngine {
         uint16_t* raw_sensor_data, size_t data_len,
         std::atomic<bool>& abort_signal) noexcept {
 
-        if (raw_sensor_data == nullptr || core_pipeline == nullptr) {
+        UnifiedScheduler_AssertPhysicalTrustOrFault();
+        const uint32_t bad_pre =
+            static_cast<uint32_t>(raw_sensor_data == nullptr)
+            | static_cast<uint32_t>(core_pipeline == nullptr);
+        if (bad_pre != 0u) {
             return false;
         }
 
         const int active_dma = current_dma_buffer.load(std::memory_order_acquire);
-        const int target_cpu_buffer = (active_dma == 0) ? 1 : 0;
+        const uint32_t ad_u = static_cast<uint32_t>(
+            static_cast<uint32_t>(active_dma) & 0x7FFFFFFFu);
+        const uint32_t ad_ok = static_cast<uint32_t>(ad_u < 2u);
+        if (ad_ok == 0u) {
+            return false;
+        }
+        const int target_cpu_buffer = 1 - static_cast<int>(ad_u);
 
-        // 듀얼 텐서 파이프라인 실행 (16비트 보안 + 16비트 스텔스 동시 생성)
-        bool success = core_pipeline->Execute_Dual_Processing(
+        const bool success = core_pipeline->Execute_Dual_Processing(
             raw_sensor_data, data_len, packet_sequence_nonce++, abort_signal);
-        if (!success) return false;
-
-        // 파이프라인 출력을 타겟 버퍼에 복사
-        const uint32_t* generated_data = core_pipeline->Get_Dual_Lane_Data();
-        const size_t generated_len = core_pipeline->Get_Dual_Lane_Size();
-        if (generated_data == nullptr || generated_len == 0u) return false;
-
-        uint32_t* active_cpu_buffer =
-            (target_cpu_buffer == 0) ? ping_buffer : pong_buffer;
-
-        size_t safe_len = (generated_len < buffer_size)
-            ? generated_len : buffer_size;
-
-        for (size_t i = 0; i < safe_len; ++i) {
-            active_cpu_buffer[i] = generated_data[i];
+        if (!success) {
+            return false;
         }
 
-        if (!Trigger_DMA_Hardware(active_cpu_buffer, safe_len)) {
+        const uint32_t* generated_data = core_pipeline->Get_Dual_Lane_Data();
+        const size_t generated_len = core_pipeline->Get_Dual_Lane_Size();
+        const uint32_t bad_gen =
+            static_cast<uint32_t>(generated_data == nullptr)
+            | static_cast<uint32_t>(generated_len == 0u);
+        if (bad_gen != 0u) {
+            return false;
+        }
+
+        uint32_t* const banks[2] = { ping_buffer, pong_buffer };
+        uint32_t* const active_cpu_buffer =
+            banks[static_cast<size_t>(static_cast<uint32_t>(target_cpu_buffer) & 1u)];
+
+        const uint32_t take_gen = static_cast<uint32_t>(generated_len < buffer_size);
+        const size_t safe_len =
+            generated_len * static_cast<size_t>(take_gen)
+            + buffer_size * static_cast<size_t>(1u - take_gen);
+        const uint32_t copy_safe =
+            static_cast<uint32_t>(safe_len <= MAX_DMA_FRAME)
+            & static_cast<uint32_t>(safe_len <= buffer_size);
+        const size_t copy_words = safe_len * static_cast<size_t>(copy_safe);
+        if (copy_safe == 0u) {
+            return false;
+        }
+        const size_t copy_bytes = copy_words * sizeof(uint32_t);
+        std::memcpy(
+            static_cast<void*>(static_cast<uni_sched_u32_alias_t*>(active_cpu_buffer)),
+            static_cast<const void*>(
+                static_cast<const uni_sched_u32_alias_t*>(generated_data)),
+            copy_bytes);
+
+        if (!Trigger_DMA_Hardware(active_cpu_buffer, copy_words)) {
             return false;
         }
         current_dma_buffer.store(target_cpu_buffer, std::memory_order_release);
@@ -196,61 +269,55 @@ namespace ProtectedEngine {
     //     (STM32 내장 DMA는 EN=0으로 비활성화 후 쓰기 가능하지만,
     //      외부 FPGA는 이 보호 메커니즘이 없음)
     //
-    //  동작 순서:
-    //   ① BUSY 비트 폴링 (타임아웃 100,000 루프 ≈ 600us @168MHz)
-    //   ② BUSY 해제 확인 후에만 레지스터 장전
-    //   ③ 캐시 플러시
-    //   ④ START 비트 설정
-    //   타임아웃 시: 레지스터 쓰기 전면 차단 → false (데이터 유실이
-    //   하드웨어 락업보다 안전)
+    //  동작 순서 (비차단):
+    //   ① BUSY 1회 샘플 — 1이면 즉시 false (스핀 금지, 상위 재시도)
+    //   ② Cache_Clean_Tx → DSB — SRAM 반영 후에만 레지스터 장전
+    //   ③ source/dest/length → START
     // =====================================================================
     bool Unified_Scheduler::Trigger_DMA_Hardware(
         uint32_t* buffer_ptr, size_t length) noexcept {
 
 #if defined(HTS_PLATFORM_ARM)
-        // ARM 베어메탈: 실제 DMA 하드웨어 접근
-        if (buffer_ptr == nullptr) {
+        UnifiedScheduler_AssertPhysicalTrustOrFault();
+        const uint32_t bad_ptr = static_cast<uint32_t>(buffer_ptr == nullptr);
+        const uint32_t ok_len =
+            static_cast<uint32_t>(length != 0u)
+            & static_cast<uint32_t>(length <= MAX_DMA_FRAME);
+        const uint32_t bad_regs =
+            static_cast<uint32_t>(dma_hw.source_address == nullptr)
+            | static_cast<uint32_t>(dma_hw.transfer_length == nullptr)
+            | static_cast<uint32_t>(dma_hw.control_status == nullptr)
+            | static_cast<uint32_t>(dma_hw.dest_address == nullptr);
+        const uint32_t bad = bad_ptr | (1u - ok_len) | bad_regs;
+        if (bad != 0u) {
             return false;
         }
-        if (length == 0u || length > MAX_DMA_FRAME) {
-            return false;
-        }
-        if (!dma_hw.source_address || !dma_hw.transfer_length ||
-            !dma_hw.control_status || !dma_hw.dest_address) {
+        const size_t safe_length = length * static_cast<size_t>(ok_len);
+
+        const uint32_t ctrl0 = *dma_hw.control_status;
+        const uint32_t busy_now =
+            static_cast<uint32_t>((ctrl0 & DMA_BUSY_BIT) != 0u);
+        if (busy_now != 0u) {
             return false;
         }
 
-        // ── Step 0: FPGA DMA BUSY 해제 대기 ─────────────────────
-        //  이전 전송이 완료될 때까지 레지스터 쓰기를 절대 하지 않음.
-        //  BUSY=1 상태에서 source_address 쓰기 → FPGA 락업 → HardFault.
-        //
-        //  타임아웃: 168MHz에서 단순 루프 1회 ≈ 6ns (분기+읽기+감산)
-        //  100,000회 × 6ns ≈ 600us
-        //  MAX_DMA_FRAME(4096) × 4B = 16KB, FSMC 8비트 모드 최악
-        //  16KB ÷ 30MB/s(FSMC) ≈ 530us → 100,000 루프로 충분
-        {
-            uint32_t timeout = DMA_BUSY_TIMEOUT;
-            while ((*dma_hw.control_status & DMA_BUSY_BIT) != 0u) {
-                if (--timeout == 0u) {
-                    // DMA 행(Hang) — 레지스터 쓰기 전면 차단
-                    // 데이터 1프레임 유실이 FPGA 락업보다 안전
-                    // 호출자(Schedule_Next_Transfer)는 다음 주기에 재시도
-                    return false;
-                }
-            }
-        }
+        Hardware_Init_Manager::Cache_Clean_Tx(buffer_ptr, safe_length);
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
+#endif
 
-        // ── Step 1: DMA 레지스터 장전 (BUSY=0 확인 후에만 도달) ────
         *dma_hw.source_address = static_cast<uint32_t>(
             reinterpret_cast<uintptr_t>(buffer_ptr));
         *dma_hw.dest_address = static_cast<uint32_t>(BCDMA_TX_FIFO_ADDR);
-        *dma_hw.transfer_length = static_cast<uint32_t>(length);
+        *dma_hw.transfer_length = static_cast<uint32_t>(safe_length);
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#elif defined(_MSC_VER)
+        _ReadWriteBarrier();
+#endif
 
-        // ── Step 2: CPU 캐시 → RAM 플러시 ─────────────────────────
-        //  DMA가 읽기 전에 최신 데이터 보장
-        Hardware_Init_Manager::Cache_Clean_Tx(buffer_ptr, length);
-
-        // ── Step 3: DMA 전송 시작 ─────────────────────────────────
         *dma_hw.control_status |= DMA_START_BIT;
         return true;
 #else

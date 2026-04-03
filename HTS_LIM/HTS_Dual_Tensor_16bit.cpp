@@ -1,4 +1,4 @@
-// =========================================================================
+﻿// =========================================================================
 // HTS_Dual_Tensor_16bit.cpp
 // B-CDMA 듀얼 레인 텐서 파이프라인 구현부 (Pimpl 은닉)
 // Target: STM32F407 (Cortex-M4, 168MHz)
@@ -428,7 +428,7 @@ namespace ProtectedEngine {
         //
         //  ★★★ TX/RX 암호학적 동기화 계약 (절대 변경 금지) ★★★
         //
-        //  (1) PRNG 갱신: 매 4샘플마다 1회 (stream_phase==0 일 때)
+        //  (1) PRNG: 매 샘플 동일 연산(상태는 ph==0에서만 마스크로 커밋) + 4샘플 블록 언롤
         //  (2) 16비트 추출 순서: MSB-first
         //       phase 0 → [63:48], phase 1 → [47:32],
         //       phase 2 → [31:16], phase 3 → [15:0]
@@ -446,61 +446,80 @@ namespace ProtectedEngine {
         uint32_t stream_phase = 0u;
         static constexpr uint32_t TX_SIGNAL_ATTEN_SHIFT = 4u;  // ÷16, 나눗셈 연산자 금지
 
-        for (size_t i = 0u; i < dl_len; ++i) {
-            if ((i & 0x3FFu) == 0u &&
-                abort_signal.load(std::memory_order_relaxed)) {
-                break;
-            }
-
+        // 듀얼 레인 1샘플: ph==0일 때만 Xoroshiro 상태 반영 — 64비트 마스크 합성(분기 없음)
+        auto dual_lane_one = [&](size_t idx, uint32_t ph) noexcept -> void {
             int32_t normalized_tx = Int32_Div_Pow2_Truncate(
-                impl.tx_signal[i], TX_SIGNAL_ATTEN_SHIFT);
+                impl.tx_signal[idx], TX_SIGNAL_ATTEN_SHIFT);
             normalized_tx = Safe_Clamp(normalized_tx, -32768, 32767);
             const uint16_t tx_16bit =
                 static_cast<uint16_t>(normalized_tx & 0xFFFF);
 
-            //  (logical_idx < total_16bit_words ⇒ sec_buffer_idx < packed_len)
-            //  EMI/경계: 분기 대신 Min_Size_U — LTO 언롤·벡터화 저해 분기 제거
             size_t sec_buffer_idx = logical_idx >> 1u;
             sec_buffer_idx = Min_Size_U(sec_buffer_idx, packed_len - 1u);
             sec_buffer_idx = Min_Size_U(
                 sec_buffer_idx, Impl::MAX_SEC_WORDS - 1u);
-            const bool is_high_part = ((logical_idx & 1u) == 0u);
             const uint32_t encrypted_32bit =
                 impl.temp_sec[sec_buffer_idx];
 
-            const uint16_t sec_16bit = is_high_part
-                ? static_cast<uint16_t>(encrypted_32bit >> 16u)
-                : static_cast<uint16_t>(encrypted_32bit & 0xFFFFu);
+            const uint32_t mask_lo =
+                0u - (static_cast<uint32_t>(logical_idx) & 1u);
+            const uint16_t sec_16bit = static_cast<uint16_t>(
+                ((encrypted_32bit >> 16u) & ~mask_lo)
+                | ((encrypted_32bit & 0xFFFFu) & mask_lo));
 
-            // [계약 §1] 매 4샘플마다 Xoroshiro128++ 1회 갱신
-            if (stream_phase == 0u) {
-                const uint64_t s0 = crypto_state_A;
-                uint64_t s1 = crypto_state_B;
-                crypto_stream_cache = RotL64(s0 + s1, 17u) + s0;
-
-                s1 ^= s0;
-                crypto_state_A = RotL64(s0, 49u) ^ s1 ^ (s1 << 21u);
-                crypto_state_B = RotL64(s1, 28u);
-            }
-            // LTO/O3: 상태·캐시 갱신이 키스트림 XOR보다 뒤로 재배치되지 않도록
+            const uint64_t s0 = crypto_state_A;
+            uint64_t s1 = crypto_state_B;
+            const uint64_t new_cache = RotL64(s0 + s1, 17u) + s0;
+            s1 ^= s0;
+            const uint64_t new_a =
+                RotL64(s0, 49u) ^ s1 ^ (s1 << 21u);
+            const uint64_t new_b = RotL64(s1, 28u);
+            const uint64_t m64 = 0ull - static_cast<uint64_t>(ph == 0u);
+            crypto_stream_cache =
+                (new_cache & m64) | (crypto_stream_cache & ~m64);
+            crypto_state_A =
+                (new_a & m64) | (crypto_state_A & ~m64);
+            crypto_state_B =
+                (new_b & m64) | (crypto_state_B & ~m64);
             std::atomic_signal_fence(std::memory_order_acq_rel);
 
-            // [계약 §2] MSB-first 16비트 추출: 48→32→16→0
-            const uint32_t shift = (3u - stream_phase) << 4u;
+            const uint32_t shift = (3u - ph) << 4u;
             const uint16_t stealth_sec = sec_16bit
                 ^ static_cast<uint16_t>(
                     (crypto_stream_cache >> shift) & 0xFFFFu);
 
-            // [계약 §3] 위상 카운터 순환: 0→1→2→3→0
-            stream_phase = (stream_phase + 1u) & 3u;
-
-            impl.dual_lane_buffer[i] =
+            impl.dual_lane_buffer[idx] =
                 (static_cast<uint32_t>(tx_16bit) << 16u)
                 | static_cast<uint32_t>(stealth_sec);
 
             logical_idx += logical_step;
-            if (logical_idx >= total_16bit_words) {
-                logical_idx -= total_16bit_words;
+            const size_t ovf =
+                static_cast<size_t>(logical_idx >= total_16bit_words);
+            logical_idx -= ovf * total_16bit_words;
+        };
+
+        size_t i = 0u;
+        bool dual_abort = false;
+        for (; i + 4u <= dl_len; i += 4u) {
+            if ((i & 0x3FFu) == 0u &&
+                abort_signal.load(std::memory_order_relaxed)) {
+                dual_abort = true;
+                break;
+            }
+
+            dual_lane_one(i + 0u, 0u);
+            dual_lane_one(i + 1u, 1u);
+            dual_lane_one(i + 2u, 2u);
+            dual_lane_one(i + 3u, 3u);
+        }
+        if (!dual_abort) {
+            for (; i < dl_len; ++i) {
+                if ((i & 0x3FFu) == 0u &&
+                    abort_signal.load(std::memory_order_relaxed)) {
+                    break;
+                }
+                dual_lane_one(i, stream_phase);
+                stream_phase = (stream_phase + 1u) & 3u;
             }
         }
 

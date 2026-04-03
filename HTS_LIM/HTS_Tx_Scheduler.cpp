@@ -2,17 +2,74 @@
 // HTS_Tx_Scheduler.cpp — B-CDMA TX 전송 스케줄러 (Pimpl 은닉)
 // Target: STM32F407 (Cortex-M4, 168MHz, SRAM 192KB)
 //
+// [보안] ARM Release: Initialize·Flush·Push·Pop 진입 시 DHCSR·OPTCR(RDP) 이중 샘플
+// [제약] 힙 0(Pimpl in-place), try-catch 0
+// =========================================================================
 #include "HTS_Tx_Scheduler.hpp"
 #include "HTS_Dynamic_Config.h"
 #include "HTS_Secure_Memory.h"
-
 #include <atomic>
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
 #include <new>
-
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
+#define HTS_TX_SCHEDULER_ARM
+#include "HTS_Anti_Debug.h"
+#include "HTS_Hardware_Init.h"
+#endif
 namespace ProtectedEngine {
+#if (defined(__cpp_lib_launder) && __cpp_lib_launder >= 201606L) || \
+    (defined(_MSVC_LANG) && _MSVC_LANG >= 201703L) || \
+    (!defined(_MSVC_LANG) && defined(__cplusplus) && __cplusplus >= 201703L)
+#define HTS_TX_SCHEDULER_USE_STD_LAUNDER 1
+#else
+#define HTS_TX_SCHEDULER_USE_STD_LAUNDER 0
+#endif
+#if !defined(HTS_TX_SCHEDULER_SKIP_PHYS_TRUST)
+#if defined(HTS_ALLOW_OPEN_DEBUG) || !defined(NDEBUG)
+#define HTS_TX_SCHEDULER_SKIP_PHYS_TRUST 1
+#else
+#define HTS_TX_SCHEDULER_SKIP_PHYS_TRUST 0
+#endif
+#endif
+#if HTS_TX_SCHEDULER_SKIP_PHYS_TRUST == 0 && defined(HTS_TX_SCHEDULER_ARM)
+    [[noreturn]] static void TxScheduler_PhysicalTrust_Fault() noexcept {
+        Hardware_Init_Manager::Terminal_Fault_Action();
+    }
+    static void TxScheduler_AssertPhysicalTrustOrFault() noexcept {
+        volatile const uint32_t* const dhcsr =
+            reinterpret_cast<volatile const uint32_t*>(ADDR_DHCSR);
+        const uint32_t d0 = *dhcsr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t d1 = *dhcsr;
+        if (d0 != d1) {
+            TxScheduler_PhysicalTrust_Fault();
+        }
+        if ((d0 & DHCSR_DEBUG_MASK) != 0u) {
+            TxScheduler_PhysicalTrust_Fault();
+        }
+        volatile const uint32_t* const optcr =
+            reinterpret_cast<volatile const uint32_t*>(HTS_FLASH_OPTCR_ADDR);
+        const uint32_t o0 = *optcr;
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("dsb sy" ::: "memory");
+#endif
+        const uint32_t o1 = *optcr;
+        if (o0 != o1) {
+            TxScheduler_PhysicalTrust_Fault();
+        }
+        const uint32_t rdp = (o0 & HTS_RDP_OPTCR_MASK) >> 8u;
+        if (rdp != HTS_RDP_EXPECTED_BYTE_VAL) {
+            TxScheduler_PhysicalTrust_Fault();
+        }
+    }
+#else
+    static void TxScheduler_AssertPhysicalTrustOrFault() noexcept {}
+#endif
     // ── 2의 제곱수 올림 (플랫폼별 링 버퍼 상한) ─────────────────
     //
     //  ARM (EMBEDDED_MINI): node_count=256 → raw_cap=1024 → ring_size=1024
@@ -23,7 +80,8 @@ namespace ProtectedEngine {
     //    MAX_RING_POW2 = 16384
     //    tx_ring_buffer[16384] × 4B = 64KB
     //
-#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
     static constexpr size_t MAX_RING_POW2 = static_cast<size_t>(1u) << 11u;  // 2048
 #else
     static constexpr size_t MAX_RING_POW2 = static_cast<size_t>(1u) << 14u;  // 16384
@@ -35,16 +93,20 @@ namespace ProtectedEngine {
         "size << 2u must not overflow size_t");
 
     static size_t Next_Power_Of_Two(size_t v) noexcept {
-        if (v == 0u) { return 1u; }
-        if (v > MAX_RING_POW2) { return MAX_RING_POW2; }
-        v--;
-        v |= v >> 1u;  v |= v >> 2u;
-        v |= v >> 4u;  v |= v >> 8u;
+        v += static_cast<size_t>(v == 0u);
+        const uint32_t too = static_cast<uint32_t>(v > MAX_RING_POW2);
+        v = v * static_cast<size_t>(1u - too)
+            + MAX_RING_POW2 * static_cast<size_t>(too);
+        --v;
+        v |= v >> 1u;
+        v |= v >> 2u;
+        v |= v >> 4u;
+        v |= v >> 8u;
         v |= v >> 16u;
 #if SIZE_MAX > 0xFFFFFFFFu
         v |= v >> 32u;
 #endif
-        v++;
+        ++v;
         return v;
     }
 
@@ -52,7 +114,8 @@ namespace ProtectedEngine {
     //  ARM Cortex-M4: 단일 코어, L1 데이터 캐시 없음 → False Sharing 불가
     //                 alignas(4) 충분 → 128B → 8B 절감
     //  PC x86/x64:    멀티 코어, L1 캐시 라인 64B → False Sharing 방어 필요
-#if defined(__arm__) || defined(__TARGET_ARCH_ARM)
+#if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
+    defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
     static constexpr size_t CACHELINE = 8u;    // Cortex-M4: 단일 코어
 #else
     static constexpr size_t CACHELINE = 64u;   // PC: 캐시 라인 64B
@@ -126,14 +189,25 @@ namespace ProtectedEngine {
             "Impl이 IMPL_BUF_SIZE를 초과합니다 — IMPL_BUF_SIZE 확대 필요");
         static_assert(alignof(Impl) <= IMPL_BUF_ALIGN,
             "Impl 정렬 요구가 impl_buf_ alignas(64)를 초과합니다");
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<Impl*>(impl_buf_) : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS_TX_SCHEDULER_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<Impl*>(impl_buf_);
+#endif
     }
 
     const HTS_Tx_Scheduler::Impl* HTS_Tx_Scheduler::get_impl() const noexcept {
-        return impl_valid_.load(std::memory_order_acquire)
-            ? reinterpret_cast<const Impl*>(impl_buf_)
-            : nullptr;
+        if (!impl_valid_.load(std::memory_order_acquire)) {
+            return nullptr;
+        }
+#if HTS_TX_SCHEDULER_USE_STD_LAUNDER
+        return std::launder(reinterpret_cast<const Impl*>(impl_buf_));
+#else
+        return reinterpret_cast<const Impl*>(impl_buf_);
+#endif
     }
 
     // =====================================================================
@@ -156,13 +230,14 @@ namespace ProtectedEngine {
             p->~Impl();
         }
         SecureMemory::secureWipe(impl_buf_, sizeof(impl_buf_));
-        impl_valid_ = false;
+        impl_valid_.store(false, std::memory_order_release);
     }
 
     // =====================================================================
     //  Initialize — 링 버퍼 메모리 할당
     // =====================================================================
     [[nodiscard]] bool HTS_Tx_Scheduler::Initialize() noexcept {
+        TxScheduler_AssertPhysicalTrustOrFault();
         Impl* p = get_impl();
         if (p == nullptr) { return false; }
         auto& impl = *p;
@@ -170,13 +245,18 @@ namespace ProtectedEngine {
         impl.is_active.store(false, std::memory_order_release);
         std::atomic_thread_fence(std::memory_order_release);
 
-        if (impl.current_config.temporal_slice_chunk == 0u) { return false; }
-        if (impl.current_config.node_count == 0u) { return false; }
+        const uint32_t bad_cfg =
+            static_cast<uint32_t>(impl.current_config.temporal_slice_chunk == 0u)
+            | static_cast<uint32_t>(impl.current_config.node_count == 0u);
+        if (bad_cfg != 0u) { return false; }
 
         const uint32_t nc = impl.current_config.node_count;
-        const size_t raw_cap = (nc > static_cast<uint32_t>(MAX_RING_POW2 >> 2u))
-            ? MAX_RING_POW2
-            : static_cast<size_t>(nc) << 2u;
+        const uint32_t big_nc = static_cast<uint32_t>(
+            nc > static_cast<uint32_t>(MAX_RING_POW2 >> 2u));
+        const size_t raw_small = static_cast<size_t>(nc) << 2u;
+        const size_t raw_cap =
+            raw_small * static_cast<size_t>(1u - big_nc)
+            + MAX_RING_POW2 * static_cast<size_t>(big_nc);
 
         const size_t ring_size = Next_Power_Of_Two(raw_cap);
 
@@ -210,17 +290,20 @@ namespace ProtectedEngine {
 
     // ── Flush (버퍼 완전 초기화) ──────────────────────────────────────────
     void HTS_Tx_Scheduler::Flush() noexcept {
+        TxScheduler_AssertPhysicalTrustOrFault();
         Impl* p = get_impl();
         if (p == nullptr) { return; }
         auto& impl = *p;
 
         if (!impl.is_active.load(std::memory_order_acquire)) { return; }
 
+        impl.is_active.store(false, std::memory_order_release);
+        std::atomic_thread_fence(std::memory_order_release);
+
         impl.write_idx.val.store(0, std::memory_order_release);
         impl.read_idx.val.store(0, std::memory_order_release);
         std::atomic_thread_fence(std::memory_order_release);
 
-        // memset은 컴파일러 DSE 최적화 시 제거 가능 → SecureMemory::secureWipe로 교체
         if (impl.ring_mask > 0u) {
             const size_t nwords = impl.ring_mask + 1u;
             if (nwords <= MAX_RING_POW2) {
@@ -228,6 +311,8 @@ namespace ProtectedEngine {
                     static_cast<void*>(impl.tx_ring_buffer), nwords << 2u);
             }
         }
+        std::atomic_thread_fence(std::memory_order_release);
+        impl.is_active.store(true, std::memory_order_release);
     }
 
     // ── Get_Used_Space (사용 중인 공간 확인) ──────────────────────────────
@@ -244,7 +329,9 @@ namespace ProtectedEngine {
         const Impl* p = get_impl();
         if (p == nullptr || p->ring_capacity == 0u) { return 0u; }
         const size_t used = Get_Used_Space();
-        return (p->ring_capacity > used) ? (p->ring_capacity - used) : 0u;
+        const size_t cap = p->ring_capacity;
+        const size_t diff = cap - used;
+        return diff * static_cast<size_t>(cap > used);
     }
 
     // =====================================================================
@@ -253,18 +340,27 @@ namespace ProtectedEngine {
     [[nodiscard]] bool HTS_Tx_Scheduler::Push_Waveform_Chunk(
         const int32_t* q16_data, size_t size) noexcept
     {
+        TxScheduler_AssertPhysicalTrustOrFault();
         Impl* p = get_impl();
-        if (p == nullptr || q16_data == nullptr || size == 0u) { return false; }
+        const uint32_t bad_pre =
+            static_cast<uint32_t>(p == nullptr)
+            | static_cast<uint32_t>(q16_data == nullptr)
+            | static_cast<uint32_t>(size == 0u);
+        if (bad_pre != 0u) { return false; }
         auto& impl = *p;
 
         if (!impl.is_active.load(std::memory_order_acquire)) { return false; }
         if (impl.ring_capacity == 0u) { return false; }
 
         const uint32_t chunk = impl.current_config.temporal_slice_chunk;
-        //  chunk는 프로파일 설계상 항상 2의 거듭제곱 (16, 64 등)
-        //  비2의제곱이면 안전 거부 (양산 방어)
-        if (chunk == 0u || (chunk & (chunk - 1u)) != 0u) { return false; }
-        if ((size & static_cast<size_t>(chunk - 1u)) != 0u) { return false; }
+        const uint32_t chunk_bad_pow2 =
+            static_cast<uint32_t>(chunk == 0u)
+            | static_cast<uint32_t>((chunk & (chunk - 1u)) != 0u);
+        const uint32_t size_bad_align =
+            static_cast<uint32_t>((size & static_cast<size_t>(chunk - 1u)) != 0u);
+        const uint32_t bad_chunk =
+            chunk_bad_pow2 | size_bad_align;
+        if (bad_chunk != 0u) { return false; }
 
         const size_t cur_write = impl.write_idx.val.load(std::memory_order_relaxed);
         const size_t cur_read = impl.read_idx.val.load(std::memory_order_acquire);
@@ -272,14 +368,20 @@ namespace ProtectedEngine {
         const size_t used = cur_write - cur_read;
         if (used > impl.ring_capacity) { return false; }
         const size_t available = impl.ring_capacity - used;
-        if (size > available) { return false; }
+        const uint32_t is_safe = static_cast<uint32_t>(size <= available);
+        const size_t safe_size = size * static_cast<size_t>(is_safe);
+        if (is_safe == 0u) { return false; }
 
         const size_t mask = impl.ring_mask;
         const size_t phy_write = cur_write & mask;
         const size_t to_end = (impl.ring_mask + 1u) - phy_write;
-        if (size > (SIZE_MAX >> 2u)) { return false; }
-        const size_t bytes = size << 2u;
-        const size_t to_end_bytes = to_end << 2u;
+        if (safe_size > (SIZE_MAX >> 2u)) { return false; }
+
+        const uint32_t is_wrap = static_cast<uint32_t>(safe_size > to_end);
+        const size_t len1 =
+            to_end * static_cast<size_t>(is_wrap)
+            + safe_size * static_cast<size_t>(1u - is_wrap);
+        const size_t len2 = safe_size - len1;
 
         int32_t* const dst_buf_base = impl.tx_ring_buffer;
         const int32_t* src_ptr = q16_data;
@@ -295,35 +397,23 @@ namespace ProtectedEngine {
         int32_t* dst_w = &dst_buf_base[phy_write];
 #endif
 
-        if (size <= to_end) {
-            std::memcpy(dst_w, src_ptr, bytes);
-            //  컴파일러/CPU 투기적 실행으로 memcpy 완료 전 store 선행 방지
-            //  fence(release): memcpy 가시성 보장
-            //  store(relaxed): fence가 이미 release 의미 → 이중 배리어 제거
-            std::atomic_thread_fence(std::memory_order_release);
-            impl.write_idx.val.store(cur_write + size,
-                std::memory_order_relaxed);
-        }
-        else {
-            std::memcpy(dst_w, src_ptr, to_end_bytes);
-
-            const size_t rem = size - to_end;
-            const int32_t* src_next = src_ptr + to_end;
+        std::memcpy(dst_w, src_ptr, len1 << 2u);
 #if defined(__GNUC__) || defined(__clang__)
-            void* dst0 = __builtin_assume_aligned(
-                static_cast<void*>(dst_buf_base), 4);
-            if ((reinterpret_cast<uintptr_t>(q16_data) & 3u) == 0u) {
-                src_next = static_cast<const int32_t*>(
-                    __builtin_assume_aligned(src_next, 4));
-            }
-#else
-            void* dst0 = static_cast<void*>(dst_buf_base);
-#endif
-            std::memcpy(dst0, src_next, rem << 2u);
-            std::atomic_thread_fence(std::memory_order_release);
-            impl.write_idx.val.store(cur_write + size,
-                std::memory_order_relaxed);
+        void* dst0 = __builtin_assume_aligned(
+            static_cast<void*>(dst_buf_base), 4);
+        const int32_t* src2 = src_ptr + len1;
+        if ((reinterpret_cast<uintptr_t>(q16_data) & 3u) == 0u) {
+            src2 = static_cast<const int32_t*>(
+                __builtin_assume_aligned(src2, 4));
         }
+#else
+        void* dst0 = static_cast<void*>(dst_buf_base);
+        const int32_t* src2 = src_ptr + len1;
+#endif
+        std::memcpy(dst0, src2, len2 << 2u);
+        std::atomic_thread_fence(std::memory_order_release);
+        impl.write_idx.val.store(cur_write + safe_size,
+            std::memory_order_relaxed);
 
         return true;
     }
@@ -334,32 +424,46 @@ namespace ProtectedEngine {
     [[nodiscard]] bool HTS_Tx_Scheduler::Pop_Tx_Payload(
         int32_t* out_buffer, size_t requested_size) noexcept
     {
+        TxScheduler_AssertPhysicalTrustOrFault();
         Impl* p = get_impl();
-        if (p == nullptr || out_buffer == nullptr || requested_size == 0u) {
-            return false;
-        }
+        const uint32_t bad_pre =
+            static_cast<uint32_t>(p == nullptr)
+            | static_cast<uint32_t>(out_buffer == nullptr)
+            | static_cast<uint32_t>(requested_size == 0u);
+        if (bad_pre != 0u) { return false; }
         auto& impl = *p;
 
         if (!impl.is_active.load(std::memory_order_acquire)) { return false; }
         if (impl.ring_capacity == 0u) { return false; }
 
         const uint32_t chunk = impl.current_config.temporal_slice_chunk;
-        if (chunk == 0u || (chunk & (chunk - 1u)) != 0u) { return false; }
-        if ((requested_size & static_cast<size_t>(chunk - 1u)) != 0u) { return false; }
+        const uint32_t chunk_bad_pow2 =
+            static_cast<uint32_t>(chunk == 0u)
+            | static_cast<uint32_t>((chunk & (chunk - 1u)) != 0u);
+        const uint32_t size_bad_align = static_cast<uint32_t>(
+            (requested_size & static_cast<size_t>(chunk - 1u)) != 0u);
+        const uint32_t bad_chunk = chunk_bad_pow2 | size_bad_align;
+        if (bad_chunk != 0u) { return false; }
 
         const size_t cur_read = impl.read_idx.val.load(std::memory_order_relaxed);
         const size_t cur_write = impl.write_idx.val.load(std::memory_order_acquire);
 
         const size_t used = cur_write - cur_read;
         if (used > impl.ring_capacity) { return false; }
-        if (used < requested_size) { return false; }
+        const uint32_t is_safe = static_cast<uint32_t>(used >= requested_size);
+        const size_t safe_size = requested_size * static_cast<size_t>(is_safe);
+        if (is_safe == 0u) { return false; }
 
         const size_t mask = impl.ring_mask;
         const size_t phy_read = cur_read & mask;
         const size_t to_end = (impl.ring_mask + 1u) - phy_read;
-        if (requested_size > (SIZE_MAX >> 2u)) { return false; }
-        const size_t bytes = requested_size << 2u;
-        const size_t to_end_bytes = to_end << 2u;
+        if (safe_size > (SIZE_MAX >> 2u)) { return false; }
+
+        const uint32_t is_wrap = static_cast<uint32_t>(safe_size > to_end);
+        const size_t len1 =
+            to_end * static_cast<size_t>(is_wrap)
+            + safe_size * static_cast<size_t>(1u - is_wrap);
+        const size_t len2 = safe_size - len1;
 
         const int32_t* const src_buf_base = impl.tx_ring_buffer;
         int32_t* dst_ptr = out_buffer;
@@ -375,32 +479,22 @@ namespace ProtectedEngine {
         const int32_t* src_r = &src_buf_base[phy_read];
 #endif
 
-        if (requested_size <= to_end) {
-            std::memcpy(dst_ptr, src_r, bytes);
-            std::atomic_thread_fence(std::memory_order_release);
-            impl.read_idx.val.store(cur_read + requested_size,
-                std::memory_order_relaxed);
-        }
-        else {
-            std::memcpy(dst_ptr, src_r, to_end_bytes);
-
-            const size_t rem = requested_size - to_end;
-            int32_t* dst_next = dst_ptr + to_end;
+        std::memcpy(dst_ptr, src_r, len1 << 2u);
+        int32_t* dst2 = dst_ptr + len1;
 #if defined(__GNUC__) || defined(__clang__)
-            const void* src0 = __builtin_assume_aligned(
-                static_cast<const void*>(src_buf_base), 4);
-            if ((reinterpret_cast<uintptr_t>(out_buffer) & 3u) == 0u) {
-                dst_next = static_cast<int32_t*>(
-                    __builtin_assume_aligned(dst_next, 4));
-            }
-#else
-            const void* src0 = static_cast<const void*>(src_buf_base);
-#endif
-            std::memcpy(dst_next, src0, rem << 2u);
-            std::atomic_thread_fence(std::memory_order_release);
-            impl.read_idx.val.store(cur_read + requested_size,
-                std::memory_order_relaxed);
+        const void* src0 = __builtin_assume_aligned(
+            static_cast<const void*>(src_buf_base), 4);
+        if ((reinterpret_cast<uintptr_t>(out_buffer) & 3u) == 0u) {
+            dst2 = static_cast<int32_t*>(
+                __builtin_assume_aligned(dst2, 4));
         }
+#else
+        const void* src0 = static_cast<const void*>(src_buf_base);
+#endif
+        std::memcpy(dst2, src0, len2 << 2u);
+        std::atomic_thread_fence(std::memory_order_release);
+        impl.read_idx.val.store(cur_read + safe_size,
+            std::memory_order_relaxed);
 
         return true;
     }

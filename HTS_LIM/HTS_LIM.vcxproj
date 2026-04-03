@@ -6,7 +6,16 @@
   ===================================================================
   현재 구성: Debug|Win32, Release|Win32, Debug|x64, Release|x64
              (PC 시뮬레이션 및 개발 전용 — ARM 타깃 아님)
+  · HTS_FEC_SIMULATE_M4_RAM_LAYOUT(전처리기에 정의됨): FEC/HARQ가 실M4와 동일 NSYM64·BPS 하한.
+  · PC 검증 실행 파일: HTS_Development.sln 의 HTS_TEST\HTS_검증_KCMVP·HTS_검증_종합재밍·HTS_검증_AMI
 
+  [SRAM·Flash / .map 과의 관계 — 기준서 §8-11 과 동일]
+  · 본 프로젝트는 StaticLibrary(HTS_LIM_V3.lib) 이므로, 이 단계만으로는 링커 .map·
+    arm-none-eabi-size 가 산출되지 않음. M4 최종 RAM 사용량은 보드용 앱 프로젝트에서
+    HTS_LIM 오브젝트를 링크할 때 생성되는 firmware.elf + -Wl,-Map=… 로 확정.
+  · MSVC 호스트: .map 은 .exe 링크 프로젝트에 /MAP 등으로 설정(라이브러리 단독 빌드 X).
+
+  M4: RF·보안·IPC(HTS_IPC_Protocol) 중심. A55: 무선·무거운 앱 — 계약은 HTS_AP_Bridge_Defs.h
   ┌─────────────────────┬──────────┬──────────┬──────────┐
   │ 파일 그룹           │ Win32/x64│ ARM-M4   │ A55/서버 │
   ├─────────────────────┼──────────┼──────────┼──────────┤
@@ -17,8 +26,7 @@
   └─────────────────────┴──────────┴──────────┴──────────┘
 
   ARM GCC/Keil 타깃 빌드 시 반드시 아래 파일을 제외할 것:
-  [A] AnchorDecoder.cpp, AnchorEncoder.cpp, AnchorManager.cpp,
-      TensorCodec.cpp, HTS_Anchor_Vault.cpp, HTS_Storage_Interface.cpp
+  [A] host_aarch64\HTS_Anchor_Vault.cpp, host_aarch64\HTS_Storage_Interface.cpp
   [B] HTS_3D_Tensor_FEC.cpp
   ===================================================================
   -->
@@ -100,10 +108,10 @@
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_PROFILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)..\..\CORE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)host_aarch64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/openmp:experimental %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableSpecificWarnings>4334;4242;4244;4018;4101;4324;4702;4996</DisableSpecificWarnings>
@@ -119,10 +127,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)..\..\CORE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)host_aarch64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <AdditionalOptions>/openmp:experimental %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DisableSpecificWarnings>4334;4242;4244;4018;4101;4324;4702;4996</DisableSpecificWarnings>
@@ -136,10 +144,10 @@
     <ClCompile>
       <WarningLevel>Level4</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_PROFILE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)..\..\CORE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)host_aarch64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <AdditionalOptions>/openmp:experimental %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
@@ -156,10 +164,10 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)..\..\CORE;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\..\;$(ProjectDir)..\;$(ProjectDir);$(ProjectDir)host_aarch64;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <DisableLanguageExtensions>false</DisableLanguageExtensions>
       <AdditionalOptions>/openmp:experimental %(AdditionalOptions)</AdditionalOptions>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
@@ -201,7 +209,7 @@
     <ClCompile Include="HTS_Adaptive_BPS_Controller.cpp" />
     <ClCompile Include="HTS_AES_Bridge.cpp" />
     <ClCompile Include="HTS_AMI_Protocol.cpp" />
-    <ClCompile Include="HTS_Anchor_Vault.cpp">
+    <ClCompile Include="host_aarch64\HTS_Anchor_Vault.cpp">
       <!-- [BUILD-MATRIX-A] A55/서버 전용 — ARM 타깃 구성 추가 시 자동 배제 -->
       <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
@@ -233,7 +241,7 @@
     <ClCompile Include="HTS_Holo_Tensor_4D.cpp" />
     <ClCompile Include="HTS_Holo_Tensor_Engine.cpp" />
     <ClCompile Include="HTS_IoT_Codec.cpp" />
-    <ClCompile Include="HTS_IPC_Protocol_A55.cpp" />
+    <ClCompile Include="host_aarch64\HTS_IPC_Protocol_A55.cpp" />
     <ClCompile Include="HTS_LEA_Bridge.cpp" />
     <ClCompile Include="HTS_LSH256_Bridge.cpp" />
     <ClCompile Include="HTS_Network_Bridge.cpp" />
@@ -251,7 +259,7 @@
     <ClCompile Include="HTS_Session_Gateway.cpp" />
     <ClCompile Include="HTS_SHA256_Bridge.cpp" />
     <ClCompile Include="HTS_Sparse_Recovery.cpp" />
-    <ClCompile Include="HTS_Storage_Interface.cpp">
+    <ClCompile Include="host_aarch64\HTS_Storage_Interface.cpp">
       <!-- [BUILD-MATRIX-A] A55/서버 전용 — ARM 타깃 구성 추가 시 자동 배제 -->
       <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
@@ -259,21 +267,6 @@
     <ClCompile Include="HTS_TRNG_Collector.cpp" />
     <ClCompile Include="HTS_Tx_Scheduler.cpp" />
     <ClCompile Include="HTS_Universal_API.cpp" />
-    <ClCompile Include="AnchorDecoder.cpp">
-      <!-- [BUILD-MATRIX-A] A55/서버 전용 — ARM 타깃 구성 추가 시 자동 배제 -->
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="AnchorEncoder.cpp">
-      <!-- [BUILD-MATRIX-A] A55/서버 전용 — ARM 타깃 구성 추가 시 자동 배제 -->
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="AnchorManager.cpp">
-      <!-- [BUILD-MATRIX-A] A55/서버 전용 — ARM 타깃 구성 추가 시 자동 배제 -->
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="BB1_Core_Engine.cpp" />
     <ClCompile Include="HTS_ConstantTimeUtil.cpp" />
     <ClCompile Include="HTS_Crc32Util.cpp" />
@@ -309,17 +302,13 @@
       <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|x64'">%(DisableSpecificWarnings)</DisableSpecificWarnings>
     </ClCompile>
     <ClCompile Include="lsh512.c" />
-    <ClCompile Include="TensorCodec.cpp">
-      <!-- [BUILD-MATRIX-A] A55/서버 전용 — ARM 타깃 구성 추가 시 자동 배제 -->
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
-      <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
-    </ClCompile>
     <ClCompile Include="util.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="arm_arch.h" />
     <ClInclude Include="cpu_info.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
+    <ClInclude Include="HTS_Data_Loader.h" />
     <ClInclude Include="HTS_Device_Status_Reporter.h" />
     <ClInclude Include="HTS_Emergency_Beacon.h" />
     <ClInclude Include="HTS_Key_Provisioning.h" />
@@ -330,11 +319,16 @@
     <ClInclude Include="HTS_Neighbor_Discovery.h" />
     <ClInclude Include="HTS_OTA_AMI_Manager.h" />
     <ClInclude Include="HTS_Priority_Scheduler.h" />
+    <ClInclude Include="HTS_Quantum_Key_Bridge.h" />
     <ClInclude Include="HTS_Secure_Boot_Verify.h" />
     <ClInclude Include="HTS_Sensor_Aggregator.h" />
     <ClInclude Include="HTS_Sensor_Fusion.h" />
+    <ClInclude Include="HTS_Server_Stress_Test.h" />
+    <ClInclude Include="HTS_Storage_Adapter.hpp" />
     <ClInclude Include="HTS_Tamper_HAL.h" />
-    <ClInclude Include="HTS64_Native_ECCM_Core.hpp" />
+    <ClInclude Include="HTS64_Native_ECCM_Core.hpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClInclude>
     <ClInclude Include="HTS_Adaptive_BPS_Controller.h" />
     <ClInclude Include="HTS_AES_Bridge.h" />
     <ClInclude Include="HTS_AMI_Protocol.h" />
@@ -359,7 +353,8 @@
     <ClInclude Include="HTS_IoT_Codec.h" />
     <ClInclude Include="HTS_IoT_Codec_Defs.h" />
     <ClInclude Include="HTS_IPC_Protocol.h" />
-    <ClInclude Include="HTS_IPC_Protocol_A55.h" />
+    <ClInclude Include="host_aarch64\HTS_IPC_Protocol_A55.h" />
+    <ClInclude Include="HTS_AP_Bridge_Defs.h" />
     <ClInclude Include="HTS_IPC_Protocol_Defs.h" />
     <ClInclude Include="HTS_KT_DSN_Adapter.h" />
     <ClInclude Include="HTS_KT_DSN_Adapter_Defs.h" />
@@ -375,27 +370,27 @@
     <ClInclude Include="HTS_Role_Auth.h" />
     <ClInclude Include="HTS_Secure_Memory.h" />
     <ClInclude Include="HTS_BitOps.h" />
-    <ClInclude Include="..\..\CORE\HTS_Anchor_Vault.hpp" />
-    <ClInclude Include="..\..\CORE\HTS_AntiAnalysis_Shield.h" />
-    <ClInclude Include="..\..\CORE\HTS_Antipodal_Core.h" />
-    <ClInclude Include="..\..\CORE\HTS_Dynamic_Config.h" />
-    <ClInclude Include="..\..\CORE\HTS_Entropy_Arrow.hpp" />
-    <ClInclude Include="..\..\CORE\HTS_Gyro_Engine.h" />
-    <ClInclude Include="..\..\CORE\HTS_Hardware_Bridge.hpp" />
-    <ClInclude Include="..\..\CORE\HTS_Hardware_Shield.h" />
-    <ClInclude Include="..\..\CORE\HTS_Orbital_Mapper.hpp" />
-    <ClInclude Include="..\..\CORE\HTS_Physical_Entropy_Engine.h" />
-    <ClInclude Include="..\..\CORE\HTS_Quantum_Decoy_VDF.h" />
-    <ClInclude Include="..\..\CORE\HTS_Polymorphic_Shield.h" />
-    <ClInclude Include="..\..\CORE\HTS_Sparse_Recovery.h" />
-    <ClInclude Include="..\..\CORE\HTS_Storage_Interface.h" />
-    <ClInclude Include="..\..\CORE\HTS_Universal_API.h" />
-    <ClInclude Include="..\..\CORE\HTS_Universal_API.hpp" />
-    <ClInclude Include="..\..\CORE\BB1_Core_Engine.hpp" />
-    <ClInclude Include="..\..\CORE\HTS_Creator_Telemetry.h" />
-    <ClInclude Include="..\..\CORE\HTS_Security_Pipeline.h" />
-    <ClInclude Include="..\..\CORE\HTS_Universal_Adapter.h" />
-    <ClInclude Include="..\..\CORE\HTS_Universal_Adapter.hpp" />
+    <ClInclude Include="HTS_Anchor_Vault.hpp" />
+    <ClInclude Include="HTS_AntiAnalysis_Shield.h" />
+    <ClInclude Include="HTS_Antipodal_Core.h" />
+    <ClInclude Include="HTS_Dynamic_Config.h" />
+    <ClInclude Include="HTS_Entropy_Arrow.hpp" />
+    <ClInclude Include="HTS_Gyro_Engine.h" />
+    <ClInclude Include="HTS_Hardware_Bridge.hpp" />
+    <ClInclude Include="HTS_Hardware_Shield.h" />
+    <ClInclude Include="HTS_Orbital_Mapper.hpp" />
+    <ClInclude Include="HTS_Physical_Entropy_Engine.h" />
+    <ClInclude Include="HTS_Quantum_Decoy_VDF.h" />
+    <ClInclude Include="HTS_Polymorphic_Shield.h" />
+    <ClInclude Include="HTS_Sparse_Recovery.h" />
+    <ClInclude Include="HTS_Storage_Interface.h" />
+    <ClInclude Include="HTS_Universal_API.h" />
+    <ClInclude Include="HTS_Universal_API.hpp" />
+    <ClInclude Include="BB1_Core_Engine.hpp" />
+    <ClInclude Include="HTS_Creator_Telemetry.h" />
+    <ClInclude Include="HTS_Security_Pipeline.h" />
+    <ClInclude Include="HTS_Universal_Adapter.h" />
+    <ClInclude Include="HTS_Universal_Adapter.hpp" />
     <ClInclude Include="common.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="hmac.h" />
@@ -417,9 +412,6 @@
     <ClInclude Include="HTS_Rx_Matched_Filter.h" />
     <ClInclude Include="HTS_Rx_Sync_Detector.h" />
     <ClInclude Include="HTS_Secure_Memory_Manager.hpp" />
-    <ClInclude Include="AnchorDecoder.h" />
-    <ClInclude Include="AnchorEncoder.h" />
-    <ClInclude Include="AnchorManager.h" />
     <ClInclude Include="HTS_Crc32Util.h" />
     <ClInclude Include="HTS_Anti_Debug.h" />
     <ClInclude Include="HTS_Anti_Glitch.h" />
@@ -460,7 +452,6 @@
     <ClInclude Include="lsh512.h" />
     <ClInclude Include="lsh_def.h" />
     <ClInclude Include="lsh_local.h" />
-    <ClInclude Include="TensorCodec.hpp" />
     <ClInclude Include="util.h" />
   </ItemGroup>
   <ItemGroup>
@@ -470,6 +461,9 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="# HTS B-CDMA 전수검사 통합 기준서.md" />
+    <None Include="HTS_Storage_Adapter.def" />
+    <None Include="HTS_Universal_Adapter.def" />
+    <None Include="HTS_Universal_API.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

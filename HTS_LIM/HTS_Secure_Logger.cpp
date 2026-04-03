@@ -136,7 +136,7 @@ static void FlushAuditRingForTrapImpl() noexcept {
         }
         HTS_AuditLog_SyncDrainLine(slot, len);
     }
-    std::atomic_thread_fence(std::memory_order_seq_cst);
+    std::atomic_thread_fence(std::memory_order_release);
 #endif
 }
 

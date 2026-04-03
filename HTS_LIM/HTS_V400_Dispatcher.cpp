@@ -39,18 +39,78 @@ namespace ProtectedEngine {
     }
 
     static constexpr uint32_t fast_abs(int32_t x) noexcept {
-        int32_t m = x >> 31;
-        return static_cast<uint32_t>((x ^ m) - m);
+        const uint32_t m = 0u - static_cast<uint32_t>(x < 0);
+        return (static_cast<uint32_t>(x) ^ m) + m;
     }
 
     static void fwht_raw(int32_t* d, int n) noexcept {
-        for (int len = 1; len < n; len <<= 1)
-            for (int i = 0; i < n; i += 2 * len)
+        if (n == 64) {
+            for (int i = 0; i < 64; i += 2) {
+                int32_t u = d[i], v = d[i + 1];
+                d[i] = u + v; d[i + 1] = u - v;
+            }
+            for (int i = 0; i < 64; i += 4) {
+                int32_t u = d[i], v = d[i + 2];
+                d[i] = u + v; d[i + 2] = u - v;
+                u = d[i + 1]; v = d[i + 3];
+                d[i + 1] = u + v; d[i + 3] = u - v;
+            }
+            for (int i = 0; i < 64; i += 8) {
+                for (int k = 0; k < 4; ++k) {
+                    int32_t u = d[i + k], v = d[i + 4 + k];
+                    d[i + k] = u + v; d[i + 4 + k] = u - v;
+                }
+            }
+            for (int i = 0; i < 64; i += 16) {
+                for (int k = 0; k < 8; ++k) {
+                    int32_t u = d[i + k], v = d[i + 8 + k];
+                    d[i + k] = u + v; d[i + 8 + k] = u - v;
+                }
+            }
+            for (int i = 0; i < 64; i += 32) {
+                for (int k = 0; k < 16; ++k) {
+                    int32_t u = d[i + k], v = d[i + 16 + k];
+                    d[i + k] = u + v; d[i + 16 + k] = u - v;
+                }
+            }
+            for (int k = 0; k < 32; ++k) {
+                int32_t u = d[k], v = d[k + 32];
+                d[k] = u + v; d[k + 32] = u - v;
+            }
+            return;
+        }
+        if (n == 16) {
+            for (int i = 0; i < 16; i += 2) {
+                int32_t u = d[i], v = d[i + 1];
+                d[i] = u + v; d[i + 1] = u - v;
+            }
+            for (int i = 0; i < 16; i += 4) {
+                int32_t u = d[i], v = d[i + 2];
+                d[i] = u + v; d[i + 2] = u - v;
+                u = d[i + 1]; v = d[i + 3];
+                d[i + 1] = u + v; d[i + 3] = u - v;
+            }
+            for (int i = 0; i < 16; i += 8) {
+                for (int k = 0; k < 4; ++k) {
+                    int32_t u = d[i + k], v = d[i + 4 + k];
+                    d[i + k] = u + v; d[i + 4 + k] = u - v;
+                }
+            }
+            for (int k = 0; k < 8; ++k) {
+                int32_t u = d[k], v = d[k + 8];
+                d[k] = u + v; d[k + 8] = u - v;
+            }
+            return;
+        }
+        for (int len = 1; len < n; len <<= 1) {
+            for (int i = 0; i < n; i += 2 * len) {
                 for (int j = 0; j < len; ++j) {
                     int32_t u = d[i + j], v = d[i + len + j];
                     d[i + j] = u + v;
                     d[i + len + j] = u - v;
                 }
+            }
+        }
     }
 
     //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
@@ -76,13 +136,21 @@ namespace ProtectedEngine {
         uint64_t best = 0u, second = 0u;
         uint8_t dec = 0xFFu;
         for (int m = 0; m < search; ++m) {
-            uint64_t e = static_cast<uint64_t>(
+            const uint64_t e = static_cast<uint64_t>(
                 static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m] +
                 static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m]);
-            if (e > best) {
-                second = best; best = e; dec = static_cast<uint8_t>(m);
-            }
-            else if (e > second) { second = e; }
+            const uint32_t c_gt_best = static_cast<uint32_t>(e > best);
+            const uint32_t c_gt_sec =
+                static_cast<uint32_t>(e <= best) & static_cast<uint32_t>(e > second);
+            second = second * (1ull - static_cast<uint64_t>(c_gt_best))
+                * (1ull - static_cast<uint64_t>(c_gt_sec))
+                + best * static_cast<uint64_t>(c_gt_best)
+                + e * static_cast<uint64_t>(c_gt_sec);
+            best = best * (1ull - static_cast<uint64_t>(c_gt_best))
+                + e * static_cast<uint64_t>(c_gt_best);
+            dec = static_cast<uint8_t>(
+                static_cast<uint32_t>(m) * c_gt_best
+                + static_cast<uint32_t>(dec) * (1u - c_gt_best));
         }
         return {
             (best == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(dec),
@@ -124,20 +192,39 @@ namespace ProtectedEngine {
         uint64_t bestI = 0u, secI = 0u;
         uint8_t decI = 0xFFu;
         for (int m = 0; m < search; ++m) {
-            uint64_t e = static_cast<uint64_t>(
+            const uint64_t e = static_cast<uint64_t>(
                 static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m]);
-            if (e > bestI) { secI = bestI; bestI = e; decI = static_cast<uint8_t>(m); }
-            else if (e > secI) { secI = e; }
+            const uint32_t c_gt_best = static_cast<uint32_t>(e > bestI);
+            const uint32_t c_gt_sec =
+                static_cast<uint32_t>(e <= bestI) & static_cast<uint32_t>(e > secI);
+            secI = secI * (1ull - static_cast<uint64_t>(c_gt_best))
+                * (1ull - static_cast<uint64_t>(c_gt_sec))
+                + bestI * static_cast<uint64_t>(c_gt_best)
+                + e * static_cast<uint64_t>(c_gt_sec);
+            bestI = bestI * (1ull - static_cast<uint64_t>(c_gt_best))
+                + e * static_cast<uint64_t>(c_gt_best);
+            decI = static_cast<uint8_t>(
+                static_cast<uint32_t>(m) * c_gt_best
+                + static_cast<uint32_t>(decI) * (1u - c_gt_best));
         }
 
-        // Q 채널 최대 에너지 빈 탐색
         uint64_t bestQ = 0u, secQ = 0u;
         uint8_t decQ = 0xFFu;
         for (int m = 0; m < search; ++m) {
-            uint64_t e = static_cast<uint64_t>(
+            const uint64_t e = static_cast<uint64_t>(
                 static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m]);
-            if (e > bestQ) { secQ = bestQ; bestQ = e; decQ = static_cast<uint8_t>(m); }
-            else if (e > secQ) { secQ = e; }
+            const uint32_t c_gt_best = static_cast<uint32_t>(e > bestQ);
+            const uint32_t c_gt_sec =
+                static_cast<uint32_t>(e <= bestQ) & static_cast<uint32_t>(e > secQ);
+            secQ = secQ * (1ull - static_cast<uint64_t>(c_gt_best))
+                * (1ull - static_cast<uint64_t>(c_gt_sec))
+                + bestQ * static_cast<uint64_t>(c_gt_best)
+                + e * static_cast<uint64_t>(c_gt_sec);
+            bestQ = bestQ * (1ull - static_cast<uint64_t>(c_gt_best))
+                + e * static_cast<uint64_t>(c_gt_best);
+            decQ = static_cast<uint8_t>(
+                static_cast<uint32_t>(m) * c_gt_best
+                + static_cast<uint32_t>(decQ) * (1u - c_gt_best));
         }
 
         return {
@@ -151,10 +238,12 @@ namespace ProtectedEngine {
     }
     static void walsh_enc(uint8_t sym, int n, int16_t amp,
         int16_t* oI, int16_t* oQ) noexcept {
+        const int32_t ampi = static_cast<int32_t>(amp);
         for (int j = 0; j < n; ++j) {
-            uint32_t p = popc32(static_cast<uint32_t>(sym) &
+            const uint32_t p = popc32(static_cast<uint32_t>(sym) &
                 static_cast<uint32_t>(j)) & 1u;
-            int16_t ch = p ? static_cast<int16_t>(-amp) : amp;
+            const int16_t ch = static_cast<int16_t>(
+                ampi * (1 - 2 * static_cast<int32_t>(p)));
             oI[j] = ch; oQ[j] = ch;
         }
     }
@@ -164,13 +253,16 @@ namespace ProtectedEngine {
     //  처리량 2배: 동일 칩 수로 2개 심볼 전송
     static void walsh_enc_split(uint8_t sym_I, uint8_t sym_Q, int n,
         int16_t amp, int16_t* oI, int16_t* oQ) noexcept {
+        const int32_t ampi = static_cast<int32_t>(amp);
         for (int j = 0; j < n; ++j) {
-            uint32_t pI = popc32(static_cast<uint32_t>(sym_I) &
+            const uint32_t pI = popc32(static_cast<uint32_t>(sym_I) &
                 static_cast<uint32_t>(j)) & 1u;
-            uint32_t pQ = popc32(static_cast<uint32_t>(sym_Q) &
+            const uint32_t pQ = popc32(static_cast<uint32_t>(sym_Q) &
                 static_cast<uint32_t>(j)) & 1u;
-            oI[j] = pI ? static_cast<int16_t>(-amp) : amp;
-            oQ[j] = pQ ? static_cast<int16_t>(-amp) : amp;
+            oI[j] = static_cast<int16_t>(
+                ampi * (1 - 2 * static_cast<int32_t>(pI)));
+            oQ[j] = static_cast<int16_t>(
+                ampi * (1 - 2 * static_cast<int32_t>(pQ)));
         }
     }
 
@@ -277,8 +369,12 @@ namespace ProtectedEngine {
         if (bl < 1u) bl = 1u;
         if (bl < k_BH_NOISE_FLOOR || bl > k_BH_SATURATION) return;
         uint32_t punch = bl << 3u;
-        for (int i = 0; i < nc; ++i)
-            if (scratch_mag_[i] > punch) { I[i] = 0; Q[i] = 0; }
+        for (int i = 0; i < nc; ++i) {
+            const uint32_t kill = static_cast<uint32_t>(scratch_mag_[i] > punch);
+            const int32_t km = -static_cast<int32_t>(kill);
+            I[i] = static_cast<int16_t>(static_cast<int32_t>(I[i]) & ~km);
+            Q[i] = static_cast<int16_t>(static_cast<int32_t>(Q[i]) & ~km);
+        }
     }
 
     // =====================================================================
@@ -379,11 +475,10 @@ namespace ProtectedEngine {
     }
 
     HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
-        // [CRIT] sizeof(*this)로 this 전체 secureWipe 금지:
-        //   · 비트리비얼 멤버 ajc_(AntiJamEngine) 스토리지를 암시적 ~ 이전에 파쇄 → UB
-        //   · (가상 함수가 없어도) 하위 객체 수명/소멸 순서 보장 불가
+        // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체 손상.
+        // AntiJamEngine: 가상 함수 없음 → Reset 후 스토리지 secureWipe, 그다음 암시적 ~ (trivial).
         // 순서: CCM → full_reset_(HARQ/work 버퍼) → 칩/워킹 스크래치 → 시퀀스/시드
-        //       → 콜백/메트릭 포인터 무효화 → ajc_.Reset (정상 상태로 정리 후 암시적 소멸)
+        //       → 콜백/메트릭 무효화 → ajc_.Reset → ajc_ 스토리지 파쇄
         SecureMemory::secureWipe(
             static_cast<void*>(g_harq_Q_ccm), sizeof(g_harq_Q_ccm));
         full_reset_();
@@ -407,6 +502,7 @@ namespace ProtectedEngine {
         p_metrics_ = nullptr;
 
         ajc_.Reset(16);
+        SecureMemory::secureWipe(static_cast<void*>(&ajc_), sizeof(ajc_));
         ajc_last_nc_ = 0;
     }
 
@@ -421,7 +517,7 @@ namespace ProtectedEngine {
 
     void HTS_V400_Dispatcher::Update_Adaptive_BPS(uint32_t nf) noexcept {
         const int new_bps = FEC_HARQ::bps_from_nf(nf);
-        if (new_bps >= FEC_HARQ::BPS64_MIN &&
+        if (new_bps >= FEC_HARQ::BPS64_MIN_OPERABLE &&
             new_bps <= FEC_HARQ::BPS64_MAX) {
             cur_bps64_ = new_bps;
         }
@@ -442,64 +538,55 @@ namespace ProtectedEngine {
         const RxPhase prev_phase = phase_;
         const int     prev_bps   = cur_bps64_;
         const IQ_Mode prev_iq    = iq_mode_;
-        bool need_reset = false;
+        uint32_t need_reset = 0u;
 
         const uint8_t bps = p_metrics_->current_bps.load(
             std::memory_order_acquire);
 
         if (bps >= static_cast<uint8_t>(FEC_HARQ::BPS64_MIN) &&
             bps <= static_cast<uint8_t>(FEC_HARQ::BPS64_MAX)) {
-            const int new_bps = static_cast<int>(bps);
+            const int new_bps = FEC_HARQ::bps_clamp_runtime(static_cast<int>(bps));
             if (new_bps != prev_bps) {
                 cur_bps64_ = new_bps;
-                if (prev_phase != RxPhase::WAIT_SYNC) { need_reset = true; }
+                need_reset |= static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
             }
         }
 
         // ── 적응형 I/Q 모드 전환 (히스테리시스) ──────────────
-        //  NF = ajc_nf (Adaptive_BPS_Controller가 갱신)
-        //  내리기(SAME):  NF ≥ SAME_TH(20dB) → 즉시 (안전 우선)
-        //  올리기(SPLIT): NF < SPLIT_TH(10dB) × 연속 8패킷 → 신중
-        //  핑퐁 방지: 히스테리시스 갭 10dB + 올리기 지연
         const uint32_t nf = p_metrics_->ajc_nf.load(
             std::memory_order_acquire);
 
         if (nf >= NF_IQ_SAME_TH) {
-            // 재밍 감지 → 즉시 I=Q 동일 (안전 우선, 지연 0)
             iq_mode_ = IQ_Mode::IQ_SAME;
             iq_upgrade_count_ = 0u;
-            // 재밍 시 BPS도 최소로 복원
-            if (cur_bps64_ > FEC_HARQ::BPS64_MIN) {
-                cur_bps64_ = FEC_HARQ::BPS64_MIN;
-                if (prev_phase != RxPhase::WAIT_SYNC) { need_reset = true; }
+            if (cur_bps64_ > FEC_HARQ::BPS64_MIN_OPERABLE) {
+                cur_bps64_ = FEC_HARQ::BPS64_MIN_OPERABLE;
+                need_reset |= static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
             }
             if (prev_iq != IQ_Mode::IQ_SAME) {
-                if (prev_phase != RxPhase::WAIT_SYNC) { need_reset = true; }
+                need_reset |= static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
             }
         }
         else if (nf < NF_IQ_SPLIT_TH) {
-            // 평시 후보 → 연속 충족 카운터 증가
             if (iq_upgrade_count_ < IQ_UPGRADE_GUARD) {
                 iq_upgrade_count_++;
             }
-            // 연속 8패킷 유지 시 I/Q 독립 전환 + 평시 BPS
             if (iq_upgrade_count_ >= IQ_UPGRADE_GUARD) {
                 iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
                 if (cur_bps64_ < IQ_BPS_PEACETIME) {
                     cur_bps64_ = IQ_BPS_PEACETIME;
-                    if (prev_phase != RxPhase::WAIT_SYNC) { need_reset = true; }
+                    need_reset |= static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
                 }
                 if (prev_iq != IQ_Mode::IQ_INDEPENDENT) {
-                    if (prev_phase != RxPhase::WAIT_SYNC) { need_reset = true; }
+                    need_reset |= static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
                 }
             }
         }
         else {
-            // SPLIT_TH ≤ NF < SAME_TH: 현재 모드 유지 (히스테리시스 영역)
             iq_upgrade_count_ = 0u;
         }
 
-        if (need_reset) { full_reset_(); }
+        if (need_reset != 0u) { full_reset_(); }
     }
 
     void HTS_V400_Dispatcher::full_reset_() noexcept {
@@ -507,6 +594,8 @@ namespace ProtectedEngine {
         phase_ = RxPhase::WAIT_SYNC;
         cur_mode_ = PayloadMode::UNKNOWN;
         buf_idx_ = 0; pre_phase_ = 0;
+        wait_sync_head_ = 0;
+        wait_sync_count_ = 0;
         hdr_count_ = 0; hdr_fail_ = 0;
         pay_recv_ = 0; v1_idx_ = 0;
         sym_idx_ = 0; harq_round_ = 0;
@@ -525,40 +614,30 @@ namespace ProtectedEngine {
 
     // =====================================================================
     //
-    //  비트마스크 합법 전이 테이블 — Constant-time (분기 0개)
-    //
-    //   key = (from << 2) | to  →  4비트 인덱스
-    //   합법 키: 0(WS→WS), 1(WS→RH), 4(RH→WS), 6(RH→RP), 8(RP→WS)
-    //   LEGAL_MASK = bit0|bit1|bit4|bit6|bit8 = 0x153
-    //
-    //   불법 전이 감지 시 full_reset_()으로 안전 상태 강제 복귀
-    //   → ROP/글리치로 READ_HEADER를 건너뛰는 공격 차단
-    //     (WAIT_SYNC → READ_PAYLOAD 불법 = 헤더 인증 우회)
+    //  CFI: key=(from<<2)|to, 12슬롯 LUT + 인덱스 클램프, 반환 풀비트 마스크
     // =====================================================================
-    bool HTS_V400_Dispatcher::set_phase_(RxPhase target) noexcept {
+    uint32_t HTS_V400_Dispatcher::set_phase_(RxPhase target) noexcept {
         const uint32_t f = static_cast<uint32_t>(phase_);
         const uint32_t t = static_cast<uint32_t>(target);
         const uint32_t key = (f << 2u) | t;
 
-        // Constant-time: 시프트 + AND 1회 (~2cyc ARM)
-        // 합법 키: 0,1,4,6,8 → 비트마스크 0x153
-        constexpr uint32_t LEGAL_MASK =
-            (1u << 0u) |    // WAIT_SYNC    → WAIT_SYNC    (reset)
-            (1u << 1u) |    // WAIT_SYNC    → READ_HEADER  (프리앰블 매칭)
-            (1u << 4u) |    // READ_HEADER  → WAIT_SYNC    (헤더 실패)
-            (1u << 6u) |    // READ_HEADER  → READ_PAYLOAD (헤더 성공)
-            (1u << 8u);     // READ_PAYLOAD → WAIT_SYNC    (디코딩 완료)
+        // LUT + 클램프 인덱스 — key 글리치 시에도 OOB 없음 (>=12 → 슬롯 11 = 불법)
+        static constexpr uint8_t k_trans_legal[12] = {
+            1u, 1u, 0u, 0u,
+            1u, 0u, 1u, 0u,
+            1u, 0u, 0u, 0u
+        };
+        const uint32_t k_ok = static_cast<uint32_t>(key < 12u);
+        const uint32_t idx = key * k_ok + 11u * (1u - k_ok);
+        const uint32_t legal_u = static_cast<uint32_t>(k_trans_legal[idx]);
 
-        const bool legal = (key < 12u) && (((LEGAL_MASK >> key) & 1u) != 0u);
-
-        if (legal) {
+        if (legal_u != 0u) {
             phase_ = target;
-            return true;
+            return PHASE_TRANSFER_MASK_OK;
         }
 
-        // 불법 전이: 안전 상태로 강제 복귀
         full_reset_();
-        return false;
+        return PHASE_TRANSFER_MASK_FAIL;
     }
 
     void HTS_V400_Dispatcher::Reset() noexcept {
@@ -567,34 +646,48 @@ namespace ProtectedEngine {
         ajc_last_nc_ = 0;
     }
 
-    bool HTS_V400_Dispatcher::parse_hdr_(PayloadMode& mode, int& plen) noexcept {
-        uint16_t hdr = (static_cast<uint16_t>(hdr_syms_[0]) << 6u) |
+    uint32_t HTS_V400_Dispatcher::parse_hdr_(PayloadMode& mode, int& plen) noexcept {
+        const uint16_t hdr = (static_cast<uint16_t>(hdr_syms_[0]) << 6u) |
             static_cast<uint16_t>(hdr_syms_[1]);
 
-        // [적응형 I/Q] 헤더 포맷: [mode 2bit][IQ 1bit][plen 9bit]
-        //  프리앰블+헤더는 항상 I=Q 고정으로 디코딩 (블라인드 딜레마 해결)
-        //  bit9 = 0: I=Q 동일, bit9 = 1: I/Q 독립
         const uint8_t mb = static_cast<uint8_t>((hdr >> 10u) & 0x03u);
-        const bool rx_iq_split = ((hdr & HDR_IQ_BIT) != 0u);
-        plen = static_cast<int>(hdr & 0x01FFu);  // 9bit payload_len (max 511)
+        const uint32_t rx_iq_split = static_cast<uint32_t>((hdr & HDR_IQ_BIT) != 0u);
+        plen = static_cast<int>(hdr & 0x01FFu);
 
-        // RX 측 IQ 모드 적용 (송신기가 보낸 모드로 디코딩)
-        iq_mode_ = rx_iq_split ? IQ_Mode::IQ_INDEPENDENT : IQ_Mode::IQ_SAME;
+        iq_mode_ = static_cast<IQ_Mode>(
+            static_cast<uint32_t>(IQ_Mode::IQ_INDEPENDENT) * rx_iq_split
+            + static_cast<uint32_t>(IQ_Mode::IQ_SAME) * (1u - rx_iq_split));
 
-        switch (mb) {
-        case 0u: mode = PayloadMode::VIDEO_1;  return (plen == FEC_HARQ::NSYM1);
-        case 1u: mode = PayloadMode::VIDEO_16; return (plen == FEC_HARQ::NSYM16);
-        case 2u: mode = PayloadMode::VOICE;    return (plen == FEC_HARQ::NSYM16);
-        case 3u: {
-            mode = PayloadMode::DATA;
-            const int bps = FEC_HARQ::bps_from_nsym(plen);
-            if (bps < FEC_HARQ::BPS64_MIN || bps > FEC_HARQ::BPS64_MAX) return false;
-            if (plen != FEC_HARQ::nsym_for_bps(bps)) return false;
-            cur_bps64_ = bps;
-            return true;
-        }
-        default: mode = PayloadMode::UNKNOWN; return false;
-        }
+        static constexpr PayloadMode k_hdr_modes[4] = {
+            PayloadMode::VIDEO_1,
+            PayloadMode::VIDEO_16,
+            PayloadMode::VOICE,
+            PayloadMode::DATA,
+        };
+        mode = k_hdr_modes[static_cast<size_t>(mb & 3u)];
+
+        const uint32_t m0 = static_cast<uint32_t>(mb == 0u);
+        const uint32_t m1 = static_cast<uint32_t>(mb == 1u);
+        const uint32_t m2 = static_cast<uint32_t>(mb == 2u);
+        const uint32_t m3 = static_cast<uint32_t>(mb == 3u);
+        const uint32_t plen_ok_v1 = static_cast<uint32_t>(plen == FEC_HARQ::NSYM1);
+        const uint32_t plen_ok_v16 = static_cast<uint32_t>(plen == FEC_HARQ::NSYM16);
+
+        const int bps = FEC_HARQ::bps_from_nsym(plen);
+        const uint32_t bps_ge =
+            static_cast<uint32_t>(bps >= FEC_HARQ::BPS64_MIN_OPERABLE);
+        const uint32_t bps_le = static_cast<uint32_t>(bps <= FEC_HARQ::BPS64_MAX);
+        const uint32_t plen_sym =
+            static_cast<uint32_t>(plen == FEC_HARQ::nsym_for_bps(bps));
+        const uint32_t data_ok = m3 & bps_ge & bps_le & plen_sym;
+
+        const uint32_t ok_u =
+            (m0 & plen_ok_v1) | (m1 & plen_ok_v16) | (m2 & plen_ok_v16) | data_ok;
+
+        const int d_int = static_cast<int>(data_ok);
+        cur_bps64_ = bps * d_int + cur_bps64_ * (1 - d_int);
+
+        return static_cast<uint32_t>(0u - ok_u);
     }
 
     void HTS_V400_Dispatcher::on_sym_() noexcept {
@@ -734,27 +827,40 @@ namespace ProtectedEngine {
 
     void HTS_V400_Dispatcher::try_decode_() noexcept {
         DecodedPacket pkt = {};
-        pkt.mode = cur_mode_; pkt.success = false;
+        pkt.mode = cur_mode_;
+        pkt.success_mask = DecodedPacket::DECODE_MASK_FAIL;
         uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
 
         if (cur_mode_ == PayloadMode::VIDEO_1) {
-            pkt.success = FEC_HARQ::Decode1(v1_rx_, pkt.data, &pkt.data_len);
+            pkt.success_mask = static_cast<uint32_t>(0u
+                - static_cast<uint32_t>(
+                    FEC_HARQ::Decode1(v1_rx_, pkt.data, &pkt.data_len)));
             pkt.harq_k = 1;
-            handle_video_(pkt.success);
-            if (on_pkt_) on_pkt_(pkt);
+            handle_video_(pkt.success_mask);
+            if (on_pkt_ != nullptr) { on_pkt_(pkt); }
             rx_seq_++; full_reset_();
         }
         else if (cur_mode_ == PayloadMode::VIDEO_16 ||
             cur_mode_ == PayloadMode::VOICE) {
             FEC_HARQ::Advance_Round_16(rx_.m16);
             harq_round_++;
-            pkt.success = FEC_HARQ::Decode16(rx_.m16, pkt.data,
-                &pkt.data_len, il, wb_);
+            pkt.success_mask = static_cast<uint32_t>(0u
+                - static_cast<uint32_t>(FEC_HARQ::Decode16(rx_.m16, pkt.data,
+                    &pkt.data_len, il, wb_)));
             pkt.harq_k = harq_round_;
-            if (pkt.success || harq_round_ >= max_harq_) {
-                if (pkt.success) harq_feedback_seed_(pkt.data, pkt.data_len, 16, il);
-                if (cur_mode_ == PayloadMode::VIDEO_16) handle_video_(pkt.success);
-                if (on_pkt_) on_pkt_(pkt);
+            const uint32_t dec_ok =
+                static_cast<uint32_t>(pkt.success_mask != 0u);
+            const uint32_t harq_ex =
+                static_cast<uint32_t>(harq_round_ >= max_harq_);
+            const uint32_t finish = dec_ok | harq_ex;
+            if (finish != 0u) {
+                if (dec_ok != 0u) {
+                    harq_feedback_seed_(pkt.data, pkt.data_len, 16, il);
+                }
+                if (cur_mode_ == PayloadMode::VIDEO_16) {
+                    handle_video_(pkt.success_mask);
+                }
+                if (on_pkt_ != nullptr) { on_pkt_(pkt); }
                 rx_seq_++; full_reset_();
             }
             else { pay_recv_ = 0; sym_idx_ = 0; set_phase_(RxPhase::WAIT_SYNC); }
@@ -763,38 +869,31 @@ namespace ProtectedEngine {
             if (!rx_.m64_I.ok) rx_.m64_I.k++;
             harq_round_++;
 
-            //  harq_I(SRAM) + harq_Q(CCM) → 별도 포인터 전달
             {
                 const int bps = cur_bps64_;
-                if (bps >= FEC_HARQ::BPS64_MIN && bps <= FEC_HARQ::BPS64_MAX) {
+                if (bps >= FEC_HARQ::BPS64_MIN_OPERABLE &&
+                    bps <= FEC_HARQ::BPS64_MAX) {
                     const int nsym = FEC_HARQ::nsym_for_bps(bps);
-                    //  &harq_Q_[0][0]
-                    //    harq_Q_의 타입은 int32_t(*)[C64] (배열 포인터).
-                    //    harq_Q_[0]은 int32_t[C64] 배열을 역참조한 결과이고,
-                    //    harq_Q_[0][0]은 그 배열의 첫 int32_t 원소(값).
-                    //    &harq_Q_[0][0]은 그 원소의 주소 → int32_t*.
-                    //    컴파일러에 따라 포인터 배열 이중 인덱싱으로 오해하여
-                    //    harq_Q_[0]을 또 하나의 포인터로 취급 → 0번째 int32_t 값
-                    //    (= 초기화 직후 0)을 주소로 역참조 → Null Dereference/HardFault.
-                    //  harq_Q_[0]
-                    //    배열 포인터에서 첫 행(int32_t[C64])을 역참조하면
-                    //    int32_t* 로 decay → Decode_Core_Split의 const int32_t* 파라미터와
-                    //    타입 일치. 평탄화된 [NSYM64][C64] CCM 배열 시작 주소 직접 전달.
-                    //    Decode_Core 내부의 accQ[sym*nc+c] 인덱싱과 완전 호환.
-                    pkt.success = FEC_HARQ::Decode_Core_Split(
-                        &rx_.m64_I.aI[0][0],  // I: SRAM
-                        harq_Q_[0],            // Q: CCM 행 포인터 (int32_t*)
-                        nsym, FEC_HARQ::C64, bps,
-                        pkt.data, &pkt.data_len, il, wb_);
+                    pkt.success_mask = static_cast<uint32_t>(0u
+                        - static_cast<uint32_t>(FEC_HARQ::Decode_Core_Split(
+                            &rx_.m64_I.aI[0][0],
+                            harq_Q_[0],
+                            nsym, FEC_HARQ::C64, bps,
+                            pkt.data, &pkt.data_len, il, wb_)));
                 }
             }
             pkt.harq_k = harq_round_;
-            if (pkt.success || harq_round_ >= max_harq_) {
-                if (pkt.success) {
-                    rx_.m64_I.ok = true;  // 디코드 성공 플래그
+            const uint32_t dec_ok =
+                static_cast<uint32_t>(pkt.success_mask != 0u);
+            const uint32_t harq_ex =
+                static_cast<uint32_t>(harq_round_ >= max_harq_);
+            const uint32_t finish = dec_ok | harq_ex;
+            if (finish != 0u) {
+                if (dec_ok != 0u) {
+                    rx_.m64_I.ok = true;
                     harq_feedback_seed_(pkt.data, pkt.data_len, 64, il);
                 }
-                if (on_pkt_) on_pkt_(pkt);
+                if (on_pkt_ != nullptr) { on_pkt_(pkt); }
                 rx_seq_++; full_reset_();
             }
             else { pay_recv_ = 0; sym_idx_ = 0; set_phase_(RxPhase::WAIT_SYNC); }
@@ -855,13 +954,14 @@ namespace ProtectedEngine {
         }
     }
 
-    void HTS_V400_Dispatcher::handle_video_(bool ok) noexcept {
-        if (ok) {
+    void HTS_V400_Dispatcher::handle_video_(uint32_t decode_ok_mask) noexcept {
+        const uint32_t ok = decode_ok_mask & 1u;
+        if (ok != 0u) {
             vid_succ_++; vid_fail_ = 0;
             if (active_video_ == PayloadMode::VIDEO_16 &&
                 vid_succ_ >= VIDEO_RECOVER_TH) {
                 active_video_ = PayloadMode::VIDEO_1; vid_succ_ = 0;
-                if (on_ctrl_) on_ctrl_(PayloadMode::VIDEO_1);
+                if (on_ctrl_ != nullptr) { on_ctrl_(PayloadMode::VIDEO_1); }
             }
         }
         else {
@@ -869,7 +969,7 @@ namespace ProtectedEngine {
             if (active_video_ == PayloadMode::VIDEO_1 &&
                 vid_fail_ >= VIDEO_FAIL_TH) {
                 active_video_ = PayloadMode::VIDEO_16; vid_fail_ = 0;
-                if (on_ctrl_) on_ctrl_(PayloadMode::VIDEO_16);
+                if (on_ctrl_ != nullptr) { on_ctrl_(PayloadMode::VIDEO_16); }
             }
         }
     }
@@ -884,14 +984,17 @@ namespace ProtectedEngine {
         walsh_enc(PRE_SYM0, 64, amp, &oI[pos], &oQ[pos]); pos += 64;
         walsh_enc(PRE_SYM1, 64, amp, &oI[pos], &oQ[pos]); pos += 64;
 
-        uint8_t mb = 0u; int psyms = 0;
-        switch (mode) {
-        case PayloadMode::VIDEO_1:  mb = 0u; psyms = FEC_HARQ::NSYM1;  break;
-        case PayloadMode::VIDEO_16: mb = 1u; psyms = FEC_HARQ::NSYM16; break;
-        case PayloadMode::VOICE:    mb = 2u; psyms = FEC_HARQ::NSYM16; break;
-        case PayloadMode::DATA:     mb = 3u; psyms = cur_nsym64_();     break;
-        default: return 0;
-        }
+        static constexpr uint8_t k_tx_mb[4] = { 0u, 1u, 2u, 3u };
+        static constexpr int k_tx_psyms[4] = {
+            FEC_HARQ::NSYM1,
+            FEC_HARQ::NSYM16,
+            FEC_HARQ::NSYM16,
+            0
+        };
+        const uint32_t mi = static_cast<uint32_t>(mode);
+        if (mi > 3u) { return 0; }
+        const uint8_t mb = k_tx_mb[mi];
+        const int psyms = (mi == 3u) ? cur_nsym64_() : k_tx_psyms[mi];
 
         // [적응형 I/Q] 헤더: [mode 2bit][IQ 1bit][plen 9bit] = 12bit
         //  프리앰블+헤더는 항상 I=Q 고정 (walsh_enc = oI=oQ)
@@ -962,54 +1065,55 @@ namespace ProtectedEngine {
     }
 
     void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+        if (phase_ == RxPhase::WAIT_SYNC) {
+            if (wait_sync_count_ >= 64) return;
+            const int widx = (wait_sync_head_ + wait_sync_count_) & 63;
+            buf_I_[widx] = rx_I;
+            buf_Q_[widx] = rx_Q;
+            wait_sync_count_++;
+            if (wait_sync_count_ < 64) return;
+
+            for (int j = 0; j < 64; ++j) {
+                const int p = (wait_sync_head_ + j) & 63;
+                orig_I_[j] = buf_I_[p];
+                orig_Q_[j] = buf_Q_[p];
+            }
+
+            cw_cancel_64_(orig_I_, orig_Q_);
+            if (ajc_enabled_) { ajc_.Process(orig_I_, orig_Q_, 64); }
+            soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
+
+            SymDecResult r0 = walsh_dec_full_(orig_I_, orig_Q_, 64);
+            int8_t sym = r0.sym;
+            bool matched = false;
+            if (pre_phase_ == 0) {
+                if (sym == static_cast<int8_t>(PRE_SYM0)) {
+                    pre_phase_ = 1; matched = true;
+                }
+            }
+            else {
+                if (sym == static_cast<int8_t>(PRE_SYM1)) {
+                    set_phase_(RxPhase::READ_HEADER);
+                    hdr_count_ = 0; hdr_fail_ = 0; matched = true;
+                }
+                pre_phase_ = 0;
+            }
+            if (matched) {
+                wait_sync_head_ = 0;
+                wait_sync_count_ = 0;
+                buf_idx_ = 0;
+            }
+            else {
+                wait_sync_head_ = (wait_sync_head_ + 1) & 63;
+                wait_sync_count_ = 63;
+            }
+            return;
+        }
+
         if (buf_idx_ >= 64) return;
         buf_I_[buf_idx_] = rx_I; buf_Q_[buf_idx_] = rx_Q; buf_idx_++;
 
-        if (phase_ == RxPhase::WAIT_SYNC) {
-            if (buf_idx_ == 64) {
-                std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
-                std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
-
-                cw_cancel_64_(orig_I_, orig_Q_);
-                if (ajc_enabled_) { ajc_.Process(orig_I_, orig_Q_, 64); }
-                soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
-
-                SymDecResult r0 = walsh_dec_full_(orig_I_, orig_Q_, 64);
-                int8_t sym = r0.sym;
-                bool matched = false;
-                if (pre_phase_ == 0) {
-                    if (sym == static_cast<int8_t>(PRE_SYM0)) {
-                        pre_phase_ = 1; matched = true;
-                    }
-                }
-                else {
-                    if (sym == static_cast<int8_t>(PRE_SYM1)) {
-                        set_phase_(RxPhase::READ_HEADER);
-                        hdr_count_ = 0; hdr_fail_ = 0; matched = true;
-                    }
-                    pre_phase_ = 0;
-                }
-                if (matched) { buf_idx_ = 0; }
-                else {
-                    //
-                    // 이 코드는 WAIT_SYNC에서 칩 1개당 1회 실행됩니다.
-                    // 프리앰블 탐색 중 수십만 칩이 연속으로 도착하므로
-                    // 함수 호출 오버헤드가 누적되면 수신기 전체 성능이 저하됩니다.
-                    //
-                    // memmove 비용: BL(3) + PUSH/POP(4) + 오버랩체크(2) + 복사(32) = ~41cyc
-                    // 인라인 루프:  63× LDR.H/STR.H 파이프라인 = ~16cyc (2.5× 가속)
-                    //
-                    // 방향 고정(왼쪽 1칸 시프트): 오버랩 검사 불필요
-                    // src = buf[k+1], dst = buf[k] → 항상 src > dst → forward 안전
-                    for (int k = 0; k < 63; ++k) {
-                        buf_I_[k] = buf_I_[k + 1];
-                        buf_Q_[k] = buf_Q_[k + 1];
-                    }
-                    buf_idx_ = 63;
-                }
-            }
-        }
-        else if (phase_ == RxPhase::READ_HEADER) {
+        if (phase_ == RxPhase::READ_HEADER) {
             if (buf_idx_ == 64) {
                 std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
                 std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
@@ -1030,7 +1134,7 @@ namespace ProtectedEngine {
                 }
                 if (hdr_count_ >= HDR_SYMS) {
                     PayloadMode mode; int plen = 0;
-                    if (parse_hdr_(mode, plen)) {
+                    if (parse_hdr_(mode, plen) != 0u) {
                         cur_mode_ = mode;
                         pay_cps_ = (mode == PayloadMode::VIDEO_1) ? 1 :
                             (mode == PayloadMode::DATA) ? 64 : 16;

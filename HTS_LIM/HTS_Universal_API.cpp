@@ -15,91 +15,105 @@
 
 namespace ProtectedEngine {
 
-    // ── 마스터 키 (바이너리 내부 은닉) ──────────────────────────
-    static constexpr uint64_t HOLOGRAPHIC_INTERFACE_KEY = 0x3D504F574E533332ULL;
+    namespace {
+
+        static constexpr uint64_t HOLOGRAPHIC_INTERFACE_KEY = 0x3D504F574E533332ULL;
+
+#if defined(__GNUC__) || defined(__clang__)
+        typedef uint32_t __attribute__((__may_alias__)) uapi_u32_alias_t;
+#else
+        typedef uint32_t uapi_u32_alias_t;
+#endif
+
+        // LCG 대신 회전·XOR만 사용 (ALU 곱셈/덧셈 글리치 우회 시에도 상태 전파)
+        static uint32_t uapi_scramble_advance(uint32_t s, size_t widx) noexcept {
+            const uint32_t k_lo = static_cast<uint32_t>(HOLOGRAPHIC_INTERFACE_KEY);
+            const uint32_t k_hi =
+                static_cast<uint32_t>(HOLOGRAPHIC_INTERFACE_KEY >> 32);
+            s ^= k_lo ^ k_hi ^ static_cast<uint32_t>(widx);
+            s = (s >> 19) | (s << 13);
+            s ^= k_hi;
+            s = (s >> 7) | (s << 25);
+            s ^= k_lo;
+            return s;
+        }
+
+    } // namespace
 
     // =====================================================================
-    //  Secure_Gate: uint64_t 동등성 — 분기 최소화(브랜치리스 zero 검출)
+    //  Secure_Gate: uint64_t 동등성 — 분기 최소화, 반환은 풀비트 마스크
     // =====================================================================
-    bool Universal_API::Secure_Gate_Open(uint64_t session_id) noexcept {
+    uint32_t Universal_API::Secure_Gate_Open(uint64_t session_id) noexcept {
         const uint64_t diff = session_id ^ HOLOGRAPHIC_INTERFACE_KEY;
-        // 64비트 XOR 결과를 32비트로 접기 (OR 누산)
         const uint32_t hi = static_cast<uint32_t>(diff >> 32);
         const uint32_t lo = static_cast<uint32_t>(diff & 0xFFFFFFFFu);
         const uint32_t combined = hi | lo;
-        // combined=0 → (0|0)>>31 = 0 → 0^1 = 1 (true)
-        // combined≠0 → (v|(-v))>>31 = 1 → 1^1 = 0 (false)
-        const uint32_t neg = ~combined + 1u;  // 2의 보수 부정
-        const uint32_t nz = (combined | neg) >> 31;  // nonzero flag
-        return static_cast<bool>(nz ^ 1u);  // 반전: zero→true
+        const uint32_t neg = ~combined + 1u;
+        const uint32_t nz = (combined | neg) >> 31;
+        const uint32_t open_lsb = nz ^ 1u;
+        return 0u - open_lsb;
     }
 
-    bool Universal_API::Continuous_Session_Verification(
+    uint32_t Universal_API::Continuous_Session_Verification(
         uint64_t session_id) noexcept {
         return Secure_Gate_Open(session_id);
     }
 
     // =====================================================================
-    //  Absolute_Trace_Erasure: XOR 스크램블 → 배리어 → SecureMemory::secureWipe
+    //  Absolute_Trace_Erasure: 32비트 XOR(체크섬 유출) → 배리어 → secureWipe
     // =====================================================================
     void Universal_API::Absolute_Trace_Erasure(
         void* target, size_t size) noexcept {
-        if (target == nullptr || size == 0u) {
+
+        const uint32_t bad =
+            static_cast<uint32_t>(target == nullptr)
+            | static_cast<uint32_t>(size == 0u);
+        if (bad != 0u) {
             return;
         }
 
-        // 64비트 포인터: uintptr 하위 32비트만 shredder 시드에 사용
-        uint32_t shredder = static_cast<uint32_t>(
-            (reinterpret_cast<uintptr_t>(target) & 0xFFFFFFFFu)
-            ^ static_cast<uint32_t>(size) ^ 0xDEADBEEFu);
+        uint32_t scrambler = static_cast<uint32_t>(
+            reinterpret_cast<uintptr_t>(target) & 0xFFFFFFFFu);
+        scrambler ^= static_cast<uint32_t>(size);
+        scrambler ^= static_cast<uint32_t>(HOLOGRAPHIC_INTERFACE_KEY);
+        scrambler ^= static_cast<uint32_t>(HOLOGRAPHIC_INTERFACE_KEY >> 32);
+        scrambler = (scrambler >> 11) | (scrambler << 21);
 
-        // ── 1단계: 엔트로피 셔레더 XOR (Unaligned 안전 처리) ────
-        uint8_t* b_ptr = static_cast<uint8_t*>(target);
-        size_t bytes_left = size;
+        auto* const w = reinterpret_cast<uapi_u32_alias_t*>(target);
+        const size_t word_count = size >> 2;
+        const size_t rem = size & 3u;
 
-        // 프롤로그: 4바이트 정렬 맞추기
-        while (bytes_left > 0u &&
-            (reinterpret_cast<uintptr_t>(b_ptr) & 3u) != 0u) {
-            shredder = shredder * 1103515245u + 12345u;
-            *b_ptr ^= static_cast<uint8_t>(shredder >> 16);
-            ++b_ptr;
-            --bytes_left;
+        uint32_t checksum = 0u;
+
+        for (size_t i = 0; i < word_count; ++i) {
+            scrambler = uapi_scramble_advance(scrambler, i);
+            uint32_t v = w[i];
+            v ^= scrambler;
+            w[i] = v;
+            checksum ^= v;
         }
 
-        // 메인 바디: 정렬된 32비트 워드 고속 타격
-        // Strict Aliasing 준수: memcpy 4B → 컴파일러가 LDR/STR 인라인 치환
-        if (bytes_left >= 4u) {
-            // 워드 개수: bytes_left >> 2 (항목⑨ 시프트)
-            const size_t words = bytes_left >> 2u;
-            for (size_t i = 0; i < words; ++i) {
-                shredder = shredder * 1103515245u + 12345u;
-                uint32_t temp;
-                std::memcpy(&temp, b_ptr, sizeof(uint32_t));
-                temp ^= shredder; // 32비트 전 영역 스크램블링 보장
-                std::memcpy(b_ptr, &temp, sizeof(uint32_t));
-                b_ptr += 4u;
-            }
-            bytes_left &= 3u; // 잔여 바이트만 남김 (Dead Store 제거)
-        }
+        uint8_t* const tail =
+            static_cast<uint8_t*>(target) + (word_count * 4u);
+        uint32_t u = 0u;
+        std::memcpy(&u, tail, rem);
+        scrambler = uapi_scramble_advance(scrambler, word_count);
+        const uint32_t tail_active =
+            (static_cast<uint32_t>(rem) + 3u) >> 2;
+        const uint32_t tail_mask = static_cast<uint32_t>(0u - tail_active);
+        u ^= scrambler & tail_mask;
+        checksum ^= u & tail_mask;
+        std::memcpy(tail, &u, rem);
 
-        // 에필로그: 잔여 바이트 처리 (최대 3)
-        while (bytes_left-- > 0u) {
-            shredder = shredder * 1103515245u + 12345u;
-            *b_ptr ^= static_cast<uint8_t>(shredder >> 16);
-            ++b_ptr;
-        }
-
-        // ── 1단계/2단계 경계: DSE(Dead Store Elimination) 방어
-        //  LTO/-O2에서 XOR 쓰기 전체가 "곧바로 secureWipe로 덮임"으로 dead store 판정되는 것을 차단.
-        //  (기능: XOR 스크램블은 그대로 수행된 뒤에만 최종 소거가 이어짐 — 동작 의미 동일, 최적화만 억제)
-#if (defined(__GNUC__) || defined(__clang__))
-        __asm__ __volatile__("" ::: "memory");
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" : : "r"(checksum) : "memory");
 #elif defined(_MSC_VER)
+        volatile uint32_t uapi_xor_checksum_sink = checksum;
+        (void)uapi_xor_checksum_sink;
         _ReadWriteBarrier();
 #endif
         std::atomic_thread_fence(std::memory_order_release);
 
-        // ── 2단계: 0 오버라이트 — 프로젝트 표준 SecureMemory (바이트 순회, 비정렬 안전, D-2)
         SecureMemory::secureWipe(static_cast<void*>(target), size);
     }
 

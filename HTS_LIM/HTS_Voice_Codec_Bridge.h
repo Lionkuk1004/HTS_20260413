@@ -24,6 +24,7 @@
 ///   VCB-8 [CRIT] PLC last_rx_frame·plc — Consume 전용 갱신 (생산자와 분리)
 ///   VCB-9 [HIGH] TX/RX/drop 통계 std::atomic<uint32_t>
 ///   VCB-10 [CRIT] Shutdown: SecureMemory::secureWipe(impl_buf_) — D-2/X-5-1
+///   VCB-11 [MED] UDP 전용 송신: Set_Packet_Tx_Sink(sendto 등), IPC 미사용
 ///   - 패딩 제거 + ASIC ROM 합성 최적화
 ///
 /// @author 임영준 (Lim Young-jun)
@@ -36,15 +37,23 @@
 
 namespace ProtectedEngine {
 
-    class HTS_IPC_Protocol;
+    /// UDP 페이로드(헤더+프레임+CRC16)를 sendto / udp_send 등으로 보낼 콜백
+    using VoicePacketTxSinkFn = void (*)(
+        const uint8_t* packet, uint16_t len, void* user_data);
 
     class HTS_Voice_Codec_Bridge final {
     public:
         HTS_Voice_Codec_Bridge() noexcept;
         ~HTS_Voice_Codec_Bridge() noexcept;
 
-        IPC_Error Initialize(HTS_IPC_Protocol* ipc, VocoderCodec codec) noexcept;
+        /// @brief 초기화 (UDP 경로; 송신 콜백은 Set_Packet_Tx_Sink 로 별도 설정)
+        IPC_Error Initialize(VocoderCodec codec) noexcept;
         void Shutdown() noexcept;
+
+        /// @brief Tick/Pack 시 완성된 보이스 패킷을 UDP 스택으로 넘김 (필수에 가깝게 설정)
+        void Set_Packet_Tx_Sink(VoicePacketTxSinkFn fn,
+            void* user_data) noexcept;
+        void Clear_Packet_Tx_Sink() noexcept;
         IPC_Error Set_Codec(VocoderCodec codec) noexcept;
         void Tick(uint32_t systick_ms) noexcept;
 

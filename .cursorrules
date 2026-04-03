@@ -31,8 +31,9 @@
 | 항목 | 사양 |
 |------|------|
 | SoC | Cortex-A55 Linux |
-| 역할 | 유선↔무선 변환, 기본 보안 (TLS) |
+| 역할 | 유선↔무선 변환, 기본 보안 (TLS), **대용량·집계·콘솔 UI 등 무거운 로직** |
 | IPC | SPI(최대 42Mbps) + UART(115200bps) 이중 채널 |
+| 앱 계약 | `HTS_AP_Bridge_Defs.h` — M4는 IPC·짧은 제어만, 페이로드 관례(ServiceId)로 A55 앱과 버전 정합 |
 
 ### 0-3. SRAM 메모리 맵 (확정)
 
@@ -113,19 +114,10 @@
   → 파일 상단 ARM 빌드 시 #error 명시된 PC 전용 파일
   → Dual_Tensor_16bit의 PENDING 의존 항목 → N/A 처리
 
-[Layer 18 — 테스트 파일 전체 제외]
-  HTS_HMAC_Bridge_Test.cpp
-  HTS_Adaptive_BPS_Test.cpp
-  AJC_TEST.cpp
-  AMI_종합_TEST.cpp
-  HTS_AMI_Measurement_Test.cpp
-  HTS_AMI_Industrial_Field_Stress_Test.cpp
-  HTS_AMI_Realistic_Integration_Test.cpp
-  재밍_종합_테스트.cpp
-  재밍_이엠피테스트_16칩.cpp
-  재임_이엠피_테스트_16칩_종합.cpp
-  재밍테스트_노드2048_16칩_64칩.cpp
-  홀로그램_4D_4096_TEST.cpp
+[Layer 18 — HTS_TEST PC 검증 전용 (펌웨어 TU 제외)]
+  HTS_TEST\KCMVP_암호_4종_종합_테스트.cpp  / HTS_검증_KCMVP.vcxproj
+  HTS_TEST\종합재밍_종합_테스트.cpp          / HTS_검증_종합재밍.vcxproj
+  HTS_TEST\AMI_종합_통합_테스트.cpp        / HTS_검증_AMI.vcxproj
   HTS_Server_Stress_Test.h
 ```
 
@@ -208,9 +200,8 @@ Layer 3  — KCMVP/FIPS 암호 엔진
   HTS_Entropy_Monitor.h → .cpp
 
 Layer 4  — KAT 검증
-  HTS_Crypto_KAT.h → .cpp
-  HTS_ARIA_KCMVP_KAT.cpp / HTS_LEA_KCMVP_KAT.cpp
-  HTS_LSH256_KCMVP_KAT.cpp / HTS_HMAC_KCMVP_KAT.cpp
+  HTS_Crypto_KAT.h → .cpp (ARIA/LEA/LSH/HMAC/DRBG 함수 통합)
+  PC 독립 KAT: HTS_TEST\KCMVP_암호_4종_종합_테스트.cpp (레거시 *_KCMVP_KAT.cpp 4개 파일 대체)
   HTS_Conditional_SelfTest.h → .cpp
 
 Layer 5  — 키 관리 / 보안 부팅
@@ -218,7 +209,7 @@ Layer 5  — 키 관리 / 보안 부팅
   HTS_Key_Rotator.h → .cpp
   HTS_Dynamic_Key_Rotator.hpp → .cpp
   HTS_Secure_Boot_Verify.h → .cpp
-  HTS_Anchor_Vault.hpp → .cpp
+  HTS_Anchor_Vault.hpp → host_aarch64/HTS_Anchor_Vault.cpp
   HTS_Entropy_Arrow.hpp → .cpp
 
 Layer 6  — 안티디버그 / 물리 보안
@@ -244,13 +235,9 @@ Layer 8  — DSP/PHY 코어
   HTS_Rx_Sync_Detector.h → .cpp
   HTS_Antipodal_Core.h → .cpp
   HTS_Adaptive_BPS_Controller.h → .cpp
-  AnchorEncoder.h → .cpp
-  AnchorDecoder.h → .cpp
-  AnchorManager.h → .cpp
-  TensorCodec.hpp → .cpp
   HTS_Orbital_Mapper.hpp → .cpp
   HTS_Sparse_Recovery.h → .cpp
-  HTS_Quantum_Decoy_VDF.h → .cpp (CORE 헤더 / HTS_LIM 구현 TU)
+  HTS_Quantum_Decoy_VDF.h → .cpp (HTS_LIM 동일 디렉터리 헤더 / 구현 TU)
 
 Layer 9  — 텐서 엔진 [핵심 알고리즘]
   HTS_Holo_Tensor_Engine.h → .cpp
@@ -277,12 +264,13 @@ Layer 12 — 보안 파이프라인 / 세션
   HTS_Role_Auth.h → .cpp
 
 Layer 13 — 스토리지
-  HTS_Storage_Interface.h → .cpp
+  HTS_Storage_Interface.h → host_aarch64/HTS_Storage_Interface.cpp
   HTS_Storage_Adapter.hpp
 
 Layer 14 — 통신 프로토콜
   HTS_IPC_Protocol.h → .cpp
-  HTS_IPC_Protocol_A55.h → .cpp
+  host_aarch64/HTS_IPC_Protocol_A55.h → .cpp
+  HTS_AP_Bridge_Defs.h  (M4↔A55 앱 계약; 핸드셰이크: IPC AP_CONTRACT_REQ/RSP 0x42/0x43)
   HTS_Network_Bridge.h → .cpp
   HTS_KT_DSN_Adapter.h → .cpp
   HTS_CoAP_Engine.h → .cpp

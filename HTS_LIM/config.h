@@ -14,6 +14,13 @@
 #ifndef _LEA_CONFIG_H_
 #define _LEA_CONFIG_H_
 
+/* LEA .c 소스가 #if LEA_LIB / USE_BUILT_IN 을 쓰므로 매크로 유지.
+   MSVC C++ 정적 분석(VCR: 매크로→constexpr 권고) 억제. */
+#if defined(_MSC_VER) && defined(__cplusplus)
+#pragma warning(push)
+#pragma warning(disable : 26498)
+#endif
+
 #ifndef LEA_LIB
 #define LEA_LIB 0
 #endif						/*	0 : Standalone 코드를 생성합니다.
@@ -107,6 +114,10 @@
 #	else
 #		define IS_LITTLE_ENDIAN 0
 #	endif
+#endif
+
+#if defined(_MSC_VER) && defined(__cplusplus)
+#pragma warning(pop)
 #endif
 
 #endif

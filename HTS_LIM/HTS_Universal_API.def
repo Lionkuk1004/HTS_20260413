@@ -1,0 +1,9 @@
+; =========================================================================
+; HTS_Universal_API.def
+; Windows 호스트 DLL/테스트 선택 — Cortex-M 정적 링크 시 미사용
+; EXPORTS 절 없음: HTS_LIM 정적 라이브(.lib) 빌드에서 심볼은 TU 내부 연결
+; HTS_Holo_Dispatcher (2026): Shutdown / Advance_Time / Sync_Time_Slot / Rotate_Seed
+;   반환 uint32_t (SECURE_TRUE/SECURE_FALSE) — try-lock·nullptr 실패 시 MAC 재시도 가능
+; =========================================================================
+LIBRARY HTS_Universal_API
+DESCRIPTION "HTS B-CDMA Universal API gate and trace erasure"

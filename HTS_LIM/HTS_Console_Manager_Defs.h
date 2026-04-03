@@ -17,6 +17,9 @@
 ///   INNOVID CORE-X Pro 통합콘솔 스위치에서 A55(Linux) -> STM32(보안 코프로세서)로
 ///   전달되는 설정/상태/진단 명령의 파라미터 ID, 채널 설정 구조체,
 ///   디바이스 프로파일, 진단 보고서 구조를 정의한다.
+///   유선→무선 이행 시: IPC `DATA_TX`/`DATA_RX` 페이로드 관례는
+///   `HTS_AP_Bridge_Defs.h` 의 `APBridge::ServiceId::CONSOLE_TUNNEL` 과 계약 버전
+///   (`CONTRACT_MAJOR`/`CONTRACT_MINOR`)로 A55 앱과 정합할 것.
 ///
 ///   설계 기준:
 ///   - Cortex-M4F (168MHz) 양산 + ASIC 이식 기준
