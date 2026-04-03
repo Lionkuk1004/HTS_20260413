@@ -186,7 +186,10 @@ namespace ProtectedEngine {
             }
         }
         *flash_reg(FLASH_CR_OFF) &= ~FLASH_CR_PG;
-        return true;
+        // ⑯ Read-back: 프로그램 바이트 검증 (불완전 쓰기·Brown-out 조기 탐지)
+        const uint8_t rb =
+            *reinterpret_cast<const volatile uint8_t*>(addr);
+        return (rb == val);
     }
 
     static bool otp_write_block(

@@ -24,7 +24,7 @@
 // =========================================================================
 //  C++20 [[likely]]/[[unlikely]] — C++14/17에서는 빈 매크로
 // =========================================================================
-#if __cplusplus >= 202002L
+#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #define HTS_ADAPTER_UNLIKELY [[unlikely]]
 #define HTS_ADAPTER_LIKELY   [[likely]]
 #else

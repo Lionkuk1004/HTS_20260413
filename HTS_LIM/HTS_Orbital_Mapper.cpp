@@ -185,8 +185,6 @@ namespace ProtectedEngine {
     std::vector<uint32_t> Orbital_Mapper::Generate_Pauli_State_Map(
         size_t tensor_size, uint64_t pqc_session_id) noexcept {
         std::vector<uint32_t> state_map(tensor_size);
-        // PENDING: 반환 타입 vector는 호출자 API 호환 유지
-        //          raw API(Generate_Pauli_State_Map_Raw) 추가 후 전환 예정
 
         if (tensor_size <= 60) {
             for (size_t i = 0; i < tensor_size; ++i) {

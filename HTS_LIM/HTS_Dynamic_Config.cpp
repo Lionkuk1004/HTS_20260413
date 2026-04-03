@@ -71,8 +71,8 @@ namespace ProtectedEngine {
 #endif
         }
 
-        // ── C++20 속성 가드 ─────────────────────────────────────
-#if __cplusplus >= 202002L
+        // ── C++20 속성 가드 (파일 상단 HTS_LIKELY와 동일 조건) ──
+#if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #define HTS_DYNCFG_LIKELY   HTS_LIKELY
 #else
 #define HTS_DYNCFG_LIKELY
@@ -81,6 +81,7 @@ namespace ProtectedEngine {
         // ── System_Panic: ARM AIRCR 즉시 리셋 / PC abort 폴백 ──
         //   __GNUC__로 가드 → x86 GCC에서 cpsid/dsb/wfi 컴파일 에러
         //   __arm__ 가드로 ARM asm 격리 + PC는 무한루프 폴백
+        //   AIRCR 기록 후 DBGMCU WDT 프리즈 해제 — HTS_Hardware_Init·AIRCR-3 정합
         [[noreturn]] inline void System_Panic() noexcept {
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
@@ -90,8 +91,15 @@ namespace ProtectedEngine {
             *reinterpret_cast<volatile uint32_t*>(
                 static_cast<uintptr_t>(k_AIRCR_ADDR)) =
                 (k_AIRCR_VECTKEY | k_AIRCR_SYSRST);
-            __asm__ __volatile__("dsb" ::: "memory");
-            __asm__ __volatile__("isb");
+#if defined(__GNUC__) || defined(__clang__)
+            static constexpr uintptr_t k_DBGMCU_APB1_FZ_ADDR = 0xE0042008u;
+            static constexpr uint32_t k_DBGMCU_WWDG_STOP = (1u << 11);
+            static constexpr uint32_t k_DBGMCU_IWDG_STOP = (1u << 12);
+            volatile uint32_t* const dbgmcu_fz =
+                reinterpret_cast<volatile uint32_t*>(k_DBGMCU_APB1_FZ_ADDR);
+            *dbgmcu_fz &= ~(k_DBGMCU_WWDG_STOP | k_DBGMCU_IWDG_STOP);
+#endif
+            __asm__ __volatile__("dsb sy\n\tisb" ::: "memory");
             while (true) { __asm__ __volatile__("wfi"); }
 #else
             // PC/A55: 무한루프 (디버거 브레이크 포인트 대기)

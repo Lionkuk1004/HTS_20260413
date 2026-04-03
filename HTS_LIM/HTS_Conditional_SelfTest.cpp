@@ -15,6 +15,7 @@
 #include "HTS_ARIA_Bridge.hpp"
 #include "HTS_LEA_Bridge.h"
 #include "HTS_HMAC_Bridge.hpp"
+#include "HTS_ConstantTimeUtil.h"
 #include "HTS_Secure_Memory.h"
 
 #if defined(HTS_CRYPTO_FIPS) || defined(HTS_CRYPTO_DUAL)
@@ -24,20 +25,6 @@
 #include <cstring>
 
 namespace ProtectedEngine {
-
-    // =====================================================================
-    //  유틸리티
-    // =====================================================================
-    static bool CST_CT_Eq(const uint8_t* a,
-        const uint8_t* b, size_t n) noexcept {
-        volatile uint8_t d = 0u;
-        for (size_t i = 0u; i < n; ++i) {
-            const uint8_t x = static_cast<uint8_t>(
-                static_cast<uint8_t>(a[i]) ^ static_cast<uint8_t>(b[i]));
-            d = static_cast<uint8_t>(static_cast<uint8_t>(d) | x);
-        }
-        return (d == 0u);
-    }
 
     // =====================================================================
     //  Verify_ARIA_Key — ARIA 쌍대 일관성
@@ -85,7 +72,7 @@ namespace ProtectedEngine {
             }
         }
 
-        bool ok = CST_CT_Eq(dec, pt, 16);
+        bool ok = ConstantTimeUtil::compare(dec, pt, 16);
         SecureMemory::secureWipe(ct, sizeof(ct));
         SecureMemory::secureWipe(dec, sizeof(dec));
         return ok;
@@ -135,7 +122,8 @@ namespace ProtectedEngine {
             }
         }
 
-        bool ok = CST_CT_Eq(reinterpret_cast<const uint8_t*>(work), pt_raw, 16);
+        bool ok = ConstantTimeUtil::compare(
+            reinterpret_cast<const uint8_t*>(work), pt_raw, 16);
         SecureMemory::secureWipe(work, sizeof(work));
         return ok;
     }
@@ -179,7 +167,7 @@ namespace ProtectedEngine {
             }
         }
 
-        bool ok = CST_CT_Eq(dec, pt, 16);
+        bool ok = ConstantTimeUtil::compare(dec, pt, 16);
         SecureMemory::secureWipe(ct, sizeof(ct));
         SecureMemory::secureWipe(dec, sizeof(dec));
         return ok;
@@ -251,7 +239,7 @@ namespace ProtectedEngine {
             return false;
         }
 
-        bool ok = CST_CT_Eq(computed_hmac, expected_hmac, 32);
+        bool ok = ConstantTimeUtil::compare(computed_hmac, expected_hmac, 32);
         SecureMemory::secureWipe(computed_hmac, sizeof(computed_hmac));
         return ok;
     }
