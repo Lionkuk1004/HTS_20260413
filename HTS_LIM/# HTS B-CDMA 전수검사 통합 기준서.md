@@ -23,7 +23,7 @@
 | 암호 | 소프트웨어 KCMVP(ARIA/LEA/LSH) + FIPS 140-3(AES-256/SHA-256) |
 | 버스 | AHB1(GPIO/DMA), AHB2(USB OTG), APB1(SPI2/3, UART4/5), APB2(SPI1, USART1/6) |
 | 패키지 | LQFP-100 |
-| 전압 | 1.8~3.6V (PVD 감시) |
+| 전압 | 1.8~3.6V (PVD 감시) |`
 | 온도 | -40~85°C (산업용) |
 
 ### 0-2. 유무선 변환 프로세서 (보조 — 검수 대상 아님)
@@ -62,7 +62,7 @@
 | FPU 단정밀도 | double → 소프트웨어 에뮬(~100cyc) | double 전면 금지 |
 | 스택 크기 | MSP 2~4KB 일반 | 대형 로컬 배열 금지 |
 | Flash 대기 | 5 Wait State @168MHz | constexpr 최소화 |
-| ISR 지연 | 12~16사이클 진입 | ISR 내 긴 로직 금지 |
+| ISR 지연 | 12~16사이클 진입 | ISR 내 긴 로직 금지 
 
 ---
 
