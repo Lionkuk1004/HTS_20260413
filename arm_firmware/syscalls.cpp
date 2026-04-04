@@ -5,6 +5,10 @@
 extern "C" {
 extern char _end;
 
+/* newlib nano __libc_init_array → _init / _fini (nostartfiles 시 스텁 필수) */
+void _init(void) {}
+void _fini(void) {}
+
 void *__dso_handle = nullptr;
 
 /* HTS_Hardware_Init.cpp weak 참조 대체: 스택 성장 하한(낮은 RAM 주소) */

@@ -1,0 +1,8 @@
+{
+	"InstallScripts" : 
+	[
+		"D:/HTS_ARM11_Firmware/HTS_LIM/build-m4/cmake_install.cmake",
+		"D:/HTS_ARM11_Firmware/HTS_LIM/build-m4/arm_firmware/cmake_install.cmake"
+	],
+	"Parallel" : false
+}

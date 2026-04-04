@@ -1,5 +1,6 @@
 // HTS/3DPOWNS — 베어메탈 부트스트랩 (코어 HTS_LIM 소스 비변경)
 #include "HTS_HAL.h"
+#include "HTS_Interface_Manager.h"
 
 #include "HTS_Hardware_Init.h"
 #include "HTS_Priority_Scheduler.h"
@@ -57,6 +58,12 @@ int main()
     alignas(8) uint8_t mac_tag[32] = {};
     const bool ok_prot = session.Protect_Payload(pt, sizeof(pt), ct, mac_tag);
     (void)ok_prot;
+
+    // Phase 2: 스텁 규격 래핑 + 락프리 업링크 링 (스모크 — gc-sections 제거 방지)
+    const auto wrapped = HTS_Interface::Wrap_Secure_Packet(ct, sizeof(ct));
+    if (wrapped.ok) {
+        (void)HTS_Interface::UplinkRing().TryPush(wrapped.data, wrapped.len);
+    }
 
     while (true) {
         Hardware_Init_Manager::Kick_Watchdog();

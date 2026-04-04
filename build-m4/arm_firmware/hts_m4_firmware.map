@@ -1,0 +1,753 @@
+Archive member included to satisfy reference by file (symbol)
+
+arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj (ProtectedEngine::Hardware_Init_Manager::Initialize_System())
+arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj (ProtectedEngine::HTS_Priority_Scheduler::HTS_Priority_Scheduler())
+arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj) (ProtectedEngine::SecureMemory::secureWipe(void*, unsigned int))
+arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj (ProtectedEngine::HTS_Security_Session::HTS_Security_Session())
+arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj) (lea_set_key)
+arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj) (lea_ctr_enc)
+arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj) (ProtectedEngine::ARIA_Bridge::ARIA_Bridge())
+arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj) (ProtectedEngine::AntiDebugManager::pollHardwareOrFault())
+arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj) (ProtectedEngine::Auto_Rollback_Manager::Execute_Self_Healing(unsigned long))
+arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj) (ProtectedEngine::HMAC_Bridge::Init(ProtectedEngine::HMAC_Context&, unsigned char const*, unsigned int))
+arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj) (ProtectedEngine::SecureLogger::logSecurityEvent(char const*, char const*))
+arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj) (SHA256_Init)
+arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj) (Crypt)
+arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+                              arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj) (gcm_ghash)
+arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj) (ProtectedEngine::ConstantTimeUtil::compare(unsigned char const*, unsigned char const*, unsigned int))
+arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj) (ProtectedEngine::Crc32Util::calculate(unsigned char const*, unsigned int))
+arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+                              arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj) (ProtectedEngine::Hardware_Bridge::Get_Physical_CPU_Tick())
+C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj (memset)
+C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj (__errno)
+C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj (__libc_init_array)
+C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
+                              arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj (memcpy)
+C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+                              C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o) (_impure_ptr)
+
+Discarded input sections
+
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .text._ZN13HTS_Interface18Payload_Write_SpanEm
+                0x00000000       0x14 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .text._ZN13HTS_Interface28Finalize_After_Payload_WriteEm
+                0x00000000        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .text._ZN13HTS_Interface12DownlinkRingEv
+                0x00000000        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .bss._ZN13HTS_Interface12_GLOBAL__N_115g_downlink_ringE
+                0x00000000      0x408 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API15Initialize_CoreEPVmS1_PVsNS_14HTS_CommMediumE
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API25Fetch_And_Heal_Rx_PayloadEPmj
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API21Is_System_OperationalEv
+                0x00000000        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API32Set_Unified_Tx_Service_Period_MsEm
+                0x00000000        0xc arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API32Get_Unified_Tx_Service_Period_MsEv
+                0x00000000        0xc arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API32Get_Unified_Tx_Service_Run_CountEv
+                0x00000000        0xc arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API33Get_Unified_Tx_Service_Skip_CountEv
+                0x00000000        0xc arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API25Service_Unified_Tx_If_DueEmPtj
+                0x00000000       0x20 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API36Service_Unified_Tx_Main_Tick_DefaultEm
+                0x00000000       0x18 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text._ZN7HTS_API29Schedule_Unified_Tx_And_QueueEPtj
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .bss._ZN7HTS_API12_GLOBAL__N_123g_unified_tx_skip_countE
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .bss._ZN7HTS_API12_GLOBAL__N_122g_unified_tx_run_countE
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .data._ZN7HTS_API12_GLOBAL__N_122g_unified_tx_period_msE
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .comment       0x00000000       0x46 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .text.HTS_HAL_Cycles_Read32
+                0x00000000        0xc arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .text.HTS_HAL_Flash_Erase_Sector
+                0x00000000        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .text.HTS_HAL_Flash_Program
+                0x00000000        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .text._sbrk    0x00000000       0x3c arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .text._kill    0x00000000        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .text._getpid  0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .text._exit    0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .bss._ZZ5_sbrkE8heap_end
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .bss.__dso_handle
+                0x00000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+ .text          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+ .data          0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+ .bss           0x00000000        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text._ZL20HTS_Fault_Reset_Waitv
+                0x00000000       0x28 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager21Terminal_Fault_ActionEv
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager14Cache_Clean_TxEPmj
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager19Cache_Invalidate_RxEPVsj
+                0x00000000        0xc arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager19Cache_Invalidate_TxEPVsj
+                0x00000000        0xc arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text.fputc    0x00000000       0x28 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text.MemManage_Handler
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text.HardFault_Handler
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text.BusFault_Handler
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text.UsageFault_Handler
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZN15ProtectedEngine22HTS_Priority_Scheduler8get_implEv
+                0x00000000       0x10 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZNK15ProtectedEngine22HTS_Priority_Scheduler8get_implEv
+                0x00000000       0x10 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZN15ProtectedEngine22HTS_Priority_SchedulerD2Ev
+                0x00000000       0x50 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZN15ProtectedEngine22HTS_Priority_Scheduler7DequeueEPhRjRNS_14PacketPriorityE
+                0x00000000      0x154 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZN15ProtectedEngine22HTS_Priority_Scheduler4TickEmm
+                0x00000000       0xd0 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZN15ProtectedEngine22HTS_Priority_Scheduler5FlushEv
+                0x00000000       0x50 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZNK15ProtectedEngine22HTS_Priority_Scheduler13Get_SOS_CountEv
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZNK15ProtectedEngine22HTS_Priority_Scheduler15Get_VOICE_CountEv
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZNK15ProtectedEngine22HTS_Priority_Scheduler14Get_DATA_CountEv
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text._ZNK15ProtectedEngine22HTS_Priority_Scheduler18Is_DATA_SuppressedEv
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .text._ZN15ProtectedEngine12SecureMemory10lockMemoryEPvj
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .group         0x00000000        0xc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session19impl_ok_no_deferredEPNS0_4ImplE
+                0x00000000       0xa8 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session8get_implEv
+                0x00000000       0x14 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZNK15ProtectedEngine20HTS_Security_Session8get_implEv
+                0x00000000       0x14 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_SessionD2Ev
+                0x00000000       0xd8 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZNK15ProtectedEngine20HTS_Security_Session9Is_ActiveEv
+                0x00000000       0x28 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session15Unprotect_BeginEv
+                0x00000000       0xcc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session14Unprotect_FeedEPKhj
+                0x00000000       0xcc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session16Unprotect_VerifyEPKh
+                0x00000000       0xe8 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session13Decrypt_ChunkEPKhjPh
+                0x00000000       0xdc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session17Unprotect_PayloadEPKhjS2_Ph
+                0x00000000       0x48 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text._ZN15ProtectedEngine20HTS_Security_Session17Terminate_SessionEv
+                0x00000000       0xe0 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+ .text.lea_decrypt
+                0x00000000      0x604 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_make_cmac_subkey.constprop.0
+                0x00000000       0x48 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ecb_enc
+                0x00000000       0x38 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ecb_dec
+                0x00000000       0x38 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cbc_enc
+                0x00000000      0x130 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cbc_dec
+                0x00000000      0x248 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ctr_dec
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cfb128_enc
+                0x00000000      0x17c arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cfb128_dec
+                0x00000000      0x244 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ofb_enc
+                0x00000000      0x15c arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ofb_dec
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cmac_init
+                0x00000000       0x54 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cmac_update
+                0x00000000      0x1d8 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_cmac_final
+                0x00000000      0x16c arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ccm_enc
+                0x00000000      0x20c arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_ccm_dec
+                0x00000000      0x234 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_gcm_set_ctr
+                0x00000000       0xc8 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_gcm_set_aad
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_gcm_enc
+                0x00000000      0x160 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_gcm_dec
+                0x00000000      0x190 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text.lea_gcm_final
+                0x00000000      0x154 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11ARIA_BridgeD2Ev
+                0x00000000       0x10 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11ARIA_Bridge21Initialize_DecryptionEPKhi
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .rodata._ZN15ProtectedEngine16AntiDebugManager9forceHaltEPKc.str1.4
+                0x00000000       0x18 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .text._ZN15ProtectedEngine16AntiDebugManager9forceHaltEPKc
+                0x00000000       0x24 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .rodata._ZN15ProtectedEngine16AntiDebugManager11trustedHaltEPKc.str1.4
+                0x00000000        0xd arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .text._ZN15ProtectedEngine16AntiDebugManager11trustedHaltEPKc
+                0x00000000       0x14 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .text._ZN15ProtectedEngine16AntiDebugManager21checkDebuggerPresenceEv
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .rodata._ZN15ProtectedEngine21Auto_Rollback_Manager20Execute_Self_HealingEm.str1.4
+                0x00000000       0x19 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .text._ZN15ProtectedEngine21Auto_Rollback_Manager20Execute_Self_HealingEm
+                0x00000000       0xb0 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .comment       0x00000000       0x46 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/libhts_m4_core.a(HTS_Auto_Rollback_Manager.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11HMAC_Bridge12Verify_FinalERNS_12HMAC_ContextEPKh
+                0x00000000       0x6c arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11HMAC_Bridge8GenerateEPKhjS2_jPh
+                0x00000000       0x88 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11HMAC_Bridge6VerifyEPKhjS2_jS2_
+                0x00000000       0x88 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text._ZN15ProtectedEngineL12Append_Hex32EPcjjm.part.0
+                0x00000000       0x58 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.HTS_AuditLog_SyncDrainLine
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_WipeRingAndFault
+                0x00000000       0x14 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_GetAuditRingBase
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_GetAuditRingSlotCount
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_GetAuditLineBytes
+                0x00000000        0x8 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_GetAuditDropCount
+                0x00000000        0xc arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_GetAuditSlotReady
+                0x00000000       0x18 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text.SecureLogger_ClearAuditSlotReady
+                0x00000000       0x14 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text._ZN15ProtectedEngine12SecureLogger27pollDebuggerHardwareOrFaultEv
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text._ZN15ProtectedEngine12SecureLogger21flushAuditRingForTrapEv
+                0x00000000       0x1c arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .rodata._ZN15ProtectedEngine12SecureLogger16logSecurityEventEPKcS2_.str1.4
+                0x00000000       0x2a arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text._ZN15ProtectedEngine12SecureLogger16logSecurityEventEPKcS2_
+                0x00000000      0x39c arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .rodata._ZZN15ProtectedEngineL12Append_Hex32EPcjjmE5k_hex
+                0x00000000       0x11 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .bss._ZN12_GLOBAL__N_119s_audit_rate_packedE
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .bss._ZN12_GLOBAL__N_124g_audit_event_drop_countE
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .bss._ZN12_GLOBAL__N_111g_audit_seqE
+                0x00000000        0x4 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .bss._ZN12_GLOBAL__N_113g_audit_readyE
+                0x00000000       0x10 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .bss._ZN12_GLOBAL__N_1L12g_audit_ringE
+                0x00000000     0x1000 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .comment       0x00000000       0x46 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/libhts_m4_core.a(HTS_Secure_Logger.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+ .text.SHA256_Encrpyt
+                0x00000000       0x70 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .text.gcm_gfmul
+                0x00000000      0x1a8 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .text.lea_gcm_init
+                0x00000000      0x388 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .text.gcm_ghash
+                0x00000000       0xac arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .rodata.reduction_8bit
+                0x00000000      0x200 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .comment       0x00000000       0x46 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/libhts_m4_core.a(lea_gcm_generic.c.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .text._ZN15ProtectedEngine16ConstantTimeUtil7compareEPKhS2_j
+                0x00000000       0x74 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .text._ZN15ProtectedEngine16ConstantTimeUtil16compare_variableEPKhjS2_j
+                0x00000000       0xcc arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .rodata._ZZN15ProtectedEngine16ConstantTimeUtil16compare_variableEPKhjS2_jE5dummy
+                0x00000000        0x1 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .rodata._ZZN15ProtectedEngine16ConstantTimeUtil7compareEPKhS2_jE5dummy
+                0x00000000        0x1 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .comment       0x00000000       0x46 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/libhts_m4_core.a(HTS_ConstantTimeUtil.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .text._ZN15ProtectedEngine9Crc32Util9calculateEPKhj
+                0x00000000       0x38 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .rodata._ZN15ProtectedEngine12_GLOBAL__N_1L9CRC32_LUTE
+                0x00000000      0x400 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .comment       0x00000000       0x46 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/libhts_m4_core.a(HTS_Crc32Util.cpp.obj)
+ .text          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .data          0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .bss           0x00000000        0x0 arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine15Hardware_Bridge21Get_Physical_CPU_TickEv
+                0x00000000        0xc arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine15Hardware_Bridge16Secure_Erase_RawEPvj
+                0x00000000       0x54 arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .comment       0x00000000       0x46 arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/libhts_m4_core.a(HTS_Hardware_Bridge.cpp.obj)
+ .text          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+ .data          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+ .bss           0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+ .text          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+ .data          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+ .bss           0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+ .text.__errno  0x00000000        0xc C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+ .debug_frame   0x00000000       0x20 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+ .ARM.attributes
+                0x00000000       0x34 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-errno.o)
+ .text          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+ .data          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+ .bss           0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+ .text          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
+ .data          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
+ .bss           0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
+ .text          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+ .data          0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+ .bss           0x00000000        0x0 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+ .data._impure_ptr
+                0x00000000        0x4 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+ .data._impure_data
+                0x00000000       0x4c C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+ .ARM.attributes
+                0x00000000       0x34 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-impure.o)
+
+Memory Configuration
+
+Name             Origin             Length             Attributes
+FLASH            0x08000000         0x00100000         xr
+RAM              0x20000000         0x00020000         xrw
+*default*        0x00000000         0xffffffff
+
+Linker script and memory map
+
+                0x20020000                        _estack = (ORIGIN (RAM) + LENGTH (RAM))
+                0x00000400                        _Min_Heap_Size = 0x400
+                0x00008000                        _Min_Stack_Size = 0x8000
+
+.isr_vector     0x08000000      0x188
+ *(.isr_vector)
+ .isr_vector    0x08000000      0x188 arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+                0x08000000                g_pfnVectors
+
+.text           0x08000188     0x6a70
+ *(.text*)
+ .text.startup.main
+                0x08000188      0x128 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+                0x08000188                main
+ .text._ZN13HTS_Interface12_GLOBAL__N_114FinalizeBufferEm
+                0x080002b0       0x68 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .text._ZN13HTS_Interface18Wrap_Secure_PacketEPKhm
+                0x08000318       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+                0x08000318                HTS_Interface::Wrap_Secure_Packet(unsigned char const*, unsigned long)
+ .text._ZN13HTS_Interface10UplinkRingEv
+                0x0800034c        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+                0x0800034c                HTS_Interface::UplinkRing()
+ .text.HTS_HAL_Cycles_Init
+                0x08000354       0x24 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+                0x08000354                HTS_HAL_Cycles_Init
+ .text.HTS_HAL_TRNG_Fill
+                0x08000378       0x3c arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+                0x08000378                HTS_HAL_TRNG_Fill
+ .text._init    0x080003b4        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+                0x080003b4                _init
+ .text._fini    0x080003b8        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+                0x080003b8                _fini
+ .text.SystemInit
+                0x080003bc        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+                0x080003bc                SystemInit
+ .text.Default_Handler
+                0x080003c0        0x2 arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+                0x080003c0                SVCall_Handler
+                0x080003c0                DebugMon_Handler
+                0x080003c0                HardFault_Handler
+                0x080003c0                SysTick_Handler
+                0x080003c0                PendSV_Handler
+                0x080003c0                NMI_Handler
+                0x080003c0                UsageFault_Handler
+                0x080003c0                MemManage_Handler
+                0x080003c0                BusFault_Handler
+ *fill*         0x080003c2        0x2 
+ .text.Reset_Handler
+                0x080003c4       0x4c arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+                0x080003c4                Reset_Handler
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager14Initialize_MPUEm
+                0x08000410       0xd4 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+                0x08000410                ProtectedEngine::Hardware_Init_Manager::Initialize_MPU(unsigned long)
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager17Initialize_SystemEv
+                0x080004e4       0x78 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+                0x080004e4                ProtectedEngine::Hardware_Init_Manager::Initialize_System()
+ .text._ZN15ProtectedEngine21Hardware_Init_Manager13Kick_WatchdogEv
+                0x0800055c       0x18 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+                0x0800055c                ProtectedEngine::Hardware_Init_Manager::Kick_Watchdog()
+ .text._ZN15ProtectedEngine22HTS_Priority_SchedulerC2Ev
+                0x08000574       0x2c arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+                0x08000574                ProtectedEngine::HTS_Priority_Scheduler::HTS_Priority_Scheduler()
+                0x08000574                ProtectedEngine::HTS_Priority_Scheduler::HTS_Priority_Scheduler()
+ .text._ZN15ProtectedEngine22HTS_Priority_Scheduler7EnqueueENS_14PacketPriorityEPKhjm
+                0x080005a0      0x10c arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+                0x080005a0                ProtectedEngine::HTS_Priority_Scheduler::Enqueue(ProtectedEngine::PacketPriority, unsigned char const*, unsigned int, unsigned long)
+ .text._ZN12_GLOBAL__N_1L17Force_Secure_WipeEPvj
+                0x080006ac       0x70 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .text._ZN15ProtectedEngine12SecureMemory10secureWipeEPvj
+                0x0800071c        0xc arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+                0x0800071c                ProtectedEngine::SecureMemory::secureWipe(void*, unsigned int)
+ .text._ZN15ProtectedEngine20HTS_Security_Session4Impl12Do_CTR_ChunkEPKhjPhS4_S4_Rj
+                0x08000728      0x2dc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000728                ProtectedEngine::HTS_Security_Session::Impl::Do_CTR_Chunk(unsigned char const*, unsigned int, unsigned char*, unsigned char*, unsigned char*, unsigned int&)
+ .text._ZN15ProtectedEngine20HTS_Security_SessionC2Ev
+                0x08000a04       0xe0 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000a04                ProtectedEngine::HTS_Security_Session::HTS_Security_Session()
+                0x08000a04                ProtectedEngine::HTS_Security_Session::HTS_Security_Session()
+ .text._ZN15ProtectedEngine20HTS_Security_Session10InitializeENS_15CipherAlgorithmENS_12MacAlgorithmEPKhS4_S4_
+                0x08000ae4      0x250 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000ae4                ProtectedEngine::HTS_Security_Session::Initialize(ProtectedEngine::CipherAlgorithm, ProtectedEngine::MacAlgorithm, unsigned char const*, unsigned char const*, unsigned char const*)
+ .text._ZN15ProtectedEngine20HTS_Security_Session13Protect_BeginEv
+                0x08000d34       0xcc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000d34                ProtectedEngine::HTS_Security_Session::Protect_Begin()
+ .text._ZN15ProtectedEngine20HTS_Security_Session13Protect_ChunkEPKhjPh
+                0x08000e00       0xf4 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000e00                ProtectedEngine::HTS_Security_Session::Protect_Chunk(unsigned char const*, unsigned int, unsigned char*)
+ .text._ZN15ProtectedEngine20HTS_Security_Session11Protect_EndEPh
+                0x08000ef4       0xcc arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000ef4                ProtectedEngine::HTS_Security_Session::Protect_End(unsigned char*)
+ .text._ZN15ProtectedEngine20HTS_Security_Session15Protect_PayloadEPKhjPhS3_
+                0x08000fc0       0x38 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+                0x08000fc0                ProtectedEngine::HTS_Security_Session::Protect_Payload(unsigned char const*, unsigned int, unsigned char*, unsigned char*)
+ .text.lea_set_key
+                0x08000ff8     0x1cec arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+                0x08000ff8                lea_set_key
+ .text.lea_encrypt
+                0x08002ce4      0x6b0 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+                0x08002ce4                lea_encrypt
+ .text.lea_ctr_enc
+                0x08003394      0x1ac arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+                0x08003394                lea_ctr_enc
+ .text._ZN15ProtectedEngineL11Do_KeySetupEPKhiPhRiRbb
+                0x08003540       0xb0 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11ARIA_BridgeC2Ev
+                0x080035f0       0x28 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+                0x080035f0                ProtectedEngine::ARIA_Bridge::ARIA_Bridge()
+                0x080035f0                ProtectedEngine::ARIA_Bridge::ARIA_Bridge()
+ .text._ZN15ProtectedEngine11ARIA_Bridge5ResetEv
+                0x08003618       0x18 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+                0x08003618                ProtectedEngine::ARIA_Bridge::Reset()
+ .text._ZN15ProtectedEngine11ARIA_Bridge21Initialize_EncryptionEPKhi
+                0x08003630       0x24 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+                0x08003630                ProtectedEngine::ARIA_Bridge::Initialize_Encryption(unsigned char const*, int)
+ .text._ZN15ProtectedEngine11ARIA_Bridge13Process_BlockEPKhPh
+                0x08003654       0x90 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+                0x08003654                ProtectedEngine::ARIA_Bridge::Process_Block(unsigned char const*, unsigned char*)
+ .text._ZN15ProtectedEngine16AntiDebugManager19pollHardwareOrFaultEv
+                0x080036e4        0x4 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+                0x080036e4                ProtectedEngine::AntiDebugManager::pollHardwareOrFault()
+ .text._ZN15ProtectedEngine11HMAC_Bridge4InitERNS_12HMAC_ContextEPKhj.part.0
+                0x080036e8       0xf0 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11HMAC_Bridge6UpdateERNS_12HMAC_ContextEPKhj.part.0
+                0x080037d8       0x6c arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .text._ZN15ProtectedEngine11HMAC_Bridge4InitERNS_12HMAC_ContextEPKhj
+                0x08003844       0x10 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+                0x08003844                ProtectedEngine::HMAC_Bridge::Init(ProtectedEngine::HMAC_Context&, unsigned char const*, unsigned int)
+ .text._ZN15ProtectedEngine11HMAC_Bridge6UpdateERNS_12HMAC_ContextEPKhj
+                0x08003854       0x10 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+                0x08003854                ProtectedEngine::HMAC_Bridge::Update(ProtectedEngine::HMAC_Context&, unsigned char const*, unsigned int)
+ .text._ZN15ProtectedEngine11HMAC_Bridge5FinalERNS_12HMAC_ContextEPh
+                0x08003864       0xd0 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+                0x08003864                ProtectedEngine::HMAC_Bridge::Final(ProtectedEngine::HMAC_Context&, unsigned char*)
+ .text.SHA256_Transform
+                0x08003934      0x350 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+                0x08003934                SHA256_Transform
+ .text.SHA256_Init
+                0x08003c84       0x50 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+                0x08003c84                SHA256_Init
+ .text.SHA256_Process
+                0x08003cd4       0x88 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+                0x08003cd4                SHA256_Process
+ .text.SHA256_Close
+                0x08003d5c       0x7c arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+                0x08003d5c                SHA256_Close
+ .text.Crypt    0x08003dd8     0x11a0 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x08003dd8                Crypt
+ .text.EncKeySetup
+                0x08004f78      0x87c arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x08004f78                EncKeySetup
+ .text.DecKeySetup
+                0x080057f4      0x244 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x080057f4                DecKeySetup
+ .text.memset   0x08005a38       0x10 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+                0x08005a38                memset
+ .text.__libc_init_array
+                0x08005a48       0x48 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+                0x08005a48                __libc_init_array
+ .text.memcpy   0x08005a90       0x1c C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
+                0x08005a90                memcpy
+ *(.rodata*)
+ .rodata.main.str1.4
+                0x08005aac       0x11 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+ *fill*         0x08005abd        0x3 
+ .rodata        0x08005ac0        0x8 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+ .rodata.SHA256_K
+                0x08005ac8      0x100 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+                0x08005ac8                SHA256_K
+ .rodata.X2     0x08005bc8      0x400 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x08005bc8                X2
+ .rodata.X1     0x08005fc8      0x400 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x08005fc8                X1
+ .rodata.S2     0x080063c8      0x400 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x080063c8                S2
+ .rodata.S1     0x080067c8      0x400 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x080067c8                S1
+ .rodata.KRK    0x08006bc8       0x30 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+                0x08006bc8                KRK
+ *(.init)
+ *(.fini)
+ *(.glue_7)
+ .glue_7        0x08006bf8        0x0 linker stubs
+ *(.glue_7t)
+ .glue_7t       0x08006bf8        0x0 linker stubs
+
+.vfp11_veneer   0x08006bf8        0x0
+ .vfp11_veneer  0x08006bf8        0x0 linker stubs
+
+.v4_bx          0x08006bf8        0x0
+ .v4_bx         0x08006bf8        0x0 linker stubs
+
+.iplt           0x08006bf8        0x0
+ .iplt          0x08006bf8        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+
+.rel.dyn        0x08006bf8        0x0
+ .rel.iplt      0x08006bf8        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+
+.ARM.extab
+ *(.ARM.extab* .gnu.linkonce.armextab.*)
+
+.ARM.exidx      0x08006bf8        0x0
+                0x08006bf8                        __exidx_start = .
+ *(.ARM.exidx*)
+                0x08006bf8                        __exidx_end = .
+                0x08006bf8                        _sidata = LOADADDR (.data)
+
+.data           0x20000000        0x4 load address 0x08006bf8
+                0x20000000                        _sdata = .
+ *(.data*)
+ .data.__stack_bottom__
+                0x20000000        0x4 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+                0x20000000                __stack_bottom__
+                0x20000004                        _edata = .
+
+.igot.plt       0x20000004        0x0 load address 0x08006bfc
+ .igot.plt      0x20000004        0x0 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+
+.bss            0x20000004      0x60e load address 0x08006bfc
+                0x20000004                        _sbss = .
+ *(.bss*)
+ .bss._ZN13HTS_Interface12_GLOBAL__N_113g_uplink_ringE
+                0x20000004      0x408 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .bss._ZN13HTS_Interface12_GLOBAL__N_114g_frame_bufferE
+                0x2000040c      0x206 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ *(COMMON)
+                0x20000612                        _ebss = .
+
+._user_heap_stack
+                0x20000612     0x8406 load address 0x08006bfc
+                0x20000618                        . = ALIGN (0x8)
+ *fill*         0x20000612        0x6 
+                [!provide]                        PROVIDE (end = .)
+                0x20000618                        PROVIDE (_end = .)
+                0x20000a18                        . = (. + _Min_Heap_Size)
+ *fill*         0x20000618      0x400 
+                0x20008a18                        . = (. + _Min_Stack_Size)
+ *fill*         0x20000a18     0x8000 
+                0x20008a18                        . = ALIGN (0x8)
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/stub_hts_api.cpp.obj
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+LOAD arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+LOAD arm_firmware/libhts_m4_core.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libstdc++_nano.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libgcc.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libstdc++_nano.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libm.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a
+START GROUP
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libgcc.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a
+END GROUP
+START GROUP
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libgcc.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libnosys.a
+END GROUP
+START GROUP
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libgcc.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a
+LOAD C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libnosys.a
+END GROUP
+OUTPUT(arm_firmware\hts_m4_firmware elf32-littlearm)
+LOAD linker stubs
+
+.comment        0x00000000       0x45
+ .comment       0x00000000       0x45 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+                                 0x46 (size before relaxing)
+ .comment       0x00000045       0x46 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .comment       0x00000045       0x46 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .comment       0x00000045       0x46 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .comment       0x00000045       0x46 arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+ .comment       0x00000045       0x46 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+
+.ARM.attributes
+                0x00000000       0x32
+ .ARM.attributes
+                0x00000000       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/main.cpp.obj
+ .ARM.attributes
+                0x00000034       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_Interface_Manager.cpp.obj
+ .ARM.attributes
+                0x00000068       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/HTS_HAL_Dummy.cpp.obj
+ .ARM.attributes
+                0x0000009c       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/syscalls.cpp.obj
+ .ARM.attributes
+                0x000000d0       0x34 arm_firmware/CMakeFiles/hts_m4_firmware.dir/system_stm32f407xx.c.obj
+ .ARM.attributes
+                0x00000104       0x25 arm_firmware/CMakeFiles/hts_m4_firmware.dir/startup_stm32f407xx.S.obj
+ .ARM.attributes
+                0x00000129       0x34 arm_firmware/libhts_m4_core.a(HTS_Hardware_Init.cpp.obj)
+ .ARM.attributes
+                0x0000015d       0x34 arm_firmware/libhts_m4_core.a(HTS_Priority_Scheduler.cpp.obj)
+ .ARM.attributes
+                0x00000191       0x34 arm_firmware/libhts_m4_core.a(HTS_Secure_Memory.cpp.obj)
+ .ARM.attributes
+                0x000001c5       0x34 arm_firmware/libhts_m4_core.a(HTS_Security_Session.cpp.obj)
+ .ARM.attributes
+                0x000001f9       0x34 arm_firmware/libhts_m4_core.a(lea_core.c.obj)
+ .ARM.attributes
+                0x0000022d       0x34 arm_firmware/libhts_m4_core.a(lea_t_generic.c.obj)
+ .ARM.attributes
+                0x00000261       0x34 arm_firmware/libhts_m4_core.a(HTS_ARIA_Bridge.cpp.obj)
+ .ARM.attributes
+                0x00000295       0x34 arm_firmware/libhts_m4_core.a(HTS_Anti_Debug.cpp.obj)
+ .ARM.attributes
+                0x000002c9       0x34 arm_firmware/libhts_m4_core.a(HTS_HMAC_Bridge.cpp.obj)
+ .ARM.attributes
+                0x000002fd       0x34 arm_firmware/libhts_m4_core.a(KISA_SHA256.c.obj)
+ .ARM.attributes
+                0x00000331       0x34 arm_firmware/libhts_m4_core.a(aria050117.c.obj)
+ .ARM.attributes
+                0x00000365       0x34 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+ .ARM.attributes
+                0x00000399       0x34 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+ .ARM.attributes
+                0x000003cd       0x34 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
+
+.debug_frame    0x00000000       0x74
+ .debug_frame   0x00000000       0x20 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memset.o)
+ .debug_frame   0x00000020       0x2c C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-init.o)
+ .debug_frame   0x0000004c       0x28 C:/PROGRA~2/ARMGNU~1/133167~1.3RE/bin/../lib/gcc/arm-none-eabi/13.3.1/thumb/v7e-m+fp/hard\libc_nano.a(libc_a-memcpy-stub.o)
