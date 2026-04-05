@@ -23,7 +23,7 @@ namespace ProtectedEngine {
             initialized_ = false;
         }
 
-        /// @brief SEQ 수락 시 true, 리플레이/윈도우 밖이면 false (상태 불변)
+        /// @brief SEQ 수락 시 true, 리플레이/윈도우 밖이면 false (상태 불변) 
         [[nodiscard]] bool AcceptSeq(uint32_t seq) noexcept
         {
             if (!initialized_) {
