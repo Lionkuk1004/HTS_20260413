@@ -1,50 +1,51 @@
-#Requires -Version 5.0
+# HTS Cortex-M4 펌웨어 크로스 빌드 (GNU Arm Embedded + CMake/Ninja)
+# 사용:  PS> cd D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware
+#        PS> .\build_m4.ps1
+# 산출물: ..\build-m4\arm_firmware\hts_m4_firmware.elf, hts_m4_firmware.bin
+
 $ErrorActionPreference = "Stop"
-$Root = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$CMake = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -requires Microsoft.Component.MSBuild `
-    -find "**\CMake\bin\cmake.exe" | Select-Object -First 1
-if (-not $CMake) { throw "CMake not found (install VS CMake component)." }
-$Ninja = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" `
-    -latest -find "**\ninja.exe" | Select-Object -First 1
-if ($Ninja) {
-    $env:PATH = "$(Split-Path $Ninja);$env:PATH"
+# arm_firmware -> HTS_LIM (저장소 루트)
+$RepoRoot = Split-Path $PSScriptRoot -Parent
+$BuildDir = Join-Path $RepoRoot "build-m4"
+$Toolchain = Join-Path $PSScriptRoot "cmake\arm-none-eabi-gcc.cmake"
+
+$cmake = $null
+foreach ($c in @(
+        "${env:ProgramFiles}\Microsoft Visual Studio\2022\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe",
+        "${env:ProgramFiles}\Microsoft Visual Studio\18\Community\Common7\IDE\CommonExtensions\Microsoft\CMake\CMake\bin\cmake.exe"
+    )) {
+    if (Test-Path $c) { $cmake = $c; break }
+}
+if (-not $cmake) {
+    $cmd = Get-Command cmake -ErrorAction SilentlyContinue
+    if ($cmd) { $cmake = $cmd.Source }
+}
+if (-not $cmake) {
+    Write-Error "cmake.exe not found. Install VS CMake component or add cmake to PATH."
 }
 
-$ArmBin = $null
-if (Get-Command arm-none-eabi-g++ -ErrorAction SilentlyContinue) {
-    $ArmBin = Split-Path (Get-Command arm-none-eabi-g++).Source
-}
-if (-not $ArmBin) {
-    $candidates = @(
-        "${env:ProgramFiles(x86)}\Arm GNU Toolchain arm-none-eabi\*\bin",
-        "${env:ProgramFiles}\Arm GNU Toolchain arm-none-eabi\*\bin"
-    )
-    foreach ($pat in $candidates) {
-        $d = Get-ChildItem -Path $pat -ErrorAction SilentlyContinue |
-            Where-Object { Test-Path (Join-Path $_.FullName "arm-none-eabi-g++.exe") } |
-            Select-Object -First 1
-        if ($d) { $ArmBin = $d.FullName; break }
+$jobs = [Math]::Max(1, [Environment]::ProcessorCount - 1)
+Push-Location $RepoRoot
+try {
+    if (-not (Test-Path (Join-Path $BuildDir "CMakeCache.txt"))) {
+        # 최상위 CMakeLists는 HTS_LIM 루트 (add_subdirectory arm_firmware)
+        & $cmake -B $BuildDir -S $RepoRoot -G Ninja `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_TOOLCHAIN_FILE=$Toolchain
+        if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
     }
+    & $cmake --build $BuildDir --config Release -j $jobs
+    if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+    $bin = Join-Path $BuildDir "arm_firmware\hts_m4_firmware.bin"
+    if (-not (Test-Path $bin)) {
+        Write-Error "Expected output missing: $bin"
+    }
+    $i = Get-Item $bin
+    Write-Host ""
+    Write-Host "=== M4 build OK ===" -ForegroundColor Green
+    Write-Host ("BIN: {0} ({1} bytes) @ {2}" -f $i.FullName, $i.Length, $i.LastWriteTime)
 }
-if ($ArmBin) {
-    $env:PATH = "$ArmBin;$env:PATH"
+finally {
+    Pop-Location
 }
-if (-not (Get-Command arm-none-eabi-g++ -ErrorAction SilentlyContinue)) {
-    throw "arm-none-eabi-g++ not found. Install Arm GNU Toolchain and/or add its bin to PATH."
-}
-
-$ToolchainFile = (Resolve-Path (Join-Path $PSScriptRoot "cmake\arm-none-eabi-gcc.cmake")).Path
-$BuildDir = Join-Path $Root "build-m4"
-
-& $CMake `
-    -S $Root `
-    -B $BuildDir `
-    -G Ninja `
-    "-DCMAKE_BUILD_TYPE=Release" `
-    "-DCMAKE_TOOLCHAIN_FILE=$ToolchainFile"
-
-if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-
-& $CMake --build $BuildDir --parallel
-exit $LASTEXITCODE

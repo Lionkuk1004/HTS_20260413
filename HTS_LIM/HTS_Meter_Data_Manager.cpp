@@ -85,6 +85,7 @@ namespace ProtectedEngine {
         MeterReading_VerifyFn verify_fn = nullptr;
         void*        verify_user = nullptr;
         mutable bool crc_fault_latched = false;
+        mutable bool report_enqueue_fault_latched = false;
 
         // 부하 프로파일: 15분 × 96 = 24시간
         uint32_t profile[PROFILE_SLOTS] = {};
@@ -218,6 +219,17 @@ namespace ProtectedEngine {
         return f;
     }
 
+    bool HTS_Meter_Data_Manager::Is_Scheduler_Report_Fault() const noexcept {
+        const Impl* p = get_impl();
+        if (p == nullptr) { return false; }
+        bool f = false;
+        {
+            Armv7m_Irq_Mask_Guard irq;
+            f = p->report_enqueue_fault_latched;
+        }
+        return f;
+    }
+
     uint32_t HTS_Meter_Data_Manager::Get_Profile_Value(
         size_t slot) const noexcept
     {
@@ -299,7 +311,6 @@ namespace ProtectedEngine {
         // 1시간 보고
         const uint32_t rpt_elapsed = systick_ms - p->last_report_ms;
         if (rpt_elapsed < REPORT_INTERVAL_MS) { return; }
-        p->last_report_ms += REPORT_INTERVAL_MS;
 
         // 보고 패킷 (8바이트 요약) — CRC는 잠금 밖에서 (LUT 순회 N-10)
         uint8_t pkt[8] = {};
@@ -328,7 +339,17 @@ namespace ProtectedEngine {
         const EnqueueResult enq = scheduler.Enqueue(
             PacketPriority::DATA,
             pkt, 8u, systick_ms);
-        (void)enq;
+        if (enq != EnqueueResult::OK) {
+            Armv7m_Irq_Mask_Guard irq;
+            p->report_enqueue_fault_latched = true;
+            Mtr_Secure_Wipe(pkt, sizeof(pkt));
+            return;
+        }
+        {
+            Armv7m_Irq_Mask_Guard irq;
+            p->report_enqueue_fault_latched = false;
+            p->last_report_ms += REPORT_INTERVAL_MS;
+        }
 
         Mtr_Secure_Wipe(pkt, sizeof(pkt));
     }

@@ -660,6 +660,8 @@ namespace ProtectedEngine {
                 entry.data[ii] = data[ii];
             }
             entry.length = static_cast<uint16_t>(copy_len);
+            entry.padding[0] = 0u;
+            entry.padding[1] = 0u;
             rx_head.store(head + 1u, std::memory_order_release);
             return true;
         }
@@ -709,6 +711,8 @@ namespace ProtectedEngine {
                 entry.data[ii] = data[ii];
             }
             entry.length = static_cast<uint16_t>(copy_len);
+            entry.padding[0] = 0u;
+            entry.padding[1] = 0u;
             tx_head.store(head + 1u, std::memory_order_release);
             return true;
         }
@@ -1241,6 +1245,12 @@ namespace ProtectedEngine {
         // --- Handle RX DMA Complete ---
         if (impl->rx_dma_complete.load(std::memory_order_acquire)) {
             impl->rx_dma_complete.store(false, std::memory_order_relaxed);
+
+            // CFI 위반으로 ERROR_RECOVERY(0x10)에 머물면 k_rx_valid_mask에 안 걸려
+            // Process_RX_Frame이 영구 스킵 → 링·링크 정지. 합법 전이로 IDLE 복귀 후 처리.
+            if (impl->state == IPC_State::ERROR_RECOVERY) {
+                (void)impl->Transition_State(IPC_State::IDLE);
+            }
 
             // Bitmask check: IDLE(0x01) | RESPONDING(0x08) = valid states for RX processing
             static constexpr uint8_t k_rx_valid_mask = static_cast<uint8_t>(

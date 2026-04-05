@@ -71,7 +71,8 @@ namespace ProtectedEngine {
         SEQUENCE_FAIL = 0x05u,    ///< 청크 시퀀스 오류
         FLASH_FAIL = 0x06u,    ///< Flash 기록 실패
         SIGNATURE_FAIL = 0x07u,    ///< 서명 검증 실패
-        NOT_READY = 0x08u     ///< 업데이트 미시작 상태
+        NOT_READY = 0x08u,    ///< 업데이트 미시작 상태
+        IPC_TX_FAIL = 0x09u     ///< STATUS_RSP 등 IPC 송신 실패 (호스트는 미확인 응답으로 처리)
     };
 
     // ============================================================

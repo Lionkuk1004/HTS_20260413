@@ -19,7 +19,7 @@
 //  [사용법]
 //   1. 생성: HTS_Priority_Scheduler()
 //   2. Enqueue(priority, data, len): 패킷을 우선순위 큐에 삽입
-//   3. Dequeue(out_data, out_len, out_priority): 최고 우선순위 패킷 추출
+//   3. Dequeue(out_data, out_buf_cap, out_len, out_priority): 최고 우선순위 패킷 추출
 //   4. Tick(systick_ms): 에이징 처리 + NF 기반 정책 갱신
 //
 //  [디큐 정책]
@@ -96,13 +96,14 @@ namespace ProtectedEngine {
             uint32_t timestamp) noexcept;
 
         /// @brief 최고 우선순위 패킷 추출
-        /// @param out_data     출력 버퍼 (MAX_PACKET_DATA 이상)
+        /// @param out_data     출력 버퍼
+        /// @param out_buf_cap  out_data 가용 크기(바이트). 패킷 len 초과 시 false(미출력)
         /// @param out_len      출력 데이터 길이
         /// @param out_priority 출력 우선순위
-        /// @return true = 패킷 존재, false = 전 큐 비어있음
+        /// @return true = 패킷 존재, false = 비어있음 또는 버퍼 부족
         [[nodiscard]]
         bool Dequeue(
-            uint8_t* out_data, size_t& out_len,
+            uint8_t* out_data, size_t out_buf_cap, size_t& out_len,
             PacketPriority& out_priority) noexcept;
 
         /// @brief 주기 처리 (에이징 + NF 정책 갱신)

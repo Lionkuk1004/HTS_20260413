@@ -510,8 +510,11 @@ namespace ProtectedEngine {
             OTA_Write_U16(&rsp_buf[static_cast<size_t>(pos)], image_header.total_chunks);
             pos += 2u;
 
-            ipc->Send_Frame(IPC_Command::DATA_TX,
+            const IPC_Error se = ipc->Send_Frame(IPC_Command::DATA_TX,
                 rsp_buf, static_cast<uint16_t>(pos));
+            if (se != IPC_Error::OK) {
+                last_result = OTA_Result::IPC_TX_FAIL;
+            }
         }
     };
 

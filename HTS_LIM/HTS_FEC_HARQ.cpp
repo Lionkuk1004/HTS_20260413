@@ -79,6 +79,12 @@ namespace ProtectedEngine {
     static_assert(FEC_HARQ::BPS64_MAX <= FEC_HARQ::C64,
         "Bin_To_LLR bps exceeds scratch");
 
+    // Decode_Core: fI/fQ/llr 로컬 합이 512B를 초과 — 스택 한계 방지를 위해 BSS 단일화
+    // (Sparse_Recovery g_sparse_erase_pos / Orbital g_visited_bitmap 과 동일 전제: 비재진입·호출부 직렬화)
+    static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fI{};
+    static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fQ{};
+    static std::array<int32_t, k_llr_buf_sz> g_fec_dec_llr{};
+
     // FWHT 나비 연산 — 루프 전개용 (데이터 의존 분기 없음)
 #define HTS_FWHT_BF(d_, i_, j_)                         \
         do {                                            \
@@ -552,6 +558,11 @@ namespace ProtectedEngine {
             *olen = 0;
             return false;
         }
+        // fI/fQ 스택 버퍼 = k_fwht_buf_sz(=C64). nc 초과 시 memcpy/FWHT OOB → 스택 파손
+        if (nc > FEC_HARQ::C64) {
+            *olen = 0;
+            return false;
+        }
 
         // Encode 경로는 항상 TOTAL_CODED 비트를 인터리브함(Bit_Interleave(..., TOTAL_CODED)).
         // 심볼 격자(nsym×bps)가 그보다 작으면 LLR 슬롯이 비어 복호화가 붕괴됨.
@@ -569,9 +580,10 @@ namespace ProtectedEngine {
 
         // llr_slots >= TOTAL_CODED 이면 (sym,b) 격자가 bi=0..TOTAL_CODED-1 전부를 한 번씩 기록 — all_llr memset 불필요
         // FWHT(d, nc) / Bin_To_LLR 는 [0, nc) / [0, bps) 만 사용 — nc·bps 칩 이후 슬롯은 미사용
-        std::array<int32_t, k_fwht_buf_sz> fI;
-        std::array<int32_t, k_fwht_buf_sz> fQ;
-        std::array<int32_t, k_llr_buf_sz> llr{};
+        std::array<int32_t, k_fwht_buf_sz>& fI = g_fec_dec_fI;
+        std::array<int32_t, k_fwht_buf_sz>& fQ = g_fec_dec_fQ;
+        std::array<int32_t, k_llr_buf_sz>& llr = g_fec_dec_llr;
+        llr.fill(static_cast<int32_t>(0));
 
         for (int sym = 0; sym < nsym; ++sym) {
             const int base = sym * nc;

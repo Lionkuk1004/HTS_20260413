@@ -120,6 +120,12 @@ namespace ProtectedEngine {
         // --- Response Buffer (static, avoids stack pressure) ---
         uint8_t rsp_buf[IPC_MAX_PAYLOAD];
 
+        // IPC 응답 전송 실패 시 외부에 "성공한 것처럼" 보이지 않도록 상태를 ERROR로 표면화.
+        void Mark_Ipc_Response_Failed() noexcept
+        {
+            state = ConsoleState::ERROR;
+        }
+
         // ============================================================
         //  Command Dispatch
         // ============================================================
@@ -214,14 +220,20 @@ namespace ProtectedEngine {
                 if (consumed == 0u) { break; }
                 offset += consumed;
 
-                // Read current value for requested param
-                rsp_len += Serialize_Param(pid, &rsp_buf[rsp_len],
-                    IPC_MAX_PAYLOAD - rsp_len);
+                if (rsp_len >= IPC_MAX_PAYLOAD - TLV_MAX_SIZE) { break; }
+                const uint32_t remain = IPC_MAX_PAYLOAD - rsp_len;
+                const uint32_t written =
+                    Serialize_Param(pid, &rsp_buf[rsp_len], remain);
+                if (written == 0u) { break; }
+                rsp_len += written;
             }
 
             if ((rsp_len > 0u) && (ipc != nullptr)) {
-                ipc->Send_Frame(IPC_Command::CONFIG_RSP,
+                const IPC_Error se = ipc->Send_Frame(IPC_Command::CONFIG_RSP,
                     rsp_buf, static_cast<uint16_t>(rsp_len));
+                if (se != IPC_Error::OK) {
+                    Mark_Ipc_Response_Failed();
+                }
             }
         }
 
@@ -253,8 +265,11 @@ namespace ProtectedEngine {
             rsp_buf[pos] = report.bps_mode;         pos += 1u;
             rsp_buf[pos] = report.secure_boot_state; pos += 1u;
 
-            ipc->Send_Frame(IPC_Command::STATUS_RSP,
+            const IPC_Error se = ipc->Send_Frame(IPC_Command::STATUS_RSP,
                 rsp_buf, static_cast<uint16_t>(pos));
+            if (se != IPC_Error::OK) {
+                Mark_Ipc_Response_Failed();
+            }
         }
 
         // ============================================================
@@ -285,8 +300,11 @@ namespace ProtectedEngine {
             rsp_buf[pos] = report.bps_mode;         pos += 1u;
             rsp_buf[pos] = report.secure_boot_state; pos += 1u;
 
-            ipc->Send_Frame(IPC_Command::DIAG_RSP,
+            const IPC_Error se = ipc->Send_Frame(IPC_Command::DIAG_RSP,
                 rsp_buf, static_cast<uint16_t>(pos));
+            if (se != IPC_Error::OK) {
+                Mark_Ipc_Response_Failed();
+            }
         }
 
         // ============================================================
@@ -465,15 +483,20 @@ namespace ProtectedEngine {
                 sizeof(k_config_params) / sizeof(k_config_params[0]);
 
             for (uint32_t i = 0u; i < k_param_count; ++i) {
-                const uint32_t written = Serialize_Param(
-                    k_config_params[i], &rsp_buf[pos], IPC_MAX_PAYLOAD - pos);
-                pos += written;
                 if (pos >= IPC_MAX_PAYLOAD - TLV_MAX_SIZE) { break; }
+                const uint32_t remain = IPC_MAX_PAYLOAD - pos;
+                const uint32_t written = Serialize_Param(
+                    k_config_params[i], &rsp_buf[pos], remain);
+                if (written == 0u) { break; }
+                pos += written;
             }
 
             if (pos > 0u) {
-                ipc->Send_Frame(IPC_Command::CONFIG_RSP,
+                const IPC_Error se = ipc->Send_Frame(IPC_Command::CONFIG_RSP,
                     rsp_buf, static_cast<uint16_t>(pos));
+                if (se != IPC_Error::OK) {
+                    Mark_Ipc_Response_Failed();
+                }
             }
         }
 
@@ -725,7 +748,11 @@ namespace ProtectedEngine {
 
         uint8_t payload[2];
         Impl::Serialize_U16(payload, new_bps);
-        impl->ipc->Send_Frame(IPC_Command::BPS_NOTIFY, payload, 2u);
+        const IPC_Error se =
+            impl->ipc->Send_Frame(IPC_Command::BPS_NOTIFY, payload, 2u);
+        if (se != IPC_Error::OK) {
+            impl->state = ConsoleState::ERROR;
+        }
     }
 
     void HTS_Console_Manager::Alert_Jamming(uint16_t level) noexcept
@@ -736,7 +763,11 @@ namespace ProtectedEngine {
 
         uint8_t payload[2];
         Impl::Serialize_U16(payload, level);
-        impl->ipc->Send_Frame(IPC_Command::JAMMING_ALERT, payload, 2u);
+        const IPC_Error se =
+            impl->ipc->Send_Frame(IPC_Command::JAMMING_ALERT, payload, 2u);
+        if (se != IPC_Error::OK) {
+            impl->state = ConsoleState::ERROR;
+        }
     }
 
 } // namespace ProtectedEngine

@@ -116,6 +116,23 @@ namespace ProtectedEngine {
         return true;
     }
 
+    /// out_buf_cap 미만이면 pop 하지 않음 — memcpy OOB(H-1) 방지
+    static bool ring_pop_if_fits(QueueItem* items, uint8_t cap,
+        uint8_t& head, uint8_t& count,
+        QueueItem& out, size_t out_buf_cap) noexcept
+    {
+        if (count == 0u) { return false; }
+        const size_t hi = static_cast<size_t>(head);
+        const uint8_t need = items[hi].len;
+        if (static_cast<size_t>(need) > out_buf_cap) { return false; }
+        out = items[hi];
+        SecureMemory::secureWipe(static_cast<void*>(&items[hi]), sizeof(QueueItem));
+        head = static_cast<uint8_t>(
+            (static_cast<uint32_t>(head) + 1u) & static_cast<uint32_t>(cap - 1u));
+        --count;
+        return true;
+    }
+
     static const QueueItem* ring_peek(
         const QueueItem* items, uint8_t head, uint8_t count) noexcept
     {
@@ -282,7 +299,7 @@ namespace ProtectedEngine {
     //  재밍 시: P2 억제 (data_suppressed == true → P2 건너뜀)
     // =====================================================================
     bool HTS_Priority_Scheduler::Dequeue(
-        uint8_t* out_data, size_t& out_len,
+        uint8_t* out_data, size_t out_buf_cap, size_t& out_len,
         PacketPriority& out_priority) noexcept
     {
         Impl* p = get_impl();
@@ -296,8 +313,8 @@ namespace ProtectedEngine {
         Armv7m_Irq_Mask_Guard irq;
 
         // P0: SOS (항상 최우선)
-        if (ring_pop(p->q_sos.items, static_cast<uint8_t>(SOS_CAP),
-            p->q_sos.head, p->q_sos.count, item))
+        if (ring_pop_if_fits(p->q_sos.items, static_cast<uint8_t>(SOS_CAP),
+            p->q_sos.head, p->q_sos.count, item, out_buf_cap))
         {
             irq.release();
             std::memcpy(out_data, item.data, item.len);
@@ -308,8 +325,8 @@ namespace ProtectedEngine {
         }
 
         // P1: VOICE
-        if (ring_pop(p->q_voice.items, static_cast<uint8_t>(VOICE_CAP),
-            p->q_voice.head, p->q_voice.count, item))
+        if (ring_pop_if_fits(p->q_voice.items, static_cast<uint8_t>(VOICE_CAP),
+            p->q_voice.head, p->q_voice.count, item, out_buf_cap))
         {
             irq.release();
             std::memcpy(out_data, item.data, item.len);
@@ -321,8 +338,8 @@ namespace ProtectedEngine {
 
         // P2: DATA (재밍 억제 시 건너뜀)
         if (!p->data_suppressed) {
-            if (ring_pop(p->q_data.items, static_cast<uint8_t>(DATA_CAP),
-                p->q_data.head, p->q_data.count, item))
+            if (ring_pop_if_fits(p->q_data.items, static_cast<uint8_t>(DATA_CAP),
+                p->q_data.head, p->q_data.count, item, out_buf_cap))
             {
                 irq.release();
                 std::memcpy(out_data, item.data, item.len);
@@ -378,8 +395,16 @@ namespace ProtectedEngine {
                 aged.orig_priority =
                     static_cast<uint8_t>(PacketPriority::DATA);
 
-                ring_push(p->q_voice.items, static_cast<uint8_t>(VOICE_CAP),
+                // VOICE 삽입 실패 시(이론상 ISR 단일 맥락 밖 경합 등) DATA에서 이미 pop된
+                // 항목이 증발하지 않도록 DATA tail로 복귀(FIFO 순서는 끝으로 밀림).
+                const bool pushed_voice = ring_push(
+                    p->q_voice.items, static_cast<uint8_t>(VOICE_CAP),
                     p->q_voice.tail, p->q_voice.count, aged);
+                if (!pushed_voice) {
+                    (void)ring_push(
+                        p->q_data.items, static_cast<uint8_t>(DATA_CAP),
+                        p->q_data.tail, p->q_data.count, aged);
+                }
 
                 irq.release();
                 SecureMemory::secureWipe(static_cast<void*>(&aged), sizeof(aged));

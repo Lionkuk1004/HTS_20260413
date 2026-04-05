@@ -24,10 +24,11 @@ struct WrappedPacketView final
     std::uint32_t payload_len) noexcept;
 
 /// 정적 프레임 버퍼에서 페이로드 구간 포인터 (헤더 직후). 길이 `payload_len <= MAX_PAYLOAD`.
-/// 코어/암호화 출력을 이 구간에 직접 쓴 뒤 `Finalize_After_Payload_Write()` 호출.
+/// 코어/암호화 출력을 이 구간에 직접 쓴 뒤, **동일한 payload_len**으로 `Finalize_After_Payload_Write()` 호출.
+/// `Wrap_Secure_Packet` 호출 시 보류 길이는 무효화됨.
 [[nodiscard]] std::uint8_t* Payload_Write_Span(std::uint32_t payload_len) noexcept;
 
-/// 페이로드 길이 확정 후 헤더·CRC 기록. 성공 시 `Wrap_Secure_Packet`과 동일 뷰 반환.
+/// `Payload_Write_Span`에서 예약한 길이와 일치할 때만 헤더·CRC 기록. 불일치 시 ok=false (CRC 범위 오류 방지).
 [[nodiscard]] WrappedPacketView Finalize_After_Payload_Write(
     std::uint32_t payload_len) noexcept;
 

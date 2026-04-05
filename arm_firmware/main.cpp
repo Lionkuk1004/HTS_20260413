@@ -25,7 +25,11 @@ int main()
     Hardware_Init_Manager::Initialize_System();
     HTS_HAL_Cycles_Init();
 
-    HTS_Priority_Scheduler sched;
+    // Security_Session: impl_buf_ 4KiB + Scheduler: ~512B — 지역 스택에 두면
+    // 부팅 스택 예산 초과(UsageFault/침식) 위험. HW 초기화 후 1회만 생성되는 static으로 BSS 배치.
+    static HTS_Priority_Scheduler sched;
+    static HTS_Security_Session session;
+
     alignas(8) uint8_t sos[HTS_Priority_Scheduler::MAX_PACKET_DATA] = {
         'P', '0', '_', 'S', 'O', 'S', 0, 0};
     const EnqueueResult er = sched.Enqueue(
@@ -41,8 +45,6 @@ int main()
     HTS_HAL_TRNG_Fill(enc_key, sizeof(enc_key));
     HTS_HAL_TRNG_Fill(mac_key, sizeof(mac_key));
     HTS_HAL_TRNG_Fill(iv, sizeof(iv));
-
-    HTS_Security_Session session;
     const bool ok_init = session.Initialize(
         CipherAlgorithm::LEA_256_CTR,
         MacAlgorithm::HMAC_SHA256,

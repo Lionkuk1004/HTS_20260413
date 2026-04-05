@@ -55,14 +55,25 @@ namespace ProtectedEngine {
     /// @brief `value`를 (align_mask+1) 바이트 경계로 올림 (2의 거듭제곱 정렬).
     /// @param align_mask 정렬-1 (예: 4바이트→3, 8바이트→7, 256바이트→255).
     /// @note (value + k) & ~k 대신 패드 (align_mask+1 - (value & align_mask)) & align_mask — 주소 래핑·항⑨.
+    /// @note value+pad 가 타입 범위를 넘으면 래핑 맹점 → 오버플로 시 정렬 생략(value 그대로).
     [[nodiscard]]
     constexpr uint32_t align_up_pow2_mask_u32(uint32_t value, uint32_t align_mask) noexcept {
-        return value + ((align_mask + 1u - (value & align_mask)) & align_mask);
+        const uint32_t pad =
+            ((align_mask + 1u - (value & align_mask)) & align_mask);
+        if (pad > (UINT32_MAX - value)) {
+            return value;
+        }
+        return value + pad;
     }
 
     [[nodiscard]]
     constexpr size_t align_up_pow2_mask_size(size_t value, size_t align_mask) noexcept {
-        return value + ((align_mask + 1u - (value & align_mask)) & align_mask);
+        const size_t pad =
+            ((align_mask + 1u - (value & align_mask)) & align_mask);
+        if (pad > (SIZE_MAX - value)) {
+            return value;
+        }
+        return value + pad;
     }
 
 } // namespace ProtectedEngine

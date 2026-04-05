@@ -44,6 +44,22 @@ namespace ProtectedEngine {
             Holo4D_Busy_Guard(const Holo4D_Busy_Guard&) = delete;
             Holo4D_Busy_Guard& operator=(const Holo4D_Busy_Guard&) = delete;
         };
+
+        static inline void holo4d_busy_spin_yield() noexcept {
+#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
+            _mm_pause();
+#elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
+            __builtin_ia32_pause();
+#elif defined(__arm__) && !defined(__aarch64__)
+#if defined(__ARM_ARCH) && (__ARM_ARCH >= 7)
+            __asm__ __volatile__("yield" ::: "memory");
+#else
+            __asm__ __volatile__("" ::: "memory");
+#endif
+#else
+            (void)0;
+#endif
+        }
     }
 
     // ============================================================
@@ -493,20 +509,7 @@ namespace ProtectedEngine {
         }
         // 진행 중 Encode/Decode가 impl_buf_를 사용하는 동안 파쇄 금지 → 락 확보까지 스핀
         while (op_busy_.test_and_set(std::memory_order_acq_rel)) {
-#if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
-            _mm_pause();
-#elif defined(__GNUC__) && (defined(__i386__) || defined(__x86_64__))
-            __builtin_ia32_pause();
-#elif defined(__arm__) && !defined(__aarch64__)
-            // Cortex-M3+: WFE/완화 스핀; 미지원 툴체인은 컴파일러 배리어만
-#if defined(__ARM_ARCH) && (__ARM_ARCH >= 7)
-            __asm__ __volatile__("yield" ::: "memory");
-#else
-            __asm__ __volatile__("" ::: "memory");
-#endif
-#else
-            ;
-#endif
+            holo4d_busy_spin_yield();
         }
 
         // Cortex-M: 동일 코어 ISR이 락을 쓰지 않는 경로까지 차단(단일코어 전제)
@@ -589,16 +592,32 @@ namespace ProtectedEngine {
 
     void HTS_Holo_Tensor_4D::Shutdown() noexcept
     {
-        Holo4D_Busy_Guard guard(op_busy_);
-        if (!guard.locked) { return; }
-        if (!initialized_.load(std::memory_order_acquire)) { return; }
+        // ~HTS_Holo_Tensor_4D와 동일: 단일 시도 락 실패 시 파쇄 생략하면
+        // Holo_Dispatcher 소멸 경로에서 마스터 시드·스크래치가 SRAM에 잔류할 수 있음
+        if (!initialized_.load(std::memory_order_acquire)) {
+            return;
+        }
+        while (op_busy_.test_and_set(std::memory_order_acq_rel)) {
+            holo4d_busy_spin_yield();
+        }
+#if defined(__arm__) && !defined(__aarch64__)
+        Armv7m_Irq_Mask_Guard irq_primask;
+#endif
+        if (!initialized_.load(std::memory_order_acquire)) {
+            op_busy_.clear(std::memory_order_release);
+            return;
+        }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
         impl->~Impl();
 
-        //  패딩 영역 + accum + scratch 모두 파쇄 (D-2: SecureMemory::secureWipe)
         SecureMemory::secureWipe(static_cast<void*>(impl_buf_), IMPL_BUF_SIZE);
+#if defined(__GNUC__) || defined(__clang__)
+        __asm__ __volatile__("" ::: "memory");
+#endif
+        std::atomic_thread_fence(std::memory_order_release);
 
         initialized_.store(false, std::memory_order_release);
+        op_busy_.clear(std::memory_order_release);
     }
 
     void HTS_Holo_Tensor_4D::Rotate_Seed(const uint32_t new_seed[4]) noexcept

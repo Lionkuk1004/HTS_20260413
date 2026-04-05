@@ -150,8 +150,16 @@ namespace ProtectedEngine {
     {
         if (!flash_unlock()) { return false; }
         for (size_t i = 0u; i < len; ++i) {
-            const uint32_t phys_addr = static_cast<uint32_t>(
-                static_cast<size_t>(base_addr) + i);
+            const uint32_t off = static_cast<uint32_t>(i);
+            if (static_cast<size_t>(off) != i) {
+                flash_lock();
+                return false;
+            }
+            const uint32_t phys_addr = base_addr + off;
+            if (phys_addr < base_addr) {
+                flash_lock();
+                return false;
+            }
             if (!otp_write_byte(phys_addr, data[i])) {
                 flash_lock();
                 return false;
@@ -239,7 +247,9 @@ namespace ProtectedEngine {
         uint32_t offset, const uint8_t* data, size_t len) noexcept
     {
         if (data == nullptr || len == 0u) { return false; }
-        if (offset + len > sizeof(g_otp_emu)) { return false; }
+        if (len > sizeof(g_otp_emu) || offset > sizeof(g_otp_emu) - len) {
+            return false;
+        }
         std::memcpy(&g_otp_emu[offset], data, len);
         return true;
     }
@@ -248,7 +258,7 @@ namespace ProtectedEngine {
         uint32_t offset, uint8_t* out, size_t len) noexcept
     {
         if (out == nullptr || len == 0u) { return; }
-        if (offset + len > sizeof(g_otp_emu)) {
+        if (len > sizeof(g_otp_emu) || offset > sizeof(g_otp_emu) - len) {
             std::memset(out, 0, len);
             return;
         }

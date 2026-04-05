@@ -155,6 +155,10 @@ namespace ProtectedEngine {
         size_t buffer_total_words) noexcept {
 
         if (data == nullptr || start >= end) return;
+        // buffer_total_words>0 이면 전체 할당(워드) — end가 초과하면 루프·fault 소거 모두 OOB
+        if (buffer_total_words != 0u && end > buffer_total_words) {
+            return;
+        }
         if (abort_signal.load(std::memory_order_relaxed)) return;
         if (!cfi_enter(CFI_WORKER)) {
             abort_signal.store(true, std::memory_order_release);
@@ -216,6 +220,9 @@ namespace ProtectedEngine {
         size_t buffer_total_words) noexcept {
 
         if (data == nullptr || start >= end) return;
+        if (buffer_total_words != 0u && end > buffer_total_words) {
+            return;
+        }
         if (abort_signal.load(std::memory_order_relaxed)) return;
         if (!cfi_enter(CFI_AEAD)) {
             abort_signal.store(true, std::memory_order_release);

@@ -2,6 +2,7 @@
 
 #include "HTS_Interface_Manager.h"
 
+#include <atomic>
 #include <cstring>
 
 namespace HTS_Interface {
@@ -31,6 +32,8 @@ namespace SL = HTS_Interface_StubLayout;
 alignas(4) std::uint8_t g_frame_buffer[SL::MAX_FRAME_BYTES]{};
 alignas(4) TxRxRing1024 g_uplink_ring{};
 alignas(4) TxRxRing1024 g_downlink_ring{};
+/// Payload_Write_Span 예약 길이 — Finalize 시 반드시 일치해야 함 (단일 코어에서 가시성 확보)
+alignas(4) std::atomic<std::uint32_t> g_pending_payload_len{0u};
 
 [[nodiscard]] WrappedPacketView FinalizeBuffer(std::uint32_t payload_len) noexcept
 {
@@ -61,6 +64,7 @@ WrappedPacketView Wrap_Secure_Packet(
     const std::uint8_t* secure_payload,
     std::uint32_t payload_len) noexcept
 {
+    g_pending_payload_len.store(0u, std::memory_order_release);
     WrappedPacketView out{};
     if (secure_payload == nullptr || payload_len == 0u
         || payload_len > static_cast<std::uint32_t>(SL::MAX_PAYLOAD_BYTES)) {
@@ -78,13 +82,22 @@ std::uint8_t* Payload_Write_Span(std::uint32_t payload_len) noexcept
 {
     if (payload_len == 0u
         || payload_len > static_cast<std::uint32_t>(SL::MAX_PAYLOAD_BYTES)) {
+        g_pending_payload_len.store(0u, std::memory_order_release);
         return nullptr;
     }
+    g_pending_payload_len.store(payload_len, std::memory_order_release);
     return g_frame_buffer + SL::HEADER_BYTES;
 }
 
 WrappedPacketView Finalize_After_Payload_Write(std::uint32_t payload_len) noexcept
 {
+    const std::uint32_t pending =
+        g_pending_payload_len.load(std::memory_order_acquire);
+    if (pending == 0u || payload_len != pending) {
+        g_pending_payload_len.store(0u, std::memory_order_release);
+        return WrappedPacketView{};
+    }
+    g_pending_payload_len.store(0u, std::memory_order_release);
     return FinalizeBuffer(payload_len);
 }
 

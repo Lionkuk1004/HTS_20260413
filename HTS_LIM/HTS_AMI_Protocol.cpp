@@ -392,6 +392,12 @@ namespace ProtectedEngine {
     {
         if (impl->ipc == nullptr) { return IPC_Error::NOT_INITIALIZED; }
 
+        // IPC 전송 실패 등으로 ERROR에 고정되면 REPORTING 전이 불가 → Tick 주기 보고 영구 정지.
+        // CFI 표에서 ERROR→IDLE 허용 — 복구 후 정상 경로 유지(알고리즘·전이 순서 불변).
+        if (impl->state == AMI_State::ERROR) {
+            (void)impl->Transition_State(AMI_State::IDLE);
+        }
+
         if (!impl->Transition_State(AMI_State::REPORTING)) {
             return IPC_Error::CFI_VIOLATION;
         }
@@ -555,6 +561,12 @@ namespace ProtectedEngine {
         if (apdu_len < AMI_APDU_HEADER_SIZE + AMI_APDU_CRC_SIZE) { return; }
         if (!initialized_.load(std::memory_order_acquire)) { return; }
         Impl* impl = reinterpret_cast<Impl*>(impl_buf_);
+
+        // 이전 주기에서 ERROR(송신 실패 등)에 머물면 PROCESSING 전이 불가 → 요청 처리 영구 차단.
+        // ERROR→IDLE은 합법 전이 — 한 번 복귀 후 본 요청 처리(동일 호출 내 CFI 실패 경로는 기존 유지).
+        if (impl->state == AMI_State::ERROR) {
+            (void)impl->Transition_State(AMI_State::IDLE);
+        }
 
         // [A2] 수신 복호화 (security suite 등록 시)
         //  복호화 실패(MAC 불일치) → 폐기 (무응답 = 보안 정책)

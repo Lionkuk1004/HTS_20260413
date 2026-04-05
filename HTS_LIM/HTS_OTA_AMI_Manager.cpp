@@ -306,10 +306,13 @@ namespace ProtectedEngine {
         }
 
         // [보안 3] size↔chunks 교차 검증
+        //  ceil(total_size / CHUNK_SIZE) = 1 + (total_size - 1) / CHUNK (total_size > 0)
+        //  → (total_size + CHUNK - 1) 합산 오버플로우 맹점 제거 (uint32 래핑 시 오판 방지)
         if (total_size == 0u || total_chunks == 0u) { return false; }
         if (total_chunks > MAX_CHUNKS) { return false; }
+        const uint32_t chunk_sz = static_cast<uint32_t>(CHUNK_SIZE);
         const uint32_t expected_cnt =
-            (total_size + CHUNK_SIZE - 1u) / CHUNK_SIZE;
+            1u + (total_size - 1u) / chunk_sz;
         if (static_cast<uint32_t>(total_chunks) != expected_cnt) {
             p->reject = AMI_OtaReject::SIZE_MISMATCH;
             return false;

@@ -125,11 +125,23 @@ static bool MpuComputeRegion(uintptr_t ptr, size_t size, uintptr_t& base_out, ui
     if (size == 0u) {
         return false;
     }
+    const uintptr_t end = ptr + size;
+    if (end < ptr) {
+        return false;
+    }
     uint32_t r = 32u;
     for (;;) {
         const uintptr_t mask = static_cast<uintptr_t>(r) - 1u;
         const uintptr_t base = ptr & ~mask;
-        if (base <= ptr && base + static_cast<uintptr_t>(r) >= ptr + size) {
+        const uintptr_t region_end = base + static_cast<uintptr_t>(r);
+        if (region_end < base) {
+            if (r >= 0x80000000u) {
+                return false;
+            }
+            r <<= 1u;
+            continue;
+        }
+        if (base <= ptr && region_end >= end) {
             base_out = base;
             return RasrSizeFieldFromPowerOfTwo(r, rasr_size_field);
         }

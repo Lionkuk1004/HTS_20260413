@@ -381,27 +381,35 @@ namespace ProtectedEngine {
                     phy, slave_addr, func_code, req_data, data_len,
                     gw_rsp_buf, MODBUS_GW_MAX_FRAME);
 
-                // CFI: REQUESTING -> IDLE
-                Transition_State(Modbus_State::IDLE);
+                if (rsp_len == 0u || ipc == nullptr) {
+                    Transition_State(Modbus_State::IDLE);
+                    break;
+                }
 
-                // Send response back to B-CDMA
-                if (rsp_len > 0u && ipc != nullptr) {
-                    // Clamp response length: combined[] holds hdr(2) + rsp_data,
-                    // so rsp_data must not exceed MODBUS_GW_MAX_FRAME - 2.
-                    // Without this clamp: rsp_len=MAX -> combined[2+MAX-1] = OOB!
-                    static constexpr uint16_t GW_HDR_OVERHEAD = 2u;
-                    const uint16_t safe_rsp_len = (rsp_len <= MODBUS_GW_MAX_FRAME - GW_HDR_OVERHEAD)
-                        ? rsp_len
-                        : static_cast<uint16_t>(MODBUS_GW_MAX_FRAME - GW_HDR_OVERHEAD);
+                // Clamp response length: combined[] holds hdr(2) + rsp_data,
+                // so rsp_data must not exceed MODBUS_GW_MAX_FRAME - 2.
+                // Without this clamp: rsp_len=MAX -> combined[2+MAX-1] = OOB!
+                static constexpr uint16_t GW_HDR_OVERHEAD = 2u;
+                const uint16_t safe_rsp_len = (rsp_len <= MODBUS_GW_MAX_FRAME - GW_HDR_OVERHEAD)
+                    ? rsp_len
+                    : static_cast<uint16_t>(MODBUS_GW_MAX_FRAME - GW_HDR_OVERHEAD);
 
-                    uint8_t combined[MODBUS_GW_MAX_FRAME];
-                    combined[0] = static_cast<uint8_t>(GW_Command::MODBUS_RESPONSE);
-                    combined[1] = static_cast<uint8_t>(phy);
-                    for (uint16_t i = 0u; i < safe_rsp_len; ++i) {
-                        combined[GW_HDR_OVERHEAD + i] = gw_rsp_buf[i];
-                    }
-                    ipc->Send_Frame(IPC_Command::DATA_TX,
-                        combined, static_cast<uint16_t>(GW_HDR_OVERHEAD + safe_rsp_len));
+                uint8_t combined[MODBUS_GW_MAX_FRAME];
+                combined[0] = static_cast<uint8_t>(GW_Command::MODBUS_RESPONSE);
+                combined[1] = static_cast<uint8_t>(phy);
+                for (uint16_t i = 0u; i < safe_rsp_len; ++i) {
+                    combined[GW_HDR_OVERHEAD + i] = gw_rsp_buf[i];
+                }
+                const uint16_t wire_len =
+                    static_cast<uint16_t>(GW_HDR_OVERHEAD + safe_rsp_len);
+                const IPC_Error se = ipc->Send_Frame(IPC_Command::DATA_TX,
+                    combined, wire_len);
+                // CFI: REQUESTING -> IDLE (성공) 또는 ERROR (IPC 응답 미전달)
+                if (se != IPC_Error::OK) {
+                    Transition_State(Modbus_State::ERROR);
+                }
+                else {
+                    Transition_State(Modbus_State::IDLE);
                 }
                 break;
             }
@@ -477,8 +485,12 @@ namespace ProtectedEngine {
                     for (uint16_t j = 0u; j < safe_rsp_len; ++j) {
                         report[GW_HDR_OVERHEAD + j] = gw_rsp_buf[j];
                     }
-                    ipc->Send_Frame(IPC_Command::DATA_TX,
-                        report, static_cast<uint16_t>(GW_HDR_OVERHEAD + safe_rsp_len));
+                    const IPC_Error se = ipc->Send_Frame(IPC_Command::DATA_TX,
+                        report,
+                        static_cast<uint16_t>(GW_HDR_OVERHEAD + safe_rsp_len));
+                    if (se != IPC_Error::OK) {
+                        Transition_State(Modbus_State::ERROR);
+                    }
                 }
             }
 

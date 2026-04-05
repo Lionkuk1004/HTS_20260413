@@ -101,6 +101,9 @@ namespace ProtectedEngine {
             }
             return p;
         }
+        // L1 중력 경로의 소거 인덱스 슬롯 수(Execute_L1_Reconstruction)와 반드시 일치
+        static constexpr uint32_t k_sparse_max_erasures_per_block = 256u;
+        static size_t g_sparse_erase_pos[k_sparse_max_erasures_per_block];
         inline uint32_t normalize_anchor_interval(
             uint32_t ai,
             bool is_test_mode) noexcept
@@ -119,6 +122,11 @@ namespace ProtectedEngine {
                 + SparseRecoveryLimits::TEST_MODE_DEFAULT_ANCHOR * test_fix;
             if (ai > 1u) {
                 ai = floor_pow2_u32(ai);
+            }
+            // 테스트 모드: floor_pow2만 적용 시 블록이 64칸을 초과할 수 있어
+            // g_sparse_erase_pos 상한과 불일치(복구 누락) — 2의 거듭제곱 상한으로 정합
+            if (is_test != 0u && ai > k_sparse_max_erasures_per_block) {
+                ai = k_sparse_max_erasures_per_block;
             }
             return ai;
         }
@@ -376,7 +384,8 @@ namespace ProtectedEngine {
             return true;
         }
         bool is_reconstruction_successful = true;
-        constexpr uint32_t k_max_erasures_per_block = 64u;
+        const uint32_t k_max_erasures_per_block =
+            SparseRecovery_detail::k_sparse_max_erasures_per_block;
         const uint32_t aim = anchor_interval - 1u;
         const uint16_t* const grav_lut = SparseRecovery_detail::k_grav_recip_q16.v;
         for (size_t block_start = 0; block_start < elements;
@@ -387,7 +396,7 @@ namespace ProtectedEngine {
             size_t local_destroyed_count = 0;
             size_t last_destroyed_idx = block_start;
             T block_xor_sum = 0;
-            size_t erase_pos[k_max_erasures_per_block];
+            size_t* const erase_pos = SparseRecovery_detail::g_sparse_erase_pos;
             uint32_t erase_count = 0u;
             for (size_t j = block_start; j < block_end; ++j) {
                 const uint32_t is_m =
@@ -439,13 +448,19 @@ namespace ProtectedEngine {
                     size_t L_idx = block_start;
                     uint32_t found_L = 0u;
                     for (uint32_t delta = 1u; delta < anchor_interval; ++delta) {
+                        const uint32_t can_sub =
+                            static_cast<uint32_t>(j >= static_cast<size_t>(delta));
                         const size_t idx = j - static_cast<size_t>(delta);
-                        const uint32_t in_rng =
-                            static_cast<uint32_t>(idx > block_start);
-                        const uint32_t not_anc =
-                            static_cast<uint32_t>(idx != block_start);
+                        const uint32_t in_rng = (can_sub != 0u)
+                            ? static_cast<uint32_t>(idx > block_start)
+                            : 0u;
+                        const uint32_t not_anc = (can_sub != 0u)
+                            ? static_cast<uint32_t>(idx != block_start)
+                            : 0u;
+                        const T sample_l = (can_sub != 0u && idx < elements)
+                            ? damaged_tensor[idx] : static_cast<T>(0);
                         const uint32_t not_mar = static_cast<uint32_t>(
-                            damaged_tensor[idx] != ERASURE_MARKER);
+                            sample_l != ERASURE_MARKER);
                         const uint32_t hit = in_rng & not_anc & not_mar;
                         const uint32_t take = hit & (1u - found_L);
                         found_L |= take;
@@ -458,8 +473,10 @@ namespace ProtectedEngine {
                         const size_t idx = j + static_cast<size_t>(delta);
                         const uint32_t in_b =
                             static_cast<uint32_t>(idx < block_end);
+                        const T sample_r = (idx < elements)
+                            ? damaged_tensor[idx] : static_cast<T>(0);
                         const uint32_t not_m = static_cast<uint32_t>(
-                            damaged_tensor[idx] != ERASURE_MARKER);
+                            sample_r != ERASURE_MARKER);
                         const uint32_t pay =
                             static_cast<uint32_t>((idx & aim) != 0u);
                         const uint32_t hit = in_b & not_m & pay;
@@ -472,8 +489,11 @@ namespace ProtectedEngine {
                         const size_t idx = block_end + static_cast<size_t>(delta);
                         const uint32_t in_e =
                             static_cast<uint32_t>(idx < elements);
+                        // in_e==0일 때 idx==elements 가능 — 무조건 읽기 금지(OOB)
+                        const T cell_in =
+                            (in_e != 0u) ? damaged_tensor[idx] : static_cast<T>(0);
                         const uint32_t not_m = static_cast<uint32_t>(
-                            damaged_tensor[idx] != ERASURE_MARKER);
+                            cell_in != ERASURE_MARKER);
                         const uint32_t pay =
                             static_cast<uint32_t>((idx & aim) != 0u);
                         const uint32_t allow = 1u - found_R;
@@ -492,7 +512,10 @@ namespace ProtectedEngine {
                             static_cast<uint32_t>(j - L_idx);
                         const uint32_t dR =
                             static_cast<uint32_t>(R_idx - j);
-                        const uint32_t sd = dL + dR;
+                        uint32_t sd = dL + dR;
+                        if (sd > 256u) {
+                            sd = 256u;
+                        }
                         damaged_tensor[j] = gravity_blend_q16_unsigned(
                             damaged_tensor[L_idx],
                             damaged_tensor[R_idx],

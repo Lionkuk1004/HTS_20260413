@@ -135,6 +135,10 @@ namespace ProtectedEngine {
         // nonce XOR 혼합 (연접 대신 XOR — 고정 SEED_LEN 유지)
         if (nonce != nullptr && n_len > 0u) {
             size_t idx = pos;
+            // pos == SEED_LEN(엔트로피가 꽉 참)이면 idx가 유효 범위 밖 → 0으로 래핑
+            if (idx >= SEED_LEN) {
+                idx = 0u;
+            }
             for (size_t i = 0u; i < n_len && i < SEED_LEN; ++i) {
                 seed_out[idx] ^= nonce[i];
                 ++idx;

@@ -105,6 +105,8 @@ namespace ProtectedEngine {
         [[nodiscard]] MeterReading Get_Latest() const noexcept;
         /// A-4: 저장 CRC 불일치 또는 조회 시 변조 감지 래치
         [[nodiscard]] bool Is_Meter_Integrity_Fault() const noexcept;
+        /// DATA 큐 Enqueue 실패(포화 등) 래치. 성공 시 Tick에서 해제.
+        [[nodiscard]] bool Is_Scheduler_Report_Fault() const noexcept;
         [[nodiscard]] uint32_t Get_Profile_Value(size_t slot) const noexcept;
         [[nodiscard]] size_t Get_Event_Log(
             MeterLogEntry* out, size_t cap) const noexcept;

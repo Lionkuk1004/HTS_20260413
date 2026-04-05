@@ -40,10 +40,20 @@ typedef struct _blk {
 	u32 size;
 } blk;
 
-#define LROT(x,c) (((x) << (c)) | ((x) >> (32 - (c))))
-#define ROTR(x,c) (((x) >> (c)) | ((x) << (32 - (c))))
-#define SHR(x,c)  ((x) >> (c))
-#define LROT64(x, c) (((u64)(x) << (c)) | ((u64)(x) >> (64 - (c))))
-#define RROT64(x, c) LROT64((u64)(x), 64 - (c))
+/* 시프트 폭 0·32(64)에서의 UB 방지: (c)&31 / (0-rot)&31 패턴 (항⑨, MISRA 시프트) */
+#define LROT(x,c) \
+	((((u32)(x)) << (((unsigned)(c)) & 31u)) | \
+	 (((u32)(x)) >> ((0u - (((unsigned)(c)) & 31u)) & 31u)))
+#define ROTR(x,c) \
+	((((u32)(x)) >> (((unsigned)(c)) & 31u)) | \
+	 (((u32)(x)) << ((0u - (((unsigned)(c)) & 31u)) & 31u)))
+#define SHR(x,c) \
+	((((unsigned)(c)) >= 32u) ? 0u : (((u32)(x)) >> ((unsigned)(c))))
+#define LROT64(x, c) \
+	((((u64)(x)) << (((unsigned)(c)) & 63u)) | \
+	 (((u64)(x)) >> ((0u - (((unsigned)(c)) & 63u)) & 63u)))
+#define RROT64(x, c) \
+	((((u64)(x)) >> (((unsigned)(c)) & 63u)) | \
+	 (((u64)(x)) << ((0u - (((unsigned)(c)) & 63u)) & 63u)))
 
 #endif /* _COMMON_H_ */
