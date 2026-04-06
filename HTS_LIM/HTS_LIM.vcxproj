@@ -243,6 +243,7 @@
     <ClCompile Include="HTS_Entropy_Arrow.cpp" />
     <ClCompile Include="HTS_Entropy_Monitor.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="HTS_RS_GF16.cpp" />
     <ClCompile Include="HTS_Gyro_Engine.cpp" />
     <ClCompile Include="HTS_Hardware_Bridge.cpp" />
     <ClCompile Include="HTS_Hardware_Shield.cpp" />
@@ -419,6 +420,7 @@
     <ClInclude Include="HTS_Config.h" />
     <ClInclude Include="HTS_Dynamic_Key_Rotator.hpp" />
     <ClInclude Include="HTS_FEC_HARQ.hpp" />
+    <ClInclude Include="HTS_RS_GF16.h" />
     <ClInclude Include="HTS_HMAC_Bridge.hpp" />
     <ClInclude Include="HTS_LEA_Bridge.h" />
     <ClInclude Include="HTS_LSH256_Bridge.h" />

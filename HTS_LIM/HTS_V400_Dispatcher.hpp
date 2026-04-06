@@ -134,7 +134,7 @@ namespace ProtectedEngine {
     //     b ccm_bss_loop
     //   ccm_bss_done:
     //
-    //  ★ 런타임 안전망: full_reset_()에서 memset(g_harq_Q_ccm, 0, sizeof)
+    //  ★ 런타임 안전망: full_reset_()에서 g_harq_ccm_union 전체 wipe
     //     이미 적용됨 → startup 누락 시에도 첫 패킷 수신 전 제로화 보장
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)
 #define HTS_CCM_SECTION  __attribute__((section(".ccm_bss")))
@@ -192,6 +192,22 @@ namespace ProtectedEngine {
 
         /// @brief 매 프레임 적응형 BPS 갱신
         void Tick_Adaptive_BPS() noexcept;
+
+        /// @brief IR-HARQ 모드 전환. 변경 시 `full_reset_`로 HARQ 상태 초기화.
+        void Set_IR_Mode(bool enable) noexcept;
+        [[nodiscard]] bool Get_IR_Mode() const noexcept;
+
+        /// @brief IR DATA·64칩·IQ_SAME SIC — CRC 실패 후 재인코딩 예상 칩을 다음 라운드에서 감산
+        /// @note 기본값 OFF. 필요 시 `Set_IR_SIC_Enabled(true)` 로 활성화.
+        void Set_IR_SIC_Enabled(bool enable) noexcept;
+        [[nodiscard]] bool Get_IR_SIC_Enabled() const noexcept;
+        /// @brief SIC용 Walsh 진폭 — TX `Build_Packet(..., amp, ...)` 와 동일 스케일 권장 (기본 300)
+        void Set_SIC_Walsh_Amp(int16_t amp) noexcept;
+
+        /// @brief IR-HARQ 1라운드 RTT (ms) — HTS 독자 링크; 양산 시 실측·스케줄로 확정.
+        /// @note Chase/소프트 텐서 벤치의 `LTE_HARQ_Controller::HARQ_RTT_MS`(8ms)와 별도.
+        ///       PC 벤치 `HTS_Fractal_Channel_Compare` 가 IR 경로 지연 proxy에 동기화.
+        static constexpr double IR_HARQ_RTT_MS = 4.0;
 
         // ── CW 소거기 ON/OFF (벤치마크 비교용, 양산 기본값 true) ──
         void Set_CW_Cancel(bool enable) noexcept { cw_cancel_enabled_ = enable; }
@@ -283,7 +299,21 @@ namespace ProtectedEngine {
         //  linker script 예시:
         //    .ccm_bss (NOLOAD) : { _sccm_bss = .; *(.ccm_bss) _eccm_bss = .; } > CCM
         //
-        int32_t(*harq_Q_)[FEC_HARQ::C64];  ///< CCM 배치 Q채널 포인터
+        // Chase Q 누적 행 포인터 — `g_harq_ccm_union.chase.harq_Q` 와 동일 선두
+        int32_t(*harq_Q_)[FEC_HARQ::C64];
+
+        // ── IR-HARQ (DATA·64칩·IQ_SAME 전용) ─────────────────────────────
+        //  `IR_RxState`·칩 버퍼는 .cpp 의 CCM union(`g_harq_ccm_union.ir`)에 두고
+        //  포인터만 보유 — Chase `harq_Q` 와 SRAM 추가 0으로 공용화.
+        bool ir_mode_{ false };
+        int  ir_rv_{ 0 };
+        int16_t* ir_chip_I_;
+        int16_t* ir_chip_Q_;
+        FEC_HARQ::IR_RxState* ir_state_;
+
+        bool sic_ir_enabled_{ false };   ///< IR 64칩 SIC (기본 OFF)
+        bool sic_expect_valid_{ false }; ///< 직전 실패 라운드에서 예상 칩 생성됨
+        int16_t sic_walsh_amp_{ 300 };   ///< Walsh 인코드 진폭 (Build_Packet amp 정합)
 
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부
@@ -390,6 +420,9 @@ namespace ProtectedEngine {
         static constexpr uint32_t PARSE_HDR_MASK_OK = 0xFFFFFFFFu;
         static constexpr uint32_t PARSE_HDR_MASK_FAIL = 0x00000000u;
         uint32_t parse_hdr_(PayloadMode& mode, int& plen) noexcept;
+
+        /// Decode64_IR 실패 직후: `sic_tentative`·직전 RV로 예상 칩 버퍼 채움
+        void fill_sic_expected_64_() noexcept;
         void on_sym_() noexcept;
         void try_decode_() noexcept;
         void handle_video_(uint32_t decode_ok_mask) noexcept;

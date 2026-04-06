@@ -3,12 +3,17 @@
 // 위치: HTS_TEST/benchmark/ — PC 전용 (CSV + 콘솔)
 //
 // [A] Soft_Tensor_FEC + LTE_HARQ_Controller + Tensor 인터리브 + (EMP 시) 프랙탈 와이어
-//     → 산출: HTS_Fractal_Channel_Compare_Out.csv
+//     → 산출: HTS_Fractal_Channel_Compare_Out.csv, HTS_FEC_V400_16chip_IR_Compare_Out.csv,
+//            HTS_Pipeline_V2_Compare_Out.csv (Pipeline_V2 와이어 + V400 FEC 통합)
 //     fixed/dynamic 은 와이어 순열(프랙탈 매퍼)만 비교; V400 FEC IR 과 무관.
 //
 // [B] FEC_HARQ V400 64칩 — Chase(Feed64_1sym+Decode64_A) vs IR(Encode64_IR+Decode64_IR)
 //     → 산출: HTS_FEC_V400_IR_Compare_Out.csv
 //     IR 효과·Chase 대비 통계는 본 CSV만 참고할 것 ([A] CSV는 IR을 호출하지 않음).
+//
+// IR 옵션 (64칩 직접 호출 경로): `run_fec_v400_mode(..., ir_erasure, ir_rs_post)`
+//   · Erasure/RS: FEC_HARQ::Set_IR_* — 기본 true (성능 확인); Chase 경로는 IR 비사용 시 내부에서 OFF
+//   · SIC: HTS_V400_Dispatcher 기본 OFF — 본 벤치는 FEC 직결이라 SIC 미경로, 통합 수신은 디스패처.
 //
 // 비교: [fixed] 인터리브→채널 vs [dynamic] 슬랩별 Forward 와이어 순열
 // · 코딩 블록 MTU = 512(LTE_HARQ_Controller::MTU)
@@ -24,7 +29,8 @@
 //   kHarqSlotStride = 16 (== kMapperHarqSlotStride == kFractalHarqSlotStride)
 //
 // 빌드(예): CMake `HTS_Fractal_Channel_Compare_Run` 또는 HTS_검증_종합재밍.vcxproj (HTS_LIM 링크)
-// 산출: HTS_Fractal_Channel_Compare_Out.csv, HTS_FEC_V400_IR_Compare_Out.csv
+// 산출: HTS_Fractal_Channel_Compare_Out.csv, HTS_FEC_V400_IR_Compare_Out.csv,
+//       HTS_Pipeline_V2_Compare_Out.csv
 // =========================================================================
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
     defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
@@ -36,6 +42,8 @@
 #include "HTS_Dynamic_Fractal_Mapper.h"
 // [수석 아키텍트 지시] IR-HARQ 코어 직접 호출을 위한 헤더 추가
 #include "HTS_FEC_HARQ.hpp"
+#include "HTS_RS_GF16.h"
+#include "HTS_V400_Dispatcher.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -239,6 +247,20 @@ BlockResult transmit_block(
                 tx_wire.begin());
         }
 
+        // EMP+동적 와이어: 와이어 인덱스 순서만으로 u01 스트림을 쓰면 fixed와 동일 마스크가 됨.
+        // 슬랩·블록·HARQ 키로 discard 혼합 → 동적 행이 fixed와 분리된 버스트 실현.
+        if (use_fractal
+            && ch_type == HTS_Core::Physics::ParametricChannel::EMP) {
+            const uint32_t mfc = make_mapper_fc(
+                static_cast<uint32_t>(block_index),
+                static_cast<uint32_t>(k - 1));
+            const uint64_t skips =
+                (static_cast<uint64_t>(mfc) * 1664525ull
+                + static_cast<uint64_t>(block_seed)) % 1536ull
+                + 64ull;
+            rng.discard(skips);
+        }
+
         HTS_Core::Physics::Apply_Parametric_Channel(
             tx_wire, rng, rx_wire, ch_type, ch_intensity);
 
@@ -386,7 +408,7 @@ std::filesystem::path resolve_csv_path()
 // ── FEC_HARQ V400 64칩: `HTS_Channel_Physics::Apply_Parametric_Channel` 수치 동일 후 int16 양자화 ─
 // 스프레드 도메인(×128)에서 잡음을 주고 chip = lround(rd×(amp/128)) — Soft 텐서와 동일 법칙.
 // 가우시안: Bin_To_LLR 가 FWHT 후 fI²+fQ² 를 쓰므로 σ 를 √2 로 나눠 스칼라 소프트와 1차 정합.
-// 64/128 칩 PG 는 `pg_ratio` 로 보정.
+// PG 보정: `fec_v400_pg_ratio(nc)` — 64칩=sqrt(2), 16칩=sqrt(0.5) (처리이득 반영).
 // Chase 는 HARQ 시 int16 칩 합산, IR 은 LLR 합산 — 결합이 다르므로 BARRAGE/CW 분모에
 // 기본 `kV400BarrageHarnessDiv`·pg 를 사용. J/S > 25 dB 구간은 int16 양자화로
 // 물리 법칙만으로는 스윕 전 점이 동일 포화 구간으로 붕괴되므로, 하네스에서만
@@ -396,7 +418,9 @@ static constexpr double kV400BarrageHarnessDiv = 7.72;
 
 static inline double fec_v400_pg_ratio(int nc) noexcept
 {
-    return std::sqrt(128.0 / static_cast<double>(nc));
+    // 64칩: sqrt(64/32)=sqrt(2) — 기존 sqrt(128/64) 와 동일 (회귀 없음)
+    // nc<64 이면 pg<sqrt(2) → 분모 감소 → BARRAGE/CW 잡음 가산 강화 (처리이득 반영)
+    return std::sqrt(static_cast<double>(nc) / 32.0);
 }
 
 static inline double fec_v400_barrage_denominator(double js_db, int nc) noexcept
@@ -475,15 +499,27 @@ static void apply_barrage_v400(int16_t* I, int16_t* Q, int nsym, int nc,
     }
 }
 
-/// EMP — Physics: destroy_rate = intensity×0.01, 스프레드 도메인 폭발 후 int16 환산
+/// EMP — 파괴율 p_nc: 64칩 기준 생존률 동등식 (nc=64 → p=p_base).
+/// Physics `Apply_Parametric_Channel`(EMP) 와 동일: 파괴 시 rd∈[3000,100000] 균일,
+/// 비파괴 시 스프레드 도메인 잡음 σ = 200 + destroy_pct×5.
 static void apply_emp_v400(int16_t* I, int16_t* Q, int nsym, int nc,
     double destroy_pct, std::mt19937& rng)
 {
     static constexpr double kEmpPercentScale = 0.01;
-    static constexpr double kEmpAmp = 99999.0;
-    const double destroy_rate = destroy_pct * kEmpPercentScale;
+    static constexpr double kEmpRefNc = 64.0;
+    static constexpr double kEmpSpreadAmpLo = 3000.0;
+    static constexpr double kEmpSpreadAmpSpan = 97000.0;
+    const double p_base = std::min(
+        1.0, std::max(0.0, destroy_pct * kEmpPercentScale));
+    const double nc_d = static_cast<double>(nc);
+    const double destroy_rate =
+        (nc_d > 0.0)
+        ? (1.0 - std::pow(1.0 - p_base, kEmpRefNc / nc_d))
+        : 0.0;
+    const double env_sigma = 200.0 + destroy_pct * 5.0;
     std::uniform_real_distribution<double> u01(0.0, 1.0);
-    std::normal_distribution<double> base_noise(0.0, kSoftBaseNoiseSigma);
+    std::normal_distribution<double> emp_env_noise(0.0, env_sigma);
+
     for (int s = 0; s < nsym; ++s) {
         for (int c = 0; c < nc; ++c) {
             const int idx = s * nc + c;
@@ -491,7 +527,9 @@ static void apply_emp_v400(int16_t* I, int16_t* Q, int nsym, int nc,
                 const double sign01 =
                     static_cast<double>(static_cast<uint32_t>(rng()) & 1u);
                 const double amp_sign = 1.0 - 2.0 * sign01;
-                const double rd = amp_sign * kEmpAmp;
+                const double rd =
+                    amp_sign
+                    * (kEmpSpreadAmpLo + u01(rng) * kEmpSpreadAmpSpan);
                 const double v = rd * kV400DoubleRxToIq16;
                 I[idx] = fec_clamp_i16_from_double(v);
                 Q[idx] = I[idx];
@@ -500,7 +538,7 @@ static void apply_emp_v400(int16_t* I, int16_t* Q, int nsym, int nc,
                 const double tx_norm =
                     static_cast<double>(I[idx]) / kV400WalshAmpD;
                 const double rd =
-                    tx_norm * kSoftSpreadGain + base_noise(rng);
+                    tx_norm * kSoftSpreadGain + emp_env_noise(rng);
                 const double v = rd * kV400DoubleRxToIq16;
                 I[idx] = fec_clamp_i16_from_double(v);
                 Q[idx] = I[idx];
@@ -599,6 +637,20 @@ static void fec_walsh_enc64(uint8_t sym, int16_t amp,
     }
 }
 
+static void fec_walsh_enc16(uint8_t sym, int16_t amp,
+    int16_t* oI, int16_t* oQ) noexcept
+{
+    const int32_t ampi = static_cast<int32_t>(amp);
+    for (int j = 0; j < ProtectedEngine::FEC_HARQ::C16; ++j) {
+        const uint32_t p = fec_popc32(static_cast<uint32_t>(sym) &
+            static_cast<uint32_t>(j)) & 1u;
+        const int16_t ch = static_cast<int16_t>(
+            ampi * (1 - 2 * static_cast<int32_t>(p)));
+        oI[j] = ch;
+        oQ[j] = ch;
+    }
+}
+
 std::filesystem::path resolve_fec_v400_csv_path()
 {
     namespace fs = std::filesystem;
@@ -618,15 +670,39 @@ std::filesystem::path resolve_fec_v400_csv_path()
     return fs::path("HTS_FEC_V400_IR_Compare_Out.csv");
 }
 
+std::filesystem::path resolve_fec_v400_16chip_csv_path()
+{
+    namespace fs = std::filesystem;
+    try {
+        const fs::path cwd = fs::current_path();
+        if (cwd.filename() == "HTS_TEST") {
+            return cwd / "HTS_FEC_V400_16chip_IR_Compare_Out.csv";
+        }
+        if (cwd.filename() == "Release" || cwd.filename() == "Debug") {
+            const fs::path test_dir = cwd.parent_path().parent_path();
+            if (test_dir.filename() == "HTS_TEST") {
+                return test_dir / "HTS_FEC_V400_16chip_IR_Compare_Out.csv";
+            }
+        }
+    } catch (...) {
+    }
+    return fs::path("HTS_FEC_V400_16chip_IR_Compare_Out.csv");
+}
+
 MessageStats run_fec_v400_mode(
     bool use_ir_harq,
     unsigned scenario_seed,
     HTS_Core::Physics::ParametricChannel ch_type,
-    double ch_intensity)
+    double ch_intensity,
+    bool ir_erasure_enable = true,
+    bool ir_rs_post_enable = true)
 {
     using FEC = ProtectedEngine::FEC_HARQ;
     MessageStats msg{};
     msg.total_blocks = kNumBlocks;
+
+    FEC::Set_IR_Erasure_Enabled(use_ir_harq && ir_erasure_enable);
+    FEC::Set_IR_Rs_Post_Enabled(use_ir_harq && ir_rs_post_enable);
 
     std::mt19937 rng(scenario_seed);
 
@@ -759,7 +835,10 @@ MessageStats run_fec_v400_mode(
             ++msg.crc_ok_blocks;
         }
         msg.total_harq += harq_used;
-        const double lat = static_cast<double>(harq_used) * kFecHarqRttMs;
+        const double rtt_ms = use_ir_harq
+            ? ProtectedEngine::HTS_V400_Dispatcher::IR_HARQ_RTT_MS
+            : kFecHarqRttMs;
+        const double lat = static_cast<double>(harq_used) * rtt_ms;
         if (lat > msg.max_latency_ms) {
             msg.max_latency_ms = lat;
         }
@@ -808,6 +887,213 @@ MessageStats run_fec_v400_mode(
             static_cast<double>(msg.total_blocks)
         : 0.0;
 
+    FEC::Set_IR_Erasure_Enabled(true);
+    FEC::Set_IR_Rs_Post_Enabled(true);
+
+    return msg;
+}
+
+MessageStats run_fec_v400_16chip_mode(
+    bool use_ir_harq,
+    unsigned scenario_seed,
+    HTS_Core::Physics::ParametricChannel ch_type,
+    double ch_intensity,
+    bool ir_erasure_enable = true,
+    bool ir_rs_post_enable = true)
+{
+    using FEC = ProtectedEngine::FEC_HARQ;
+    MessageStats msg{};
+    msg.total_blocks = kNumBlocks;
+
+    FEC::Set_IR_Erasure_Enabled(use_ir_harq && ir_erasure_enable);
+    FEC::Set_IR_Rs_Post_Enabled(use_ir_harq && ir_rs_post_enable);
+
+    std::mt19937 rng(scenario_seed);
+
+    const int bps = FEC::BPS16;
+    const int nc = FEC::C16;
+
+    std::vector<uint8_t> syms(static_cast<size_t>(FEC::NSYM16));
+    std::vector<int16_t> flat_I(static_cast<size_t>(FEC::NSYM16 * nc));
+    std::vector<int16_t> flat_Q(static_cast<size_t>(FEC::NSYM16 * nc));
+
+    FEC::WorkBuf wb{};
+
+    for (int b = 0; b < kNumBlocks; ++b) {
+        uint8_t info[FEC::MAX_INFO] = {};
+        for (int i = 0; i < FEC::MAX_INFO; ++i) {
+            info[static_cast<size_t>(i)] = static_cast<uint8_t>(
+                0x30u + static_cast<unsigned>((i + b * 3) & 0x0F));
+        }
+        const int in_len = FEC::MAX_INFO;
+        const uint32_t il_seed =
+            static_cast<uint32_t>(b) * 31337u + 0xA5A5A5A5u;
+
+        int harq_used = 0;
+        bool crc_ok = false;
+        uint8_t decoded[FEC::MAX_INFO] = {};
+
+        if (use_ir_harq) {
+            FEC::IR_RxState ir{};
+            FEC::IR_Init(ir);
+            for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
+                harq_used = k;
+                const int rv = (k - 1) & 3;
+                const int nsym = FEC::Encode16_IR(
+                    info, in_len, syms.data(), il_seed, rv, wb);
+                if (nsym <= 0) {
+                    break;
+                }
+                for (int s = 0; s < nsym; ++s) {
+                    int16_t wI[16];
+                    int16_t wQ[16];
+                    fec_walsh_enc16(syms[static_cast<size_t>(s)],
+                        kFecWalshAmp, wI, wQ);
+                    for (int c = 0; c < nc; ++c) {
+                        const size_t idx =
+                            static_cast<size_t>(s * nc + c);
+                        flat_I[idx] = wI[c];
+                        flat_Q[idx] = wQ[c];
+                    }
+                }
+                apply_v400_fec_channel(
+                    flat_I.data(),
+                    flat_Q.data(),
+                    nsym,
+                    nc,
+                    ch_type,
+                    ch_intensity,
+                    rng);
+
+                int olen = 0;
+                if (FEC::Decode16_IR(
+                        flat_I.data(),
+                        flat_Q.data(),
+                        nsym,
+                        nc,
+                        bps,
+                        il_seed,
+                        rv,
+                        ir,
+                        decoded,
+                        &olen,
+                        wb)) {
+                    crc_ok = true;
+                    break;
+                }
+            }
+        }
+        else {
+            FEC::RxState16 rx16{};
+            FEC::Init16(rx16);
+            for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
+                harq_used = k;
+                const int nsym = FEC::Encode16(
+                    info, in_len, syms.data(), il_seed, wb);
+                if (nsym <= 0) {
+                    break;
+                }
+                for (int s = 0; s < nsym; ++s) {
+                    int16_t wI[16];
+                    int16_t wQ[16];
+                    fec_walsh_enc16(syms[static_cast<size_t>(s)],
+                        kFecWalshAmp, wI, wQ);
+                    for (int c = 0; c < nc; ++c) {
+                        const size_t idx =
+                            static_cast<size_t>(s * nc + c);
+                        flat_I[idx] = wI[c];
+                        flat_Q[idx] = wQ[c];
+                    }
+                }
+                apply_v400_fec_channel(
+                    flat_I.data(),
+                    flat_Q.data(),
+                    nsym,
+                    nc,
+                    ch_type,
+                    ch_intensity,
+                    rng);
+
+                for (int s = 0; s < nsym; ++s) {
+                    int16_t iBuf[16];
+                    int16_t qBuf[16];
+                    for (int c = 0; c < nc; ++c) {
+                        const size_t idx =
+                            static_cast<size_t>(s * nc + c);
+                        iBuf[c] = flat_I[idx];
+                        qBuf[c] = flat_Q[idx];
+                    }
+                    FEC::Feed16_1sym(rx16, iBuf, qBuf, s);
+                }
+                FEC::Advance_Round_16(rx16);
+
+                int olen = 0;
+                if (FEC::Decode16(rx16, decoded, &olen, il_seed, wb)) {
+                    crc_ok = true;
+                    break;
+                }
+            }
+        }
+
+        if (crc_ok) {
+            ++msg.crc_ok_blocks;
+        }
+        msg.total_harq += harq_used;
+        const double rtt_ms = use_ir_harq
+            ? ProtectedEngine::HTS_V400_Dispatcher::IR_HARQ_RTT_MS
+            : kFecHarqRttMs;
+        const double lat = static_cast<double>(harq_used) * rtt_ms;
+        if (lat > msg.max_latency_ms) {
+            msg.max_latency_ms = lat;
+        }
+
+        int err = 0;
+        int tot = 0;
+        double blk_ber = 0.0;
+        std::vector<double> orig_bits;
+        std::vector<double> recv_bits;
+        orig_bits.reserve(static_cast<size_t>(FEC::MAX_INFO * 8));
+        recv_bits.reserve(orig_bits.size());
+        for (int by = 0; by < FEC::MAX_INFO; ++by) {
+            for (int bit = 0; bit < 8; ++bit) {
+                const uint8_t mask = static_cast<uint8_t>(
+                    1u << (7 - bit));
+                orig_bits.push_back(
+                    (info[static_cast<size_t>(by)] & mask) != 0 ? 1.0 : -1.0);
+            }
+        }
+        if (crc_ok) {
+            for (int by = 0; by < FEC::MAX_INFO; ++by) {
+                for (int bit = 0; bit < 8; ++bit) {
+                    const uint8_t mask = static_cast<uint8_t>(
+                        1u << (7 - bit));
+                    recv_bits.push_back(
+                        (decoded[static_cast<size_t>(by)] & mask) != 0
+                            ? 1.0 : -1.0);
+                }
+            }
+        }
+        else {
+            recv_bits.assign(orig_bits.size(), -1.0);
+        }
+
+        compute_ber(orig_bits, recv_bits, err, tot, blk_ber);
+        msg.total_bit_errors += err;
+        msg.total_bits += tot;
+    }
+
+    msg.ber = (msg.total_bits > 0)
+        ? static_cast<double>(msg.total_bit_errors) /
+            static_cast<double>(msg.total_bits)
+        : 1.0;
+    msg.avg_harq = (msg.total_blocks > 0)
+        ? static_cast<double>(msg.total_harq) /
+            static_cast<double>(msg.total_blocks)
+        : 0.0;
+
+    FEC::Set_IR_Erasure_Enabled(true);
+    FEC::Set_IR_Rs_Post_Enabled(true);
+
     return msg;
 }
 
@@ -830,12 +1116,17 @@ void run_fec_v400_ir_compare_csv()
         return;
     }
 
+    csv << "# max_latency_ms = harq_rounds * rtt_ms; chase_rtt_ms=" << kFecHarqRttMs
+        << " ir_rtt_ms=" << ProtectedEngine::HTS_V400_Dispatcher::IR_HARQ_RTT_MS
+        << '\n';
     csv << "fec_path,channel,intensity,crc_ok_blocks,total_blocks,crc_rate,ber,"
            "total_harq_rounds,avg_harq_per_block,max_latency_ms\n";
 
     std::printf(
-        "\n--- FEC_HARQ V400 64-chip (Chase vs IR-HARQ) "
+        "\n--- FEC_HARQ V400 64-chip (Chase RTT=%.1fms vs IR RTT=%.1fms) "
         "BPS=%d NSYM64=%d ---\n",
+        kFecHarqRttMs,
+        ProtectedEngine::HTS_V400_Dispatcher::IR_HARQ_RTT_MS,
         FEC::BPS64, FEC::NSYM64);
     std::printf(
         "%-12s %-8s %9s %6s %6s %10s %12s %6s %12s %14s\n",
@@ -893,11 +1184,125 @@ void run_fec_v400_ir_compare_csv()
     std::cout << "Wrote " << csv_path.string() << " (FEC_HARQ V400)\n";
 }
 
+void run_fec_v400_16chip_ir_compare_csv()
+{
+    using FEC = ProtectedEngine::FEC_HARQ;
+
+    const HTS_Core::Physics::ParametricChannel scenarios[] = {
+        HTS_Core::Physics::ParametricChannel::AWGN,
+        HTS_Core::Physics::ParametricChannel::BARRAGE,
+        HTS_Core::Physics::ParametricChannel::CW,
+        HTS_Core::Physics::ParametricChannel::EMP
+    };
+
+    const std::filesystem::path csv_path = resolve_fec_v400_16chip_csv_path();
+    std::ofstream csv(csv_path.string());
+    if (!csv) {
+        std::fprintf(stderr, "FEC V400 16-chip: failed to open %s for write\n",
+            csv_path.string().c_str());
+        return;
+    }
+
+    csv << "# max_latency_ms = harq_rounds * rtt_ms; chase_rtt_ms=" << kFecHarqRttMs
+        << " ir_rtt_ms=" << ProtectedEngine::HTS_V400_Dispatcher::IR_HARQ_RTT_MS
+        << '\n';
+    csv << "fec_path,channel,intensity,crc_ok_blocks,total_blocks,crc_rate,ber,"
+           "total_harq_rounds,avg_harq_per_block,max_latency_ms\n";
+
+    std::printf(
+        "\n--- FEC_HARQ V400 16-chip (Chase RTT=%.1fms vs IR RTT=%.1fms) "
+        "BPS=%d NSYM16=%d ---\n",
+        kFecHarqRttMs,
+        ProtectedEngine::HTS_V400_Dispatcher::IR_HARQ_RTT_MS,
+        FEC::BPS16, FEC::NSYM16);
+    std::printf(
+        "%-12s %-8s %9s %6s %6s %10s %12s %6s %12s %14s\n",
+        "fec_path", "channel", "intens", "crc_ok", "total", "crc_rate",
+        "ber", "harq", "avg_harq", "max_lat_ms");
+
+    for (HTS_Core::Physics::ParametricChannel ch : scenarios) {
+        for (int si = 0; si < kNumIntensity; ++si) {
+            const double inten = kIntensitySweep[static_cast<size_t>(si)];
+            const unsigned scen_seed =
+                4242u
+                + static_cast<unsigned>(ch) * 10007u
+                + static_cast<unsigned>(inten)
+                + 0x10000u;
+
+            MessageStats chase_stats =
+                run_fec_v400_16chip_mode(false, scen_seed, ch, inten);
+            MessageStats ir_stats =
+                run_fec_v400_16chip_mode(true, scen_seed, ch, inten);
+
+            auto crc_rate = [](const MessageStats& s) {
+                return (s.total_blocks > 0)
+                    ? static_cast<double>(s.crc_ok_blocks) /
+                        static_cast<double>(s.total_blocks)
+                    : 0.0;
+            };
+
+            const double cr_chase = crc_rate(chase_stats);
+            const double cr_ir = crc_rate(ir_stats);
+
+            auto emit = [&](const char* path, const MessageStats& s, double rate) {
+                csv << path << ','
+                    << channel_tag(ch) << ','
+                    << inten << ','
+                    << s.crc_ok_blocks << ','
+                    << s.total_blocks << ','
+                    << std::fixed << std::setprecision(6) << rate << ','
+                    << s.ber << ','
+                    << s.total_harq << ','
+                    << s.avg_harq << ','
+                    << s.max_latency_ms << '\n';
+
+                std::printf(
+                    "%-12s %-8s %9.1f %6d %6d %10.6f %12.6f %6d %12.4f %14.2f\n",
+                    path, channel_tag(ch), inten,
+                    s.crc_ok_blocks, s.total_blocks, rate,
+                    s.ber, s.total_harq, s.avg_harq, s.max_latency_ms);
+            };
+
+            emit("chase", chase_stats, cr_chase);
+            emit("ir_harq", ir_stats, cr_ir);
+        }
+    }
+
+    csv.close();
+    std::cout << "Wrote " << csv_path.string() << " (FEC_HARQ V400 16-chip)\n";
+}
+
 } // namespace
+
+static bool hts_rs_gf16_roundtrip_ok() noexcept
+{
+    uint8_t d[8] = {
+        0x01u, 0x23u, 0x45u, 0x67u, 0x89u, 0xABu, 0xCDu, 0xEFu
+    };
+    uint8_t code[15];
+    ProtectedEngine::HTS_RS_GF16_Encode15_8(d, code);
+    if (!ProtectedEngine::HTS_RS_GF16_Decode15_8(code)) {
+        return false;
+    }
+    for (int i = 0; i < 8; ++i) {
+        if ((code[static_cast<std::size_t>(i)] & 0x0Fu)
+            != (d[static_cast<std::size_t>(i)] & 0x0Fu)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+void run_pipeline_v2_compare_csv();
 
 // ── main ─────────────────────────────────────────────────────────────────
 int main()
 {
+    if (!hts_rs_gf16_roundtrip_ok()) {
+        std::fprintf(stderr, "HTS_RS_GF16 roundtrip selftest failed\n");
+        return 1;
+    }
+
     Soft_Tensor_FEC fec;
     Tensor_Interleaver interleaver(64);
     ProtectedEngine::Dynamic_Fractal_Mapper mapper;
@@ -977,5 +1382,7 @@ int main()
     std::cout << "Wrote " << csv_path.string() << '\n';
 
     run_fec_v400_ir_compare_csv();
+    run_fec_v400_16chip_ir_compare_csv();
+    run_pipeline_v2_compare_csv();
     return 0;
 }

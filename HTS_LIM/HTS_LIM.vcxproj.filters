@@ -222,6 +222,9 @@
     <ClCompile Include="HTS_FEC_HARQ.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="HTS_RS_GF16.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="HTS_V400_Dispatcher.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -594,6 +597,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_FEC_HARQ.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_RS_GF16.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_V400_Dispatcher.hpp">

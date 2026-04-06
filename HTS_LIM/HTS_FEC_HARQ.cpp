@@ -3,6 +3,7 @@
 // Target: STM32F407VGT6 (Cortex-M4F) / PC
 //
 #include "HTS_FEC_HARQ.hpp"
+#include "HTS_RS_GF16.h"
 #include "HTS_Secure_Memory.h"
 #include <array>
 #include <atomic>
@@ -85,6 +86,48 @@ namespace ProtectedEngine {
     static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fI{};
     static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fQ{};
     static std::array<int32_t, k_llr_buf_sz> g_fec_dec_llr{};
+
+    static std::atomic<uint8_t> g_ir_erasure_en{ 1u };
+    static std::atomic<uint8_t> g_ir_rs_post_en{ 1u };
+
+    static inline int32_t fec_ir_fast_abs_i32(int32_t v) noexcept
+    {
+        const int32_t m = v >> 31;
+        return (v ^ m) - m;
+    }
+
+    /// RS(15,8) 니블 매핑: rx[0..7]의 15니블 정정, rx[7] 하위 니블 보존
+    static bool try_ir_rs_recover_rx8(uint8_t* rx_head8) noexcept
+    {
+        if (!rx_head8) {
+            return false;
+        }
+        uint8_t sym15[15];
+        const uint8_t lo7 =
+            static_cast<uint8_t>(rx_head8[7] & 0x0Fu);
+        for (int i = 0; i < 7; ++i) {
+            sym15[static_cast<std::size_t>(2 * i)] =
+                static_cast<uint8_t>(
+                    rx_head8[static_cast<std::size_t>(i)] >> 4);
+            sym15[static_cast<std::size_t>(2 * i + 1)] =
+                static_cast<uint8_t>(
+                    rx_head8[static_cast<std::size_t>(i)] & 0x0Fu);
+        }
+        sym15[14] =
+            static_cast<uint8_t>(rx_head8[7] >> 4);
+        if (!HTS_RS_GF16_Decode15_8(sym15)) {
+            return false;
+        }
+        for (int i = 0; i < 7; ++i) {
+            rx_head8[static_cast<std::size_t>(i)] =
+                static_cast<uint8_t>(
+                    (sym15[static_cast<std::size_t>(2 * i)] << 4)
+                    | sym15[static_cast<std::size_t>(2 * i + 1)]);
+        }
+        rx_head8[7] =
+            static_cast<uint8_t>((sym15[14] << 4) | lo7);
+        return true;
+    }
 
     // LTO/DCE가 스택 평문 소거를 제거하지 못하도록 secureWipe 직후 컴파일러·동기화 펜스
     static inline void fec_fence_after_stack_wipe() noexcept {
@@ -886,6 +929,26 @@ namespace ProtectedEngine {
         std::memset(&s, 0, sizeof(s));
     }
 
+    void FEC_HARQ::Set_IR_Erasure_Enabled(bool enable) noexcept
+    {
+        g_ir_erasure_en.store(enable ? 1u : 0u, std::memory_order_relaxed);
+    }
+
+    bool FEC_HARQ::Get_IR_Erasure_Enabled() noexcept
+    {
+        return g_ir_erasure_en.load(std::memory_order_relaxed) != 0u;
+    }
+
+    void FEC_HARQ::Set_IR_Rs_Post_Enabled(bool enable) noexcept
+    {
+        g_ir_rs_post_en.store(enable ? 1u : 0u, std::memory_order_relaxed);
+    }
+
+    bool FEC_HARQ::Get_IR_Rs_Post_Enabled() noexcept
+    {
+        return g_ir_rs_post_en.load(std::memory_order_relaxed) != 0u;
+    }
+
     int FEC_HARQ::Encode64_IR(const uint8_t* info, int len,
         uint8_t* syms, uint32_t il_seed, int bps, int rv, WorkBuf& wb) noexcept {
         if (bps < BPS64_MIN_OPERABLE || bps > BPS64_MAX) return 0;
@@ -938,13 +1001,26 @@ namespace ProtectedEngine {
         std::array<int32_t, k_llr_buf_sz>& llr = g_fec_dec_llr;
         llr.fill(static_cast<int32_t>(0));
 
+        const uint32_t er_en = static_cast<uint32_t>(
+            g_ir_erasure_en.load(std::memory_order_relaxed));
+
         for (int sym = 0; sym < nsym; ++sym) {
             const int base = sym * nc;
             for (int c = 0; c < nc; ++c) {
-                fI[static_cast<std::size_t>(c)] =
+                const int32_t Ii =
                     static_cast<int32_t>(sym_I[base + c]);
-                fQ[static_cast<std::size_t>(c)] =
+                const int32_t Qi =
                     static_cast<int32_t>(sym_Q[base + c]);
+                static constexpr int32_t kErasureMagTh = 30000;
+                const int32_t mag = fec_ir_fast_abs_i32(Ii)
+                    + fec_ir_fast_abs_i32(Qi);
+                const uint32_t allow_chip =
+                    (1u - er_en)
+                    | static_cast<uint32_t>(mag <= kErasureMagTh);
+                const int32_t mask =
+                    -static_cast<int32_t>(allow_chip);
+                fI[static_cast<std::size_t>(c)] = Ii & mask;
+                fQ[static_cast<std::size_t>(c)] = Qi & mask;
             }
             FWHT(fI.data(), nc);
             FWHT(fQ.data(), nc);
@@ -998,16 +1074,163 @@ namespace ProtectedEngine {
             rx[static_cast<std::size_t>(MAX_INFO)]) << 8u) |
             static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO + 1)]);
 
-        const bool dec_ok = (calc == stored);
+        bool dec_ok = (calc == stored);
+        if (!dec_ok
+            && g_ir_rs_post_en.load(std::memory_order_relaxed) != 0u) {
+            if (try_ir_rs_recover_rx8(rx.data())) {
+                calc = CRC16(rx.data(), MAX_INFO);
+                dec_ok = (calc == stored);
+            }
+        }
+
         if (dec_ok) {
             for (int i = 0; i < MAX_INFO; ++i) {
                 out[i] = rx[static_cast<std::size_t>(i)];
             }
             *olen = MAX_INFO;
             ir_state.ok = true;
+            ir_state.sic_tentative_valid = 0u;
         }
         else {
             *olen = 0;
+            std::memcpy(ir_state.sic_tentative, rx.data(),
+                static_cast<std::size_t>(MAX_INFO));
+            ir_state.sic_tentative_valid = 1u;
+        }
+        fec_secure_wipe_stack(static_cast<void*>(dec.data()), dec.size());
+        fec_secure_wipe_stack(static_cast<void*>(rx.data()), rx.size());
+        return dec_ok;
+    }
+
+    int FEC_HARQ::Encode16_IR(const uint8_t* info, int len,
+        uint8_t* syms, uint32_t il_seed, int rv, WorkBuf& wb) noexcept {
+        const uint32_t il_eff =
+            il_seed ^ RV_SALT[static_cast<std::size_t>(rv & 3)];
+        return Encode_Core(info, len, syms, il_eff, BPS16, NSYM16, wb);
+    }
+
+    bool FEC_HARQ::Decode16_IR(
+        const int16_t* sym_I, const int16_t* sym_Q,
+        int nsym, int nc, int bps,
+        uint32_t il_seed, int rv,
+        IR_RxState& ir_state,
+        uint8_t* out, int* olen,
+        WorkBuf& wb) noexcept {
+        if (!out || !olen) return false;
+        if (ir_state.ok) {
+            *olen = MAX_INFO;
+            return true;
+        }
+        if (!sym_I || !sym_Q) return false;
+        if (nsym != NSYM16 || nc != C16 || bps != BPS16) {
+            *olen = 0;
+            return false;
+        }
+        const int64_t llr_slots =
+            static_cast<int64_t>(nsym) * static_cast<int64_t>(bps);
+        if (llr_slots < static_cast<int64_t>(TOTAL_CODED)) {
+            *olen = 0;
+            return false;
+        }
+
+        std::array<int32_t, k_fwht_buf_sz>& fI = g_fec_dec_fI;
+        std::array<int32_t, k_fwht_buf_sz>& fQ = g_fec_dec_fQ;
+        std::array<int32_t, k_llr_buf_sz>& llr = g_fec_dec_llr;
+        llr.fill(static_cast<int32_t>(0));
+
+        const uint32_t er_en = static_cast<uint32_t>(
+            g_ir_erasure_en.load(std::memory_order_relaxed));
+
+        for (int sym = 0; sym < nsym; ++sym) {
+            const int base = sym * nc;
+            for (int c = 0; c < nc; ++c) {
+                const int32_t Ii =
+                    static_cast<int32_t>(sym_I[base + c]);
+                const int32_t Qi =
+                    static_cast<int32_t>(sym_Q[base + c]);
+                static constexpr int32_t kErasureMagTh = 30000;
+                const int32_t mag = fec_ir_fast_abs_i32(Ii)
+                    + fec_ir_fast_abs_i32(Qi);
+                const uint32_t allow_chip =
+                    (1u - er_en)
+                    | static_cast<uint32_t>(mag <= kErasureMagTh);
+                const int32_t mask =
+                    -static_cast<int32_t>(allow_chip);
+                fI[static_cast<std::size_t>(c)] = Ii & mask;
+                fQ[static_cast<std::size_t>(c)] = Qi & mask;
+            }
+            FWHT(fI.data(), nc);
+            FWHT(fQ.data(), nc);
+            Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
+            for (int b = 0; b < bps; ++b) {
+                const int bi = sym * bps + b;
+                if (bi < TOTAL_CODED) {
+                    wb.ru.all_llr[static_cast<std::size_t>(bi)] =
+                        llr[static_cast<std::size_t>(b)];
+                }
+            }
+        }
+
+        const uint32_t il_eff =
+            il_seed ^ RV_SALT[static_cast<std::size_t>(rv & 3)];
+        Bit_Deinterleave(wb.ru.all_llr, TOTAL_CODED, il_eff, wb);
+
+        for (int i = 0; i < TOTAL_CODED; ++i) {
+            int32_t& slot =
+                ir_state.llr_accum[static_cast<std::size_t>(i)];
+            slot = sat_add_i32(
+                slot,
+                wb.ru.all_llr[static_cast<std::size_t>(i)]);
+        }
+        ++ir_state.rounds_done;
+
+        for (int i = 0; i < CONV_OUT; ++i) {
+            int32_t acc = ir_state.llr_accum[static_cast<std::size_t>(i)];
+            for (int r = 1; r < REP; ++r) {
+                acc = sat_add_i32(
+                    acc,
+                    ir_state.llr_accum[static_cast<std::size_t>(
+                        r * CONV_OUT + i)]);
+            }
+            wb.ru.all_llr[static_cast<std::size_t>(i)] = acc;
+        }
+
+        std::array<uint8_t, static_cast<std::size_t>(CONV_IN)> dec{};
+        Viterbi_Decode(wb.ru.all_llr, CONV_OUT, dec.data(), CONV_IN, wb);
+
+        std::array<uint8_t, static_cast<std::size_t>(MAX_INFO + 2)> rx{};
+        for (int i = 0; i < INFO_BITS; ++i) {
+            const uint32_t bit =
+                static_cast<uint32_t>(dec[static_cast<std::size_t>(i)]) & 1u;
+            rx[static_cast<std::size_t>(i >> 3)] |= static_cast<uint8_t>(
+                bit << static_cast<unsigned>(7 - (i & 7)));
+        }
+
+        uint16_t calc = CRC16(rx.data(), MAX_INFO);
+        uint16_t stored = (static_cast<uint16_t>(
+            rx[static_cast<std::size_t>(MAX_INFO)]) << 8u) |
+            static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO + 1)]);
+
+        bool dec_ok = (calc == stored);
+        if (!dec_ok
+            && g_ir_rs_post_en.load(std::memory_order_relaxed) != 0u) {
+            if (try_ir_rs_recover_rx8(rx.data())) {
+                calc = CRC16(rx.data(), MAX_INFO);
+                dec_ok = (calc == stored);
+            }
+        }
+
+        if (dec_ok) {
+            for (int i = 0; i < MAX_INFO; ++i) {
+                out[i] = rx[static_cast<std::size_t>(i)];
+            }
+            *olen = MAX_INFO;
+            ir_state.ok = true;
+            ir_state.sic_tentative_valid = 0u;
+        }
+        else {
+            *olen = 0;
+            ir_state.sic_tentative_valid = 0u;
         }
         fec_secure_wipe_stack(static_cast<void*>(dec.data()), dec.size());
         fec_secure_wipe_stack(static_cast<void*>(rx.data()), rx.size());

@@ -3,14 +3,15 @@
 #
 # - 본 CMake는 HTS_LIM/arm_firmware 등 크로스 빌드 트리에 add_subdirectory 되지 않음.
 # - 산출: HTS_Calibration_Run(.exe) + HTS_Fractal_Channel_Compare_Run(.exe)
-#         + HTS_Microbench_Run(.exe) + HTS_Fractal_Mapper_Run(.exe)
-#         + libhts_pc_layer2_tensor_fec
+#         + HTS_V400_SIC_PC_Test_Run(.exe) + HTS_Microbench_Run(.exe)
+#         + HTS_Fractal_Mapper_Run(.exe) + libhts_pc_layer2_tensor_fec
 #
 # 구성 예 (저장소 루트 = HTS_LIM):
 #   cmake -S HTS_TEST -B HTS_TEST/build-calibration -G "Visual Studio 18 2026" -A x64
 #   cmake --build HTS_TEST/build-calibration --config Release
 #   Release\HTS_Calibration_Run.exe
 #   Release\HTS_Fractal_Channel_Compare_Run.exe ← Tensor 프랙탈 CSV + FEC_HARQ IR CSV
+#   Release\HTS_V400_SIC_PC_Test_Run.exe ← V400 디스패처 IR-HARQ + SIC 루프백 스모크
 #   Release\HTS_Microbench_Run.exe   ← 핫패스 ns/호출 (Release 필수)
 #   Release\HTS_Fractal_Mapper_Run.exe ← Dynamic_Fractal_Mapper 전수/벤치 (PC)
 # =============================================================================
@@ -26,6 +27,7 @@ add_library(hts_pc_layer2_tensor_fec STATIC
   "${HTS_LIM_CORE_DIR}/HTS_Dynamic_Fractal_Mapper.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_3D_Tensor_FEC.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Secure_Memory.cpp"
 )
 target_include_directories(hts_pc_layer2_tensor_fec PUBLIC
@@ -64,6 +66,9 @@ endif()
 # ---- 실행 파일: 프랙탈 와이어 비교 CSV + FEC_HARQ V400 Chase/IR CSV ----
 add_executable(HTS_Fractal_Channel_Compare_Run
   benchmark/HTS_Fractal_Channel_Compare.cpp
+  benchmark/HTS_Pipeline_V2_Compare.cpp
+  "${HTS_LIM_CORE_DIR}/HTS_Pipeline_V2_Dispatcher.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_Adaptive_BPS_Controller.cpp"
 )
 target_link_libraries(HTS_Fractal_Channel_Compare_Run PRIVATE hts_pc_layer2_tensor_fec)
 target_include_directories(HTS_Fractal_Channel_Compare_Run PRIVATE
@@ -76,6 +81,26 @@ target_compile_definitions(HTS_Fractal_Channel_Compare_Run PRIVATE
 if(MSVC)
   target_compile_options(HTS_Fractal_Channel_Compare_Run PRIVATE /W3 /EHsc /permissive-)
   target_compile_definitions(HTS_Fractal_Channel_Compare_Run PRIVATE _CRT_SECURE_NO_WARNINGS)
+endif()
+
+# ---- 실행 파일: V400 디스패처 IR-HARQ + SIC 루프백 (PC 스모크) ----
+add_executable(HTS_V400_SIC_PC_Test_Run
+  benchmark/HTS_V400_SIC_PC_Test.cpp
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+)
+target_link_libraries(HTS_V400_SIC_PC_Test_Run PRIVATE hts_pc_layer2_tensor_fec)
+target_include_directories(HTS_V400_SIC_PC_Test_Run PRIVATE
+  "${HTS_LIM_CORE_DIR}"
+)
+target_compile_features(HTS_V400_SIC_PC_Test_Run PRIVATE cxx_std_20)
+target_compile_definitions(HTS_V400_SIC_PC_Test_Run PRIVATE
+  HTS_FEC_SIMULATE_M4_RAM_LAYOUT
+)
+if(MSVC)
+  target_compile_options(HTS_V400_SIC_PC_Test_Run PRIVATE /W3 /EHsc /permissive-)
+  target_compile_definitions(HTS_V400_SIC_PC_Test_Run PRIVATE _CRT_SECURE_NO_WARNINGS)
+else()
+  target_compile_options(HTS_V400_SIC_PC_Test_Run PRIVATE -Wall -Wextra -O2)
 endif()
 
 # ---- 실행 파일: Dynamic_Fractal_Mapper (18비트 Feistel) PC 검증 ----

@@ -162,10 +162,10 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp" />
     <ClCompile Include="benchmark\HTS_Fractal_Channel_Compare.cpp" />
+    <ClCompile Include="benchmark\HTS_Pipeline_V2_Compare.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\HTS_LIM\HTS_Adaptive_BPS_Controller.h" />

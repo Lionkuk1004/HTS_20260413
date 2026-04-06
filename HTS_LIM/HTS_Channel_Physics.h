@@ -23,7 +23,8 @@ enum class ParametricChannel : std::uint8_t {
     EMP = 3
 };
 
-/// 파라메트릭 채널 (NUM_CHIPS=128, base_noise σ=0.01, EMP amp=99999 등 기존 수치 유지)
+/// 파라메트릭 채널 (NUM_CHIPS=128, base_noise σ=0.01; EMP: 파괴 시 rd∈[3000,100000] 균일,
+/// 비파괴 시 σ_env=200+intensity×5 스프레드 도메인)
 /// @pre `rx.size() == tx.size()` — 내부에서 resize/힙 재할당 없음
 void Apply_Parametric_Channel(
     const std::vector<double>& tx,
@@ -40,7 +41,8 @@ void Apply_Cw_Full_Tensor(
     std::vector<double>& rx,
     double intensity_db);
 
-/// LTE_Channel::Transmit_To 와 동일 수학 (J/S dB, 칩 수, EMP 비율·진폭)
+/// LTE_Channel::Transmit_To 와 동일 수학 (J/S dB, 칩 수, EMP 비율).
+/// EMP 펄스 진폭은 Parametric EMP 와 동일 균일 [3000,100000]; `emp_amp` 인자는 호환용(미사용).
 /// @pre `out.size() == tensor.size()`
 void Apply_Lte_Channel_To(
     const std::vector<double>& tensor,

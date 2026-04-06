@@ -46,6 +46,7 @@
 //     // … 수신 int16 I/Q 평면 n*64 …
 //     if (FEC_HARQ::Decode64_IR(rx_I, rx_Q, n, C64, bps, il, rv, ir, out, &olen, wb)) break;
 //   }
+//   16칩(VOICE/VIDEO_16): Encode16_IR / Decode16_IR — nsym=NSYM16, nc=C16, bps=BPS16, 동일 IR_RxState.
 //   무채널 왕복은 PHY walsh_enc와 동일 매핑으로 rx_I/Q를 채워야 함 (Dispatcher Build_Packet 경로 참고).
 //
 //  [메모리 요구량]
@@ -240,15 +241,25 @@ namespace ProtectedEngine {
         };
 
         /// @brief IR-HARQ(LLR 도메인 누적) 수신 상태 — RxState64·Feed64 경로와 독립
-        /// @note 라운드마다 Decode64_IR로 심볼 LLR을 넣으면 내부에서 RV 역인터리브 후 누적·REP 합산·Viterbi
+        /// @note 16칩·64칩 IR 공용(TOTAL_CODED 고정). 라운드마다 Decode16_IR/Decode64_IR 로 LLR 유입
         /// @warning sizeof ≈ 2.8KB — ARM 스택 대량 배치 금지, 전역·정적 권장
         struct IR_RxState {
             int32_t llr_accum[TOTAL_CODED];
             int     rounds_done;
             bool    ok;
+            /// CRC 실패 시 Viterbi가 채운 8바이트( CRC16 입력 구간 ) — V400 SIC 재인코딩용
+            uint8_t sic_tentative[MAX_INFO];
+            uint8_t sic_tentative_valid; ///< 0/1 — IR_Init·CRC 성공 시 0
         };
 
         static void IR_Init(IR_RxState& s) noexcept;
+
+        /// @brief IR Erasure(포화 칩 마스킹) — 기본 OFF, OFF 시 Decode64/16_IR 기존과 동일
+        static void Set_IR_Erasure_Enabled(bool enable) noexcept;
+        [[nodiscard]] static bool Get_IR_Erasure_Enabled() noexcept;
+        /// @brief IR RX RS(15,8) 후처리 — CRC 실패 시에만 시도, TX 패리티 없으면 효과 제한적
+        static void Set_IR_Rs_Post_Enabled(bool enable) noexcept;
+        [[nodiscard]] static bool Get_IR_Rs_Post_Enabled() noexcept;
 
         /// @brief IR 전용 인코드 — Encode64_A와 동일 파이프라인, 인터리브 시드만 il^RV_SALT[rv&3]
         [[nodiscard]] static int Encode64_IR(const uint8_t* info, int len,
@@ -259,6 +270,19 @@ namespace ProtectedEngine {
         /// @note ir_state.ok==true 이면 out 미갱신·*olen=MAX_INFO·즉시 true (이미 CRC 통과한 세션)
         /// @note Decode_Core와 동일 BSS FWHT/LLR 스크래치(g_fec_dec_*) 공유 — 비재진입·호출부 직렬화
         [[nodiscard]] static bool Decode64_IR(
+            const int16_t* sym_I, const int16_t* sym_Q,
+            int nsym, int nc, int bps,
+            uint32_t il_seed, int rv,
+            IR_RxState& ir_state,
+            uint8_t* out, int* olen,
+            WorkBuf& wb) noexcept;
+
+        /// @brief 16칩 IR 인코드 — Encode16 과 동일 파이프라인, il^RV_SALT[rv&3]
+        [[nodiscard]] static int Encode16_IR(const uint8_t* info, int len,
+            uint8_t* syms, uint32_t il_seed, int rv, WorkBuf& wb) noexcept;
+
+        /// @brief 16칩 IR 디코드 — nsym=NSYM16·nc=C16·bps=BPS16 고정과 동일 로직 as Decode64_IR
+        [[nodiscard]] static bool Decode16_IR(
             const int16_t* sym_I, const int16_t* sym_Q,
             int nsym, int nc, int bps,
             uint32_t il_seed, int rv,

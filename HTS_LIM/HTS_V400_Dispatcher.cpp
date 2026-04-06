@@ -9,22 +9,41 @@
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_RF_Metrics.h"   // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
+#include <climits>
 #include <cstring>
 #include <atomic>
 
 namespace ProtectedEngine {
 
-    // ── HARQ Q채널 — CCM 배치 file-scope 배열 ───────────────────
-    //  sizeof(HTS_V400_Dispatcher)에서 제외하기 위해 클래스 외부 정의.
-    //  생성자에서 harq_Q_ 포인터를 이 배열에 연결.
-    //  초기화 생략: .bss zero-fill + full_reset_에서 memset
-    //  PC: 일반 BSS (.bss) — 테스트 시 제약 없음
+    // ── HARQ CCM union: Chase Q 누적 ↔ IR 칩 버퍼 + IR_RxState (SRAM 추가 0) ─
+    //  Chase: harq_Q[NSYM64][C64] int32 — 기존 g_harq_Q_ccm 와 동일 레이아웃
+    //  IR:    chip_I/chip_Q int16 + IR_RxState — 모드 전환 시 full_reset_ 에서 전체 wipe
+    struct V400HarqCcmChase {
+        int32_t harq_Q[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+    };
+    struct V400HarqCcmIr {
+        int16_t chip_I[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+        int16_t chip_Q[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+        FEC_HARQ::IR_RxState ir_state;
+    };
     HTS_CCM_SECTION
-        static int32_t g_harq_Q_ccm[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+    static union {
+        V400HarqCcmChase chase;
+        V400HarqCcmIr ir;
+    } g_harq_ccm_union;
+
+    static_assert(sizeof(g_harq_ccm_union) >= sizeof(V400HarqCcmChase),
+        "CCM union must hold Chase harq_Q");
+    static_assert(sizeof(g_harq_ccm_union) >= sizeof(V400HarqCcmIr),
+        "CCM union must hold IR chip buffers + IR_RxState");
 
     static_assert(sizeof(int16_t) == 2, "int16_t must be 2 bytes");
     static_assert(sizeof(int32_t) == 4, "int32_t must be 4 bytes");
     static_assert(sizeof(uint64_t) == 8, "uint64_t required for FWHT energy");
+
+    // IR 64칩 SIC: 다음 라운드 수신 칩에서 Walsh 예상 성분 감산 (CCM 외 정적, 칩 버퍼와 동일 차원)
+    static int16_t g_sic_exp_I[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+    static int16_t g_sic_exp_Q[FEC_HARQ::NSYM64][FEC_HARQ::C64];
 
     // ── Q8 사인파 LUT (sin(2π×k/8)×256) ──
     // AntiJamEngine.cpp의 k_cw_lut8와 동일한 값 — 두 모듈 일관성 유지
@@ -463,7 +482,13 @@ namespace ProtectedEngine {
         , vid_fail_(0), vid_succ_(0)
         , v1_rx_{}, v1_idx_(0)
         , rx_{}, sym_idx_(0), harq_inited_(false)
-        , harq_Q_(g_harq_Q_ccm)          // CCM 배열 포인터 연결
+        , harq_Q_(g_harq_ccm_union.chase.harq_Q)
+        , ir_chip_I_(&g_harq_ccm_union.ir.chip_I[0][0])
+        , ir_chip_Q_(&g_harq_ccm_union.ir.chip_Q[0][0])
+        , ir_state_(&g_harq_ccm_union.ir.ir_state)
+        , sic_ir_enabled_(false)
+        , sic_expect_valid_(false)
+        , sic_walsh_amp_(300)
         , wb_{}                         // wb 유니온 (반이중 TDM)
         , ajc_(), ajc_last_nc_(0)
         , orig_acc_{}
@@ -480,7 +505,11 @@ namespace ProtectedEngine {
         // 순서: CCM → full_reset_(HARQ/work 버퍼) → 칩/워킹 스크래치 → 시퀀스/시드
         //       → 콜백/메트릭 무효화 → ajc_.Reset → ajc_ 스토리지 파쇄
         SecureMemory::secureWipe(
-            static_cast<void*>(g_harq_Q_ccm), sizeof(g_harq_Q_ccm));
+            static_cast<void*>(&g_harq_ccm_union), sizeof(g_harq_ccm_union));
+        SecureMemory::secureWipe(
+            static_cast<void*>(g_sic_exp_I), sizeof(g_sic_exp_I));
+        SecureMemory::secureWipe(
+            static_cast<void*>(g_sic_exp_Q), sizeof(g_sic_exp_Q));
         full_reset_();
 
         SecureMemory::secureWipe(static_cast<void*>(buf_I_), sizeof(buf_I_));
@@ -514,6 +543,75 @@ namespace ProtectedEngine {
     int         HTS_V400_Dispatcher::Get_Video_Fail_Count()const noexcept { return vid_fail_; }
     int         HTS_V400_Dispatcher::Get_Current_BPS64()   const noexcept { return cur_bps64_; }
     IQ_Mode     HTS_V400_Dispatcher::Get_IQ_Mode()         const noexcept { return iq_mode_; }
+
+    void HTS_V400_Dispatcher::Set_IR_Mode(bool enable) noexcept
+    {
+        if (ir_mode_ != enable) {
+            ir_mode_ = enable;
+            full_reset_();
+        }
+    }
+
+    bool HTS_V400_Dispatcher::Get_IR_Mode() const noexcept
+    {
+        return ir_mode_;
+    }
+
+    void HTS_V400_Dispatcher::Set_IR_SIC_Enabled(bool enable) noexcept
+    {
+        if (sic_ir_enabled_ == enable) {
+            return;
+        }
+        sic_ir_enabled_ = enable;
+        sic_expect_valid_ = false;
+        std::memset(g_sic_exp_I, 0, sizeof(g_sic_exp_I));
+        std::memset(g_sic_exp_Q, 0, sizeof(g_sic_exp_Q));
+    }
+
+    bool HTS_V400_Dispatcher::Get_IR_SIC_Enabled() const noexcept
+    {
+        return sic_ir_enabled_;
+    }
+
+    void HTS_V400_Dispatcher::Set_SIC_Walsh_Amp(int16_t amp) noexcept
+    {
+        sic_walsh_amp_ = amp;
+    }
+
+    void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept
+    {
+        sic_expect_valid_ = false;
+        if (!sic_ir_enabled_ || ir_state_ == nullptr) {
+            return;
+        }
+        if (ir_state_->sic_tentative_valid == 0u) {
+            return;
+        }
+        std::memset(g_sic_exp_I, 0, sizeof(g_sic_exp_I));
+        std::memset(g_sic_exp_Q, 0, sizeof(g_sic_exp_Q));
+        uint8_t syms[FEC_HARQ::NSYM64] = {};
+        const int rv_fb = (ir_rv_ + 3) & 3;
+        const uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
+        const int enc_n = FEC_HARQ::Encode64_IR(
+            ir_state_->sic_tentative,
+            FEC_HARQ::MAX_INFO,
+            syms,
+            il,
+            cur_bps64_,
+            rv_fb,
+            wb_);
+        if (enc_n <= 0) {
+            SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+            return;
+        }
+        for (int s = 0; s < enc_n; ++s) {
+            walsh_enc(syms[static_cast<std::size_t>(s)], 64, sic_walsh_amp_,
+                &g_sic_exp_I[static_cast<std::size_t>(s)][0],
+                &g_sic_exp_Q[static_cast<std::size_t>(s)][0]);
+        }
+        sic_expect_valid_ = true;
+        SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+    }
 
     void HTS_V400_Dispatcher::Update_Adaptive_BPS(uint32_t nf) noexcept {
         // HTS_RF_Metrics + HTS_Adaptive_BPS_Controller 경로가 연결된 경우
@@ -594,6 +692,11 @@ namespace ProtectedEngine {
             iq_upgrade_count_ = 0u;
         }
 
+        if (ir_mode_) {
+            iq_mode_ = IQ_Mode::IQ_SAME;
+            iq_upgrade_count_ = 0u;
+        }
+
         if (need_reset != 0u) { full_reset_(); }
     }
 
@@ -614,9 +717,15 @@ namespace ProtectedEngine {
         SecureMemory::secureWipe(static_cast<void*>(orig_Q_), sizeof(orig_Q_));
         SecureMemory::secureWipe(static_cast<void*>(&orig_acc_), sizeof(orig_acc_));
         SecureMemory::secureWipe(static_cast<void*>(&wb_), sizeof(wb_));
-        if (harq_Q_ != nullptr) {
-            SecureMemory::secureWipe(
-                static_cast<void*>(harq_Q_), sizeof(g_harq_Q_ccm));
+        // CCM union 전체 — file-scope `g_harq_ccm_union` 직접 참조 (Chase/IR 공용)
+        SecureMemory::secureWipe(
+            static_cast<void*>(&g_harq_ccm_union), sizeof(g_harq_ccm_union));
+        ir_rv_ = 0;
+        sic_expect_valid_ = false;
+        std::memset(g_sic_exp_I, 0, sizeof(g_sic_exp_I));
+        std::memset(g_sic_exp_Q, 0, sizeof(g_sic_exp_Q));
+        if (ir_mode_ && ir_state_ != nullptr) {
+            FEC_HARQ::IR_Init(*ir_state_);
         }
     }
 
@@ -695,6 +804,11 @@ namespace ProtectedEngine {
         const int d_int = static_cast<int>(data_ok);
         cur_bps64_ = bps * d_int + cur_bps64_ * (1 - d_int);
 
+        if (ir_mode_) {
+            iq_mode_ = IQ_Mode::IQ_SAME;
+            iq_upgrade_count_ = 0u;
+        }
+
         return static_cast<uint32_t>(0u - ok_u);
     }
 
@@ -725,7 +839,17 @@ namespace ProtectedEngine {
 
             if (nc == 16) {
                 if (sym_idx_ < FEC_HARQ::NSYM16) {
-                    FEC_HARQ::Feed16_1sym(rx_.m16, buf_I_, buf_Q_, sym_idx_);
+                    if (ir_mode_) {
+                        const int base = sym_idx_ * FEC_HARQ::C16;
+                        for (int c = 0; c < nc; ++c) {
+                            ir_chip_I_[base + c] = buf_I_[c];
+                            ir_chip_Q_[base + c] = buf_Q_[c];
+                        }
+                    }
+                    else {
+                        FEC_HARQ::Feed16_1sym(
+                            rx_.m16, buf_I_, buf_Q_, sym_idx_);
+                    }
 
                     for (int c = 0; c < nc; ++c) {
                         const uint8_t hiI = static_cast<uint8_t>(
@@ -742,7 +866,7 @@ namespace ProtectedEngine {
             else {
                 const int nsym64 = cur_nsym64_();
 
-                if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT) {
+                if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_) {
                     // ── [적응형 I/Q] I/Q 독립 RX: 칩슬롯당 2심볼 ──
                     //  I 채널 → 짝수 sym_idx_, Q 채널 → 홀수 sym_idx_
                     //  HARQ I 누적기: 짝수 심볼 전용
@@ -778,33 +902,81 @@ namespace ProtectedEngine {
                     else { full_reset_(); return; }
                 }
                 else {
-                    // ── I=Q 동일 모드 (기존) ──
+                    // ── I=Q 동일 또는 IR-HARQ (칩 보관, 누적 없음) ──
                     if (sym_idx_ < nsym64) {
-                        for (int c = 0; c < nc; ++c) {
-                            rx_.m64_I.aI[sym_idx_][c] +=
-                                static_cast<int32_t>(buf_I_[c]);
+                        if (ir_mode_) {
+                            const int base = sym_idx_ * FEC_HARQ::C64;
+                            const uint32_t use_sic_u =
+                                static_cast<uint32_t>(sic_expect_valid_) & 1u;
+                            for (int c = 0; c < nc; ++c) {
+                                int32_t vi = static_cast<int32_t>(buf_I_[c]);
+                                int32_t vq = static_cast<int32_t>(buf_Q_[c]);
+                                const int32_t subI =
+                                    static_cast<int32_t>(
+                                        g_sic_exp_I[static_cast<std::size_t>(
+                                            sym_idx_)][static_cast<std::size_t>(
+                                            c)])
+                                    * static_cast<int32_t>(use_sic_u);
+                                const int32_t subQ =
+                                    static_cast<int32_t>(
+                                        g_sic_exp_Q[static_cast<std::size_t>(
+                                            sym_idx_)][static_cast<std::size_t>(
+                                            c)])
+                                    * static_cast<int32_t>(use_sic_u);
+                                vi -= subI;
+                                vq -= subQ;
+                                if (vi > static_cast<int32_t>(INT16_MAX)) {
+                                    vi = static_cast<int32_t>(INT16_MAX);
+                                } else if (vi < static_cast<int32_t>(INT16_MIN)) {
+                                    vi = static_cast<int32_t>(INT16_MIN);
+                                }
+                                if (vq > static_cast<int32_t>(INT16_MAX)) {
+                                    vq = static_cast<int32_t>(INT16_MAX);
+                                } else if (vq < static_cast<int32_t>(INT16_MIN)) {
+                                    vq = static_cast<int32_t>(INT16_MIN);
+                                }
+                                ir_chip_I_[base + c] =
+                                    static_cast<int16_t>(vi);
+                                ir_chip_Q_[base + c] =
+                                    static_cast<int16_t>(vq);
+                            }
+                            for (int c = 0; c < nc; ++c) {
+                                const uint8_t hiI = static_cast<uint8_t>(
+                                    (orig_I_[c] >> 12) & 0x0Fu);
+                                const uint8_t hiQ = static_cast<uint8_t>(
+                                    (orig_Q_[c] >> 12) & 0x0Fu);
+                                orig_acc_.acc64.iq4[sym_idx_][c] =
+                                    static_cast<uint8_t>((hiI << 4u) | hiQ);
+                            }
+                            sym_idx_++;
                         }
-                        for (int c = 0; c < nc; ++c) {
-                            harq_Q_[sym_idx_][c] +=
-                                static_cast<int32_t>(buf_Q_[c]);
-                        }
+                        else {
+                            for (int c = 0; c < nc; ++c) {
+                                rx_.m64_I.aI[sym_idx_][c] +=
+                                    static_cast<int32_t>(buf_I_[c]);
+                            }
+                            for (int c = 0; c < nc; ++c) {
+                                harq_Q_[sym_idx_][c] +=
+                                    static_cast<int32_t>(buf_Q_[c]);
+                            }
 
-                        for (int c = 0; c < nc; ++c) {
-                            const uint8_t hiI = static_cast<uint8_t>(
-                                (orig_I_[c] >> 12) & 0x0Fu);
-                            const uint8_t hiQ = static_cast<uint8_t>(
-                                (orig_Q_[c] >> 12) & 0x0Fu);
-                            orig_acc_.acc64.iq4[sym_idx_][c] =
-                                static_cast<uint8_t>((hiI << 4u) | hiQ);
+                            for (int c = 0; c < nc; ++c) {
+                                const uint8_t hiI = static_cast<uint8_t>(
+                                    (orig_I_[c] >> 12) & 0x0Fu);
+                                const uint8_t hiQ = static_cast<uint8_t>(
+                                    (orig_Q_[c] >> 12) & 0x0Fu);
+                                orig_acc_.acc64.iq4[sym_idx_][c] =
+                                    static_cast<uint8_t>((hiI << 4u) | hiQ);
+                            }
+                            sym_idx_++;
                         }
-                        sym_idx_++;
                     }
                     else { full_reset_(); return; }
                 }
             }
 
             // [적응형 I/Q] AJC 피드백: IQ 모드에 따라 디코딩 방식 분기
-            if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && nc == 64) {
+            if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_ && nc == 64) {
                 // I/Q 독립: 각 채널 분리 FWHT → 2심볼 디코딩
                 SymDecResultSplit rs = walsh_dec_split_(buf_I_, buf_Q_, nc);
                 if (ajc_enabled_) {
@@ -850,11 +1022,36 @@ namespace ProtectedEngine {
         }
         else if (cur_mode_ == PayloadMode::VIDEO_16 ||
             cur_mode_ == PayloadMode::VOICE) {
-            FEC_HARQ::Advance_Round_16(rx_.m16);
-            harq_round_++;
-            pkt.success_mask = static_cast<uint32_t>(0u
-                - static_cast<uint32_t>(FEC_HARQ::Decode16(rx_.m16, pkt.data,
-                    &pkt.data_len, il, wb_)));
+            if (ir_mode_) {
+                harq_round_++;
+                const int rv = ir_rv_;
+                pkt.success_mask = static_cast<uint32_t>(0u
+                    - static_cast<uint32_t>(
+                        (ir_state_ != nullptr &&
+                         ir_chip_I_ != nullptr &&
+                         ir_chip_Q_ != nullptr &&
+                         FEC_HARQ::Decode16_IR(
+                             ir_chip_I_,
+                             ir_chip_Q_,
+                             FEC_HARQ::NSYM16,
+                             FEC_HARQ::C16,
+                             FEC_HARQ::BPS16,
+                             il,
+                             rv,
+                             *ir_state_,
+                             pkt.data,
+                             &pkt.data_len,
+                             wb_))));
+                ir_rv_ = (ir_rv_ + 1) & 3;
+                sic_expect_valid_ = false;
+            }
+            else {
+                FEC_HARQ::Advance_Round_16(rx_.m16);
+                harq_round_++;
+                pkt.success_mask = static_cast<uint32_t>(0u
+                    - static_cast<uint32_t>(FEC_HARQ::Decode16(rx_.m16, pkt.data,
+                        &pkt.data_len, il, wb_)));
+            }
             pkt.harq_k = harq_round_;
             const uint32_t dec_ok =
                 static_cast<uint32_t>(pkt.success_mask != 0u);
@@ -871,23 +1068,86 @@ namespace ProtectedEngine {
                 if (on_pkt_ != nullptr) { on_pkt_(pkt); }
                 rx_seq_++; full_reset_();
             }
-            else { pay_recv_ = 0; sym_idx_ = 0; set_phase_(RxPhase::WAIT_SYNC); }
+            else {
+                pay_recv_ = 0; sym_idx_ = 0;
+                if (ir_mode_ &&
+                    ir_chip_I_ != nullptr &&
+                    ir_chip_Q_ != nullptr) {
+                    const size_t chip_bytes =
+                        static_cast<size_t>(FEC_HARQ::NSYM16) *
+                        static_cast<size_t>(FEC_HARQ::C16) *
+                        sizeof(int16_t);
+                    std::memset(ir_chip_I_, 0, chip_bytes);
+                    std::memset(ir_chip_Q_, 0, chip_bytes);
+                }
+                set_phase_(RxPhase::WAIT_SYNC);
+            }
         }
         else if (cur_mode_ == PayloadMode::DATA) {
-            if (!rx_.m64_I.ok) rx_.m64_I.k++;
             harq_round_++;
 
-            {
+            if (ir_mode_) {
                 const int bps = cur_bps64_;
                 if (bps >= FEC_HARQ::BPS64_MIN_OPERABLE &&
-                    bps <= FEC_HARQ::BPS64_MAX) {
-                    const int nsym = FEC_HARQ::nsym_for_bps(bps);
+                    bps <= FEC_HARQ::BPS64_MAX &&
+                    ir_state_ != nullptr &&
+                    ir_chip_I_ != nullptr &&
+                    ir_chip_Q_ != nullptr) {
+                    const int nsym_ir = FEC_HARQ::nsym_for_bps(bps);
+                    const int rv = ir_rv_;
                     pkt.success_mask = static_cast<uint32_t>(0u
-                        - static_cast<uint32_t>(FEC_HARQ::Decode_Core_Split(
-                            &rx_.m64_I.aI[0][0],
-                            harq_Q_[0],
-                            nsym, FEC_HARQ::C64, bps,
-                            pkt.data, &pkt.data_len, il, wb_)));
+                        - static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
+                            ir_chip_I_,
+                            ir_chip_Q_,
+                            nsym_ir,
+                            FEC_HARQ::C64,
+                            bps,
+                            il,
+                            rv,
+                            *ir_state_,
+                            pkt.data,
+                            &pkt.data_len,
+                            wb_)));
+                }
+                ir_rv_ = (ir_rv_ + 1) & 3;
+                {
+                    const int bps_sic = cur_bps64_;
+                    const bool ir64_attempt =
+                        (bps_sic >= FEC_HARQ::BPS64_MIN_OPERABLE &&
+                        bps_sic <= FEC_HARQ::BPS64_MAX &&
+                        ir_state_ != nullptr &&
+                        ir_chip_I_ != nullptr &&
+                        ir_chip_Q_ != nullptr);
+                    if (ir64_attempt) {
+                        if (pkt.success_mask != 0u) {
+                            sic_expect_valid_ = false;
+                        } else if (sic_ir_enabled_) {
+                            fill_sic_expected_64_();
+                        } else {
+                            sic_expect_valid_ = false;
+                        }
+                    } else {
+                        sic_expect_valid_ = false;
+                    }
+                }
+            }
+            else {
+                sic_expect_valid_ = false;
+                if (!rx_.m64_I.ok) rx_.m64_I.k++;
+
+                {
+                    const int bps = cur_bps64_;
+                    if (bps >= FEC_HARQ::BPS64_MIN_OPERABLE &&
+                        bps <= FEC_HARQ::BPS64_MAX) {
+                        const int nsym = FEC_HARQ::nsym_for_bps(bps);
+                        pkt.success_mask = static_cast<uint32_t>(0u
+                            - static_cast<uint32_t>(
+                                FEC_HARQ::Decode_Core_Split(
+                                    &rx_.m64_I.aI[0][0],
+                                    harq_Q_[0],
+                                    nsym, FEC_HARQ::C64, bps,
+                                    pkt.data, &pkt.data_len, il, wb_)));
+                    }
                 }
             }
             pkt.harq_k = harq_round_;
@@ -898,13 +1158,30 @@ namespace ProtectedEngine {
             const uint32_t finish = dec_ok | harq_ex;
             if (finish != 0u) {
                 if (dec_ok != 0u) {
-                    rx_.m64_I.ok = true;
+                    if (!ir_mode_) {
+                        rx_.m64_I.ok = true;
+                    }
                     harq_feedback_seed_(pkt.data, pkt.data_len, 64, il);
                 }
                 if (on_pkt_ != nullptr) { on_pkt_(pkt); }
                 rx_seq_++; full_reset_();
             }
-            else { pay_recv_ = 0; sym_idx_ = 0; set_phase_(RxPhase::WAIT_SYNC); }
+            else {
+                pay_recv_ = 0; sym_idx_ = 0;
+                if (ir_mode_ &&
+                    ir_chip_I_ != nullptr &&
+                    ir_chip_Q_ != nullptr) {
+                    const int bps_clr = cur_bps64_;
+                    const int nsym_clr = FEC_HARQ::nsym_for_bps(bps_clr);
+                    const size_t chip_bytes =
+                        static_cast<size_t>(nsym_clr) *
+                        static_cast<size_t>(FEC_HARQ::C64) *
+                        sizeof(int16_t);
+                    std::memset(ir_chip_I_, 0, chip_bytes);
+                    std::memset(ir_chip_Q_, 0, chip_bytes);
+                }
+                set_phase_(RxPhase::WAIT_SYNC);
+            }
         }
     }
 
@@ -913,8 +1190,16 @@ namespace ProtectedEngine {
         if (!data || data_len <= 0) return;
         if (nc == 16) {
             uint8_t correct_syms[FEC_HARQ::NSYM16] = {};
-            const int enc_n = FEC_HARQ::Encode16(
-                data, data_len, correct_syms, il, wb_);
+            int enc_n = 0;
+            if (ir_mode_) {
+                const int rv_fb = (ir_rv_ + 3) & 3;
+                enc_n = FEC_HARQ::Encode16_IR(
+                    data, data_len, correct_syms, il, rv_fb, wb_);
+            }
+            else {
+                enc_n = FEC_HARQ::Encode16(
+                    data, data_len, correct_syms, il, wb_);
+            }
             if (enc_n <= 0) {
                 SecureMemory::secureWipe(
                     static_cast<void*>(correct_syms), sizeof(correct_syms));
@@ -945,8 +1230,18 @@ namespace ProtectedEngine {
         else if (nc == 64) {
             const int nsym64 = cur_nsym64_();
             uint8_t correct_syms[FEC_HARQ::NSYM64] = {};
-            const int enc_n = FEC_HARQ::Encode64_A(
-                data, data_len, correct_syms, il, cur_bps64_, wb_);
+            int enc_n = 0;
+            if (ir_mode_) {
+                // try_decode_: Decode64_IR 직후 ir_rv_ 가 +1 되므로
+                // 피드백용 직전 라운드 RV ≡ (ir_rv_ + 3) & 3
+                const int rv_fb = (ir_rv_ + 3) & 3;
+                enc_n = FEC_HARQ::Encode64_IR(
+                    data, data_len, correct_syms, il, cur_bps64_, rv_fb, wb_);
+            }
+            else {
+                enc_n = FEC_HARQ::Encode64_A(
+                    data, data_len, correct_syms, il, cur_bps64_, wb_);
+            }
             if (enc_n <= 0) {
                 SecureMemory::secureWipe(
                     static_cast<void*>(correct_syms), sizeof(correct_syms));
@@ -1019,8 +1314,14 @@ namespace ProtectedEngine {
         // [적응형 I/Q] 헤더: [mode 2bit][IQ 1bit][plen 9bit] = 12bit
         //  프리앰블+헤더는 항상 I=Q 고정 (walsh_enc = oI=oQ)
         //  IQ 비트는 뒤따르는 페이로드의 I/Q 모드를 수신기에 알림
+        //  IR-HARQ 는 IQ_SAME 만 — 헤더에 독립 비트 금지 (16/64 공통)
+        const uint32_t ir_hdr_iq_same_u = static_cast<uint32_t>(ir_mode_);
+        const uint32_t iq_ind_u =
+            static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
         const uint16_t iq_bit =
-            (iq_mode_ == IQ_Mode::IQ_INDEPENDENT) ? HDR_IQ_BIT : 0u;
+            static_cast<uint16_t>(
+                (iq_ind_u & (1u - ir_hdr_iq_same_u)) *
+                static_cast<uint32_t>(HDR_IQ_BIT));
         uint16_t hdr = (static_cast<uint16_t>(mb & 0x03u) << 10u) |
             iq_bit |
             (static_cast<uint16_t>(psyms) & 0x01FFu);
@@ -1054,7 +1355,14 @@ namespace ProtectedEngine {
         }
         else if (mode == PayloadMode::VIDEO_16 || mode == PayloadMode::VOICE) {
             uint8_t syms[FEC_HARQ::NSYM16] = {};
-            const int enc_n = FEC_HARQ::Encode16(info, ilen, syms, il, wb_);
+            int enc_n = 0;
+            if (ir_mode_) {
+                enc_n = FEC_HARQ::Encode16_IR(
+                    info, ilen, syms, il, ir_rv_, wb_);
+            }
+            else {
+                enc_n = FEC_HARQ::Encode16(info, ilen, syms, il, wb_);
+            }
             if (enc_n <= 0) {
                 SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
                 return 0;
@@ -1072,14 +1380,21 @@ namespace ProtectedEngine {
         else if (mode == PayloadMode::DATA) {
             const int nsym = cur_nsym64_();
             uint8_t syms[FEC_HARQ::NSYM64] = {};
-            const int enc_n = FEC_HARQ::Encode64_A(
-                info, ilen, syms, il, cur_bps64_, wb_);
+            int enc_n = 0;
+            if (ir_mode_) {
+                enc_n = FEC_HARQ::Encode64_IR(
+                    info, ilen, syms, il, cur_bps64_, ir_rv_, wb_);
+            }
+            else {
+                enc_n = FEC_HARQ::Encode64_A(
+                    info, ilen, syms, il, cur_bps64_, wb_);
+            }
             if (enc_n <= 0) {
                 SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
                 return 0;
             }
 
-            if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT) {
+            if (!ir_mode_ && iq_mode_ == IQ_Mode::IQ_INDEPENDENT) {
                 // [적응형 I/Q] I/Q 독립: 2심볼/칩슬롯 → 칩 수 절반
                 //  짝수 인덱스 → I 채널, 홀수 인덱스 → Q 채널
                 for (int s = 0; s < nsym; s += 2) {
@@ -1202,18 +1517,36 @@ namespace ProtectedEngine {
                         if (!harq_inited_) {
                             if (mode == PayloadMode::VIDEO_16 ||
                                 mode == PayloadMode::VOICE) {
-                                FEC_HARQ::Init16(rx_.m16);
+                                if (ir_mode_) {
+                                    SecureMemory::secureWipe(
+                                        static_cast<void*>(&g_harq_ccm_union),
+                                        sizeof(g_harq_ccm_union));
+                                    if (ir_state_ != nullptr) {
+                                        FEC_HARQ::IR_Init(*ir_state_);
+                                    }
+                                    ir_rv_ = 0;
+                                }
+                                else {
+                                    FEC_HARQ::Init16(rx_.m16);
+                                }
                             }
                             else if (mode == PayloadMode::DATA) {
+                                // DATA READ_PAYLOAD: CCM union 전체 한 회 wipe
                                 SecureMemory::secureWipe(
-                                    static_cast<void*>(rx_.m64_I.aI),
-                                    sizeof(rx_.m64_I.aI));
-                                rx_.m64_I.k = 0;
-                                rx_.m64_I.ok = false;
-                                if (harq_Q_ != nullptr) {
+                                    static_cast<void*>(&g_harq_ccm_union),
+                                    sizeof(g_harq_ccm_union));
+                                if (ir_mode_) {
+                                    if (ir_state_ != nullptr) {
+                                        FEC_HARQ::IR_Init(*ir_state_);
+                                    }
+                                    ir_rv_ = 0;
+                                }
+                                else {
                                     SecureMemory::secureWipe(
-                                        static_cast<void*>(harq_Q_),
-                                        sizeof(g_harq_Q_ccm));
+                                        static_cast<void*>(rx_.m64_I.aI),
+                                        sizeof(rx_.m64_I.aI));
+                                    rx_.m64_I.k = 0;
+                                    rx_.m64_I.ok = false;
                                 }
                             }
                             harq_inited_ = true;

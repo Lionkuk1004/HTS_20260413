@@ -10,6 +10,8 @@
 
 #include <cmath>
 #include <cstddef>
+#include <cstdint>
+#include <vector>
 
 namespace HTS_Core::Physics {
 
@@ -30,7 +32,6 @@ void Apply_Parametric_Channel(
     static constexpr double kBaseNoiseSigma = 0.01;
     static constexpr double kIntensityDbPerDecade = 0.1;
     static constexpr double kEmpPercentScale = 0.01;
-    static constexpr double kEmpAmp = 99999.0;
     static constexpr double kTwoPi = 6.28318530717958647692;
     static constexpr double kSinOmega = 2.0 * 3.14159265358979323846 * 8.0;
 
@@ -87,17 +88,27 @@ void Apply_Parametric_Channel(
     }
 
     case ParametricChannel::EMP: {
+        // 파괴율 p = intensity(%)/100. 파괴 칩: 스프레드 도메인 진폭 [3000,100000] 균일 →
+        // int16 환산 시 대략 4700~32767(포화), IR erasure 임계 ~30000 부근에 일부 분포.
+        // 비파괴 칩: σ=0.01 대신 EMP 환경 기저 (200 + intensity×5) 스프레드 도메인 가우시안.
         const double destroy_rate = intensity_db * kEmpPercentScale;
         std::uniform_real_distribution<double> u01(0.0, 1.0);
+        const double env_sigma = 200.0 + intensity_db * 5.0;
+        std::normal_distribution<double> emp_env_noise(0.0, env_sigma);
+        static constexpr double kEmpSpreadAmpLo = 3000.0;
+        static constexpr double kEmpSpreadAmpSpan = 97000.0;
+
         for (size_t i = 0u; i < N; ++i) {
             if (u01(rng) < destroy_rate) {
                 const double sign01 =
                     static_cast<double>(static_cast<std::uint32_t>(rng()) & 1u);
                 const double amp_sign = 1.0 - 2.0 * sign01;
-                rx[i] = amp_sign * kEmpAmp;
+                const double emp_amp =
+                    kEmpSpreadAmpLo + u01(rng) * kEmpSpreadAmpSpan;
+                rx[i] = amp_sign * emp_amp;
             }
             else {
-                rx[i] = tx[i] * kSpreadGain + base_noise(rng);
+                rx[i] = tx[i] * kSpreadGain + emp_env_noise(rng);
             }
         }
         break;
@@ -171,16 +182,24 @@ void Apply_Lte_Channel_To(
     const double sigma_total = sigma_chip * std::sqrt(spread);
     std::normal_distribution<double> noise(0.0, sigma_total);
     std::uniform_real_distribution<double> u01(0.0, 1.0);
+    const double env_sigma = 200.0 + emp_rate * 500.0;
+    std::normal_distribution<double> emp_env_noise(0.0, env_sigma);
+    static constexpr double kEmpSpreadAmpLo = 3000.0;
+    static constexpr double kEmpSpreadAmpSpan = 97000.0;
+
+    (void)emp_amp;
 
     for (size_t i = 0u; i < N; ++i) {
         if (u01(rng) < emp_rate) {
             const double sign01 =
                 static_cast<double>(static_cast<std::uint32_t>(rng()) & 1u);
             const double amp_sign = 1.0 - 2.0 * sign01;
-            out[i] = amp_sign * emp_amp;
+            const double amp =
+                kEmpSpreadAmpLo + u01(rng) * kEmpSpreadAmpSpan;
+            out[i] = amp_sign * amp;
         }
         else {
-            out[i] = tensor[i] * spread + noise(rng);
+            out[i] = tensor[i] * spread + noise(rng) + emp_env_noise(rng);
         }
     }
 }
