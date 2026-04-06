@@ -32,6 +32,7 @@
 //   ajc_nf     = ECCM nf_q16 >> 16 (상위 16비트, 에너지 정수 단위)
 //                캘리브레이션 기준값 100 (nf_q16 초기값 100 << 16)
 //                AJC_IDLE_THR  =  500 (5배  → 경미한 간섭, BPS 상향 허용)
+//                AJC_DRIFT_DOWN_THR = 1100 — HOLD 장시간 시 단계 하향(컨트롤러)
 //                AJC_HEAVY_THR = 2000 (20배 → 강한 재밍,  즉시 BPS=3)
 //
 //   current_bps: 3 ~ 6 (BPS_MIN ~ BPS_MAX)

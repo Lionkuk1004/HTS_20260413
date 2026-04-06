@@ -16,6 +16,9 @@
 # Mono auto generated files
 mono_crash.*
 
+# PC-only CMake out-of-tree (HTS_Calibration_Run — ARM 미포함)
+HTS_TEST/build-calibration/
+
 # Build results
 [Dd]ebug/
 [Dd]ebugPublic/

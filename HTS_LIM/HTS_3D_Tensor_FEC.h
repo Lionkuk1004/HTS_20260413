@@ -71,6 +71,8 @@
 #include <string>
 #include <random>
 
+#include "HTS_Dynamic_Fractal_Mapper.h"
+
 namespace HTS_Engine {
 
     class Text_Codec {
@@ -91,6 +93,25 @@ namespace HTS_Engine {
     public:
         explicit Tensor_Interleaver(size_t dim = 64);
         size_t Get_Size() const;
+
+        /// dim==16 (4096 요소)일 때만 프랙탈 층 활성.
+        /// HTS_Pipeline_V2_Dispatcher::kMapperHarqSlotStride 와 동일(16).
+        static constexpr uint32_t kFractalHarqSlotStride = 16u;
+        static_assert(kFractalHarqSlotStride == 16u,
+            "must match HTS_Pipeline_V2_Dispatcher::kMapperHarqSlotStride");
+
+        /// @brief 세션·프레임별 Feistel 키를 FEC HARQ 라운드와 동기화
+        /// @param session_id 세션 고유값
+        /// @param logical_frame_counter 블록/프레임 고유값(HARQ k와 분리)
+        /// @param harq_round 0=최초, (k-1) 권장. 15 초과 시 클램프. 기본 0u 하위 호환.
+        void Sync_Fractal_Key(uint64_t session_id,
+            uint32_t logical_frame_counter,
+            uint32_t harq_round = 0u) noexcept;
+
+        [[nodiscard]] bool Fractal_Layer_Active() const noexcept {
+            return fractal_layer_active_;
+        }
+
         std::vector<double> Interleave(
             const std::vector<double>& input) const;
         std::vector<double> Deinterleave(
@@ -112,6 +133,8 @@ namespace HTS_Engine {
     private:
         size_t dim;
         size_t total_size;
+        bool fractal_layer_active_ = false;
+        ProtectedEngine::Dynamic_Fractal_Mapper fractal_mapper_;
     };
 
     class Soft_Tensor_FEC {

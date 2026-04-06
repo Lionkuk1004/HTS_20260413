@@ -11,6 +11,11 @@
 ///   비정상 재머(Pulse 등) 감지 시 AJC 자동 비활성화
 ///   → Hole Punch만 작동 → RAW 이상 보장
 ///
+///  [Adaptive Bypass — 광대역 바라지]
+///   64칩 블록의 피크·에너지 분포를 스캔: 피크 대 평균·중앙값 비가 낮으면
+///   BARRAGE형(백색소음 플로어)으로 보고 AJC/펀치/널을 가동하지 않고 원본 유지.
+///   CW/EMP 등 뾰족한 간섭만 기존 3층 필터 가동.
+///
 ///  CW 17~19dB 구간: Seed_CW_Profile()로 jprof_[] 시딩, mismatch_ema_ 재초기화.
 ///
 ///  [제약] float 0, double 0, 나눗셈 0, try-catch 0, 힙 0
@@ -38,13 +43,18 @@ namespace ProtectedEngine {
         static constexpr int MAX_NC = 64;
         static constexpr int SUB_NC = 16;
         static constexpr int MAX_SUBS = MAX_NC / SUB_NC;
-        static constexpr int MAX_ACC = 12;
+        /// 링 슬롯 — 2의 거듭제곱 (슬롯 = count & (MAX_ACC-1), %/UDIV 없음)
+        static constexpr int MAX_ACC = 16;
         static constexpr int MIN_ACC = 6;
         static constexpr int PWR_ITER = 3;
 
         AntiJamEngine() noexcept;
         void Reset(int nc) noexcept;
         void Process(int16_t* I, int16_t* Q, int nc) noexcept;
+
+        /// @brief 광대역 바라지(BARRAGE)로 확정된 경우 3층 필터를 끄고 원본 유지
+        /// @note ajc_reliable_==false 일 때만 적용. CW 시딩·Update_AJC로 신뢰 확보 시 무시.
+        void Set_AdaptiveBarrageBypass(bool on) noexcept;
 
         void Update_AJC(const int16_t* orig_I, const int16_t* orig_Q,
             int8_t sym, uint32_t best_e, uint32_t second_e,
@@ -89,6 +99,7 @@ namespace ProtectedEngine {
         int32_t  jprof_Q_[MAX_NC];
         uint32_t mismatch_ema_;
         bool     ajc_reliable_;
+        bool     barrage_bypass_;
         uint32_t update_count_;
 
         struct SubNull {
@@ -113,6 +124,13 @@ namespace ProtectedEngine {
         void null_apply_sub_(const SubNull& s,
             int16_t* I, int16_t* Q) noexcept;
 
+        /// Bypass 시 jprof/AJC 유지, Spatial-Null 누적만 초기화 (광대역 구간 오염 방지)
+        void reset_spatial_null_only_() noexcept;
+
+        /// ajc_reliable_==false 일 때만: 고크레스트·저중앙값·소수 핫칩 → true(3층), 그 외 Bypass
+        bool block_looks_impulsive_nc_(
+            const int16_t* I, const int16_t* Q, int nc) noexcept;
+
         static constexpr uint32_t popc32_(uint32_t x) noexcept {
             x -= (x >> 1u) & 0x55555555u;
             x = (x & 0x33333333u) + ((x >> 2u) & 0x33333333u);
@@ -123,7 +141,6 @@ namespace ProtectedEngine {
             return static_cast<uint32_t>((x ^ m) - m);
         }
         static int      clz32_(uint32_t x) noexcept;
-        static uint32_t nth_select_(uint32_t* a, int n, int k) noexcept;
     };
 
 } // namespace ProtectedEngine

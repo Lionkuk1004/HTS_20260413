@@ -11,10 +11,55 @@
 #include "HTS_AntiJam_Engine.h"
 #include <atomic>
 #include <cstddef>
+#include <cstdint>
 
 namespace ProtectedEngine {
 
     namespace {
+
+        /// Cortex-M4F: 단일 SSAT(16). PC·기타 타깃은 동일 산술(콜드 폴백).
+        static inline int16_t ssat_i16_(int32_t v) noexcept {
+#if defined(__GNUC__) && defined(__ARM_ARCH) && (__ARM_ARCH >= 6)
+            return static_cast<int16_t>(__builtin_arm_ssat(v, 16));
+#else
+            if (v > 32767) { v = 32767; }
+            else if (v < -32768) { v = -32768; }
+            return static_cast<int16_t>(v);
+#endif
+        }
+
+        /// HTS64_Native_ECCM_Core::sort_u32_constant_time_adjacent 와 동일 —
+        /// N=64 고정, 63×64/2=2016회 인접 비교(데이터 종속 분기 없음).
+        static constexpr int kSortN = 64;
+        static_assert(
+            static_cast<size_t>(kSortN) * static_cast<size_t>(kSortN - 1) / 2u
+                == 2016u,
+            "constant-time adjacent sort trip count");
+
+        static void sort_u32_ct_adjacent_64(uint32_t* a) noexcept {
+            if (a == nullptr) { return; }
+            for (int pass = 0; pass < kSortN - 1; ++pass) {
+                const int imax = kSortN - 1 - pass;
+                for (int i = 0; i < imax; ++i) {
+                    const uint32_t x = a[i];
+                    const uint32_t y = a[i + 1];
+                    const uint32_t gt = static_cast<uint32_t>(x > y);
+                    const uint32_t m = 0u - gt;
+                    a[i]     = (x & ~m) | (y & m);
+                    a[i + 1] = (y & ~m) | (x & m);
+                }
+            }
+        }
+
+        static void fill_sort_work_pad_(
+            uint32_t* work, const uint32_t* src, int nc) noexcept {
+            for (int i = 0; i < nc; ++i) {
+                work[i] = src[static_cast<size_t>(i)];
+            }
+            for (int i = nc; i < kSortN; ++i) {
+                work[i] = 0xFFFFFFFFu;
+            }
+        }
         // LTO/DCE에 memset이 제거되지 않도록 volatile 스토어 + 배리어
         // (jprof_/SubNull: 세션 간 간섭 프로파일 잔존 방지)
         void AntiJam_Secure_Wipe(void* ptr, size_t size) noexcept {
@@ -50,41 +95,17 @@ namespace ProtectedEngine {
 #endif
     }
 
-    static void swap_u32(uint32_t& a, uint32_t& b) noexcept {
-        uint32_t t = a; a = b; b = t;
-    }
-
     static inline int32_t clamp_i32_(int64_t v) noexcept {
         if (v > 2147483647LL) return 2147483647;
         if (v < -2147483648LL) return -2147483648LL;
         return static_cast<int32_t>(v);
     }
 
-    uint32_t AntiJamEngine::nth_select_(uint32_t* a, int n, int k) noexcept {
-        int lo = 0, hi = n - 1;
-        while (lo < hi) {
-            int mid = lo + ((hi - lo) >> 1);
-            if (a[mid] < a[lo]) swap_u32(a[lo], a[mid]);
-            if (a[hi] < a[lo]) swap_u32(a[lo], a[hi]);
-            if (a[mid] < a[hi]) swap_u32(a[mid], a[hi]);
-            uint32_t pivot = a[hi];
-            int store = lo;
-            for (int i = lo; i < hi; ++i) {
-                if (a[i] < pivot) { swap_u32(a[store], a[i]); ++store; }
-            }
-            swap_u32(a[store], a[hi]);
-            if (store == k) return a[store];
-            if (store < k) lo = store + 1;
-            else            hi = store - 1;
-        }
-        return a[lo];
-    }
-
     // =====================================================================
     //  생성자 / Reset
     // =====================================================================
     AntiJamEngine::AntiJamEngine() noexcept
-        : mismatch_ema_(0u), ajc_reliable_(false),
+        : mismatch_ema_(0u), ajc_reliable_(false), barrage_bypass_(false),
         update_count_(0u), num_subs_(0)
     {
         Reset(16);
@@ -95,6 +116,7 @@ namespace ProtectedEngine {
         AntiJam_Secure_Wipe(jprof_Q_, sizeof(jprof_Q_));
         mismatch_ema_ = 0u;
         ajc_reliable_ = false;
+        barrage_bypass_ = false;
         update_count_ = 0u;
 
         num_subs_ = (nc <= SUB_NC) ? 1 : (nc >> 4);
@@ -109,6 +131,10 @@ namespace ProtectedEngine {
         AntiJam_Secure_Wipe(null_cov_, sizeof(null_cov_));
         AntiJam_Secure_Wipe(null_v_, sizeof(null_v_));
         AntiJam_Secure_Wipe(null_nv_, sizeof(null_nv_));
+    }
+
+    void AntiJamEngine::Set_AdaptiveBarrageBypass(bool on) noexcept {
+        barrage_bypass_ = on;
     }
 
     // =====================================================================
@@ -177,16 +203,12 @@ namespace ProtectedEngine {
         if (!ajc_reliable_) return;
 
         for (int i = 0; i < nc; ++i) {
-            int32_t ci = static_cast<int32_t>(I[i]) -
+            const int32_t ci = static_cast<int32_t>(I[i]) -
                 (jprof_I_[i] >> EMA_SHIFT);
-            int32_t cq = static_cast<int32_t>(Q[i]) -
+            const int32_t cq = static_cast<int32_t>(Q[i]) -
                 (jprof_Q_[i] >> EMA_SHIFT);
-            if (ci > 32767) ci = 32767;
-            else if (ci < -32768) ci = -32768;
-            if (cq > 32767) cq = 32767;
-            else if (cq < -32768) cq = -32768;
-            I[i] = static_cast<int16_t>(ci);
-            Q[i] = static_cast<int16_t>(cq);
+            I[i] = ssat_i16_(ci);
+            Q[i] = ssat_i16_(cq);
         }
     }
 
@@ -195,15 +217,17 @@ namespace ProtectedEngine {
     // =====================================================================
     void AntiJamEngine::adaptive_punch_(int16_t* I, int16_t* Q, int nc) noexcept {
         if (nc > MAX_NC) return;
-        uint32_t mags[MAX_NC] = {}, sorted[MAX_NC] = {};
+        uint32_t mags[MAX_NC] = {};
+        uint32_t work[kSortN] = {};
         for (int i = 0; i < nc; ++i) {
             mags[i] = fast_abs_(static_cast<int32_t>(I[i])) +
                 fast_abs_(static_cast<int32_t>(Q[i]));
-            sorted[i] = mags[i];
         }
+        fill_sort_work_pad_(work, mags, nc);
+        sort_u32_ct_adjacent_64(work);
         int q25 = nc >> 2;
         if (q25 < 1) q25 = 1;
-        uint32_t bl = nth_select_(sorted, nc, q25 - 1);
+        uint32_t bl = work[q25 - 1];
         if (bl < 1u) bl = 1u;
         if (bl < 50u || bl > 2000u) return;
 
@@ -227,10 +251,14 @@ namespace ProtectedEngine {
     // =====================================================================
     void AntiJamEngine::null_accumulate_sub_(SubNull& s,
         const int16_t* I, const int16_t* Q) noexcept {
-        const int slot = (s.count < MAX_ACC) ? s.count : (s.count % MAX_ACC);
+        const int slot = s.count & (MAX_ACC - 1);
         for (int i = 0; i < SUB_NC; ++i) {
-            s.signs_I[slot][i] = (I[i] >= 0) ? int8_t(1) : int8_t(-1);
-            s.signs_Q[slot][i] = (Q[i] >= 0) ? int8_t(1) : int8_t(-1);
+            const int32_t vi = static_cast<int32_t>(I[i]);
+            const int32_t vq = static_cast<int32_t>(Q[i]);
+            const int32_t si = ((vi >> 31) << 1) + 1;
+            const int32_t sq = ((vq >> 31) << 1) + 1;
+            s.signs_I[slot][i] = static_cast<int8_t>(si);
+            s.signs_Q[slot][i] = static_cast<int8_t>(sq);
         }
         s.count++;
         const int K = (s.count < MAX_ACC) ? s.count : MAX_ACC;
@@ -310,20 +338,114 @@ namespace ProtectedEngine {
             for (int i = 0; i < SUB_NC; ++i)
                 proj += int64_t(s.eigvec[i]) * int64_t(d[i]);
             for (int i = 0; i < SUB_NC; ++i) {
-                int32_t c = int32_t(d[i]) -
+                const int32_t c = int32_t(d[i]) -
                     int32_t((proj * int64_t(s.eigvec[i])) >> bits);
-                if (c > 32767) c = 32767;
-                else if (c < -32768) c = -32768;
-                d[i] = int16_t(c);
+                d[i] = ssat_i16_(c);
             }
         }
     }
 
     // =====================================================================
-    //  Process — 3층 전체 적용
+    //  Adaptive Bypass — 블록 단위 스캔 (힙·부동·가변 나눗셈 없음)
+    //
+    //  ajc_reliable_==false (바라지·미학습): 극단 포화(|I|+|Q|)만 구조적 타격으로
+    //  간주 → 그 외는 3층 미가동(Bypass). ajc_reliable_==true(CW 시딩 등)는 스캔 생략.
+    // =====================================================================
+    void AntiJamEngine::reset_spatial_null_only_() noexcept {
+        for (int s = 0; s < MAX_SUBS; ++s) {
+            AntiJam_Secure_Wipe(&subs_[s], sizeof(SubNull));
+            for (int i = 0; i < SUB_NC; ++i)
+                subs_[s].eigvec[i] = 1024;
+            subs_[s].count = 0;
+            subs_[s].active = false;
+        }
+        AntiJam_Secure_Wipe(null_cov_, sizeof(null_cov_));
+        AntiJam_Secure_Wipe(null_v_, sizeof(null_v_));
+        AntiJam_Secure_Wipe(null_nv_, sizeof(null_nv_));
+    }
+
+    bool AntiJamEngine::block_looks_impulsive_nc_(
+        const int16_t* I, const int16_t* Q, int nc) noexcept
+    {
+        if (!I || !Q || nc <= 0 || nc > MAX_NC) return false;
+
+        uint32_t wq[MAX_NC];
+        uint32_t wmed[kSortN] = {};
+        uint32_t maxv = 0u;
+        uint64_t sum_m = 0u;
+        unsigned hot_chips = 0u;
+        unsigned above_halfmax = 0u;
+
+        static constexpr uint32_t k_hot_chip = 26000u;
+        for (int i = 0; i < nc; ++i) {
+            const uint32_t m = fast_abs_(static_cast<int32_t>(I[i]))
+                + fast_abs_(static_cast<int32_t>(Q[i]));
+            wq[static_cast<size_t>(i)] = m;
+            sum_m += static_cast<uint64_t>(m);
+            if (m > maxv) maxv = m;
+            if (m >= k_hot_chip) ++hot_chips;
+        }
+
+        // 다수 칩이 동시에 고전력 → 광대역 클리핑/바라지형 플로어 (단일 EMP 스파이크 아님)
+        static constexpr unsigned k_hot_many = 12u;
+        if (hot_chips >= k_hot_many) return false;
+
+        // 최대 진폭의 절반 이상인 칩이 많으면 ‘넓게 퍼진 상단 에너지’(바라지)로 간주
+        // (단일/소수 칩 스파이크 EMP는 max/2 초과가 소수개 → 통과)
+        if (maxv >= 1u) {
+            const uint32_t halfmax = maxv >> 1;
+            for (int i = 0; i < nc; ++i) {
+                const uint32_t m = wq[static_cast<size_t>(i)];
+                if (m > halfmax) ++above_halfmax;
+            }
+        }
+        static constexpr unsigned k_many_above_half = 10u;
+        if (above_halfmax >= k_many_above_half) return false;
+
+        fill_sort_work_pad_(wmed, wq, nc);
+        sort_u32_ct_adjacent_64(wmed);
+
+        int q25 = nc >> 2;
+        if (q25 < 1) q25 = 1;
+        uint32_t bl = wmed[q25 - 1];
+        if (bl < 1u) bl = 1u;
+        if (bl < 50u || bl > 2000u) return false;
+
+        const int k_med = (nc >> 1) - 1;
+        const int k_idx = (k_med >= 0) ? k_med : 0;
+        uint32_t med = wmed[k_idx];
+        if (med < 1u) med = 1u;
+
+        static constexpr uint32_t k_near_sat = 31000u;
+        if (maxv < k_near_sat) return false;
+
+        // 크레스트 팩터(PAPR 근사): max×N > k×sum → 피크가 블록 평균 에너지를 지배
+        // 바라지에서 우발적 1칩 포화 + 나머지 양호 시 sum이 커져 바이패스
+        static constexpr uint32_t k_crest_q = 5u;
+        {
+            const uint64_t lhs =
+                static_cast<uint64_t>(maxv) * static_cast<uint64_t>(static_cast<uint32_t>(nc));
+            const uint64_t rhs = sum_m * static_cast<uint64_t>(k_crest_q);
+            if (lhs <= rhs) return false;
+        }
+
+        // 중앙값이 이미 올라간 블록은 ‘고른 플로어 상승’에 가깝다 → 바이패스
+        static constexpr uint32_t k_quiet_median = 10000u;
+        static constexpr uint32_t k_peak_over_median = 8u;
+        return (maxv > med * k_peak_over_median) && (med < k_quiet_median);
+    }
+
+    // =====================================================================
+    //  Process — 3층 전체 적용 (광대역 바라지 시 Adaptive Bypass)
     // =====================================================================
     void AntiJamEngine::Process(int16_t* I, int16_t* Q, int nc) noexcept {
         if (!I || !Q || nc <= 0 || nc > MAX_NC) return;
+        if (!ajc_reliable_) {
+            if (barrage_bypass_ || !block_looks_impulsive_nc_(I, Q, nc)) {
+                reset_spatial_null_only_();
+                return;
+            }
+        }
         ajc_apply_(I, Q, nc);
         adaptive_punch_(I, Q, nc);
         const int nsub = (nc <= SUB_NC) ? 1 : (nc >> 4);
@@ -360,8 +482,8 @@ namespace ProtectedEngine {
             corr_I += static_cast<int32_t>(orig_I[i]) * w;
             corr_Q += static_cast<int32_t>(orig_Q[i]) * w;
         }
-        int nc_shift = 0;
-        { int tmp = nc; while (tmp > 1) { nc_shift++; tmp >>= 1; } }
+        const int nc_shift =
+            (nc <= 1) ? 0 : (31 - clz32_(static_cast<uint32_t>(nc)));
 
         //  I/Q 각각 corr/N 스케일 — 합산 평균으로 위상 왜곡 방지
         const int32_t amp_I = corr_I >> nc_shift;  // I축 진폭 (부호 보존)

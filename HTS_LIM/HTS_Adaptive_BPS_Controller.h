@@ -16,8 +16,10 @@
 //   HEAVY 상태 (재밍 강) ──────────────────────────────────── BPS = 3 (즉시)
 //   ajc_nf ≥ 2000 OR snr < 5
 //
-//   HOLD 구간 (경계 상태) ───────────────────────────── BPS 유지 + count 리셋
-//   ajc_nf 500~2000 OR snr 5~10
+//   DRIFT_DOWN (중간 AJC 장시간) ── HYST_DRIFT_DOWN 연속 → BPS 한 단계 하향
+//   HOLD 이면서 ajc ≥ AJC_DRIFT_DOWN_THR(1100) 이고 snr ≥ NOISY(5) 일 때만 누적
+//
+//   HOLD 구간 (그 외 경계) ── BPS 유지, quiet_count 절반 감쇠(상향 진행 보존)
 //
 //   QUIET 상태 (깨끗한 채널) ─── HYST_UP_COUNT(8) 연속 프레임 → BPS++ (최대 6)
 //   ajc_nf < 500 AND snr ≥ 10
@@ -37,7 +39,7 @@
 //   5. Dispatcher에서: dispatcher.Tick_Adaptive_BPS()
 //
 //  [메모리]
-//   sizeof(HTS_Adaptive_BPS_Controller) = 16B (참조 8B + count 1B + padding)
+//   sizeof(HTS_Adaptive_BPS_Controller) ≈ 16B (참조 + quiet_count + drift_down + 패딩)
 //   Pimpl 없음 — 상태가 작으므로 직접 멤버로 저장
 //
 //  [보안]
@@ -61,6 +63,9 @@ namespace ProtectedEngine {
         /// ECCM nf_q16 >> 16 이 이 값 이상 → 강한 재밍 (즉시 BPS = BPS_MIN)
         static constexpr uint32_t AJC_HEAVY_THR = 2000u;
 
+        /// IDLE~HEAVY 사이 ‘장시간 체류’ 시 완만 하향 — 바라지 25~30dB 교착 완화
+        static constexpr uint32_t AJC_DRIFT_DOWN_THR = 1100u;
+
         /// SNR 프록시 이 값 이상 → 채널 양호 (BPS 상향 허용 조건 ②)
         static constexpr int32_t  QUIET_SNR_THR = 10;
 
@@ -69,6 +74,9 @@ namespace ProtectedEngine {
 
         /// QUIET 조건 연속 충족 횟수 → BPS 한 단계 상향
         static constexpr uint8_t  HYST_UP_COUNT = 8u;
+
+        /// DRIFT_DOWN 조건 연속 충족 → BPS 한 단계 하향 (즉시 MIN 아님)
+        static constexpr uint8_t  HYST_DRIFT_DOWN_COUNT = 8u;
 
         /// BPS 최솟값 (변전소 +20dB 재밍 대응 확정값)
         static constexpr uint8_t  BPS_MIN = 3u;
@@ -101,7 +109,7 @@ namespace ProtectedEngine {
         /// [판단 우선순위]
         ///  1순위: HEAVY 조건 (즉시 BPS_MIN)
         ///  2순위: QUIET 조건 (카운터 누적 → 임계 도달 시 BPS++)
-        ///  3순위: HOLD 구간 (카운터 리셋, BPS 유지)
+        ///  3순위: HOLD — quiet_count 절반 감쇠 + (중간 AJC) drift 하향
         ///
         /// @note  STM32F407 메인 루프에서 매 64칩 처리 후 1회 호출 권장
         /// @note  ISR에서 호출하지 마십시오 (측정값이 아직 최신이 아님)
@@ -111,7 +119,7 @@ namespace ProtectedEngine {
         void Update() noexcept;
 
         /// @brief 강제 BPS_MIN 리셋 (통신 단절 / 모드 전환 / 세션 재시작 시)
-        /// @post  metrics.current_bps = BPS_MIN, quiet_count_ = 0
+        /// @post  metrics.current_bps = BPS_MIN, 모든 히스테리시스 카운터 0
         void Reset() noexcept;
 
         /// @brief 현재 히스테리시스 카운터 반환 (디버그/진단용)
@@ -122,6 +130,7 @@ namespace ProtectedEngine {
     private:
         HTS_RF_Metrics& metrics_;
         uint8_t         quiet_count_{ 0u };
+        uint8_t         drift_down_count_{ 0u };
     };
 
 } // namespace ProtectedEngine

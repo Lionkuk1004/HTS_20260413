@@ -21,6 +21,7 @@
 //
 // =========================================================================
 #include "HTS_3D_Tensor_FEC.h"
+#include "HTS_Channel_Physics.h"
 
 // [양산 방어] LTE HARQ 시뮬레이션 — PC 전용, ARM 빌드 제외
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \
@@ -56,6 +57,17 @@
 #if defined(_MSC_VER)
 #include <intrin.h>  // MSVC: __popcnt
 #endif
+
+namespace {
+
+/// @brief 분기 없는 HARQ 라운드 클램핑(가변 /·% 없음)
+inline uint32_t FractalHarq_Clamp_U32(uint32_t n, uint32_t cap) noexcept
+{
+    const uint32_t over = 0u - static_cast<uint32_t>(n > cap);
+    return (n & ~over) | (cap & over);
+}
+
+} // namespace
 
 // =========================================================================
 //  [Layer 2] HTS_Engine — PC 시뮬레이션 (변경 없음)
@@ -122,9 +134,32 @@ namespace HTS_Engine {
     }
 
     Tensor_Interleaver::Tensor_Interleaver(size_t d)
-        : dim(d), total_size(d* d* d) {
+        : dim(d)
+        , total_size(d * d * d)
+        // Dynamic_Fractal_Mapper 도메인 4096 — dim^3 == 4096 일 때만 (16^3)
+        , fractal_layer_active_(d == 16u)
+        , fractal_mapper_() {
+        if (fractal_layer_active_) {
+            fractal_mapper_.Update_Frame(0u, 0u);
+        }
     }
+
     size_t Tensor_Interleaver::Get_Size() const { return total_size; }
+
+    void Tensor_Interleaver::Sync_Fractal_Key(
+        uint64_t session_id, uint32_t logical_frame_counter,
+        uint32_t harq_round) noexcept {
+        if (!fractal_layer_active_) { return; }
+
+        const uint32_t hr_slot = FractalHarq_Clamp_U32(
+            harq_round, Tensor_Interleaver::kFractalHarqSlotStride - 1u);
+
+        const uint32_t mapper_fc =
+            logical_frame_counter * Tensor_Interleaver::kFractalHarqSlotStride
+            + hr_slot;
+
+        fractal_mapper_.Update_Frame(session_id, mapper_fc);
+    }
 
     std::vector<double> Tensor_Interleaver::Interleave(
         const std::vector<double>& in) const {
@@ -132,9 +167,15 @@ namespace HTS_Engine {
         for (size_t z = 0u; z < dim; ++z)
             for (size_t y = 0u; y < dim; ++y)
                 for (size_t x = 0u; x < dim; ++x) {
-                    size_t w = z * dim * dim + y * dim + x;
-                    size_t r = y * dim * dim + x * dim + z;
-                    if (r < in.size() && w < out.size()) { out[w] = in[r]; }
+                    const size_t w = z * dim * dim + y * dim + x;
+                    const size_t r = y * dim * dim + x * dim + z;
+                    const size_t w_write = fractal_layer_active_
+                        ? static_cast<size_t>(fractal_mapper_.Forward(
+                            static_cast<uint32_t>(w)))
+                        : w;
+                    if (r < in.size() && w_write < out.size()) {
+                        out[w_write] = in[r];
+                    }
                 }
         return out;
     }
@@ -145,9 +186,15 @@ namespace HTS_Engine {
         for (size_t z = 0u; z < dim; ++z)
             for (size_t y = 0u; y < dim; ++y)
                 for (size_t x = 0u; x < dim; ++x) {
-                    size_t r = z * dim * dim + y * dim + x;
-                    size_t w = y * dim * dim + x * dim + z;
-                    if (r < in.size() && w < out.size()) { out[w] = in[r]; }
+                    const size_t r = z * dim * dim + y * dim + x;
+                    const size_t w = y * dim * dim + x * dim + z;
+                    const size_t r_read = fractal_layer_active_
+                        ? static_cast<size_t>(fractal_mapper_.Forward(
+                            static_cast<uint32_t>(r)))
+                        : r;
+                    if (r_read < in.size() && w < out.size()) {
+                        out[w] = in[r_read];
+                    }
                 }
         return out;
     }
@@ -164,7 +211,11 @@ namespace HTS_Engine {
                 for (size_t x = 0u; x < dim; ++x) {
                     const size_t w = z * dim * dim + y * dim + x;
                     const size_t r = y * dim * dim + x * dim + z;
-                    if (r < in_len && w < m) { out[w] = in[r]; }
+                    const size_t w_write = fractal_layer_active_
+                        ? static_cast<size_t>(fractal_mapper_.Forward(
+                            static_cast<uint32_t>(w)))
+                        : w;
+                    if (r < in_len && w_write < m) { out[w_write] = in[r]; }
                 }
         return m;
     }
@@ -180,7 +231,11 @@ namespace HTS_Engine {
                 for (size_t x = 0u; x < dim; ++x) {
                     const size_t r = z * dim * dim + y * dim + x;
                     const size_t w = y * dim * dim + x * dim + z;
-                    if (r < in_len && w < m) { out[w] = in[r]; }
+                    const size_t r_read = fractal_layer_active_
+                        ? static_cast<size_t>(fractal_mapper_.Forward(
+                            static_cast<uint32_t>(r)))
+                        : r;
+                    if (r_read < in_len && w < m) { out[w] = in[r_read]; }
                 }
         return m;
     }
@@ -196,7 +251,13 @@ namespace HTS_Engine {
                 for (size_t x = 0u; x < dim; ++x) {
                     const size_t w = z * dim * dim + y * dim + x;
                     const size_t r = y * dim * dim + x * dim + z;
-                    if (r < in.size() && w < out.size()) { out[w] = in[r]; }
+                    const size_t w_write = fractal_layer_active_
+                        ? static_cast<size_t>(fractal_mapper_.Forward(
+                            static_cast<uint32_t>(w)))
+                        : w;
+                    if (r < in.size() && w_write < out.size()) {
+                        out[w_write] = in[r];
+                    }
                 }
     }
 
@@ -208,7 +269,13 @@ namespace HTS_Engine {
                 for (size_t x = 0u; x < dim; ++x) {
                     const size_t r = z * dim * dim + y * dim + x;
                     const size_t w = y * dim * dim + x * dim + z;
-                    if (r < in.size() && w < out.size()) { out[w] = in[r]; }
+                    const size_t r_read = fractal_layer_active_
+                        ? static_cast<size_t>(fractal_mapper_.Forward(
+                            static_cast<uint32_t>(r)))
+                        : r;
+                    if (r_read < in.size() && w < out.size()) {
+                        out[w] = in[r_read];
+                    }
                 }
     }
 
@@ -370,40 +437,17 @@ namespace HTS_Engine {
 
     std::vector<double> LTE_Channel::Transmit(
         const std::vector<double>& tensor, std::mt19937& rng) {
-        size_t N = tensor.size();
-        std::vector<double> rx(N);
-        double sigma_chip =
-            std::sqrt(std::pow(10.0, JS_DB / 10.0));
-        double sigma_total =
-            sigma_chip * std::sqrt(static_cast<double>(NUM_CHIPS));
-        std::normal_distribution<double> noise(0.0, sigma_total);
-        std::uniform_real_distribution<double> u01(0.0, 1.0);
-        for (size_t i = 0u; i < N; ++i) {
-            if (u01(rng) < EMP_RATE)
-                rx[i] = ((u01(rng) > 0.5) ? 1.0 : -1.0) * EMP_AMP;
-            else
-                rx[i] = tensor[i] * NUM_CHIPS + noise(rng);
-        }
+        std::vector<double> rx(tensor.size());
+        HTS_Core::Physics::Apply_Lte_Channel_To(
+            tensor, rng, rx, JS_DB, NUM_CHIPS, EMP_RATE, EMP_AMP);
         return rx;
     }
 
     // ── [OPT-3] Transmit_To (버퍼 재사용) ──
     void LTE_Channel::Transmit_To(const std::vector<double>& tensor,
         std::mt19937& rng, std::vector<double>& out) {
-        const size_t N = tensor.size();
-        out.resize(N);
-        const double sigma_chip =
-            std::sqrt(std::pow(10.0, JS_DB / 10.0));
-        const double sigma_total =
-            sigma_chip * std::sqrt(static_cast<double>(NUM_CHIPS));
-        std::normal_distribution<double> noise(0.0, sigma_total);
-        std::uniform_real_distribution<double> u01(0.0, 1.0);
-        for (size_t i = 0u; i < N; ++i) {
-            if (u01(rng) < EMP_RATE)
-                out[i] = ((u01(rng) > 0.5) ? 1.0 : -1.0) * EMP_AMP;
-            else
-                out[i] = tensor[i] * NUM_CHIPS + noise(rng);
-        }
+        HTS_Core::Physics::Apply_Lte_Channel_To(
+            tensor, rng, out, JS_DB, NUM_CHIPS, EMP_RATE, EMP_AMP);
     }
 
     LTE_HARQ_Controller::BlockResult LTE_HARQ_Controller::TransmitBlock(
@@ -444,6 +488,13 @@ namespace HTS_Engine {
                 static_cast<double>(k) * HARQ_RTT_MS;
             unsigned int frame_seed =
                 block_seed + static_cast<unsigned int>(k) * 7919u;
+
+            // HARQ 시간 다양성: 논리 프레임(block_seed) + 슬롯(k-1) — V2 Dispatcher 와 stride=16 정합
+            interleaver.Sync_Fractal_Key(
+                static_cast<uint64_t>(block_seed) ^
+                    (static_cast<uint64_t>(static_cast<uint32_t>(block_id)) << 32u),
+                static_cast<uint32_t>(block_seed),
+                static_cast<uint32_t>(k - 1));
 
             // [OPT-3] _To API: capacity 재사용, 루프 내 힙 할당 0회
             fec.Encode_To(coded, frame_seed, tensor_buf);

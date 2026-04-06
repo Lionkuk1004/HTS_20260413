@@ -201,12 +201,22 @@
     <ClCompile Include="HTS_Sensor_Fusion.cpp" />
     <ClCompile Include="HTS_Tamper_HAL.cpp" />
     <ClCompile Include="HTS64_Native_ECCM_Core.cpp" />
+    <ClCompile Include="HTS_Dynamic_Fractal_Mapper.cpp">
+      <!-- Tensor_Interleaver(dim=64) — HTS_3D_Tensor_FEC와 동일 매트릭스 -->
+      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="HTS_3D_Tensor_FEC.cpp">
       <!-- [BUILD-MATRIX-B] PC 시뮬 전용 — STM32·A55 모든 ARM 타깃 배제 -->
       <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
       <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
     </ClCompile>
+    <ClCompile Include="HTS_Channel_Physics.cpp">
+      <ExcludedFromBuild Condition="'$(Platform)'=='ARM'">true</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Platform)'=='ARM Thumb-2'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="HTS_Adaptive_BPS_Controller.cpp" />
+    <ClCompile Include="HTS_Pipeline_V2_Dispatcher.cpp" />
     <ClCompile Include="HTS_AES_Bridge.cpp" />
     <ClCompile Include="HTS_AMI_Protocol.cpp" />
     <ClCompile Include="host_aarch64\HTS_Anchor_Vault.cpp">
@@ -309,6 +319,7 @@
     <ClInclude Include="arm_arch.h" />
     <ClInclude Include="cpu_info.h" />
     <ClInclude Include="HTS_Arm_Irq_Mask_Guard.h" />
+    <ClInclude Include="HTS_Channel_Physics.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
     <ClInclude Include="HTS_Data_Loader.h" />
     <ClInclude Include="HTS_Device_Status_Reporter.h" />
@@ -332,6 +343,7 @@
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
     </ClInclude>
     <ClInclude Include="HTS_Adaptive_BPS_Controller.h" />
+    <ClInclude Include="HTS_Pipeline_V2_Dispatcher.h" />
     <ClInclude Include="HTS_AES_Bridge.h" />
     <ClInclude Include="HTS_AMI_Protocol.h" />
     <ClInclude Include="HTS_AMI_Protocol_Defs.h" />
@@ -398,6 +410,7 @@
     <ClInclude Include="common.h" />
     <ClInclude Include="config.h" />
     <ClInclude Include="hmac.h" />
+    <ClInclude Include="HTS_Dynamic_Fractal_Mapper.h" />
     <ClInclude Include="HTS_3D_Tensor_FEC.h" />
     <ClInclude Include="HTS_AEAD_Integrity.hpp" />
     <ClInclude Include="HTS_API.h" />

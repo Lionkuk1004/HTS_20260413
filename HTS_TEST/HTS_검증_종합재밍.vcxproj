@@ -162,7 +162,15 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="종합재밍_종합_테스트.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp" />
+    <ClCompile Include="benchmark\HTS_Fractal_Channel_Compare.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\HTS_LIM\HTS_Adaptive_BPS_Controller.h" />
+    <ClInclude Include="..\HTS_LIM\HTS_Dynamic_Fractal_Mapper.h" />
+    <ClInclude Include="..\HTS_LIM\HTS_Pipeline_V2_Dispatcher.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

@@ -516,6 +516,14 @@ namespace ProtectedEngine {
     IQ_Mode     HTS_V400_Dispatcher::Get_IQ_Mode()         const noexcept { return iq_mode_; }
 
     void HTS_V400_Dispatcher::Update_Adaptive_BPS(uint32_t nf) noexcept {
+        // HTS_RF_Metrics + HTS_Adaptive_BPS_Controller 경로가 연결된 경우
+        // current_bps의 단일 진실은 컨트롤러(히스테리시스)이다.
+        // bps_from_nf(nf)로 cur_bps64_를 즉시 덮어쓰면 Tick_Adaptive_BPS()가
+        // 방금 올린 BPS를 한 프레임 만에 되돌리는 이중 경로 충돌이 난다.
+        if (p_metrics_ != nullptr) {
+            (void)nf;
+            return;
+        }
         const int new_bps = FEC_HARQ::bps_from_nf(nf);
         if (new_bps >= FEC_HARQ::BPS64_MIN_OPERABLE &&
             new_bps <= FEC_HARQ::BPS64_MAX) {

@@ -350,6 +350,15 @@ namespace ProtectedEngine {
             fec_seed);
         if (fec_len == 0u) { return false; }
 
+        uint64_t fractal_sid =
+            static_cast<uint64_t>(fec_seed)
+            ^ (static_cast<uint64_t>(packet_nonce) << 32u);
+        if (fec_mseed_len >= 8u) {
+            std::memcpy(&fractal_sid, fec_master_seed_buf, 8u);
+        }
+        impl.tensor_interleaver.Sync_Fractal_Key(
+            fractal_sid, fec_seed ^ packet_nonce);
+
         const size_t intlv_len = impl.tensor_interleaver.Interleave_Raw(
             impl.fec_bits, fec_len,
             impl.work_A, Impl::MAX_WORK_BITS);

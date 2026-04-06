@@ -25,6 +25,7 @@ file(GLOB_RECURSE HTS_ALL_SOURCES CONFIGURE_DEPENDS
 )
 list(FILTER HTS_ALL_SOURCES EXCLUDE REGEX "/host_aarch64/")
 list(FILTER HTS_ALL_SOURCES EXCLUDE REGEX "HTS_3D_Tensor_FEC\\.cpp$")
+list(FILTER HTS_ALL_SOURCES EXCLUDE REGEX "HTS_Channel_Physics\\.cpp$")
 # ARM: HTS_3D Layer2(HTS_Engine) 비노출 + PC 전용 .cpp #error — Dual/Unified/API는 스텁으로 대체
 list(FILTER HTS_ALL_SOURCES EXCLUDE REGEX "HTS_Dual_Tensor_16bit\\.cpp$")
 list(FILTER HTS_ALL_SOURCES EXCLUDE REGEX "HTS_Unified_Scheduler\\.cpp$")

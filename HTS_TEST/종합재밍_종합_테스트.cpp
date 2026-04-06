@@ -12,7 +12,7 @@
 //       → INFO 비트씩 분할 → CRC16 부착 → 반복(REP) 코딩 → MTU
 //       → Soft_Tensor_FEC::Encode_To → 텐서
 //       → Tensor_Interleaver::Interleave_To
-//       → apply_channel (AWGN / 바라지 / CW / EMP)
+//       → HTS_Core::Physics::Apply_Parametric_Channel (AWGN / 바라지 / CW / EMP)
 //       → Deinterleave → Decode_Soft_To (소프트)
 //       → HARQ 누적·경판정 → CRC 검사 (최대 MAX_HARQ 라운드)
 //
@@ -28,8 +28,10 @@
 #endif
 
 #include "HTS_3D_Tensor_FEC.h"
+#include "HTS_Channel_Physics.h"
 
 #include <chrono>
+#include <cstdint>
 #include <cmath>
 #include <iomanip>
 #include <iostream>
@@ -119,80 +121,8 @@ const char* channel_intensity_hint_kr(ChannelType t) {
 }
 
 // -------------------------------------------------------------------------
-//  파라메트릭 채널 (고정 NUM_CHIPS=128, 스프레드 이득 반영)
-//  — 루프 내 힙 할당 없음 (rx는 호출자가 크기 맞춤)
+//  파라메트릭 채널 — HTS_Core::Physics::Apply_Parametric_Channel (SSoT)
 // -------------------------------------------------------------------------
-void apply_channel(
-    const std::vector<double>& tx,
-    std::mt19937& rng,
-    std::vector<double>& rx,
-    ChannelType type,
-    double intensity_db)
-{
-    const size_t N = tx.size();
-    rx.resize(N);
-
-    static constexpr int kNumChips = 128;
-    const double spread_gain = static_cast<double>(kNumChips);
-    const double base_noise_sigma = 0.01;
-    std::normal_distribution<double> base_noise(0.0, base_noise_sigma);
-
-    switch (type) {
-
-    case ChannelType::AWGN: {
-        const double snr_linear = std::pow(10.0, intensity_db / 10.0);
-        const double signal_power = spread_gain * spread_gain;
-        const double noise_sigma = std::sqrt(signal_power / snr_linear);
-        std::normal_distribution<double> awgn(0.0, noise_sigma);
-        for (size_t i = 0u; i < N; ++i)
-            rx[i] = tx[i] * spread_gain + awgn(rng);
-        break;
-    }
-
-    case ChannelType::BARRAGE: {
-        const double js_linear = std::pow(10.0, intensity_db / 10.0);
-        const double jam_sigma = std::sqrt(js_linear) * spread_gain;
-        std::normal_distribution<double> jam(0.0, jam_sigma);
-        for (size_t i = 0u; i < N; ++i)
-            rx[i] = tx[i] * spread_gain + jam(rng) + base_noise(rng);
-        break;
-    }
-
-    case ChannelType::CW: {
-        const double js_linear = std::pow(10.0, intensity_db / 10.0);
-        const double cw_amp = std::sqrt(js_linear) * spread_gain * 2.0;
-        const size_t cw_center = N / 4u;
-        const size_t cw_width = N / 16u;
-        std::uniform_real_distribution<double> phase_dist(0.0, 6.2831853);
-        const double cw_phase = phase_dist(rng);
-
-        for (size_t i = 0u; i < N; ++i) {
-            double cw = 0.0;
-            if (i >= (cw_center - cw_width) && i < (cw_center + cw_width)) {
-                const double t = static_cast<double>(i - cw_center + cw_width)
-                    / static_cast<double>(cw_width * 2u);
-                cw = cw_amp * std::sin(2.0 * 3.14159265 * 8.0 * t + cw_phase);
-            }
-            rx[i] = tx[i] * spread_gain + cw + base_noise(rng);
-        }
-        break;
-    }
-
-    case ChannelType::EMP: {
-        const double destroy_rate = intensity_db / 100.0;
-        const double emp_amp = 99999.0;
-        std::uniform_real_distribution<double> u01(0.0, 1.0);
-        for (size_t i = 0u; i < N; ++i) {
-            if (u01(rng) < destroy_rate)
-                rx[i] = ((u01(rng) > 0.5) ? 1.0 : -1.0) * emp_amp;
-            else
-                rx[i] = tx[i] * spread_gain + base_noise(rng);
-        }
-        break;
-    }
-
-    } // switch
-}
 
 // -------------------------------------------------------------------------
 //  단일 블록: HARQ 루프 (버퍼 재사용)
@@ -245,9 +175,18 @@ TestBlockResult transmit_block_parametric(
         const unsigned int fseed =
             block_seed + static_cast<unsigned int>(k) * 7919u;
 
+        interleaver.Sync_Fractal_Key(
+            static_cast<uint64_t>(block_seed),
+            static_cast<uint32_t>(block_seed),
+            static_cast<uint32_t>(k - 1));
+
         fec.Encode_To(coded, fseed, tensor_buf);
         interleaver.Interleave_To(tensor_buf, tx_buf);
-        apply_channel(tx_buf, rng, rx_buf, ch_type, ch_intensity);
+        HTS_Core::Physics::Apply_Parametric_Channel(
+            tx_buf, rng, rx_buf,
+            static_cast<HTS_Core::Physics::ParametricChannel>(
+                static_cast<std::uint8_t>(ch_type)),
+            ch_intensity);
         interleaver.Deinterleave_To(rx_buf, rx_dint_buf);
         fec.Decode_Soft_To(rx_dint_buf, kMtu, fseed, soft_buf);
 

@@ -207,7 +207,13 @@
     <ClCompile Include="HTS_Security_Session.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="HTS_Dynamic_Fractal_Mapper.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
     <ClCompile Include="HTS_3D_Tensor_FEC.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Channel_Physics.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Config.cpp">
@@ -229,6 +235,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Adaptive_BPS_Controller.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Pipeline_V2_Dispatcher.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="lsh512.c">
@@ -578,6 +587,9 @@
     <ClInclude Include="HTS_Security_Session.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_Dynamic_Fractal_Mapper.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_3D_Tensor_FEC.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -603,6 +615,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Adaptive_BPS_Controller.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Pipeline_V2_Dispatcher.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="lsh512.h">
@@ -795,6 +810,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_TimeSpace_Guard.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Channel_Physics.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

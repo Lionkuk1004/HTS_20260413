@@ -38,8 +38,19 @@
 //   TX: Encode64_A(info, len, syms, il, bps, wb)
 //   RX: Feed64_1sym(state, I, Q, sym_idx) → Decode64_A(state, out, len, il, bps, wb)
 //
+//  [IR-HARQ — RV별 인터리브 + LLR 누적, Chase와 별도]
+//   FEC_HARQ::IR_RxState ir{};
+//   FEC_HARQ::IR_Init(ir);
+//   for (k…) { int rv = k & 3;
+//     int n = FEC_HARQ::Encode64_IR(info, len, syms, il, bps, rv, wb);
+//     // … 수신 int16 I/Q 평면 n*64 …
+//     if (FEC_HARQ::Decode64_IR(rx_I, rx_Q, n, C64, bps, il, rv, ir, out, &olen, wb)) break;
+//   }
+//   무채널 왕복은 PHY walsh_enc와 동일 매핑으로 rx_I/Q를 채워야 함 (Dispatcher Build_Packet 경로 참고).
+//
 //  [메모리 요구량]
 //   WorkBuf: perm/tmp_soft + Viterbi + rep|all_llr 공용·in-place REP (~13KB급)
+//   IR_RxState: IR-HARQ LLR 누적 전용 ~2.8KB (RxState64와 별도)
 //   RxState64: 레이아웃 비-M4 ~115KB(NSYM64=230). HTS_FEC_M4_RAM_LAYOUT(실M4 또는 PC 시뮬 동일) ~85KB(NSYM64=172,BPS≥4)
 //   ⚠ 스택 배치 시 ARM 스택 한계 주의
 //
@@ -223,6 +234,38 @@ namespace ProtectedEngine {
             bool ok;
         };
 
+        /// RV별 비트 인터리브 시드 변형 (Chase와 달리 라운드마다 다른 셔플)
+        static constexpr uint32_t RV_SALT[4] = {
+            0x00000000u, 0x12345678u, 0x9ABCDEF0u, 0x56789ABCu
+        };
+
+        /// @brief IR-HARQ(LLR 도메인 누적) 수신 상태 — RxState64·Feed64 경로와 독립
+        /// @note 라운드마다 Decode64_IR로 심볼 LLR을 넣으면 내부에서 RV 역인터리브 후 누적·REP 합산·Viterbi
+        /// @warning sizeof ≈ 2.8KB — ARM 스택 대량 배치 금지, 전역·정적 권장
+        struct IR_RxState {
+            int32_t llr_accum[TOTAL_CODED];
+            int     rounds_done;
+            bool    ok;
+        };
+
+        static void IR_Init(IR_RxState& s) noexcept;
+
+        /// @brief IR 전용 인코드 — Encode64_A와 동일 파이프라인, 인터리브 시드만 il^RV_SALT[rv&3]
+        [[nodiscard]] static int Encode64_IR(const uint8_t* info, int len,
+            uint8_t* syms, uint32_t il_seed, int bps, int rv, WorkBuf& wb) noexcept;
+
+        /// @brief IR 전용 디코드 — 심볼당 int16 I/Q(1라운드) → LLR → RV 역인터리브 → 누적 후 디코드 시도
+        /// @param sym_I/sym_Q 레이아웃: 심볼 s의 칩 c → 인덱스 s*nc+c (Decode_Core accI와 동일 순서)
+        /// @note ir_state.ok==true 이면 out 미갱신·*olen=MAX_INFO·즉시 true (이미 CRC 통과한 세션)
+        /// @note Decode_Core와 동일 BSS FWHT/LLR 스크래치(g_fec_dec_*) 공유 — 비재진입·호출부 직렬화
+        [[nodiscard]] static bool Decode64_IR(
+            const int16_t* sym_I, const int16_t* sym_Q,
+            int nsym, int nc, int bps,
+            uint32_t il_seed, int rv,
+            IR_RxState& ir_state,
+            uint8_t* out, int* olen,
+            WorkBuf& wb) noexcept;
+
         // ── TX ──
         [[nodiscard]] static int Encode16(const uint8_t* info, int len,
             uint8_t* syms, uint32_t il, WorkBuf& wb) noexcept;
@@ -366,5 +409,7 @@ namespace ProtectedEngine {
         "WorkBuf exceeds 14KB — rep|all_llr union·in-place REP 재검토");
     static_assert(sizeof(FEC_HARQ::RxState64) <= 128u * 1024u,
         "RxState64 exceeds 128KB — NSYM64 또는 C64 재검토 필요");
+    static_assert(sizeof(FEC_HARQ::IR_RxState) <= 4096u,
+        "IR_RxState exceeds 4KB — TOTAL_CODED·정렬 재검토");
 
 } // namespace ProtectedEngine
