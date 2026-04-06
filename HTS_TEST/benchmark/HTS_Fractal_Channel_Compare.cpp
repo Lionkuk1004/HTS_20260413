@@ -959,7 +959,7 @@ int main()
                     << s.ber << ','
                     << s.total_harq << ','
                     << s.avg_harq << ','
-                    << s.max_latency_ms << '\n';
+                    << s.max_latency_ms << '\n'; 
 
                 std::printf(
                     "%-8s %-8s %9.1f %6d %6d %10.6f %12.6f %6d %12.4f %14.2f\n",
