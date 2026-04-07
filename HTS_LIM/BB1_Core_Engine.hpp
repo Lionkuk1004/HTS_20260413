@@ -29,7 +29,7 @@
 //          is_test_mode, strict_mode);
 //      → PLL 위상복원 → 역접힘 → 역인터리빙 → L1 하이브리드 복구
 //
-//   4. 통계: RecoveryStats st = engine.Get_Last_Recovery_Stats();
+//   4. 통계: RecoveryStats st{}; engine.Get_Last_Recovery_Stats(st);
 //      → 마지막 RX 복구 통계 (파괴율, 패리티 복구, 보간 복구 등)
 //
 //  [메모리 요구량]
@@ -77,11 +77,10 @@ namespace ProtectedEngine {
         BB1_Core_Engine(BB1_Core_Engine&&) = delete;
         BB1_Core_Engine& operator=(BB1_Core_Engine&&) = delete;
 
-        /// @brief 마지막 RX 복구 통계 반환
-        /// @return RecoveryStats (파괴율, 패리티 복구, 보간 복구 등)
-        /// @note  impl_valid_=false 시 빈 RecoveryStats{} 반환
-        [[nodiscard]]
-        RecoveryStats Get_Last_Recovery_Stats() const noexcept;
+        /// @brief 마지막 RX 복구 통계를 `out`에 기록 (값 반환 복사 없음)
+        /// @param out 파괴율, 패리티 복구, 보간 복구 등
+        /// @note  impl_valid_=false 시 `out`을 RecoveryStats{}로 초기화
+        void Get_Last_Recovery_Stats(RecoveryStats& out) const noexcept;
 
         /// @brief TX 텐서 파이프라인 (스크램블 → 디코이 → 인터리빙 → 접힘)
         /// @tparam T  데이터 타입 (uint16_t 또는 uint32_t)

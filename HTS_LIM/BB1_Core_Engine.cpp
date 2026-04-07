@@ -418,18 +418,19 @@ namespace ProtectedEngine {
 
     // =====================================================================
     // =====================================================================
-    RecoveryStats BB1_Core_Engine::Get_Last_Recovery_Stats() const noexcept {
+    void BB1_Core_Engine::Get_Last_Recovery_Stats(RecoveryStats& out) const noexcept {
         const Impl* p = get_impl();
-        if (p == nullptr) HTS_BB1_UNLIKELY{ return RecoveryStats{}; }
-        RecoveryStats copy;
+        if (p == nullptr) HTS_BB1_UNLIKELY{
+            out = RecoveryStats{};
+            return;
+        }
         uint32_t seq = 0;
         do {
             seq = p->stats_seq.load(std::memory_order_acquire);
-            copy = p->last_stats;
+            out = p->last_stats;
             std::atomic_thread_fence(std::memory_order_acquire);
         } while ((seq & 1u) ||
             seq != p->stats_seq.load(std::memory_order_relaxed));
-        return copy;
     }
 
     // =====================================================================

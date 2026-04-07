@@ -98,9 +98,9 @@ namespace ProtectedEngine {
         int32_t  jprof_I_[MAX_NC];
         int32_t  jprof_Q_[MAX_NC];
         uint32_t mismatch_ema_;
+        uint32_t update_count_;
         bool     ajc_reliable_;
         bool     barrage_bypass_;
-        uint32_t update_count_;
 
         struct SubNull {
             int8_t  signs_I[MAX_ACC][SUB_NC];

@@ -4,6 +4,8 @@
 // 인코드: 생성다항식 g(x)=∏_{j=1}^{7}(x-α^j) 나눗셈(%) 없음·분기 최소화
 //
 // Cortex-M4F: UDIV 회피(m·idx≤98 → constexpr LUT), 스택 버퍼 종료 시 secureWipe
+// 메모리: 대형 로컬 배열은 파일 범위 스크래치(alignas)로 이동 — Encode/Decode 동시
+//         재진입 없음 전제(FEC IR 등 단일 컨텍스트). 병렬 호출 시 별도 동기화 필요.
 // =========================================================================
 #include "HTS_RS_GF16.h"
 
@@ -78,9 +80,20 @@ constexpr int RS_K = 8;
 constexpr int NSYN = 7;
 constexpr uint8_t GF_POLY = 0x13u;
 
-uint8_t g_exp[32];
-uint8_t g_log[16];
-bool g_ok = false;
+alignas(16) static uint8_t g_exp[32];
+alignas(16) static uint8_t g_log[16];
+static bool g_ok = false;
+
+// 브루트포스·가우스·인코드 스크래치 (스택 피크 완화)
+alignas(64) static uint8_t g_rs_bf_trial[15];
+alignas(64) static uint8_t g_rs_bf_cand[15];
+alignas(16) static uint8_t g_rs_bf_s[7];
+alignas(64) static uint8_t g_rs_try_mat[4][5];
+alignas(16) static uint8_t g_rs_try_t[15];
+alignas(8) static uint8_t g_rs_try_y[3];
+alignas(16) static uint8_t g_rs_try_s2[7];
+alignas(32) static uint8_t g_rs_enc_aug[7][8];
+alignas(16) static uint8_t g_rs_dec_r[15];
 
 static inline void rs_compiler_fence() noexcept
 {
@@ -334,35 +347,35 @@ uint32_t try_err_pattern_full(uint8_t* trial, const int* pos, int e,
         return 0u;
     }
 
-    uint8_t mat[4][5] = {};
+    std::memset(static_cast<void*>(g_rs_try_mat), 0, sizeof(g_rs_try_mat));
     for (int row = 0; row < e; ++row) {
         const int mi = row + 1;
         for (int c = 0; c < e; ++c) {
             const int pidx = pos[static_cast<std::size_t>(c)];
-            mat[static_cast<std::size_t>(row)][static_cast<std::size_t>(c)] =
+            g_rs_try_mat[static_cast<std::size_t>(row)][static_cast<std::size_t>(c)] =
                 gf_alpha_pow_mi(mi, pidx);
         }
-        mat[static_cast<std::size_t>(row)][static_cast<std::size_t>(e)] =
+        g_rs_try_mat[static_cast<std::size_t>(row)][static_cast<std::size_t>(e)] =
             s[static_cast<std::size_t>(row)];
     }
 
-    uint8_t y[3] = {};
-    const uint32_t gok = gf_gauss_ct(mat, e, y);
-    rs_wipe_stack(static_cast<void*>(mat), sizeof(mat));
+    std::memset(static_cast<void*>(g_rs_try_y), 0, sizeof(g_rs_try_y));
+    const uint32_t gok = gf_gauss_ct(g_rs_try_mat, e, g_rs_try_y);
+    rs_wipe_stack(static_cast<void*>(g_rs_try_mat), sizeof(g_rs_try_mat));
 
-    uint8_t t[RS_N];
-    std::memcpy(t, trial, sizeof(t));
+    std::memcpy(static_cast<void*>(g_rs_try_t),
+        static_cast<const void*>(trial), sizeof(g_rs_try_t));
     for (int i = 0; i < e; ++i) {
         const int p = pos[static_cast<std::size_t>(i)];
-        t[static_cast<std::size_t>(p)] =
-            gf_add(t[static_cast<std::size_t>(p)], y[static_cast<std::size_t>(i)]);
+        g_rs_try_t[static_cast<std::size_t>(p)] =
+            gf_add(g_rs_try_t[static_cast<std::size_t>(p)],
+                g_rs_try_y[static_cast<std::size_t>(i)]);
     }
-    rs_wipe_stack(static_cast<void*>(y), sizeof(y));
+    rs_wipe_stack(static_cast<void*>(g_rs_try_y), sizeof(g_rs_try_y));
 
-    uint8_t s2[NSYN];
-    syndromes(t, s2);
-    const uint32_t syn_ok = syn_all_zero_u32(s2);
-    rs_wipe_stack(static_cast<void*>(s2), sizeof(s2));
+    syndromes(g_rs_try_t, g_rs_try_s2);
+    const uint32_t syn_ok = syn_all_zero_u32(g_rs_try_s2);
+    rs_wipe_stack(static_cast<void*>(g_rs_try_s2), sizeof(g_rs_try_s2));
 
     ok_out = gok & syn_ok;
     const uint8_t m = static_cast<uint8_t>(0u - ok_out);
@@ -370,28 +383,30 @@ uint32_t try_err_pattern_full(uint8_t* trial, const int* pos, int e,
         trial[static_cast<std::size_t>(i)] =
             static_cast<uint8_t>(
                 (trial[static_cast<std::size_t>(i)] & ~m)
-                | (t[static_cast<std::size_t>(i)] & m));
+                | (g_rs_try_t[static_cast<std::size_t>(i)] & m));
     }
-    rs_wipe_stack(static_cast<void*>(t), sizeof(t));
+    rs_wipe_stack(static_cast<void*>(g_rs_try_t), sizeof(g_rs_try_t));
 
     return ok_out;
 }
 
 bool decode_bruteforce(uint8_t r[RS_N]) noexcept
 {
-    uint8_t s[NSYN];
+    uint8_t* const s = g_rs_bf_s;
     syndromes(r, s);
 
     uint32_t found = syn_all_zero_u32(s);
-    uint8_t cand[RS_N];
-    std::memcpy(cand, r, sizeof(cand));
+    uint8_t* const cand = g_rs_bf_cand;
+    std::memcpy(static_cast<void*>(cand),
+        static_cast<const void*>(r), sizeof(g_rs_bf_cand));
 
     int pos[3];
 
     for (int p0 = 0; p0 < RS_N; ++p0) {
         pos[0] = p0;
-        uint8_t trial[RS_N];
-        std::memcpy(trial, r, sizeof(trial));
+        uint8_t* const trial = g_rs_bf_trial;
+        std::memcpy(static_cast<void*>(trial),
+            static_cast<const void*>(r), sizeof(g_rs_bf_trial));
         const uint32_t ok =
             try_err_pattern_full(trial, pos, 1, s);
         const uint32_t take = ok & (1u ^ found);
@@ -403,15 +418,16 @@ bool decode_bruteforce(uint8_t r[RS_N]) noexcept
                     (cand[static_cast<std::size_t>(i)] & ~tm)
                     | (trial[static_cast<std::size_t>(i)] & tm));
         }
-        rs_wipe_stack(static_cast<void*>(trial), sizeof(trial));
+        rs_wipe_stack(static_cast<void*>(trial), sizeof(g_rs_bf_trial));
     }
 
     for (int p0 = 0; p0 < RS_N; ++p0) {
         for (int p1 = p0 + 1; p1 < RS_N; ++p1) {
             pos[0] = p0;
             pos[1] = p1;
-            uint8_t trial[RS_N];
-            std::memcpy(trial, r, sizeof(trial));
+            uint8_t* const trial = g_rs_bf_trial;
+            std::memcpy(static_cast<void*>(trial),
+                static_cast<const void*>(r), sizeof(g_rs_bf_trial));
             const uint32_t ok =
                 try_err_pattern_full(trial, pos, 2, s);
             const uint32_t take = ok & (1u ^ found);
@@ -423,7 +439,7 @@ bool decode_bruteforce(uint8_t r[RS_N]) noexcept
                         (cand[static_cast<std::size_t>(i)] & ~tm)
                         | (trial[static_cast<std::size_t>(i)] & tm));
             }
-            rs_wipe_stack(static_cast<void*>(trial), sizeof(trial));
+            rs_wipe_stack(static_cast<void*>(trial), sizeof(g_rs_bf_trial));
         }
     }
 
@@ -433,8 +449,9 @@ bool decode_bruteforce(uint8_t r[RS_N]) noexcept
                 pos[0] = p0;
                 pos[1] = p1;
                 pos[2] = p2;
-                uint8_t trial[RS_N];
-                std::memcpy(trial, r, sizeof(trial));
+                uint8_t* const trial = g_rs_bf_trial;
+                std::memcpy(static_cast<void*>(trial),
+                    static_cast<const void*>(r), sizeof(g_rs_bf_trial));
                 const uint32_t ok =
                     try_err_pattern_full(trial, pos, 3, s);
                 const uint32_t take = ok & (1u ^ found);
@@ -446,15 +463,16 @@ bool decode_bruteforce(uint8_t r[RS_N]) noexcept
                             (cand[static_cast<std::size_t>(i)] & ~tm)
                             | (trial[static_cast<std::size_t>(i)] & tm));
                 }
-                rs_wipe_stack(static_cast<void*>(trial), sizeof(trial));
+                rs_wipe_stack(static_cast<void*>(trial), sizeof(g_rs_bf_trial));
             }
         }
     }
 
-    std::memcpy(r, cand, sizeof(cand));
+    std::memcpy(static_cast<void*>(r),
+        static_cast<const void*>(cand), sizeof(g_rs_bf_cand));
     const bool ret = found != 0u;
-    rs_wipe_stack(static_cast<void*>(s), sizeof(s));
-    rs_wipe_stack(static_cast<void*>(cand), sizeof(cand));
+    rs_wipe_stack(static_cast<void*>(s), sizeof(g_rs_bf_s));
+    rs_wipe_stack(static_cast<void*>(cand), sizeof(g_rs_bf_cand));
     return ret;
 }
 
@@ -462,7 +480,7 @@ bool decode_bruteforce(uint8_t r[RS_N]) noexcept
 //  Σ_j p_j·α^{m(8+j)} = Σ_i d_i·α^{m·i}   (GF(2)에서 등호)
 bool rs_encode_systematic_low(const uint8_t d8[8], uint8_t out15[15]) noexcept
 {
-    uint8_t aug[7][8];
+    uint8_t (* const aug)[8] = g_rs_enc_aug;
     for (int m = 0; m < 7; ++m) {
         const int mi = m + 1;
         for (int j = 0; j < 7; ++j) {
@@ -489,7 +507,7 @@ bool rs_encode_systematic_low(const uint8_t d8[8], uint8_t out15[15]) noexcept
             ++piv;
         }
         if (piv >= n) {
-            rs_wipe_stack(static_cast<void*>(aug), sizeof(aug));
+            rs_wipe_stack(static_cast<void*>(g_rs_enc_aug), sizeof(g_rs_enc_aug));
             return false;
         }
         if (piv != col) {
@@ -534,7 +552,7 @@ bool rs_encode_systematic_low(const uint8_t d8[8], uint8_t out15[15]) noexcept
         out15[static_cast<std::size_t>(8 + j)] =
             aug[static_cast<std::size_t>(j)][7];
     }
-    rs_wipe_stack(static_cast<void*>(aug), sizeof(aug));
+    rs_wipe_stack(static_cast<void*>(g_rs_enc_aug), sizeof(g_rs_enc_aug));
     return true;
 }
 
@@ -559,7 +577,7 @@ bool HTS_RS_GF16_Decode15_8(uint8_t inout15[15]) noexcept
     if (!inout15) {
         return false;
     }
-    uint8_t r[RS_N];
+    uint8_t* const r = g_rs_dec_r;
     for (int i = 0; i < RS_N; ++i) {
         r[static_cast<std::size_t>(i)] =
             static_cast<uint8_t>(inout15[static_cast<std::size_t>(i)] & 0xFu);
@@ -568,7 +586,7 @@ bool HTS_RS_GF16_Decode15_8(uint8_t inout15[15]) noexcept
     for (int i = 0; i < RS_N; ++i) {
         inout15[static_cast<std::size_t>(i)] = r[static_cast<std::size_t>(i)];
     }
-    rs_wipe_stack(static_cast<void*>(r), sizeof(r));
+    rs_wipe_stack(static_cast<void*>(g_rs_dec_r), sizeof(g_rs_dec_r));
     return ok;
 }
 

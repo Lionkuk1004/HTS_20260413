@@ -66,11 +66,13 @@ namespace ProtectedEngine {
             std::vector<uint8_t>& damaged_tensor,
             uint8_t ratio_percent) noexcept;
 
-        /// @brief 외부 반출 — payload||HMAC tag
+        /// @brief 외부 반출 — `out`에 payload||HMAC tag 기록 (반환 vector 복사 없음)
         ///
-        /// @return secret_enclave[block_id] payload를 HMAC-SHA256으로 인증한
-        ///         (payload + 32바이트 tag) 벡터. 금고에 payload가 없으면 빈 벡터.
-        std::vector<uint8_t> Export_Anchor(uint64_t block_id) noexcept;
+        /// @param[out] out (payload + 32바이트 tag). 금고에 없거나 실패 시 clear.
+        /// @return true=성공, false=없음/세션·HMAC 실패
+        [[nodiscard]] bool Export_Anchor(
+            uint64_t block_id,
+            std::vector<uint8_t>& out) noexcept;
 
         /// @brief 외부 반입 — HMAC tag 검증 후 payload만 저장
         ///

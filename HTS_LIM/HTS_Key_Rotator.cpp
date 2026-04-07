@@ -244,7 +244,7 @@ namespace {
     // =====================================================================
     //  deriveNextSeed — 블록 인덱스 기반 단방향 시드 파생
     //  반환: 호출자 버퍼에 복사 (Raw API)
-    //  vector 반환 API는 헤더에서 유지 (호출자 마이그레이션 후 제거)
+    //  PC vector 출력 API는 out 매개변수로만 기록 (반환값 복사 없음)
     // =====================================================================
     bool DynamicKeyRotator::deriveNextSeed(
         uint32_t blockIndex,
@@ -324,18 +324,19 @@ namespace {
 
 #if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
     !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
-    // [호환] 기존 vector API — Raw API 래퍼 (마이그레이션 후 삭제)
-    std::vector<uint8_t> DynamicKeyRotator::deriveNextSeed(
-        uint32_t blockIndex) noexcept {
+    bool DynamicKeyRotator::deriveNextSeed(
+        uint32_t blockIndex,
+        std::vector<uint8_t>& out) noexcept {
+        out.clear();
         uint8_t buf[Impl::SEED_LEN];
         size_t nout = 0u;
         if (!deriveNextSeed(blockIndex, buf, sizeof(buf), nout)) {
             SecureMemory::secureWipe(static_cast<void*>(buf), sizeof(buf));
-            return std::vector<uint8_t>();
+            return false;
         }
-        std::vector<uint8_t> out(buf, buf + nout);
+        out.assign(buf, buf + nout);
         SecureMemory::secureWipe(static_cast<void*>(buf), sizeof(buf));
-        return out;
+        return true;
     }
 #endif
 

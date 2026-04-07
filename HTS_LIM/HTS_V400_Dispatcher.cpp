@@ -30,6 +30,9 @@ namespace ProtectedEngine {
     alignas(64) static uint8_t g_v400_sym_scratch[FEC_HARQ::NSYM64];
     alignas(16) static int16_t g_v400_harq_fb_tmp_I[16];
     alignas(16) static int16_t g_v400_harq_fb_tmp_Q[16];
+    static_assert(
+        sizeof(g_v400_sym_scratch) >= FEC_HARQ::NSYM16,
+        "sym scratch must cover NSYM16 encode");
 
     // ── HARQ CCM union: Chase Q 누적 ↔ IR 칩 버퍼 + IR_RxState (SRAM 추가 0) ─
     //  Chase: harq_Q[NSYM64][C64] int32 — 기존 g_harq_Q_ccm 와 동일 레이아웃
@@ -661,7 +664,7 @@ namespace ProtectedEngine {
         }
         std::memset(g_sic_exp_I, 0, sizeof(g_sic_exp_I));
         std::memset(g_sic_exp_Q, 0, sizeof(g_sic_exp_Q));
-        uint8_t syms[FEC_HARQ::NSYM64] = {};
+        uint8_t* const syms = g_v400_sym_scratch;
         const int rv_fb = (ir_rv_ + 3) & 3;
         const uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
         const int enc_n = FEC_HARQ::Encode64_IR(
@@ -673,7 +676,8 @@ namespace ProtectedEngine {
             rv_fb,
             wb_);
         if (enc_n <= 0) {
-            SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+            SecureMemory::secureWipe(
+                static_cast<void*>(syms), sizeof(g_v400_sym_scratch));
             return;
         }
         for (int s = 0; s < enc_n; ++s) {
@@ -682,7 +686,8 @@ namespace ProtectedEngine {
                 &g_sic_exp_Q[static_cast<std::size_t>(s)][0]);
         }
         sic_expect_valid_ = true;
-        SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+        SecureMemory::secureWipe(
+            static_cast<void*>(syms), sizeof(g_v400_sym_scratch));
     }
 
     void HTS_V400_Dispatcher::Update_Adaptive_BPS(uint32_t nf) noexcept {
@@ -1351,7 +1356,7 @@ namespace ProtectedEngine {
         const uint8_t* data, int data_len, int nc, uint32_t il) noexcept {
         if (!data || data_len <= 0) return;
         if (nc == 16) {
-            uint8_t correct_syms[FEC_HARQ::NSYM16] = {};
+            uint8_t* const correct_syms = g_v400_sym_scratch;
             int enc_n = 0;
             if (ir_mode_) {
                 const int rv_fb = (ir_rv_ + 3) & 3;
@@ -1364,14 +1369,16 @@ namespace ProtectedEngine {
             }
             if (enc_n <= 0) {
                 SecureMemory::secureWipe(
-                    static_cast<void*>(correct_syms), sizeof(correct_syms));
+                    static_cast<void*>(correct_syms),
+                    sizeof(g_v400_sym_scratch));
                 return;
             }
             const int nsym = (sym_idx_ < FEC_HARQ::NSYM16)
                 ? sym_idx_ : FEC_HARQ::NSYM16;
+            int16_t* const tmp_I = g_v400_harq_fb_tmp_I;
+            int16_t* const tmp_Q = g_v400_harq_fb_tmp_Q;
             for (int s = 0; s < nsym; ++s) {
                 if (ajc_enabled_) {
-                    int16_t tmp_I[16], tmp_Q[16];
                     for (int c = 0; c < nc; ++c) {
                         const uint8_t pk = orig_acc_.acc16.iq4[s][c];
                         int32_t nI = static_cast<int32_t>((pk >> 4u) & 0x0Fu);
@@ -1387,11 +1394,15 @@ namespace ProtectedEngine {
                 }
             }
             SecureMemory::secureWipe(
-                static_cast<void*>(correct_syms), sizeof(correct_syms));
+                static_cast<void*>(tmp_I), sizeof(g_v400_harq_fb_tmp_I));
+            SecureMemory::secureWipe(
+                static_cast<void*>(tmp_Q), sizeof(g_v400_harq_fb_tmp_Q));
+            SecureMemory::secureWipe(
+                static_cast<void*>(correct_syms), sizeof(g_v400_sym_scratch));
         }
         else if (nc == 64) {
             const int nsym64 = cur_nsym64_();
-            uint8_t correct_syms[FEC_HARQ::NSYM64] = {};
+            uint8_t* const correct_syms = g_v400_sym_scratch;
             int enc_n = 0;
             if (ir_mode_) {
                 // try_decode_: Decode64_IR 직후 ir_rv_ 가 +1 되므로
@@ -1406,7 +1417,8 @@ namespace ProtectedEngine {
             }
             if (enc_n <= 0) {
                 SecureMemory::secureWipe(
-                    static_cast<void*>(correct_syms), sizeof(correct_syms));
+                    static_cast<void*>(correct_syms),
+                    sizeof(g_v400_sym_scratch));
                 return;
             }
             const int nsym = (sym_idx_ < nsym64) ? sym_idx_ : nsym64;
@@ -1427,7 +1439,7 @@ namespace ProtectedEngine {
                 }
             }
             SecureMemory::secureWipe(
-                static_cast<void*>(correct_syms), sizeof(correct_syms));
+                static_cast<void*>(correct_syms), sizeof(g_v400_sym_scratch));
         }
     }
 
@@ -1702,9 +1714,9 @@ namespace ProtectedEngine {
         if (phase_ == RxPhase::RF_SETTLING) {
             (void)rx_I;
             (void)rx_Q;
-            if (rf_settle_chips_remaining_ > 0) {
-                rf_settle_chips_remaining_--;
-            }
+            const uint32_t nz = static_cast<uint32_t>(
+                rf_settle_chips_remaining_ > 0);
+            rf_settle_chips_remaining_ -= static_cast<int>(nz);
             if (rf_settle_chips_remaining_ == 0) {
                 (void)set_phase_(RxPhase::WAIT_SYNC);
             }

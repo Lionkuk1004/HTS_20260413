@@ -32,7 +32,7 @@ namespace ProtectedEngine {
     public:
         /// @brief 앵커 데이터를 Raw 파티션에 백업 (읽기 전용 — 금고 비변조)
         ///
-        /// @note `Anchor_Vault::Export_Anchor()`가 반환하는 앵커 포맷은
+        /// @note `Anchor_Vault::Export_Anchor(id, out)`가 `out`에 기록하는 앵커 포맷은
         ///       `payload||HMAC-SHA256(32B)`이며, restore 시
         ///       `Anchor_Vault::Import_Anchor()`가 동일 포맷을 fail-closed
         ///       방식으로 검증합니다.

@@ -51,6 +51,9 @@
 //   CCM     (64KB):  harq_Q_(58KB) + MSP 스택(4KB)
 //   총 사용 ~178KB / 192KB (14.3KB = 7.4% 마진)
 //
+//  [정렬] HTS_V400_Dispatcher.cpp: g_harq_ccm_union·g_sic_exp_*·k_walsh_dummy_iq_
+//        및 파일 범위 스크래치(g_v400_sym_scratch 등)에 alignas(64/16) 적용.
+//
 //  [제약]    fp32 0, fp64 0, try-catch 0, 힙 0
 //  [보안 소거] D-2/X-5-1 구현은 HTS_Secure_Memory.cpp — 본 모듈은 호출부
 //

@@ -143,13 +143,20 @@ namespace ProtectedEngine {
     // =====================================================================
     //  [3] 외부 반출
     // =====================================================================
-    std::vector<uint8_t> Anchor_Vault::Export_Anchor(uint64_t block_id) noexcept {
+    bool Anchor_Vault::Export_Anchor(
+        uint64_t block_id,
+        std::vector<uint8_t>& out) noexcept {
+        out.clear();
         std::vector<uint8_t> payload;
         {
             std::lock_guard<std::mutex> lock(mtx_);
             auto it = secret_enclave.find(block_id);
-            if (it == secret_enclave.end()) return {};
-            if (it->second.empty()) return {};
+            if (it == secret_enclave.end()) {
+                return false;
+            }
+            if (it->second.empty()) {
+                return false;
+            }
             payload = it->second;
         }
         const Wipe_Vector_On_Exit wipe_payload(payload);
@@ -161,7 +168,7 @@ namespace ProtectedEngine {
             masterSeed, MAX_SEED_SIZE);
         if (seed_len < 32u) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
-            return {};
+            return false;
         }
 
         uint8_t block_id_be[8] = {};
@@ -174,17 +181,17 @@ namespace ProtectedEngine {
         uint32_t r = HMAC_Bridge::Init(ctx, masterSeed, 32u);
         if (r != HMAC_Bridge::SECURE_TRUE) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
-            return {};
+            return false;
         }
         r = HMAC_Bridge::Update(ctx, block_id_be, sizeof(block_id_be));
         if (r != HMAC_Bridge::SECURE_TRUE) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
-            return {};
+            return false;
         }
         r = HMAC_Bridge::Update(ctx, payload.data(), payload.size());
         if (r != HMAC_Bridge::SECURE_TRUE) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
-            return {};
+            return false;
         }
 
         uint8_t mac_tag[ANCHOR_HMAC_TAG_SIZE_BYTES] = {};
@@ -192,12 +199,11 @@ namespace ProtectedEngine {
         if (r != HMAC_Bridge::SECURE_TRUE) {
             SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
             SecureMemory::secureWipe(mac_tag, sizeof(mac_tag));
-            return {};
+            return false;
         }
 
         SecureMemory::secureWipe(masterSeed, sizeof(masterSeed));
 
-        std::vector<uint8_t> out;
         out.resize(payload.size() + ANCHOR_HMAC_TAG_SIZE_BYTES);
         if (!payload.empty()) {
             std::memcpy(out.data(), payload.data(), payload.size());
@@ -209,7 +215,7 @@ namespace ProtectedEngine {
 
         SecureMemory::secureWipe(mac_tag, sizeof(mac_tag));
 
-        return out;
+        return true;
     }
 
     // =====================================================================

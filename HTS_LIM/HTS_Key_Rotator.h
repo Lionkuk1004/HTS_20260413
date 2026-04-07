@@ -16,7 +16,7 @@
 //      → 마스터 시드 최대 32B를 Impl.currentSeed[32]에 복사 (Zero-Heap placement)
 //      → PC 전용 vector 생성자는 Raw API로 위임
 //
-//   2. deriveNextSeed(blockIndex): 블록별 파생 시드 생성
+//   2. deriveNextSeed(blockIndex, out_buf, …) 또는 (PC) deriveNextSeed(blockIndex, out_vec)
 //      → 내부 상태를 Murmur3 기반으로 비가역적 변이 (Forward Secrecy)
 //
 //  [메모리 요구량]
@@ -52,7 +52,7 @@ namespace ProtectedEngine {
     !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
         /// @brief Forward Secrecy 시드 로테이터 생성
         /// @param masterSeed  초기 마스터 시드 (빈 벡터면 data()==nullptr → 0으로 채움)
-        /// @note  PC: vector API는 Raw API로 위임 — 실패 시 deriveNextSeed 빈 벡터
+        /// @note  PC: vector 생성자는 Raw API로 위임
         /// @note  소멸 시 마스터 시드 보안 소거 보장 (volatile + fence)
         explicit DynamicKeyRotator(
             const std::vector<uint8_t>& masterSeed) noexcept;
@@ -81,9 +81,12 @@ namespace ProtectedEngine {
 
 #if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \
     !defined(__TARGET_ARCH_THUMB) && !defined(__ARM_ARCH)
-        /// @brief [호환] 기존 vector API — Raw API 래퍼 (마이그레이션 후 삭제)
-        /// @deprecated Raw API 사용 권장
-        std::vector<uint8_t> deriveNextSeed(uint32_t blockIndex) noexcept;
+        /// @brief [PC] 파생 시드를 `out`에 기록 (반환 vector 복사 없음)
+        /// @param out 성공 시 크기 seed_len(≤32)로 채움, 실패 시 clear
+        /// @return true=성공
+        [[nodiscard]] bool deriveNextSeed(
+            uint32_t blockIndex,
+            std::vector<uint8_t>& out) noexcept;
 #endif
 
     private:

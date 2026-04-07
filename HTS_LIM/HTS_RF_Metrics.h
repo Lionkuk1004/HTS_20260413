@@ -59,7 +59,8 @@ namespace ProtectedEngine {
     ///
     /// @note 전역 또는 정적 스토리지에 배치 권장
     ///       (여러 모듈이 동시에 참조하는 공유 상태)
-    struct HTS_RF_Metrics {
+    /// @note alignas(8): atomic 필드 자연 정렬·인접 캐시 접근
+    struct alignas(8) HTS_RF_Metrics {
 
         /// SNR 프록시 = max_peak / noise_floor (정수비)
         /// @par 갱신: HTS_Rx_Sync_Detector::Detect_Sync_Peak

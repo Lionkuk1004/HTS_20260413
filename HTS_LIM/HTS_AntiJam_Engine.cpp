@@ -105,8 +105,8 @@ namespace ProtectedEngine {
     //  생성자 / Reset
     // =====================================================================
     AntiJamEngine::AntiJamEngine() noexcept
-        : mismatch_ema_(0u), ajc_reliable_(false), barrage_bypass_(false),
-        update_count_(0u), num_subs_(0)
+        : mismatch_ema_(0u), update_count_(0u),
+        ajc_reliable_(false), barrage_bypass_(false), num_subs_(0)
     {
         Reset(16);
     }

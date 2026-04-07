@@ -56,15 +56,13 @@ namespace ProtectedEngine {
         g_fec_prof = {};
     }
 
-    FEC_HARQ::DecodeProfileStats FEC_HARQ::Profile_Get() noexcept {
-        DecodeProfileStats s{};
-        s.ticks_sym_prep_and_loop = g_fec_prof.sym;
-        s.ticks_bit_deinterleave = g_fec_prof.deint;
-        s.ticks_rep_combine = g_fec_prof.rep;
-        s.ticks_viterbi = g_fec_prof.vit;
-        s.ticks_tail = g_fec_prof.tail;
-        s.calls = g_fec_prof.calls;
-        return s;
+    void FEC_HARQ::Profile_Get(DecodeProfileStats& out) noexcept {
+        out.ticks_sym_prep_and_loop = g_fec_prof.sym;
+        out.ticks_bit_deinterleave = g_fec_prof.deint;
+        out.ticks_rep_combine = g_fec_prof.rep;
+        out.ticks_viterbi = g_fec_prof.vit;
+        out.ticks_tail = g_fec_prof.tail;
+        out.calls = g_fec_prof.calls;
     }
 #endif // HTS_FEC_PROFILE
 
@@ -82,10 +80,10 @@ namespace ProtectedEngine {
         "Bin_To_LLR bps exceeds scratch");
 
     // Decode_Core·Decode64_IR: fI/fQ/llr BSS 단일화 (스택 512B 초과 방지)
-    // Decode64_IR 동일 버퍼 사용 — Sparse_Recovery 등과 같이 비재진입·호출부 직렬화 필수
-    static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fI{};
-    static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fQ{};
-    static std::array<int32_t, k_llr_buf_sz> g_fec_dec_llr{};
+    // Decode64_IR 동일 버퍼 사용 — 비재진입·호출부 직렬화 필수
+    alignas(64) static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fI{};
+    alignas(64) static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fQ{};
+    alignas(64) static std::array<int32_t, k_llr_buf_sz> g_fec_dec_llr{};
 
     static std::atomic<uint8_t> g_ir_erasure_en{ 1u };
     static std::atomic<uint8_t> g_ir_rs_post_en{ 1u };
@@ -758,7 +756,7 @@ namespace ProtectedEngine {
     }
 
     void FEC_HARQ::Init16(RxState16& s) noexcept {
-        std::memset(&s, 0, sizeof(s));
+        std::memset(static_cast<void*>(&s), 0, sizeof(s));
     }
 
     void FEC_HARQ::Feed16(RxState16& s, const int16_t I[][C16],
@@ -785,7 +783,7 @@ namespace ProtectedEngine {
     }
 
     void FEC_HARQ::Init64(RxState64& s) noexcept {
-        std::memset(&s, 0, sizeof(s));
+        std::memset(static_cast<void*>(&s), 0, sizeof(s));
     }
 
     void FEC_HARQ::Feed64(RxState64& s, const int16_t I[][C64],
@@ -926,7 +924,7 @@ namespace ProtectedEngine {
     //  IR-HARQ (RV 인터리브 + LLR 누적) — 64칩 적응형과 분리 섹션
     // =================================================================
     void FEC_HARQ::IR_Init(IR_RxState& s) noexcept {
-        std::memset(&s, 0, sizeof(s));
+        SecureMemory::secureWipe(static_cast<void*>(&s), sizeof(s));
     }
 
     void FEC_HARQ::Set_IR_Erasure_Enabled(bool enable) noexcept

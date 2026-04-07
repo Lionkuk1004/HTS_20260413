@@ -206,7 +206,8 @@ namespace ProtectedEngine {
         // 재진입성 100% 보장. 전역/스택/동적 할당 자유.
         // rep(TX)·all_llr(RX) 동시 미사용 → 공용 저장 + REP 합산 후 all_llr[0..CONV_OUT) 가 Viterbi 입력
         /// @warning sizeof(WorkBuf) ≈ 13KB — ARM에서 전역 또는 정적 배치 권장.
-        struct WorkBuf {
+        /// alignas(32): 워드 블록·캐시 라인 정렬(필드 순서는 인코더/비터비 경로 고정)
+        struct alignas(32) WorkBuf {
             int32_t  pm[2][64];
             uint8_t  surv[VIT_STEPS][64];       // Viterbi 경로 256→88
             uint8_t  tb[VIT_STEPS];             // traceback 256→88
@@ -221,14 +222,14 @@ namespace ProtectedEngine {
         // ── int64_t → int32_t (메모리 50% 절감) ───────────────────
         // 누적 최대: DATA_K(800) × 32767 = 26.2M ≪ INT32_MAX(2.14B)
         // FWHT 64칩 ×64 증폭 후: 1.68B < INT32_MAX (21.9% 여유)
-        struct RxState16 {
+        struct alignas(16) RxState16 {
             int32_t aI[NSYM16][C16];
             int32_t aQ[NSYM16][C16];
             int k;
             bool ok;
         };
         /// @warning sizeof(RxState64): PC~115KB / M4 RAM_LAYOUT~85KB — 스택 금지, 전역·정적만
-        struct RxState64 {
+        struct alignas(16) RxState64 {
             int32_t aI[NSYM64][C64];
             int32_t aQ[NSYM64][C64];
             int k;
@@ -243,13 +244,13 @@ namespace ProtectedEngine {
         /// @brief IR-HARQ(LLR 도메인 누적) 수신 상태 — RxState64·Feed64 경로와 독립
         /// @note 16칩·64칩 IR 공용(TOTAL_CODED 고정). 라운드마다 Decode16_IR/Decode64_IR 로 LLR 유입
         /// @warning sizeof ≈ 2.8KB — ARM 스택 대량 배치 금지, 전역·정적 권장
-        struct IR_RxState {
+        /// 멤버 순서: 대형 배열 → 스칼라 → 소형 필드(패딩 최소화)
+        struct alignas(16) IR_RxState {
             int32_t llr_accum[TOTAL_CODED];
             int     rounds_done;
-            bool    ok;
-            /// CRC 실패 시 Viterbi가 채운 8바이트( CRC16 입력 구간 ) — V400 SIC 재인코딩용
             uint8_t sic_tentative[MAX_INFO];
             uint8_t sic_tentative_valid; ///< 0/1 — IR_Init·CRC 성공 시 0
+            bool    ok;
         };
 
         static void IR_Init(IR_RxState& s) noexcept;
@@ -400,7 +401,8 @@ namespace ProtectedEngine {
             uint64_t calls;
         };
         static void Profile_Reset() noexcept;
-        static DecodeProfileStats Profile_Get() noexcept;
+        /// @param out 프로파일 누적값을 채움 (호출자 스토리지 — 복사 1회만)
+        static void Profile_Get(DecodeProfileStats& out) noexcept;
 #endif
 
     private:

@@ -38,6 +38,8 @@ namespace ProtectedEngine {
     // SecureVector typedef 미사용 — ARM에서 <vector> 힙 인프라 유입 방지
 
     /// @brief 보안 메모리 잠금 + 안티포렌식 소거 (정적 유틸리티)
+    /// @note 본 타입은 대용량 버퍼를 보유하지 않음 — 대상 블록은 호출자가
+    ///       SRAM/CCM 등에 배치하고 ptr/size로 전달(FEC·V400·키링 등).
     class SecureMemory {
     public:
         /// @brief MPU 동적 잠금(HTS_SECURE_MPU_LOCK_REGION 정의 시) 또는 스텁
