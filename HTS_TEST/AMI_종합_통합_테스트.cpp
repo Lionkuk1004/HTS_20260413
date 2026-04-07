@@ -18,7 +18,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <cstring>
-
+#include "HTS_OTA_AMI_Manager.h"
 #include "HTS_Priority_Scheduler.h"
 
 #include "HTS_Emergency_Beacon.h"
@@ -31,9 +31,35 @@
 #include "HTS_Sensor_Aggregator.h"
 #include "HTS_CoAP_Engine.h"
 #include "HTS_Meter_Data_Manager.h"
-#include "HTS_OTA_AMI_Manager.h"
+#include "HTS_Security_Session.h"
+#include "HTS_Secure_Memory.h"
+#include "HTS_Power_Manager.h"
+#include "HTS_Holo_Dispatcher.h"
+#include "HTS_V400_Dispatcher.hpp"
+#include "HTS_FEC_HARQ.hpp"
 
 using namespace ProtectedEngine;
+
+namespace {
+// Layer 9~11 AMI 카오스: 대형 TU는 정적 저장(스택 초과 방지). 신규 .cpp/.h 생성 없음.
+// V400 DATA: 프리앰블+헤더(256칩) + IQ_SAME 페이로드(NSYM64×64). AMI vcxproj는 M4 RAM 시뮬(NSYM64=172) → ~11k칩.
+static constexpr int k_chaos_v400_max_chips = 256 + FEC_HARQ::NSYM64 * 64;
+HTS_Holo_Dispatcher       g_chaos_l911_holo;
+HTS_V400_Dispatcher       g_chaos_l911_v400;
+HTS_Security_Session      g_chaos_l911_sess_tx;
+HTS_Security_Session      g_chaos_l911_sess_rx;
+HTS_Power_Manager         g_chaos_l911_power;
+HTS_V400_Dispatcher       g_fhss_tx;
+HTS_V400_Dispatcher       g_fhss_rx;
+} // namespace
+
+static int g_fhss_decode_hits = 0;
+
+static void fhss_on_decoded(const DecodedPacket& pkt) noexcept {
+    if (pkt.success_mask == DecodedPacket::DECODE_MASK_OK) {
+        g_fhss_decode_hits++;
+    }
+}
 
 // ---------------------------------------------------------------------------
 //  미니 프레임워크
@@ -404,11 +430,415 @@ static void scenario_interleaved_ticks() {
 }
 
 // =========================================================================
+//  S11 — Layer 9~11 카오스 (텐서·디스패처 / 세션 스래싱·소거 / 전력·슬립 실패 경로)
+//  구현 위치: 본 파일 전용. 메인 소스 트리에 별도 테스트 TU 추가 금지.
+// =========================================================================
+static void scenario_chaos_layer9_to_11() {
+    SECTION("S11 Chaos Layer 9~11 — Tensor/Dispatch, Session, Secure Wipe, Power");
+
+    bool ok_holo = true;
+    bool ok_v400 = true;
+    bool ok_sess = true;
+    bool ok_wipe = true;
+    bool ok_pwr = true;
+
+    // --- Layer 9 / 11: Holo 텐서 shim + V400 디스패처 교차 호출 ---
+    {
+        uint32_t holo_seed[4] = {
+            0xA11C9E01u, 0x52B3D204u, 0x6F3408EEu, 0xC0DEF11Eu
+        };
+        const uint32_t holo_init =
+            g_chaos_l911_holo.Initialize(holo_seed);
+        if (holo_init != HTS_Holo_Dispatcher::SECURE_TRUE) {
+            ok_holo = false;
+        }
+
+        static int16_t holo_i[512];
+        static int16_t holo_q[512];
+        uint8_t holo_payload[16];
+        for (uint32_t i = 0u; i < 16u; ++i) {
+            holo_payload[i] = static_cast<uint8_t>(
+                static_cast<uint8_t>(i * 17u) ^ static_cast<uint8_t>(0x5Au));
+        }
+
+        // DATA_HOLO만 반복: VOICE/RESILIENT는 소프트 디코드·블록 분할 차이로 바이트 단위 memcmp가
+        // 호스트/최적화 조합에서 실패할 수 있어, 하네스는 단일 프로파일 라운드트립으로 고정한다.
+        for (uint32_t wave = 0u; wave < 24u; ++wave) {
+            (void)g_chaos_l911_holo.Sync_Time_Slot(wave ^ 0x3Cu);
+            const uint8_t holo_mode = HoloPayload::DATA_HOLO;
+            const size_t n_chips = g_chaos_l911_holo.Build_Holo_Packet(
+                holo_mode,
+                holo_payload,
+                16u,
+                static_cast<int16_t>(200 + static_cast<int16_t>(wave & 15u)),
+                holo_i,
+                holo_q,
+                512u);
+            if (n_chips == 0u) {
+                ok_holo = false;
+            }
+            if (n_chips > 0u && n_chips <= 512u) {
+                uint8_t holo_out[32];
+                size_t holo_len = 0u;
+                const uint32_t dec_st = g_chaos_l911_holo.Decode_Holo_Block(
+                    holo_i,
+                    holo_q,
+                    static_cast<uint16_t>(n_chips),
+                    UINT64_MAX,
+                    holo_out,
+                    &holo_len);
+                if (dec_st != HTS_Holo_Dispatcher::SECURE_TRUE || holo_len != 16u) {
+                    ok_holo = false;
+                }
+                else if (std::memcmp(holo_out, holo_payload, 16u) != 0) {
+                    ok_holo = false;
+                }
+            }
+            (void)g_chaos_l911_holo.Advance_Time();
+            uint32_t rot[4] = {
+                holo_seed[0] ^ wave,
+                holo_seed[1] ^ (wave << 3u),
+                holo_seed[2] ^ (wave * 0x1001u),
+                holo_seed[3] ^ (wave * 0xF0F0F0Fu)
+            };
+            if (g_chaos_l911_holo.Rotate_Seed(rot) != HTS_Holo_Dispatcher::SECURE_TRUE) {
+                ok_holo = false;
+            }
+        }
+
+        g_chaos_l911_v400.Set_Seed(0xBADC0DE3u);
+        g_chaos_l911_v400.Set_IR_Mode(false);
+        g_chaos_l911_v400.Set_IR_SIC_Enabled(false);
+        static uint8_t v_payload[8];
+        for (uint32_t i = 0u; i < 8u; ++i) {
+            v_payload[i] = static_cast<uint8_t>(i ^ 0xC3u);
+        }
+        static int16_t v_i[k_chaos_v400_max_chips];
+        static int16_t v_q[k_chaos_v400_max_chips];
+        for (uint32_t k = 0u; k < 40u; ++k) {
+            const int built = g_chaos_l911_v400.Build_Packet(
+                PayloadMode::DATA,
+                v_payload,
+                8,
+                static_cast<int16_t>(250 + static_cast<int16_t>(k & 7u)),
+                v_i,
+                v_q,
+                k_chaos_v400_max_chips);
+            if (built <= 0) {
+                ok_v400 = false;
+            }
+            for (int c = 0; c < built && c < k_chaos_v400_max_chips; ++c) {
+                g_chaos_l911_v400.Feed_Chip(
+                    static_cast<int16_t>(v_i[static_cast<size_t>(c)] ^ static_cast<int16_t>(k & 1u)),
+                    static_cast<int16_t>(v_q[static_cast<size_t>(c)] ^ static_cast<int16_t>(k & 2u)));
+            }
+            g_chaos_l911_v400.Tick_Adaptive_BPS();
+            g_chaos_l911_v400.Update_Adaptive_BPS(100u + (k * 37u));
+            g_chaos_l911_v400.Reset();
+        }
+
+        if (g_chaos_l911_holo.Shutdown() != HTS_Holo_Dispatcher::SECURE_TRUE) {
+            ok_holo = false;
+        }
+    }
+
+    // --- Security_Session 스래싱: 다회 초기화·청크 EtM·MAC 실패·복호 재검증 ---
+    //  송신측 IV=iv16 → tx_counter=iv16. 수신측은 Initialize 시 rx_counter=iv^도메인분리.
+    //  상대 TX 스트림과 RX 스트림을 맞추려면 수신 세션에 iv_peer(iv16[0]^0x80)를 넣어
+    //  rx_counter 초기(복호 전)가 송신 tx_counter 초기와 동일해지게 한다(HTS_Security_Session.h).
+    {
+        static uint8_t enc_k[32];
+        static uint8_t mac_k[32];
+        static uint8_t iv16[16];
+        for (uint32_t i = 0u; i < 32u; ++i) {
+            enc_k[i] = static_cast<uint8_t>(0x10u + (i & 0x0Fu));
+            mac_k[i] = static_cast<uint8_t>(0x80u + (i & 0x0Fu));
+        }
+        for (uint32_t i = 0u; i < 16u; ++i) {
+            iv16[i] = static_cast<uint8_t>(i ^ 0x3Cu);
+        }
+
+        uint8_t pt[48];
+        uint8_t ct[64];
+        uint8_t tag[32];
+        uint8_t pt2[64];
+        uint8_t bad_tag[32];
+
+        for (uint32_t cycle = 0u; cycle < 20u; ++cycle) {
+            g_chaos_l911_sess_tx.Terminate_Session();
+            g_chaos_l911_sess_rx.Terminate_Session();
+
+            uint8_t iv_peer[16];
+            for (uint32_t i = 0u; i < 16u; ++i) {
+                iv_peer[i] = iv16[i];
+            }
+            iv_peer[0] = static_cast<uint8_t>(iv_peer[0] ^ 0x80u);
+
+            const bool ini_tx = g_chaos_l911_sess_tx.Initialize(
+                CipherAlgorithm::LEA_256_CTR,
+                MacAlgorithm::HMAC_SHA256,
+                enc_k,
+                mac_k,
+                iv16);
+            if (!ini_tx || !g_chaos_l911_sess_tx.Is_Active()) {
+                ok_sess = false;
+                break;
+            }
+            for (uint32_t j = 0u; j < sizeof(pt); ++j) {
+                pt[j] = static_cast<uint8_t>(
+                    static_cast<uint8_t>(cycle + j) ^ static_cast<uint8_t>(0xA7u));
+            }
+            if (!g_chaos_l911_sess_tx.Protect_Begin()) {
+                ok_sess = false;
+            }
+            if (!g_chaos_l911_sess_tx.Protect_Chunk(pt, 16u, ct)) {
+                ok_sess = false;
+            }
+            if (!g_chaos_l911_sess_tx.Protect_Chunk(pt + 16u, 16u, ct + 16u)) {
+                ok_sess = false;
+            }
+            if (!g_chaos_l911_sess_tx.Protect_Chunk(pt + 32u, 16u, ct + 32u)) {
+                ok_sess = false;
+            }
+            if (!g_chaos_l911_sess_tx.Protect_End(tag)) {
+                ok_sess = false;
+            }
+            if (!g_chaos_l911_sess_rx.Initialize(
+                    CipherAlgorithm::LEA_256_CTR,
+                    MacAlgorithm::HMAC_SHA256,
+                    enc_k,
+                    mac_k,
+                    iv_peer) ||
+                !g_chaos_l911_sess_rx.Is_Active()) {
+                ok_sess = false;
+                break;
+            }
+            for (uint32_t i = 0u; i < 32u; ++i) {
+                bad_tag[i] = static_cast<uint8_t>(tag[i] ^ 0xFFu);
+            }
+            if (g_chaos_l911_sess_rx.Unprotect_Payload(ct, 48u, bad_tag, pt2)) {
+                ok_sess = false;
+            }
+            g_chaos_l911_sess_rx.Terminate_Session();
+            if (!g_chaos_l911_sess_rx.Initialize(
+                    CipherAlgorithm::LEA_256_CTR,
+                    MacAlgorithm::HMAC_SHA256,
+                    enc_k,
+                    mac_k,
+                    iv_peer)) {
+                ok_sess = false;
+                break;
+            }
+            if (!g_chaos_l911_sess_rx.Unprotect_Payload(ct, 48u, tag, pt2)) {
+                ok_sess = false;
+            }
+            for (uint32_t j = 0u; j < 48u; ++j) {
+                if (pt[j] != pt2[j]) {
+                    ok_sess = false;
+                }
+            }
+            enc_k[0] = static_cast<uint8_t>(enc_k[0] ^ static_cast<uint8_t>(cycle + 1u));
+            mac_k[31] = static_cast<uint8_t>(mac_k[31] ^ static_cast<uint8_t>(cycle + 3u));
+        }
+        g_chaos_l911_sess_tx.Terminate_Session();
+        g_chaos_l911_sess_rx.Terminate_Session();
+    }
+
+    // --- SecureMemory::secureWipe 검증(샘플 버퍼) ---
+    {
+        alignas(8) static uint8_t wipe_buf[96];
+        for (uint32_t i = 0u; i < sizeof(wipe_buf); ++i) {
+            wipe_buf[i] = static_cast<uint8_t>(0x5Au ^ static_cast<uint8_t>(i));
+        }
+        SecureMemory::secureWipe(static_cast<void*>(wipe_buf), sizeof(wipe_buf));
+        uint32_t or_all = 0u;
+        for (uint32_t i = 0u; i < sizeof(wipe_buf); ++i) {
+            or_all |= static_cast<uint32_t>(wipe_buf[i]);
+        }
+        if (or_all != 0u) {
+            ok_wipe = false;
+        }
+    }
+
+    // --- 전력 FSM: 클럭 토글·PVD ISR 경로·HAL 없는 슬립 요청(실패)·복구 ---
+    {
+        g_chaos_l911_power.Shutdown();
+        if (!g_chaos_l911_power.Initialize()) {
+            ok_pwr = false;
+        }
+        static const PVD_Level k_pvd_cycle[8] = {
+            PVD_Level::V_2_0, PVD_Level::V_2_1, PVD_Level::V_2_3,
+            PVD_Level::V_2_5, PVD_Level::V_2_6, PVD_Level::V_2_7,
+            PVD_Level::V_2_8, PVD_Level::V_2_9
+        };
+        for (uint32_t p = 0u; p < 96u; ++p) {
+            const PVD_Level pvd_step = k_pvd_cycle[p % 8u];
+            g_chaos_l911_power.Set_PVD_Level(pvd_step);
+            g_chaos_l911_power.Handle_PVD_Event();
+
+            const PowerMode pm = ((p & 1u) == 0u) ? PowerMode::RUN : PowerMode::LOW_RUN;
+            const PowerMode cur_mode = g_chaos_l911_power.Get_Current_Mode();
+            const bool wants_change =
+                (static_cast<uint8_t>(cur_mode) != static_cast<uint8_t>(pm));
+            const bool clk_rc = g_chaos_l911_power.Set_Clock_Mode(pm);
+
+            const uint8_t pv = static_cast<uint8_t>(pvd_step);
+            const bool is_low_pvd =
+                (pv <= static_cast<uint8_t>(PVD_Level::V_2_3));
+            if (is_low_pvd) {
+                if (wants_change && clk_rc) {
+                    ok_pwr = false;
+                }
+            } else {
+                if (!clk_rc) {
+                    ok_pwr = false;
+                }
+            }
+
+            if (!Power_Is_Valid_State(g_chaos_l911_power.Get_State())) {
+                ok_pwr = false;
+            }
+
+            g_chaos_l911_power.Set_PVD_Level(PVD_Level::V_2_9);
+            g_chaos_l911_power.Handle_PVD_Event();
+            if (g_chaos_l911_power.Get_State() != PowerState::ACTIVE) {
+                ok_pwr = false;
+            }
+        }
+        // 슬립 구간: 루프 마지막이 V_2_9·ACTIVE여도, 여기서 전제를 한 번 더 고정한다.
+        // (Request_Sleep 실패는 HAL 부재 시 의도됨 — ACTIVE→SLEEPING 시도 후 ERROR 수렴)
+        g_chaos_l911_power.Set_PVD_Level(PVD_Level::V_2_9);
+        g_chaos_l911_power.Handle_PVD_Event();
+        if (g_chaos_l911_power.Get_State() != PowerState::ACTIVE) {
+            ok_pwr = false;
+        }
+
+        const bool sleep_rc = g_chaos_l911_power.Request_Sleep(PowerMode::SLEEP, 0u);
+        if (sleep_rc) {
+            ok_pwr = false;
+        }
+        if (!Power_Is_Valid_State(g_chaos_l911_power.Get_State())) {
+            ok_pwr = false;
+        }
+        g_chaos_l911_power.Shutdown();
+        if (!g_chaos_l911_power.Initialize()) {
+            ok_pwr = false;
+        }
+        if (g_chaos_l911_power.Get_State() != PowerState::ACTIVE) {
+            ok_pwr = false;
+        }
+        g_chaos_l911_power.Shutdown();
+    }
+
+    printf("  [S11] Holo:%s V400:%s Session:%s Wipe:%s Power:%s\n",
+        ok_holo ? "OK" : "NG",
+        ok_v400 ? "OK" : "NG",
+        ok_sess ? "OK" : "NG",
+        ok_wipe ? "OK" : "NG",
+        ok_pwr ? "OK" : "NG");
+    CHECK("S11a Holo 텐서·shim", ok_holo);
+    CHECK("S11b V400 디스패처 스트레스", ok_v400);
+    CHECK("S11c Security_Session 스래싱", ok_sess);
+    CHECK("S11d SecureMemory::secureWipe", ok_wipe);
+    CHECK("S11e 전력 FSM·슬립 실패 경로", ok_pwr);
+}
+
+// =========================================================================
+//  S12 — V400 FHSS: 도약 시퀀스 동기·RF_SETTLING Blanking·DATA 재개
+// =========================================================================
+static void scenario_rf_hopping_control() {
+    SECTION("S12 V400 FHSS — tx/rx 채널 동기·Blanking·정상 DATA RTT");
+
+    static uint8_t fhss_payload[8];
+    for (uint32_t i = 0u; i < 8u; ++i) {
+        fhss_payload[i] = static_cast<uint8_t>(
+            static_cast<uint8_t>(0xA5u) ^ static_cast<uint8_t>(i));
+    }
+    static int16_t fhss_i[k_chaos_v400_max_chips];
+    static int16_t fhss_q[k_chaos_v400_max_chips];
+
+    g_fhss_tx.Reset();
+    g_fhss_rx.Reset();
+    const uint32_t fhss_seed = 0xC0FFEE12u;
+    g_fhss_tx.Set_Seed(fhss_seed);
+    g_fhss_rx.Set_Seed(fhss_seed);
+    g_fhss_tx.Set_IR_Mode(false);
+    g_fhss_rx.Set_IR_Mode(false);
+    g_fhss_tx.Set_IR_SIC_Enabled(false);
+    g_fhss_rx.Set_IR_SIC_Enabled(false);
+
+    for (uint32_t hop = 0u; hop < 8u; ++hop) {
+        const uint8_t expect_ch = HTS_V400_Dispatcher::FHSS_Derive_Channel(
+            fhss_seed, hop);
+
+        const uint8_t ch_tx = g_fhss_tx.FHSS_Request_Hop_As_Tx();
+        const uint8_t ch_rx = g_fhss_rx.FHSS_Request_Hop_As_Rx();
+
+        CHECK("FHSS hop TX/RX 채널 일치", ch_tx == ch_rx);
+        CHECK("FHSS hop 채널 예측값 일치", ch_tx == expect_ch);
+        CHECK("FHSS hop 유효 채널(0~127)", ch_tx <= 127u);
+
+        CHECK("FHSS settling 진입(TX)", g_fhss_tx.FHSS_Is_Rf_Settling());
+        CHECK("FHSS settling 진입(RX)", g_fhss_rx.FHSS_Is_Rf_Settling());
+
+        for (int slot = 0; slot < HTS_V400_Dispatcher::FHSS_SETTLE_CHIPS; ++slot) {
+            const int built_blank = g_fhss_tx.Build_Packet(
+                PayloadMode::DATA,
+                fhss_payload,
+                8,
+                static_cast<int16_t>(300),
+                fhss_i,
+                fhss_q,
+                k_chaos_v400_max_chips);
+            CHECK("Blanking 중 TX Build_Packet==0", built_blank == 0);
+            g_fhss_tx.Feed_Chip(static_cast<int16_t>(0), static_cast<int16_t>(0));
+            g_fhss_rx.Feed_Chip(static_cast<int16_t>(0), static_cast<int16_t>(0));
+        }
+
+        CHECK("Blanking 종료 후 TX WAIT_SYNC",
+            g_fhss_tx.Get_Phase() == RxPhase::WAIT_SYNC);
+        CHECK("Blanking 종료 후 RX WAIT_SYNC",
+            g_fhss_rx.Get_Phase() == RxPhase::WAIT_SYNC);
+        CHECK("Blanking 종료 TX settling 아님", !g_fhss_tx.FHSS_Is_Rf_Settling());
+        CHECK("Blanking 종료 RX settling 아님", !g_fhss_rx.FHSS_Is_Rf_Settling());
+    }
+
+    g_fhss_tx.Reset();
+    g_fhss_rx.Reset();
+    g_fhss_tx.Set_Seed(fhss_seed);
+    g_fhss_rx.Set_Seed(fhss_seed);
+    g_fhss_tx.Set_IR_Mode(false);
+    g_fhss_rx.Set_IR_Mode(false);
+
+    g_fhss_decode_hits = 0;
+    g_fhss_rx.Set_Packet_Callback(fhss_on_decoded);
+
+    const int built_data = g_fhss_tx.Build_Packet(
+        PayloadMode::DATA,
+        fhss_payload,
+        8,
+        static_cast<int16_t>(280),
+        fhss_i,
+        fhss_q,
+        k_chaos_v400_max_chips);
+    CHECK("FHSS 후 DATA Build_Packet>0", built_data > 0);
+
+    for (int c = 0; c < built_data && c < k_chaos_v400_max_chips; ++c) {
+        g_fhss_rx.Feed_Chip(
+            fhss_i[static_cast<size_t>(c)],
+            fhss_q[static_cast<size_t>(c)]);
+    }
+
+    CHECK("FHSS 후 DATA 디코드 콜백", g_fhss_decode_hits == 1);
+    g_fhss_rx.Set_Packet_Callback(nullptr);
+}
+
+// =========================================================================
 //  main
 // =========================================================================
 int main() {
     printf("================================================================\n");
-    printf("  AMI 종합 통합 테스트 — S1~S10 시나리오 (비상·메쉬·CoAP·OTA·교차Tick)\n");
+    printf("  AMI 종합 통합 테스트 — S1~S11 (… + Layer9~11 카오스)\n");
     printf("================================================================\n");
 
     scenario_emergency_beacon();
@@ -421,6 +851,8 @@ int main() {
     scenario_metering();
     scenario_ota();
     scenario_interleaved_ticks();
+    scenario_chaos_layer9_to_11();
+    scenario_rf_hopping_control();
 
     SUMMARY();
     return g_fail ? 1 : 0;

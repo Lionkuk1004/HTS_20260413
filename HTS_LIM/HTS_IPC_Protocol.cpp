@@ -1248,7 +1248,9 @@ namespace ProtectedEngine {
 
             // CFI 위반으로 ERROR_RECOVERY(0x10)에 머물면 k_rx_valid_mask에 안 걸려
             // Process_RX_Frame이 영구 스킵 → 링·링크 정지. 합법 전이로 IDLE 복귀 후 처리.
-            if (impl->state == IPC_State::ERROR_RECOVERY) {
+            if ((static_cast<uint8_t>(impl->state)
+                    & static_cast<uint8_t>(IPC_State::ERROR_RECOVERY))
+                == static_cast<uint8_t>(IPC_State::ERROR_RECOVERY)) {
                 (void)impl->Transition_State(IPC_State::IDLE);
             }
 

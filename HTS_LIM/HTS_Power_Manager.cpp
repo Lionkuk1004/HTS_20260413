@@ -425,6 +425,14 @@ namespace ProtectedEngine {
             return true;
         }
 
+        // PVD V_2_3 이하: RUN <-> LOW_RUN 클럭 전환 거부(동일 모드는 위에서 이미 허용)
+        {
+            const uint8_t pl = static_cast<uint8_t>(impl->pvd_level);
+            if (pl <= static_cast<uint8_t>(PVD_Level::V_2_3)) {
+                return false;
+            }
+        }
+
         return impl->Execute_Clock_Switch(mode);
     }
 

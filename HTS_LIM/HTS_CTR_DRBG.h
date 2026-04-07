@@ -133,8 +133,9 @@ namespace ProtectedEngine {
             const uint8_t* in_16, uint8_t* out_16) noexcept;
 
         /// @brief seed_material 구성 (entropy || nonce || pers, SEED_LEN 패딩)
+        /// @note seed_out 은 정확히 SEED_LEN 바이트 배열 참조 — SAL/정적 분석에 크기 전달
         static void Build_Seed_Material(
-            uint8_t* seed_out,
+            uint8_t (&seed_out)[SEED_LEN],
             const uint8_t* entropy, size_t e_len,
             const uint8_t* nonce, size_t n_len,
             const uint8_t* pers, size_t p_len) noexcept;

@@ -31,6 +31,7 @@
 //                                │  ┌──────────────┐
 //                                └──│ READ_PAYLOAD │
 //                                   └──────────────┘
+//   FHSS: 임의 단계 → RF_SETTLING(PLL 안정·Blanking) → WAIT_SYNC
 //
 //  [CFI 검증 (항목⑬)]
 //   모든 phase_ 전이는 set_phase_()를 경유하며,
@@ -91,7 +92,16 @@ namespace ProtectedEngine {
     enum class RxPhase : uint8_t {
         WAIT_SYNC = 0u,  ///< 프리앰블 탐색 대기
         READ_HEADER = 1u,  ///< 헤더 심볼 수신 중
-        READ_PAYLOAD = 2u   ///< 페이로드 심볼 수신 중
+        READ_PAYLOAD = 2u,  ///< 페이로드 심볼 수신 중
+        RF_SETTLING = 3u   ///< RF PLL 안정 구간 — 칩 송수신 Blanking(타이머는 Feed_Chip 경유)
+    };
+
+    /* BUG-FIX-RETX: HARQ 연속모드 soft_clip 정책 */
+    /* BUG-FIX-SC1: soft_clip 정책 플래그 추가 — 페이로드 절벽 방지 */
+    enum class SoftClipPolicy : uint8_t {
+        ALWAYS    = 0u,   // 전 구간 ON (기존 동작, 기본값)
+        SYNC_ONLY = 1u,   // 프리앰블/헤더만 ON, 페이로드 OFF (양산 권장)
+        NEVER     = 2u    // 전 구간 OFF (벤치 전용, 프리앰블/헤더도 OFF)
     };
 
     /// @brief 디코딩 완료 패킷 구조체
@@ -175,6 +185,11 @@ namespace ProtectedEngine {
         int Build_Packet(PayloadMode mode, const uint8_t* info, int info_len,
             int16_t amp, int16_t* out_I, int16_t* out_Q, int max_chips) noexcept;
 
+        int Build_Retx(PayloadMode mode, const uint8_t* info, int ilen,
+            int16_t amp, int16_t* oI, int16_t* oQ, int max_c) noexcept;
+        void Feed_Retx_Chip(int16_t rx_I, int16_t rx_Q) noexcept;
+        bool Is_Retx_Ready() const noexcept { return retx_ready_; }
+
         /// @brief RX 칩 1개 주입 (ISR 또는 메인 루프에서 연속 호출)
         void Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept;
 
@@ -197,6 +212,17 @@ namespace ProtectedEngine {
         void Set_IR_Mode(bool enable) noexcept;
         [[nodiscard]] bool Get_IR_Mode() const noexcept;
 
+        /* BUG-FIX-PRE1: 프리앰블 반복 — 고재밍 동기 확보 */
+        void Set_Preamble_Reps(int reps) noexcept {
+            pre_reps_ = (reps < 1) ? 1 : (reps > 8) ? 8 : reps;
+        }
+        [[nodiscard]] int Get_Preamble_Reps() const noexcept { return pre_reps_; }
+
+        void Set_Preamble_Boost(int boost) noexcept {
+            pre_boost_ = (boost < 1) ? 1 : (boost > 4) ? 4 : boost;
+        }
+        [[nodiscard]] int Get_Preamble_Boost() const noexcept { return pre_boost_; }
+
         /// @brief IR DATA·64칩·IQ_SAME SIC — CRC 실패 후 재인코딩 예상 칩을 다음 라운드에서 감산
         /// @note 기본값 OFF. 필요 시 `Set_IR_SIC_Enabled(true)` 로 활성화.
         void Set_IR_SIC_Enabled(bool enable) noexcept;
@@ -216,6 +242,9 @@ namespace ProtectedEngine {
         // ── AJC ON/OFF (벤치마크 전용, 양산 기본값 true) ──
         void Set_AJC_Enabled(bool enable) noexcept { ajc_enabled_ = enable; }
         [[nodiscard]] bool Get_AJC_Enabled() const noexcept { return ajc_enabled_; }
+
+        void Set_SoftClip_Policy(SoftClipPolicy p) noexcept { soft_clip_policy_ = p; }
+        SoftClipPolicy Get_SoftClip_Policy() const noexcept { return soft_clip_policy_; }
 
         /// @brief 현재 적응형 BPS 반환 (3~6)
         [[nodiscard]] int         Get_Current_BPS64()   const noexcept;
@@ -237,6 +266,22 @@ namespace ProtectedEngine {
         /// @brief 헤더 심볼 수
         static constexpr int     HDR_SYMS = 2;
 
+        /// @brief FHSS 도약 채널(0~127) — `seed`·`seq` 혼합, `/`·`%` 없음(`& 0x7F`만)
+        [[nodiscard]] static uint8_t FHSS_Derive_Channel(
+            uint32_t seed, uint32_t seq) noexcept;
+
+        /// @brief TX 역할 도약: 현재 `tx_seq_`로 채널 산출 후 시퀀스 증가·Blanking 진입
+        /// @return 0~127 정상, 0xFF 이미 RF_SETTLING 또는 전이 실패
+        [[nodiscard]] uint8_t FHSS_Request_Hop_As_Tx() noexcept;
+
+        /// @brief RX 역할 도약: 현재 `rx_seq_`로 채널 산출 후 시퀀스 증가·Blanking 진입
+        [[nodiscard]] uint8_t FHSS_Request_Hop_As_Rx() noexcept;
+
+        [[nodiscard]] bool FHSS_Is_Rf_Settling() const noexcept;
+
+        /// @brief RF PLL 안정 슬롯 수(64칩 1심볼 분량)
+        static constexpr int FHSS_SETTLE_CHIPS = 64;
+
     private:
         RxPhase     phase_;             ///< 현재 RX 상태 (CFI 보호)
         PayloadMode cur_mode_;          ///< 현재 페이로드 모드
@@ -244,6 +289,7 @@ namespace ProtectedEngine {
         uint32_t    seed_;              ///< PRNG 마스터 시드
         uint32_t    tx_seq_;            ///< TX 시퀀스 번호
         uint32_t    rx_seq_;            ///< RX 시퀀스 번호
+        int         rf_settle_chips_remaining_{ 0 }; ///< RF_SETTLING 남은 칩 슬롯
         PacketCB    on_pkt_;            ///< 패킷 수신 콜백
         ControlCB   on_ctrl_;           ///< 모드 전환 콜백
 
@@ -255,6 +301,8 @@ namespace ProtectedEngine {
         int     wait_sync_count_{ 0 };
 
         int     pre_phase_;             ///< 프리앰블 매칭 단계 (0 또는 1)
+        int     pre_reps_ = 1;
+        int     pre_boost_ = 1;  ///< 프리앰블 진폭 배수 (1=기존, 2=+6dB, 4=+12dB)
         uint8_t hdr_syms_[2] = {};      ///< 수신된 헤더 심볼
         int     hdr_count_;             ///< 수신된 헤더 심볼 수
         int     hdr_fail_;              ///< 헤더 디코딩 연속 실패 수
@@ -317,6 +365,7 @@ namespace ProtectedEngine {
 
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부
+        bool retx_ready_;
 
         // ── WorkBuf 유니온 (반이중 TDM) ───────────────────────────
         //
@@ -390,6 +439,7 @@ namespace ProtectedEngine {
         int16_t orig_Q_[64] = {};       ///< 원본 Q (AJC 전, 현재 심볼)
 
         bool cw_cancel_enabled_{ true };  ///< CW 소거기 활성화 (양산 기본 true)
+        SoftClipPolicy soft_clip_policy_ = SoftClipPolicy::ALWAYS;
         bool ajc_enabled_{ true };        ///< AJC 활성화 (양산 기본 true)
 
         /// @brief RF 측정값 (비소유 포인터, nullptr 허용)
@@ -409,7 +459,9 @@ namespace ProtectedEngine {
         //   나머지 전이 = 불법 (ROP/글리치/헤더 인증 우회)
         //   → full_reset_()으로 안전 상태 강제 복귀
         //
-        //  구현: 12슬롯 LUT + key 클램프(>=12 → 불법 슬롯), 반환은 풀비트 마스크
+        //  구현: 16슬롯 LUT(4상태) + key 클램프(>=16 → 불법 슬롯), 반환은 풀비트 마스크
+
+        void fhss_abort_rx_for_hop_() noexcept;
 
         static constexpr uint32_t PHASE_TRANSFER_MASK_OK = 0xFFFFFFFFu;
         static constexpr uint32_t PHASE_TRANSFER_MASK_FAIL = 0x00000000u;
@@ -481,3 +533,6 @@ namespace ProtectedEngine {
     static_assert(FEC_HARQ::NSYM64 <= 256, "NSYM64 exceeds orig_acc_ buffer");
 
 } // namespace ProtectedEngine
+
+/// @brief Mock RF 합성기 채널 설정 (벤치/검증 — HTS_V400_Dispatcher.cpp)
+extern "C" void Mock_RF_Synth_Set_Channel(uint8_t channel) noexcept;

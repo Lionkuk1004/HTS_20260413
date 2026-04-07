@@ -10,10 +10,26 @@
 #include "HTS_RF_Metrics.h"   // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
 #include <climits>
+#include <cstdio>
 #include <cstring>
 #include <atomic>
 
+// [진단] Barrage30 등 PC 하네스 — ir_chip_I_[0]·harq_round_ 스냅샷 (기본 0=비활성)
+extern "C" volatile int g_hts_ir_diag_chip0 = 0;
+extern "C" volatile int g_hts_ir_diag_feed_idx = -1;
+
+extern "C" void Mock_RF_Synth_Set_Channel(uint8_t channel) noexcept {
+    const unsigned ch = static_cast<unsigned>(channel) & 0x7Fu;
+    std::printf("[Mock_RF_Synth] ch=%u\n", ch);
+}
+
 namespace ProtectedEngine {
+
+    // 파일 범위 스크래치: 단일 디스패처 실행 컨텍스트(반이중)·해당 경로 재진입 없음 가정.
+    // NSYM64 ≥ NSYM16 이므로 Encode 심볼 버퍼 겸용.
+    alignas(64) static uint8_t g_v400_sym_scratch[FEC_HARQ::NSYM64];
+    alignas(16) static int16_t g_v400_harq_fb_tmp_I[16];
+    alignas(16) static int16_t g_v400_harq_fb_tmp_Q[16];
 
     // ── HARQ CCM union: Chase Q 누적 ↔ IR 칩 버퍼 + IR_RxState (SRAM 추가 0) ─
     //  Chase: harq_Q[NSYM64][C64] int32 — 기존 g_harq_Q_ccm 와 동일 레이아웃
@@ -26,7 +42,7 @@ namespace ProtectedEngine {
         int16_t chip_Q[FEC_HARQ::NSYM64][FEC_HARQ::C64];
         FEC_HARQ::IR_RxState ir_state;
     };
-    HTS_CCM_SECTION
+    alignas(64) HTS_CCM_SECTION
     static union {
         V400HarqCcmChase chase;
         V400HarqCcmIr ir;
@@ -42,8 +58,8 @@ namespace ProtectedEngine {
     static_assert(sizeof(uint64_t) == 8, "uint64_t required for FWHT energy");
 
     // IR 64칩 SIC: 다음 라운드 수신 칩에서 Walsh 예상 성분 감산 (CCM 외 정적, 칩 버퍼와 동일 차원)
-    static int16_t g_sic_exp_I[FEC_HARQ::NSYM64][FEC_HARQ::C64];
-    static int16_t g_sic_exp_Q[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+    alignas(64) static int16_t g_sic_exp_I[FEC_HARQ::NSYM64][FEC_HARQ::C64];
+    alignas(64) static int16_t g_sic_exp_Q[FEC_HARQ::NSYM64][FEC_HARQ::C64];
 
     // ── Q8 사인파 LUT (sin(2π×k/8)×256) ──
     // AntiJamEngine.cpp의 k_cw_lut8와 동일한 값 — 두 모듈 일관성 유지
@@ -134,23 +150,28 @@ namespace ProtectedEngine {
 
     //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
 
+    alignas(64) static const int16_t k_walsh_dummy_iq_[64] = {};
+
     HTS_V400_Dispatcher::SymDecResult
         HTS_V400_Dispatcher::walsh_dec_full_(
             const int16_t* I, const int16_t* Q, int n) noexcept {
-        if (I == nullptr || Q == nullptr || n <= 0) {
-            return {
-                static_cast<int8_t>(-1), 0u, 0u
-            };
-        }
-        for (int i = 0; i < n; ++i) {
-            dec_wI_[i] = I[i]; dec_wQ_[i] = Q[i];
-        }
-        fwht_raw(dec_wI_, n);
-        fwht_raw(dec_wQ_, n);
+        const uint32_t p_ok = static_cast<uint32_t>(
+            (I != nullptr) & (Q != nullptr)
+            & static_cast<uint32_t>((n == 16) | (n == 64)));
+        const int n_eff = ((n == 16) | (n == 64)) ? n : 64;
+        const int16_t* srcI = (p_ok != 0u) ? I : k_walsh_dummy_iq_;
+        const int16_t* srcQ = (p_ok != 0u) ? Q : k_walsh_dummy_iq_;
 
-        const int bps = (n == 64) ? cur_bps64_ : 4;
+        for (int i = 0; i < n_eff; ++i) {
+            dec_wI_[i] = srcI[i];
+            dec_wQ_[i] = srcQ[i];
+        }
+        fwht_raw(dec_wI_, n_eff);
+        fwht_raw(dec_wQ_, n_eff);
+
+        const int bps = (n_eff == 64) ? cur_bps64_ : 4;
         const int valid = 1 << bps;
-        const int search = (valid < n) ? valid : n;
+        const int search = (valid < n_eff) ? valid : n_eff;
 
         uint64_t best = 0u, second = 0u;
         uint8_t dec = 0xFFu;
@@ -171,11 +192,17 @@ namespace ProtectedEngine {
                 static_cast<uint32_t>(m) * c_gt_best
                 + static_cast<uint32_t>(dec) * (1u - c_gt_best));
         }
-        return {
-            (best == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(dec),
-            static_cast<uint32_t>(best >> 16u),
-            static_cast<uint32_t>(second >> 16u)
-        };
+        const int32_t mk = -static_cast<int32_t>(p_ok);
+        const int8_t sym_raw =
+            (best == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(dec);
+        const int8_t sym_out = static_cast<int8_t>(
+            (static_cast<int32_t>(sym_raw) & mk)
+            | (static_cast<int32_t>(-1) & ~mk));
+        uint32_t be = static_cast<uint32_t>(best >> 16u);
+        uint32_t se = static_cast<uint32_t>(second >> 16u);
+        be &= static_cast<uint32_t>(mk);
+        se &= static_cast<uint32_t>(mk);
+        return { sym_out, be, se };
     }
 
     // ── I=Q 동일 모드 (재밍 방어) ──
@@ -188,24 +215,22 @@ namespace ProtectedEngine {
     HTS_V400_Dispatcher::SymDecResultSplit
         HTS_V400_Dispatcher::walsh_dec_split_(
             const int16_t* I, const int16_t* Q, int n) noexcept {
-        if (I == nullptr || Q == nullptr || n <= 0) {
-            return {
-                static_cast<int8_t>(-1), static_cast<int8_t>(-1),
-                0u, 0u, 0u, 0u
-            };
-        }
+        const uint32_t p_ok = static_cast<uint32_t>(
+            (I != nullptr) & (Q != nullptr)
+            & static_cast<uint32_t>((n == 16) | (n == 64)));
+        const int n_eff = ((n == 16) | (n == 64)) ? n : 64;
+        const int16_t* srcI = (p_ok != 0u) ? I : k_walsh_dummy_iq_;
+        const int16_t* srcQ = (p_ok != 0u) ? Q : k_walsh_dummy_iq_;
 
-        // I 채널 FWHT
-        for (int i = 0; i < n; ++i) { dec_wI_[i] = I[i]; }
-        fwht_raw(dec_wI_, n);
+        for (int i = 0; i < n_eff; ++i) { dec_wI_[i] = srcI[i]; }
+        fwht_raw(dec_wI_, n_eff);
 
-        // Q 채널 FWHT
-        for (int i = 0; i < n; ++i) { dec_wQ_[i] = Q[i]; }
-        fwht_raw(dec_wQ_, n);
+        for (int i = 0; i < n_eff; ++i) { dec_wQ_[i] = srcQ[i]; }
+        fwht_raw(dec_wQ_, n_eff);
 
-        const int bps = (n == 64) ? cur_bps64_ : 4;
+        const int bps = (n_eff == 64) ? cur_bps64_ : 4;
         const int valid = 1 << bps;
-        const int search = (valid < n) ? valid : n;
+        const int search = (valid < n_eff) ? valid : n_eff;
 
         // I 채널 최대 에너지 빈 탐색
         uint64_t bestI = 0u, secI = 0u;
@@ -246,13 +271,27 @@ namespace ProtectedEngine {
                 + static_cast<uint32_t>(decQ) * (1u - c_gt_best));
         }
 
+        const int32_t mk = -static_cast<int32_t>(p_ok);
+        const int8_t symI_raw =
+            (bestI == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(decI);
+        const int8_t symQ_raw =
+            (bestQ == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(decQ);
+        uint32_t bIe = static_cast<uint32_t>(bestI >> 16u);
+        uint32_t sIe = static_cast<uint32_t>(secI >> 16u);
+        uint32_t bQe = static_cast<uint32_t>(bestQ >> 16u);
+        uint32_t sQe = static_cast<uint32_t>(secQ >> 16u);
+        bIe &= static_cast<uint32_t>(mk);
+        sIe &= static_cast<uint32_t>(mk);
+        bQe &= static_cast<uint32_t>(mk);
+        sQe &= static_cast<uint32_t>(mk);
         return {
-            (bestI == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(decI),
-            (bestQ == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(decQ),
-            static_cast<uint32_t>(bestI >> 16u),
-            static_cast<uint32_t>(secI >> 16u),
-            static_cast<uint32_t>(bestQ >> 16u),
-            static_cast<uint32_t>(secQ >> 16u)
+            static_cast<int8_t>(
+                (static_cast<int32_t>(symI_raw) & mk)
+                | (static_cast<int32_t>(-1) & ~mk)),
+            static_cast<int8_t>(
+                (static_cast<int32_t>(symQ_raw) & mk)
+                | (static_cast<int32_t>(-1) & ~mk)),
+            bIe, sIe, bQe, sQe
         };
     }
     static void walsh_enc(uint8_t sym, int n, int16_t amp,
@@ -285,35 +324,71 @@ namespace ProtectedEngine {
         }
     }
 
-    static void swap_u32(uint32_t& a, uint32_t& b) noexcept {
-        uint32_t t = a; a = b; b = t;
+    /// AntiJam_Engine::sort_u32_ct_adjacent_64 와 동일 — N=64, 2016 인접 교환(고정 트립).
+    static constexpr int kSoftClipSortN = 64;
+    static_assert(
+        static_cast<std::size_t>(kSoftClipSortN)
+                * static_cast<std::size_t>(kSoftClipSortN - 1) / 2u
+            == 2016u,
+        "soft-clip sort trip count");
+
+    static void sort_u32_ct_adjacent_64_dispatch(uint32_t* a) noexcept {
+        if (a == nullptr) {
+            return;
+        }
+        for (int pass = 0; pass < kSoftClipSortN - 1; ++pass) {
+            const int imax = kSoftClipSortN - 1 - pass;
+            for (int i = 0; i < imax; ++i) {
+                const uint32_t x = a[i];
+                const uint32_t y = a[i + 1];
+                const uint32_t gt = static_cast<uint32_t>(x > y);
+                const uint32_t m = 0u - gt;
+                a[i] = (x & ~m) | (y & m);
+                a[i + 1] = (y & ~m) | (x & m);
+            }
+        }
     }
 
-    static uint32_t nth_select(uint32_t* a, int n, int k) noexcept {
-        int lo = 0, hi = n - 1;
-        int guard = n << 2;
-        while (lo < hi && --guard > 0) {
-            int mid = lo + ((hi - lo) >> 1);
-            if (a[mid] < a[lo]) swap_u32(a[lo], a[mid]);
-            if (a[hi] < a[lo]) swap_u32(a[lo], a[hi]);
-            if (a[mid] < a[hi]) swap_u32(a[mid], a[hi]);
-            uint32_t pivot = a[hi];
-            int store = lo;
-            for (int i = lo; i < hi; ++i)
-                if (a[i] < pivot) { swap_u32(a[store], a[i]); ++store; }
-            swap_u32(a[store], a[hi]);
-            if (store == k) return a[store];
-            if (store < k) lo = store + 1;
-            else            hi = store - 1;
+    static void fill_u32_pad_max_(uint32_t* work, const uint32_t* src,
+        int nc) noexcept {
+        for (int i = 0; i < nc; ++i) {
+            work[static_cast<std::size_t>(i)] =
+                src[static_cast<std::size_t>(i)];
         }
-        return a[lo];
+        for (int i = nc; i < kSoftClipSortN; ++i) {
+            work[static_cast<std::size_t>(i)] = 0xFFFFFFFFu;
+        }
+    }
+
+    static inline int32_t clamp_abs_branchless_i32_(int32_t v,
+        int32_t cap) noexcept {
+        const int32_t neg_cap = -cap;
+        const uint32_t under = static_cast<uint32_t>(v < neg_cap);
+        const uint32_t over = static_cast<uint32_t>(v > cap);
+        const int32_t ku = -static_cast<int32_t>(under);
+        const int32_t ko = -static_cast<int32_t>(over);
+        return (neg_cap & ku) | (cap & ko) | (v & ~(ku | ko));
+    }
+
+    static inline int16_t ssat16_dispatch_(int32_t v) noexcept {
+#if defined(__GNUC__) && defined(__ARM_ARCH) && (__ARM_ARCH >= 6)
+        return static_cast<int16_t>(__builtin_arm_ssat(v, 16));
+#else
+        const uint32_t ov_hi = static_cast<uint32_t>(v > 32767);
+        const uint32_t ov_lo = static_cast<uint32_t>(v < -32768);
+        const int32_t msk = -static_cast<int32_t>(ov_hi | ov_lo);
+        const int32_t repl =
+            (32767 & -static_cast<int32_t>(ov_hi))
+            | (-32768 & -static_cast<int32_t>(ov_lo));
+        return static_cast<int16_t>((v & ~msk) | (repl & msk));
+#endif
     }
 
     // =====================================================================
     //  soft_clip_iq — 아웃라이어 소프트 클리핑
     //
-    //  64비트 나눗셈 대신 Q8 비율: ratio_q8=(clip<<8)/m, (I·ratio_q8)>>8 등 32비트 경로
-    //  clip 상한은 아래 static_assert 및 루프 가드와 일치
+    //  분위(clip)는 UDIV 없는 상수 시간 인접 정렬로 산출.
+    //  초과 구간은 UDIV 비율 대신 L∞ 포화(±bl) + 비트마스크(고정 루프 비용).
     // =====================================================================
     static void soft_clip_iq(int16_t* I, int16_t* Q, int nc,
         uint32_t* mags, uint32_t* sorted) noexcept {
@@ -330,43 +405,34 @@ namespace ProtectedEngine {
         }
         int q_idx = nc >> 2;
         if (q_idx < 1) q_idx = 1;
-        uint32_t bl = nth_select(sorted, nc, q_idx - 1);
+        fill_u32_pad_max_(sorted, mags, nc);
+        sort_u32_ct_adjacent_64_dispatch(sorted);
+        uint32_t bl = sorted[static_cast<std::size_t>(q_idx - 1)];
         if (bl < 1u) bl = 1u;
         const uint32_t clip = bl << 2u;
-        if (clip < 4u) return;
-
-        //  clip max = 65535 << 2 = 262140
-        //  clip << 8 = 262140 × 256 = 67,107,840 < UINT32_MAX
-        static_assert(
-            static_cast<uint64_t>(65535u) * 4u * 256u < 0xFFFFFFFFULL,
-            "clip << 8 overflows uint32_t");
-
-        const uint32_t clip8 = clip << 8u;
+        const uint32_t clip_active = static_cast<uint32_t>(clip >= 4u);
         const uint32_t thresh = clip << 1u;
 
-        //  항상 ratio 계산 + 비트마스크로 선택 (타이밍 일정)
+        static_assert(
+            static_cast<uint64_t>(65535u) * 4u * 256u < 0xFFFFFFFFULL,
+            "clip domain");
+
+        uint32_t cap_u = bl;
+        const uint32_t cap_ov =
+            0u - static_cast<uint32_t>(cap_u > 32767u);
+        cap_u = (cap_u & ~cap_ov) | (32767u & cap_ov);
+        const int32_t cap_s = static_cast<int32_t>(cap_u);
+
         for (int i = 0; i < nc; ++i) {
-            const uint32_t m = mags[i] | 1u;  // div-by-zero 방지 (branchless)
-            const uint32_t raw_ratio = clip8 / m;
-            // ratio 클램프: >255 → 255 (branchless, C4146 방지)
-            const int32_t diff256 = 255 - static_cast<int32_t>(raw_ratio);
-            const uint32_t over_mask = static_cast<uint32_t>(diff256 >> 31);
-            const uint32_t ratio_q8 = (raw_ratio | over_mask) & 0xFFu;
-
-            const int32_t cI = (static_cast<int32_t>(I[i]) *
-                static_cast<int32_t>(ratio_q8)) >> 8;
-            const int32_t cQ = (static_cast<int32_t>(Q[i]) *
-                static_cast<int32_t>(ratio_q8)) >> 8;
-
-            // mask = 0xFFFFFFFF if mags > thresh, 0 otherwise
-            const int32_t diff = static_cast<int32_t>(mags[i])
-                - static_cast<int32_t>(thresh) - 1;
-            const int32_t mask = ~(diff >> 31);
-
-            I[i] = static_cast<int16_t>(
-                (cI & mask) | (static_cast<int32_t>(I[i]) & ~mask));
-            Q[i] = static_cast<int16_t>(
-                (cQ & mask) | (static_cast<int32_t>(Q[i]) & ~mask));
+            const uint32_t gt = static_cast<uint32_t>(mags[i] > thresh)
+                & clip_active;
+            const int32_t mk = -static_cast<int32_t>(gt);
+            const int32_t vi0 = static_cast<int32_t>(I[i]);
+            const int32_t vq0 = static_cast<int32_t>(Q[i]);
+            const int32_t vi1 = clamp_abs_branchless_i32_(vi0, cap_s);
+            const int32_t vq1 = clamp_abs_branchless_i32_(vq0, cap_s);
+            I[i] = static_cast<int16_t>((vi1 & mk) | (vi0 & ~mk));
+            Q[i] = static_cast<int16_t>((vq1 & mk) | (vq0 & ~mk));
         }
     }
 
@@ -384,7 +450,9 @@ namespace ProtectedEngine {
         }
         int q25 = nc >> 2;
         if (q25 < 1) q25 = 1;
-        uint32_t bl = nth_select(scratch_sort_, nc, q25 - 1);
+        fill_u32_pad_max_(scratch_sort_, scratch_mag_, nc);
+        sort_u32_ct_adjacent_64_dispatch(scratch_sort_);
+        uint32_t bl = scratch_sort_[static_cast<std::size_t>(q25 - 1)];
         if (bl < 1u) bl = 1u;
         if (bl < k_BH_NOISE_FLOOR || bl > k_BH_SATURATION) return;
         uint32_t punch = bl << 3u;
@@ -476,12 +544,15 @@ namespace ProtectedEngine {
         , on_pkt_(nullptr), on_ctrl_(nullptr)
         , buf_I_{}, buf_Q_{}
         , buf_idx_(0), pre_phase_(0)
+        , pre_reps_(1)
+        , pre_boost_(1)
         , hdr_syms_{}, hdr_count_(0), hdr_fail_(0)
         , pay_cps_(0), pay_total_(0), pay_recv_(0)
         , harq_round_(0), max_harq_(0)
         , vid_fail_(0), vid_succ_(0)
         , v1_rx_{}, v1_idx_(0)
         , rx_{}, sym_idx_(0), harq_inited_(false)
+        , retx_ready_(false)
         , harq_Q_(g_harq_ccm_union.chase.harq_Q)
         , ir_chip_I_(&g_harq_ccm_union.ir.chip_I[0][0])
         , ir_chip_Q_(&g_harq_ccm_union.ir.chip_Q[0][0])
@@ -494,6 +565,7 @@ namespace ProtectedEngine {
         , orig_acc_{}
         , orig_I_{}, orig_Q_{}
         , cw_cancel_enabled_(true)
+        , soft_clip_policy_(SoftClipPolicy::ALWAYS)
         , ajc_enabled_(true)
         , dec_wI_{}, dec_wQ_{}
     {
@@ -703,6 +775,7 @@ namespace ProtectedEngine {
     void HTS_V400_Dispatcher::full_reset_() noexcept {
         // WAIT_SYNC 전이는 모든 상태에서 무조건 합법
         phase_ = RxPhase::WAIT_SYNC;
+        rf_settle_chips_remaining_ = 0;
         cur_mode_ = PayloadMode::UNKNOWN;
         buf_idx_ = 0; pre_phase_ = 0;
         wait_sync_head_ = 0;
@@ -722,6 +795,7 @@ namespace ProtectedEngine {
             static_cast<void*>(&g_harq_ccm_union), sizeof(g_harq_ccm_union));
         ir_rv_ = 0;
         sic_expect_valid_ = false;
+        retx_ready_ = false;
         std::memset(g_sic_exp_I, 0, sizeof(g_sic_exp_I));
         std::memset(g_sic_exp_Q, 0, sizeof(g_sic_exp_Q));
         if (ir_mode_ && ir_state_ != nullptr) {
@@ -731,30 +805,104 @@ namespace ProtectedEngine {
 
     // =====================================================================
     //
-    //  CFI: key=(from<<2)|to, 12슬롯 LUT + 인덱스 클램프, 반환 풀비트 마스크
+    //  CFI: key=(from<<2)|to, 16슬롯 LUT(RF_SETTLING 포함) + 클램프
     // =====================================================================
     uint32_t HTS_V400_Dispatcher::set_phase_(RxPhase target) noexcept {
         const uint32_t f = static_cast<uint32_t>(phase_);
         const uint32_t t = static_cast<uint32_t>(target);
         const uint32_t key = (f << 2u) | t;
 
-        // LUT + 클램프 인덱스 — key 글리치 시에도 OOB 없음 (>=12 → 슬롯 11 = 불법)
-        static constexpr uint8_t k_trans_legal[12] = {
-            1u, 1u, 0u, 0u,
-            1u, 0u, 1u, 0u,
+        static constexpr uint8_t k_trans_legal[16] = {
+            1u, 1u, 0u, 1u,
+            1u, 0u, 1u, 1u,
+            1u, 0u, 0u, 1u,
             1u, 0u, 0u, 0u
         };
-        const uint32_t k_ok = static_cast<uint32_t>(key < 12u);
-        const uint32_t idx = key * k_ok + 11u * (1u - k_ok);
+        const uint32_t k_ok = static_cast<uint32_t>(key < 16u);
+        const uint32_t idx = key * k_ok + 15u * (1u - k_ok);
         const uint32_t legal_u = static_cast<uint32_t>(k_trans_legal[idx]);
+        const uint32_t p = static_cast<uint32_t>(phase_);
 
-        if (legal_u != 0u) {
-            phase_ = target;
-            return PHASE_TRANSFER_MASK_OK;
+        phase_ = static_cast<RxPhase>(
+            t * legal_u + p * (1u - legal_u));
+
+        if (legal_u == 0u) {
+            full_reset_();
+            return PHASE_TRANSFER_MASK_FAIL;
         }
+        return PHASE_TRANSFER_MASK_OK;
+    }
 
-        full_reset_();
-        return PHASE_TRANSFER_MASK_FAIL;
+    void HTS_V400_Dispatcher::fhss_abort_rx_for_hop_() noexcept {
+        buf_idx_ = 0;
+        wait_sync_head_ = 0;
+        wait_sync_count_ = 0;
+        pre_phase_ = 0;
+        hdr_count_ = 0;
+        hdr_fail_ = 0;
+        pay_recv_ = 0;
+        pay_total_ = 0;
+        pay_cps_ = 0;
+        v1_idx_ = 0;
+        sym_idx_ = 0;
+        harq_round_ = 0;
+        harq_inited_ = false;
+        retx_ready_ = false;
+        cur_mode_ = PayloadMode::UNKNOWN;
+    }
+
+    uint8_t HTS_V400_Dispatcher::FHSS_Derive_Channel(
+        uint32_t seed, uint32_t seq) noexcept {
+        uint32_t x = seed ^ seq;
+        x ^= x << 13u;
+        x ^= x >> 17u;
+        x ^= x << 5u;
+        x ^= seq << 15u;
+        x ^= seed >> 3u;
+        x ^= (seq << 7u) ^ (seed << 11u);
+        return static_cast<uint8_t>(
+            x & static_cast<uint32_t>(0x7Fu));
+    }
+
+    uint8_t HTS_V400_Dispatcher::FHSS_Request_Hop_As_Tx() noexcept {
+        const uint32_t in_settle = static_cast<uint32_t>(
+            phase_ == RxPhase::RF_SETTLING);
+        if (in_settle != 0u) {
+            return static_cast<uint8_t>(0xFFu);
+        }
+        const uint8_t ch = FHSS_Derive_Channel(seed_, tx_seq_);
+        Mock_RF_Synth_Set_Channel(ch);
+        tx_seq_ = tx_seq_ + 1u;
+        fhss_abort_rx_for_hop_();
+        rf_settle_chips_remaining_ = FHSS_SETTLE_CHIPS;
+        const uint32_t ph_ok = set_phase_(RxPhase::RF_SETTLING);
+        if (ph_ok == PHASE_TRANSFER_MASK_FAIL) {
+            return static_cast<uint8_t>(0xFFu);
+        }
+        return ch;
+    }
+
+    uint8_t HTS_V400_Dispatcher::FHSS_Request_Hop_As_Rx() noexcept {
+        const uint32_t in_settle = static_cast<uint32_t>(
+            phase_ == RxPhase::RF_SETTLING);
+        if (in_settle != 0u) {
+            return static_cast<uint8_t>(0xFFu);
+        }
+        const uint8_t ch = FHSS_Derive_Channel(seed_, rx_seq_);
+        Mock_RF_Synth_Set_Channel(ch);
+        rx_seq_ = rx_seq_ + 1u;
+        fhss_abort_rx_for_hop_();
+        rf_settle_chips_remaining_ = FHSS_SETTLE_CHIPS;
+        const uint32_t ph_ok = set_phase_(RxPhase::RF_SETTLING);
+        if (ph_ok == PHASE_TRANSFER_MASK_FAIL) {
+            return static_cast<uint8_t>(0xFFu);
+        }
+        return ch;
+    }
+
+    bool HTS_V400_Dispatcher::FHSS_Is_Rf_Settling() const noexcept {
+        return static_cast<uint32_t>(phase_)
+            == static_cast<uint32_t>(RxPhase::RF_SETTLING);
     }
 
     void HTS_V400_Dispatcher::Reset() noexcept {
@@ -825,6 +973,9 @@ namespace ProtectedEngine {
 
             const int nc = (cur_mode_ == PayloadMode::DATA) ? 64 : 16;
 
+            /* IR-HARQ: RV마다 송신 파형이 다르므로 칩 도메인 += 금지.
+               결합은 FEC Decode*_IR 의 ir_state_(LLR)에서만 수행; 수신 칩은 매 심볼 덮어쓰기. */
+
             std::memcpy(orig_I_, buf_I_, nc * sizeof(int16_t));
             std::memcpy(orig_Q_, buf_Q_, nc * sizeof(int16_t));
 
@@ -835,15 +986,19 @@ namespace ProtectedEngine {
             if (ajc_enabled_) {
                 ajc_.Process(buf_I_, buf_Q_, nc);
             }
-            soft_clip_iq(buf_I_, buf_Q_, nc, scratch_mag_, scratch_sort_);
+            /* BUG-FIX-SC3: retx 경로 soft_clip 비활성화 — IR LLR 누적 품질 보존 */
+            if (!retx_ready_) {
+                soft_clip_iq(buf_I_, buf_Q_, nc, scratch_mag_, scratch_sort_);
+            }
 
             if (nc == 16) {
                 if (sym_idx_ < FEC_HARQ::NSYM16) {
                     if (ir_mode_) {
+                        /* BUG-FIX-IR2: IR 칩은 raw(orig) 누적 — cw_cancel/AJC/soft_clip buf 변형 제외 */
                         const int base = sym_idx_ * FEC_HARQ::C16;
                         for (int c = 0; c < nc; ++c) {
-                            ir_chip_I_[base + c] = buf_I_[c];
-                            ir_chip_Q_[base + c] = buf_Q_[c];
+                            ir_chip_I_[base + c] = orig_I_[c];
+                            ir_chip_Q_[base + c] = orig_Q_[c];
                         }
                     }
                     else {
@@ -905,12 +1060,13 @@ namespace ProtectedEngine {
                     // ── I=Q 동일 또는 IR-HARQ (칩 보관, 누적 없음) ──
                     if (sym_idx_ < nsym64) {
                         if (ir_mode_) {
+                            /* BUG-FIX-IR2: IR 칩은 raw(orig) 기준 + SIC — buf 전처리 경로 미사용 */
                             const int base = sym_idx_ * FEC_HARQ::C64;
                             const uint32_t use_sic_u =
                                 static_cast<uint32_t>(sic_expect_valid_) & 1u;
                             for (int c = 0; c < nc; ++c) {
-                                int32_t vi = static_cast<int32_t>(buf_I_[c]);
-                                int32_t vq = static_cast<int32_t>(buf_Q_[c]);
+                                int32_t vi = static_cast<int32_t>(orig_I_[c]);
+                                int32_t vq = static_cast<int32_t>(orig_Q_[c]);
                                 const int32_t subI =
                                     static_cast<int32_t>(
                                         g_sic_exp_I[static_cast<std::size_t>(
@@ -925,20 +1081,8 @@ namespace ProtectedEngine {
                                     * static_cast<int32_t>(use_sic_u);
                                 vi -= subI;
                                 vq -= subQ;
-                                if (vi > static_cast<int32_t>(INT16_MAX)) {
-                                    vi = static_cast<int32_t>(INT16_MAX);
-                                } else if (vi < static_cast<int32_t>(INT16_MIN)) {
-                                    vi = static_cast<int32_t>(INT16_MIN);
-                                }
-                                if (vq > static_cast<int32_t>(INT16_MAX)) {
-                                    vq = static_cast<int32_t>(INT16_MAX);
-                                } else if (vq < static_cast<int32_t>(INT16_MIN)) {
-                                    vq = static_cast<int32_t>(INT16_MIN);
-                                }
-                                ir_chip_I_[base + c] =
-                                    static_cast<int16_t>(vi);
-                                ir_chip_Q_[base + c] =
-                                    static_cast<int16_t>(vq);
+                                ir_chip_I_[base + c] = ssat16_dispatch_(vi);
+                                ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
                             }
                             for (int c = 0; c < nc; ++c) {
                                 const uint8_t hiI = static_cast<uint8_t>(
@@ -1011,6 +1155,9 @@ namespace ProtectedEngine {
         pkt.success_mask = DecodedPacket::DECODE_MASK_FAIL;
         uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
 
+        /* WorkBuf: Decode_Core / Decode*_IR / Encode_Core / Bit_Deinterleave 가
+           사용 구간을 매 호출 덮어씀 — 전역 memset 제거 (FEC_HARQ.cpp 주석 정합). */
+
         if (cur_mode_ == PayloadMode::VIDEO_1) {
             pkt.success_mask = static_cast<uint32_t>(0u
                 - static_cast<uint32_t>(
@@ -1025,6 +1172,16 @@ namespace ProtectedEngine {
             if (ir_mode_) {
                 harq_round_++;
                 const int rv = ir_rv_;
+                if (g_hts_ir_diag_chip0 != 0 && ir_chip_I_ != nullptr &&
+                    ir_state_ != nullptr) {
+                    std::printf(
+                        "[IR-DIAG] pre-Decode16_IR feed=%d harq_round_=%d "
+                        "ir_chip_I_[0]=%d ir_state.rounds_done=%d\n",
+                        static_cast<int>(g_hts_ir_diag_feed_idx),
+                        harq_round_,
+                        static_cast<int>(ir_chip_I_[0]),
+                        ir_state_->rounds_done);
+                }
                 pkt.success_mask = static_cast<uint32_t>(0u
                     - static_cast<uint32_t>(
                         (ir_state_ != nullptr &&
@@ -1057,6 +1214,8 @@ namespace ProtectedEngine {
                 static_cast<uint32_t>(pkt.success_mask != 0u);
             const uint32_t harq_ex =
                 static_cast<uint32_t>(harq_round_ >= max_harq_);
+            // 연속모드에서는 harq 소진을 하네스 외부(feeds 루프)에서 관리
+            // max_harq_는 DATA_K(32)로 통일하여 VOICE도 32라운드 누적 허용
             const uint32_t finish = dec_ok | harq_ex;
             if (finish != 0u) {
                 if (dec_ok != 0u) {
@@ -1070,17 +1229,11 @@ namespace ProtectedEngine {
             }
             else {
                 pay_recv_ = 0; sym_idx_ = 0;
-                if (ir_mode_ &&
-                    ir_chip_I_ != nullptr &&
-                    ir_chip_Q_ != nullptr) {
-                    const size_t chip_bytes =
-                        static_cast<size_t>(FEC_HARQ::NSYM16) *
-                        static_cast<size_t>(FEC_HARQ::C16) *
-                        sizeof(int16_t);
-                    std::memset(ir_chip_I_, 0, chip_bytes);
-                    std::memset(ir_chip_Q_, 0, chip_bytes);
-                }
-                set_phase_(RxPhase::WAIT_SYNC);
+                /* IR 칩: on_sym_ 라운드마다 덮어쓰기 — memset 불필요 */
+                /* BUG-FIX-RETX5: 실패 시 READ_PAYLOAD 유지, 재동기 회피 */
+                retx_ready_ = true;
+                buf_idx_ = 0;
+                // set_phase_(RxPhase::WAIT_SYNC);
             }
         }
         else if (cur_mode_ == PayloadMode::DATA) {
@@ -1095,6 +1248,23 @@ namespace ProtectedEngine {
                     ir_chip_Q_ != nullptr) {
                     const int nsym_ir = FEC_HARQ::nsym_for_bps(bps);
                     const int rv = ir_rv_;
+                    if (g_hts_ir_diag_chip0 != 0) {
+                        std::printf(
+                            "[IR-DIAG] pre-Decode64_IR feed=%d harq_round_=%d "
+                            "ir_chip_I_[0]=%d ir_state.rounds_done=%d\n",
+                            static_cast<int>(g_hts_ir_diag_feed_idx),
+                            harq_round_,
+                            static_cast<int>(ir_chip_I_[0]),
+                            ir_state_->rounds_done);
+                        std::printf(
+                            "[IR-DIAG] Decode64_IR args: bps=%d nsym_ir=%d "
+                            "il=0x%08x rv=%d rounds_done=%d\n",
+                            bps,
+                            nsym_ir,
+                            static_cast<unsigned>(il),
+                            rv,
+                            ir_state_->rounds_done);
+                    }
                     pkt.success_mask = static_cast<uint32_t>(0u
                         - static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
                             ir_chip_I_,
@@ -1168,19 +1338,11 @@ namespace ProtectedEngine {
             }
             else {
                 pay_recv_ = 0; sym_idx_ = 0;
-                if (ir_mode_ &&
-                    ir_chip_I_ != nullptr &&
-                    ir_chip_Q_ != nullptr) {
-                    const int bps_clr = cur_bps64_;
-                    const int nsym_clr = FEC_HARQ::nsym_for_bps(bps_clr);
-                    const size_t chip_bytes =
-                        static_cast<size_t>(nsym_clr) *
-                        static_cast<size_t>(FEC_HARQ::C64) *
-                        sizeof(int16_t);
-                    std::memset(ir_chip_I_, 0, chip_bytes);
-                    std::memset(ir_chip_Q_, 0, chip_bytes);
-                }
-                set_phase_(RxPhase::WAIT_SYNC);
+                /* IR 칩: on_sym_ 라운드마다 덮어쓰기 — memset 불필요 */
+                /* BUG-FIX-RETX5: 실패 시 READ_PAYLOAD 유지, 재동기 회피 */
+                retx_ready_ = true;
+                buf_idx_ = 0;
+                // set_phase_(RxPhase::WAIT_SYNC);
             }
         }
     }
@@ -1292,12 +1454,22 @@ namespace ProtectedEngine {
     int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode,
         const uint8_t* info, int ilen, int16_t amp,
         int16_t* oI, int16_t* oQ, int max_c) noexcept {
+        if (phase_ == RxPhase::RF_SETTLING) {
+            return 0;
+        }
         if (info == nullptr || oI == nullptr || oQ == nullptr) return 0;
         if (ilen < 0 || max_c <= 0) return 0;
+        /* 신규 PDU 송신: 인코드 RV는 0부터 (try_decode_ 첫 라운드 rv=0 과 정합) */
+        ir_rv_ = 0;
         int pos = 0;
+        /* BUG-FIX-PRE5: 프리앰블 반복 폐기, amp 부스트로 교체.
+           프리앰블+헤더를 boost 배 진폭으로 전송.
+           RX walsh_dec_full_ 은 에너지 비교이므로 변경 불필요. */
+        const int16_t pre_amp = static_cast<int16_t>(
+            static_cast<int32_t>(amp) * pre_boost_);
         if (pos + 128 > max_c) return 0;
-        walsh_enc(PRE_SYM0, 64, amp, &oI[pos], &oQ[pos]); pos += 64;
-        walsh_enc(PRE_SYM1, 64, amp, &oI[pos], &oQ[pos]); pos += 64;
+        walsh_enc(PRE_SYM0, 64, pre_amp, &oI[pos], &oQ[pos]); pos += 64;
+        walsh_enc(PRE_SYM1, 64, pre_amp, &oI[pos], &oQ[pos]); pos += 64;
 
         static constexpr uint8_t k_tx_mb[4] = { 0u, 1u, 2u, 3u };
         static constexpr int k_tx_psyms[4] = {
@@ -1326,9 +1498,9 @@ namespace ProtectedEngine {
             iq_bit |
             (static_cast<uint16_t>(psyms) & 0x01FFu);
         if (pos + 128 > max_c) return 0;
-        walsh_enc(static_cast<uint8_t>((hdr >> 6u) & 0x3Fu), 64, amp,
+        walsh_enc(static_cast<uint8_t>((hdr >> 6u) & 0x3Fu), 64, pre_amp,
             &oI[pos], &oQ[pos]); pos += 64;
-        walsh_enc(static_cast<uint8_t>(hdr & 0x3Fu), 64, amp,
+        walsh_enc(static_cast<uint8_t>(hdr & 0x3Fu), 64, pre_amp,
             &oI[pos], &oQ[pos]); pos += 64;
 
         uint32_t il = seed_ ^ (tx_seq_ * 0xA5A5A5A5u);
@@ -1430,7 +1602,115 @@ namespace ProtectedEngine {
         return pos;
     }
 
+    /* BUG-FIX-RETX3: HARQ 연속모드 TX — 프리앰블/헤더 생략 */
+    int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode,
+        const uint8_t* info, int ilen, int16_t amp,
+        int16_t* oI, int16_t* oQ, int max_c) noexcept {
+        if (phase_ == RxPhase::RF_SETTLING) {
+            return 0;
+        }
+        if (info == nullptr || oI == nullptr || oQ == nullptr) return 0;
+        if (ilen < 0 || max_c <= 0) return 0;
+        int pos = 0;
+
+        /* Build_Packet가 tx_seq_++ 한 뒤이므로 Retx il은 직전 송신 시퀀스(tx_seq_-1)와
+           수신 il(seed_ ^ rx_seq_*0xA5A5A5A5) 정합 */
+        const uint32_t tx_seq_prev =
+            (tx_seq_ > 0u) ? (tx_seq_ - 1u) : 0u;
+        const uint32_t il = seed_ ^ (tx_seq_prev * 0xA5A5A5A5u);
+
+        if (mode == PayloadMode::VIDEO_1) {
+            return 0;
+        }
+        if (mode == PayloadMode::VIDEO_16 || mode == PayloadMode::VOICE) {
+            uint8_t syms[FEC_HARQ::NSYM16] = {};
+            int enc_n = 0;
+            if (ir_mode_) {
+                enc_n = FEC_HARQ::Encode16_IR(
+                    info, ilen, syms, il, ir_rv_, wb_);
+            }
+            else {
+                enc_n = FEC_HARQ::Encode16(info, ilen, syms, il, wb_);
+            }
+            if (enc_n <= 0) {
+                SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+                return 0;
+            }
+            for (int s = 0; s < FEC_HARQ::NSYM16; ++s) {
+                const int space = max_c - pos;
+                if (space < 16) {
+                    SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+                    return 0;
+                }
+                walsh_enc(syms[s], 16, amp, &oI[pos], &oQ[pos]); pos += 16;
+            }
+            SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+        }
+        else if (mode == PayloadMode::DATA) {
+            const int nsym = cur_nsym64_();
+            uint8_t syms[FEC_HARQ::NSYM64] = {};
+            int enc_n = 0;
+            if (ir_mode_) {
+                enc_n = FEC_HARQ::Encode64_IR(
+                    info, ilen, syms, il, cur_bps64_, ir_rv_, wb_);
+            }
+            else {
+                enc_n = FEC_HARQ::Encode64_A(
+                    info, ilen, syms, il, cur_bps64_, wb_);
+            }
+            if (enc_n <= 0) {
+                SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+                return 0;
+            }
+
+            if (!ir_mode_ && iq_mode_ == IQ_Mode::IQ_INDEPENDENT) {
+                for (int s = 0; s < nsym; s += 2) {
+                    const int space = max_c - pos;
+                    if (space < 64) {
+                        SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+                        return 0;
+                    }
+                    const uint8_t sI = syms[s];
+                    const uint8_t sQ = (s + 1 < nsym)
+                        ? syms[s + 1] : 0u;
+                    walsh_enc_split(sI, sQ, 64, amp,
+                        &oI[pos], &oQ[pos]);
+                    pos += 64;
+                }
+            }
+            else {
+                for (int s = 0; s < nsym; ++s) {
+                    const int space = max_c - pos;
+                    if (space < 64) {
+                        SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+                        return 0;
+                    }
+                    walsh_enc(syms[s], 64, amp,
+                        &oI[pos], &oQ[pos]);
+                    pos += 64;
+                }
+            }
+            SecureMemory::secureWipe(static_cast<void*>(syms), sizeof(syms));
+        }
+        else {
+            return 0;
+        }
+        return pos;
+    }
+
     void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+        if (phase_ == RxPhase::RF_SETTLING) {
+            (void)rx_I;
+            (void)rx_Q;
+            if (rf_settle_chips_remaining_ > 0) {
+                rf_settle_chips_remaining_--;
+            }
+            if (rf_settle_chips_remaining_ == 0) {
+                (void)set_phase_(RxPhase::WAIT_SYNC);
+            }
+            return;
+        }
+
         if (phase_ == RxPhase::WAIT_SYNC) {
             if (wait_sync_count_ >= 64) return;
             const int widx = (wait_sync_head_ + wait_sync_count_) & 63;
@@ -1447,7 +1727,10 @@ namespace ProtectedEngine {
 
             cw_cancel_64_(orig_I_, orig_Q_);
             if (ajc_enabled_) { ajc_.Process(orig_I_, orig_Q_, 64); }
-            soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
+            /* BUG-FIX-SC2: soft_clip 정책 분기 — ALWAYS=기존동작, SYNC_ONLY=페이로드OFF, NEVER=전체OFF */
+            if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
+                soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
+            }
 
             SymDecResult r0 = walsh_dec_full_(orig_I_, orig_Q_, 64);
             int8_t sym = r0.sym;
@@ -1465,9 +1748,7 @@ namespace ProtectedEngine {
                 pre_phase_ = 0;
             }
             if (matched) {
-                wait_sync_head_ = 0;
-                wait_sync_count_ = 0;
-                buf_idx_ = 0;
+                wait_sync_head_ = 0; wait_sync_count_ = 0; buf_idx_ = 0;
             }
             else {
                 wait_sync_head_ = (wait_sync_head_ + 1) & 63;
@@ -1486,7 +1767,10 @@ namespace ProtectedEngine {
 
                 cw_cancel_64_(orig_I_, orig_Q_);
                 if (ajc_enabled_) { ajc_.Process(orig_I_, orig_Q_, 64); }
-                soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
+                /* BUG-FIX-SC2: soft_clip 정책 분기 — ALWAYS=기존동작, SYNC_ONLY=페이로드OFF, NEVER=전체OFF */
+                if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
+                    soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
+                }
 
                 SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64);
                 int8_t sym = rh.sym;
@@ -1506,10 +1790,7 @@ namespace ProtectedEngine {
                             (mode == PayloadMode::DATA) ? 64 : 16;
                         pay_total_ = plen; pay_recv_ = 0;
                         v1_idx_ = 0; sym_idx_ = 0;
-                        max_harq_ = (mode == PayloadMode::VIDEO_1 ||
-                            mode == PayloadMode::VIDEO_16) ? 1 :
-                            (mode == PayloadMode::VOICE) ? FEC_HARQ::VOICE_K
-                            : FEC_HARQ::DATA_K;
+                        max_harq_ = FEC_HARQ::DATA_K;  // 모든 모드에서 32
                         set_phase_(RxPhase::READ_PAYLOAD); buf_idx_ = 0;
 
                         //  try_decode_ 내부에서 Init → Feed 이후라 데이터 파괴
@@ -1565,6 +1846,21 @@ namespace ProtectedEngine {
         else if (phase_ == RxPhase::READ_PAYLOAD) {
             if (buf_idx_ >= pay_cps_) on_sym_();
         }
+    }
+
+    /* BUG-FIX-RETX4: HARQ 연속모드 RX */
+    void HTS_V400_Dispatcher::Feed_Retx_Chip(
+        int16_t rx_I, int16_t rx_Q) noexcept
+    {
+        if (phase_ == RxPhase::RF_SETTLING) {
+            return;
+        }
+        if (!retx_ready_ || phase_ != RxPhase::READ_PAYLOAD) return;
+        if (buf_idx_ >= 64) return;
+        buf_I_[buf_idx_] = rx_I;
+        buf_Q_[buf_idx_] = rx_Q;
+        buf_idx_++;
+        if (buf_idx_ >= pay_cps_) on_sym_();
     }
 
 } // namespace ProtectedEngine

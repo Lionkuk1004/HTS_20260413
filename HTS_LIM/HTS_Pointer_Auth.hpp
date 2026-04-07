@@ -72,12 +72,46 @@ namespace ProtectedEngine {
             return static_cast<T*>(Authenticate_Pointer_Untyped(signed_ptr));
         }
 
+        /// @brief PAC 검증 (실패 시 nullptr, 정지 없음) — 공장·감사·RAII 가드용
+        [[nodiscard]] static void* TryAuthenticate_Pointer_Untyped(
+            uint64_t signed_ptr) noexcept;
+
+        template<typename T>
+        [[nodiscard]] static T* TryAuthenticate_Pointer(
+            uint64_t signed_ptr) noexcept {
+            return static_cast<T*>(
+                TryAuthenticate_Pointer_Untyped(signed_ptr));
+        }
+
         PAC_Manager() = delete;
         ~PAC_Manager() = delete;
         PAC_Manager(const PAC_Manager&) = delete;
         PAC_Manager& operator=(const PAC_Manager&) = delete;
         PAC_Manager(PAC_Manager&&) = delete;
         PAC_Manager& operator=(PAC_Manager&&) = delete;
+    };
+
+    /// @brief PAC 검증 RAII — 실패 시 is_valid()==false 로 조기 반환 경로 유지
+    class PAC_Authenticate_Scope {
+    public:
+        explicit PAC_Authenticate_Scope(uint64_t signed_token) noexcept
+            : ptr_(PAC_Manager::TryAuthenticate_Pointer_Untyped(signed_token)) {
+        }
+
+        PAC_Authenticate_Scope(const PAC_Authenticate_Scope&) = delete;
+        PAC_Authenticate_Scope& operator=(const PAC_Authenticate_Scope&) = delete;
+
+        [[nodiscard]] bool is_valid() const noexcept { return ptr_ != nullptr; }
+
+        template<typename T>
+        [[nodiscard]] T* as_ptr() const noexcept {
+            return static_cast<T*>(ptr_);
+        }
+
+        [[nodiscard]] void* raw() const noexcept { return ptr_; }
+
+    private:
+        void* ptr_;
     };
 
 } // namespace ProtectedEngine

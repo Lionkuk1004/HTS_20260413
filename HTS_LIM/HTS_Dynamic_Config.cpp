@@ -109,9 +109,15 @@ namespace ProtectedEngine {
     }
 
     HTS_Phy_Config HTS_Phy_Config_Factory::make(HTS_Phy_Tier tier) noexcept {
+        const uint32_t r = static_cast<uint32_t>(tier);
+        const uint32_t hi = static_cast<uint32_t>(HTS_Phy_Tier::TIER_64_ECCM);
+        const uint32_t bad = static_cast<uint32_t>(r > hi);
+        const uint32_t eff_u = (r & (~(0u - bad)));
+        const HTS_Phy_Tier eff = static_cast<HTS_Phy_Tier>(eff_u);
+
         HTS_Phy_Config cfg{};
 
-        switch (tier) {
+        switch (eff) {
         case HTS_Phy_Tier::TIER_32_IQ:
             cfg.chip_count = 32u;
             cfg.min_valid_chips = 16u;
@@ -135,9 +141,6 @@ namespace ProtectedEngine {
             cfg.squelch_threshold = k_SQUELCH_TH;
             cfg.cfar_default_mult = k_CFAR_MULT;
             break;
-
-        default:
-            System_Panic();
         }
         return cfg;
     }
@@ -159,9 +162,15 @@ namespace ProtectedEngine {
 
     HTS_Sys_Config HTS_Sys_Config_Factory::Get_Tier_Profile(
         HTS_Sys_Tier tier) noexcept {
+        const uint32_t r = static_cast<uint32_t>(tier);
+        const uint32_t hi = static_cast<uint32_t>(HTS_Sys_Tier::HYPER_SERVER);
+        const uint32_t bad = static_cast<uint32_t>(r > hi);
+        const uint32_t eff_u = (r & (~(0u - bad)));
+        const HTS_Sys_Tier eff = static_cast<HTS_Sys_Tier>(eff_u);
+
         HTS_Sys_Config result{};
 
-        switch (tier) {
+        switch (eff) {
         case HTS_Sys_Tier::EMBEDDED_MINI:
             result.node_count = k_EMBEDDED_NODES;
             result.anchor_ratio_percent = k_DEFAULT_ANCHOR_PCT;
@@ -179,9 +188,6 @@ namespace ProtectedEngine {
         case HTS_Sys_Tier::WORKSTATION:
         case HTS_Sys_Tier::HYPER_SERVER:
             break;
-
-        default:
-            System_Panic();
         }
 
         const uint64_t system_ram = Get_System_Physical_RAM();
@@ -191,7 +197,7 @@ namespace ProtectedEngine {
         if (admin > 0u) {
             active_ratio = admin;
         }
-        else if (tier == HTS_Sys_Tier::WORKSTATION) {
+        else if (eff == HTS_Sys_Tier::WORKSTATION) {
             active_ratio = 1u;
         }
         else {
@@ -225,7 +231,7 @@ namespace ProtectedEngine {
         result.node_count = final_nodes;
         result.anchor_ratio_percent = k_DEFAULT_ANCHOR_PCT;
 
-        if (tier == HTS_Sys_Tier::WORKSTATION) {
+        if (eff == HTS_Sys_Tier::WORKSTATION) {
             result.vdf_iterations = k_WORKSTATION_VDF;
             result.temporal_slice_chunk = k_WORKSTATION_CHUNK;
         }

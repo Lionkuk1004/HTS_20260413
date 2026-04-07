@@ -19,6 +19,60 @@
 namespace ProtectedEngine {
 namespace {
 
+constexpr std::size_t kGfExpLen = 32u;
+constexpr std::size_t kGaussRows = 4u;
+constexpr std::size_t kGaussCols = 5u;
+
+static inline std::size_t rs_gf_exp_index_clamped(int idx) noexcept
+{
+    int v = idx;
+    if (v < 0) {
+        v = 0;
+    }
+    if (v > 31) {
+        v = 31;
+    }
+    const std::size_t u =
+        static_cast<std::size_t>(v) & (kGfExpLen - 1u);
+#if defined(_MSC_VER)
+    __assume(u < kGfExpLen);
+#endif
+    return u;
+}
+
+static inline std::size_t rs_gauss_row_idx(int r) noexcept
+{
+    int v = r;
+    if (v < 0) {
+        v = 0;
+    }
+    if (v > static_cast<int>(kGaussRows - 1u)) {
+        v = static_cast<int>(kGaussRows - 1u);
+    }
+    const std::size_t u =
+        static_cast<std::size_t>(v) & (kGaussRows - 1u);
+#if defined(_MSC_VER)
+    __assume(u < kGaussRows);
+#endif
+    return u;
+}
+
+static inline std::size_t rs_gauss_col_idx(int c) noexcept
+{
+    int v = c;
+    if (v < 0) {
+        v = 0;
+    }
+    if (v > static_cast<int>(kGaussCols - 1u)) {
+        v = static_cast<int>(kGaussCols - 1u);
+    }
+    std::size_t u = static_cast<std::size_t>(v);
+#if defined(_MSC_VER)
+    __assume(u < kGaussCols);
+#endif
+    return u;
+}
+
 constexpr int RS_N = 15;
 constexpr int RS_K = 8;
 constexpr int NSYN = 7;
@@ -91,8 +145,16 @@ uint8_t gf_mul(uint8_t a, uint8_t b) noexcept
     const int mb = static_cast<int>(hb) * -1;
     const int la = static_cast<int>(g_log[static_cast<std::size_t>(a)]) & ma;
     const int lb = static_cast<int>(g_log[static_cast<std::size_t>(b)]) & mb;
+    const int sum_idx = la + lb;
+    int sum_clamped = sum_idx;
+    if (sum_clamped < 0) {
+        sum_clamped = 0;
+    }
+    if (sum_clamped > 31) {
+        sum_clamped = 31;
+    }
     const uint8_t p =
-        g_exp[static_cast<std::size_t>(la + lb)];
+        g_exp[rs_gf_exp_index_clamped(sum_clamped)];
     const uint32_t hz = ha & hb;
     return static_cast<uint8_t>(
         p & static_cast<uint8_t>(0u - hz));
@@ -103,8 +165,16 @@ uint8_t gf_inv(uint8_t a) noexcept
     const uint32_t ha = static_cast<uint32_t>(a != 0u);
     const int m = static_cast<int>(ha) * -1;
     const int la = static_cast<int>(g_log[static_cast<std::size_t>(a)]) & m;
+    const int inv_idx = 15 - la;
+    int inv_clamped = inv_idx;
+    if (inv_clamped < 0) {
+        inv_clamped = 0;
+    }
+    if (inv_clamped > 31) {
+        inv_clamped = 31;
+    }
     const uint8_t raw =
-        g_exp[static_cast<std::size_t>(15 - la)];
+        g_exp[rs_gf_exp_index_clamped(inv_clamped)];
     return static_cast<uint8_t>(
         raw & static_cast<uint8_t>(0u - ha));
 }
@@ -116,9 +186,23 @@ uint8_t gf_add(uint8_t a, uint8_t b) noexcept
 
 uint8_t gf_alpha_pow_mi(int m, int idx) noexcept
 {
+    int mc = m;
+    if (mc < 1) {
+        mc = 1;
+    }
+    if (mc > 7) {
+        mc = 7;
+    }
+    int ic = idx;
+    if (ic < 0) {
+        ic = 0;
+    }
+    if (ic >= RS_N) {
+        ic = RS_N - 1;
+    }
     const uint8_t e =
-        k_mi_mod15.v[static_cast<std::size_t>(m - 1)][static_cast<std::size_t>(idx)];
-    return g_exp[static_cast<std::size_t>(e)];
+        k_mi_mod15.v[static_cast<std::size_t>(mc - 1)][static_cast<std::size_t>(ic)];
+    return g_exp[rs_gf_exp_index_clamped(static_cast<int>(e))];
 }
 
 void syndromes(const uint8_t* r, uint8_t s[NSYN]) noexcept
@@ -210,18 +294,20 @@ uint32_t gf_gauss_ct(uint8_t a[4][5], int n, uint8_t x[3]) noexcept
             const uint32_t not_piv = static_cast<uint32_t>(r != col);
             const uint8_t rm = static_cast<uint8_t>(
                 0u - (row_act & not_piv));
-            const uint8_t f =
-                a[static_cast<std::size_t>(r)][static_cast<std::size_t>(col)];
+            const std::size_t r_u = rs_gauss_row_idx(r);
+            const std::size_t col_row_u = rs_gauss_row_idx(col);
+            const std::size_t col_dim_u = rs_gauss_col_idx(col);
+            const uint8_t f = a[r_u][col_dim_u];
             for (int c = col; c <= rhs; ++c) {
-                const uint8_t oldr =
-                    a[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)];
+                const std::size_t c_u = rs_gauss_col_idx(c);
+                const uint8_t oldr = a[r_u][c_u];
                 const uint8_t term =
-                    gf_mul(f, a[static_cast<std::size_t>(col)][static_cast<std::size_t>(c)]);
+                    gf_mul(f, a[col_row_u][c_u]);
                 const uint8_t nv = gf_add(oldr, term);
                 const uint8_t merged =
                     static_cast<uint8_t>((oldr & ~rm) | (nv & rm));
                 const uint8_t rowm = static_cast<uint8_t>(0u - (row_act & act));
-                a[static_cast<std::size_t>(r)][static_cast<std::size_t>(c)] =
+                a[r_u][c_u] =
                     static_cast<uint8_t>((oldr & ~rowm) | (merged & rowm));
             }
         }

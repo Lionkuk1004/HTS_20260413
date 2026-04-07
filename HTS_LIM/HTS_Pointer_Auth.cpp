@@ -224,7 +224,9 @@ namespace ProtectedEngine {
         return (pac_field << PAC_SHIFT) | raw_addr;
     }
 
-    void* PAC_Manager::Authenticate_Pointer_Untyped(uint64_t signed_ptr) noexcept {
+    void* PAC_Manager::TryAuthenticate_Pointer_Untyped(
+        uint64_t signed_ptr) noexcept {
+
         Ensure_Key_Initialized();
 
         const uint32_t stored_pac = static_cast<uint32_t>(
@@ -238,18 +240,26 @@ namespace ProtectedEngine {
         volatile uint32_t diff = stored_pac ^ expected_pac;
 
         if (diff != 0u) {
-            Halt_PAC_Violation("PAC mismatch — pointer tampered");
+            return nullptr;
         }
         if (diff != 0u) {
-            Halt_PAC_Violation("PAC mismatch — redundant check");
+            return nullptr;
         }
 
         void* const out =
             reinterpret_cast<void*>(static_cast<uintptr_t>(raw_addr));
         if (out == nullptr) {
-            Halt_PAC_Violation("Authenticated pointer is nullptr");
+            return nullptr;
         }
         return out;
+    }
+
+    void* PAC_Manager::Authenticate_Pointer_Untyped(uint64_t signed_ptr) noexcept {
+        void* const p = TryAuthenticate_Pointer_Untyped(signed_ptr);
+        if (p == nullptr) {
+            Halt_PAC_Violation("PAC mismatch — pointer tampered");
+        }
+        return p;
     }
 
     // =====================================================================

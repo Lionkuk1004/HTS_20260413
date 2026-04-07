@@ -34,6 +34,9 @@
 
 #include <atomic>
 #include <cstring>
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
 
 namespace ProtectedEngine {
 
@@ -117,12 +120,12 @@ namespace ProtectedEngine {
     //  SEED_LEN(48B) 초과 시 절단, 미달 시 0 패딩
     // =====================================================================
     void HTS_CTR_DRBG::Build_Seed_Material(
-        uint8_t* seed_out,
+        uint8_t (&seed_out)[SEED_LEN],
         const uint8_t* entropy, size_t e_len,
         const uint8_t* nonce, size_t n_len,
         const uint8_t* pers, size_t p_len) noexcept {
 
-        std::memset(seed_out, 0, SEED_LEN);
+        std::memset(seed_out, 0, sizeof(seed_out));
         size_t pos = 0u;
 
         // entropy 복사
@@ -134,21 +137,29 @@ namespace ProtectedEngine {
 
         // nonce XOR 혼합 (연접 대신 XOR — 고정 SEED_LEN 유지)
         if (nonce != nullptr && n_len > 0u) {
-            size_t idx = pos;
-            // pos == SEED_LEN(엔트로피가 꽉 참)이면 idx가 유효 범위 밖 → 0으로 래핑
-            if (idx >= SEED_LEN) {
-                idx = 0u;
+            size_t base = pos;
+            if (base >= SEED_LEN) {
+                base = 0u;
             }
             for (size_t i = 0u; i < n_len && i < SEED_LEN; ++i) {
-                seed_out[idx] ^= nonce[i];
-                ++idx;
-                if (idx >= SEED_LEN) { idx -= SEED_LEN; }
+                size_t j = (base + i) % SEED_LEN;
+                if (j >= SEED_LEN) {
+                    j = 0u;
+                }
+#if defined(_MSC_VER)
+                __assume(j < SEED_LEN);
+#endif
+                seed_out[j] ^= nonce[i];
             }
         }
 
-        // personalization XOR 혼합
+        // personalization XOR 혼합 — nmix ≤ SEED_LEN 이므로 i < SEED_LEN 항상 성립
         if (pers != nullptr && p_len > 0u) {
-            for (size_t i = 0u; i < p_len && i < SEED_LEN; ++i) {
+            const size_t nmix = (p_len < SEED_LEN) ? p_len : SEED_LEN;
+            for (size_t i = 0u; i < nmix; ++i) {
+#if defined(_MSC_VER)
+#pragma warning(suppress : 6385) // MSVC SAL 엔진의 크기 추론 버그(False Positive) 강제 무시
+#endif
                 seed_out[i] ^= pers[i];
             }
         }
@@ -228,6 +239,14 @@ namespace ProtectedEngine {
         const uint8_t* pers, size_t pers_len) noexcept {
 
         if (entropy == nullptr || entropy_len < SEED_LEN) {
+            return DRBG_Status::ERROR_ENTROPY_FAIL;
+        }
+
+        uint8_t entropy_or = 0u;
+        for (size_t i = 0u; i < entropy_len; ++i) {
+            entropy_or = static_cast<uint8_t>(entropy_or | entropy[i]);
+        }
+        if (entropy_or == 0u) {
             return DRBG_Status::ERROR_ENTROPY_FAIL;
         }
 
@@ -412,6 +431,14 @@ namespace ProtectedEngine {
 
         if (!instantiated.load(std::memory_order_acquire)) return DRBG_Status::ERROR_UNINSTANTIATED;
         if (entropy == nullptr || entropy_len < SEED_LEN) {
+            return DRBG_Status::ERROR_ENTROPY_FAIL;
+        }
+
+        uint8_t entropy_or = 0u;
+        for (size_t i = 0u; i < entropy_len; ++i) {
+            entropy_or = static_cast<uint8_t>(entropy_or | entropy[i]);
+        }
+        if (entropy_or == 0u) {
             return DRBG_Status::ERROR_ENTROPY_FAIL;
         }
 

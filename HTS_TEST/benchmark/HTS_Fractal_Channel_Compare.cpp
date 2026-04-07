@@ -77,6 +77,12 @@ constexpr size_t kNumSlabs = kChannelElems / kWireSlab;
 static_assert(kNumSlabs * kWireSlab == kChannelElems,
     "wire size must be divisible by 12-bit mapper domain");
 
+// V400 FEC 벤치: RxState64·WorkBuf 대형 — 스택이면 MSVC /analyze C6262. 단일 스레드 전제 정적 배치.
+static ProtectedEngine::FEC_HARQ::WorkBuf g_fec_cmp_wb{};
+static ProtectedEngine::FEC_HARQ::RxState64 g_fec_cmp_rx64{};
+static ProtectedEngine::FEC_HARQ::IR_RxState g_fec_cmp_ir{};
+static ProtectedEngine::FEC_HARQ::RxState16 g_fec_cmp_rx16{};
+
 /// HARQ 슬롯 폭 — Pipeline_V2_Dispatcher::kMapperHarqSlotStride 와 동일
 constexpr uint32_t kHarqSlotStride = 16u;
 
@@ -713,8 +719,6 @@ MessageStats run_fec_v400_mode(
     std::vector<int16_t> flat_I(static_cast<size_t>(FEC::NSYM64 * nc));
     std::vector<int16_t> flat_Q(static_cast<size_t>(FEC::NSYM64 * nc));
 
-    FEC::WorkBuf wb{};
-
     for (int b = 0; b < kNumBlocks; ++b) {
         uint8_t info[FEC::MAX_INFO] = {};
         for (int i = 0; i < FEC::MAX_INFO; ++i) {
@@ -730,13 +734,12 @@ MessageStats run_fec_v400_mode(
         uint8_t decoded[FEC::MAX_INFO] = {};
 
         if (use_ir_harq) {
-            FEC::IR_RxState ir{};
-            FEC::IR_Init(ir);
+            FEC::IR_Init(g_fec_cmp_ir);
             for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
                 harq_used = k;
                 const int rv = (k - 1) & 3;
                 const int nsym = FEC::Encode64_IR(
-                    info, in_len, syms.data(), il_seed, bps, rv, wb);
+                    info, in_len, syms.data(), il_seed, bps, rv, g_fec_cmp_wb);
                 if (nsym <= 0) {
                     break;
                 }
@@ -762,6 +765,18 @@ MessageStats run_fec_v400_mode(
                     rng);
 
                 int olen = 0;
+                if (ch_type == HTS_Core::Physics::ParametricChannel::BARRAGE &&
+                    std::fabs(ch_intensity - 35.0) < 0.06) {
+                    std::printf(
+                        "[IR-DIAG-BENCH] Decode64_IR args: bps=%d nsym=%d "
+                        "il=0x%08x rv=%d rounds_done=%d (BARRAGE ch=%.2f)\n",
+                        bps,
+                        nsym,
+                        static_cast<unsigned>(il_seed),
+                        rv,
+                        g_fec_cmp_ir.rounds_done,
+                        ch_intensity);
+                }
                 if (FEC::Decode64_IR(
                         flat_I.data(),
                         flat_Q.data(),
@@ -770,22 +785,21 @@ MessageStats run_fec_v400_mode(
                         bps,
                         il_seed,
                         rv,
-                        ir,
+                        g_fec_cmp_ir,
                         decoded,
                         &olen,
-                        wb)) {
+                        g_fec_cmp_wb)) {
                     crc_ok = true;
                     break;
                 }
             }
         }
         else {
-            FEC::RxState64 rx64{};
-            FEC::Init64(rx64);
+            FEC::Init64(g_fec_cmp_rx64);
             for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
                 harq_used = k;
                 const int nsym = FEC::Encode64_A(
-                    info, in_len, syms.data(), il_seed, bps, wb);
+                    info, in_len, syms.data(), il_seed, bps, g_fec_cmp_wb);
                 if (nsym <= 0) {
                     break;
                 }
@@ -811,20 +825,21 @@ MessageStats run_fec_v400_mode(
                     rng);
 
                 for (int s = 0; s < nsym; ++s) {
-                    int16_t iBuf[64];
-                    int16_t qBuf[64];
+                    int16_t iBuf[64] = {};
+                    int16_t qBuf[64] = {};
                     for (int c = 0; c < nc; ++c) {
                         const size_t idx =
                             static_cast<size_t>(s * nc + c);
                         iBuf[c] = flat_I[idx];
                         qBuf[c] = flat_Q[idx];
                     }
-                    FEC::Feed64_1sym(rx64, iBuf, qBuf, s);
+                    FEC::Feed64_1sym(g_fec_cmp_rx64, iBuf, qBuf, s);
                 }
-                FEC::Advance_Round_64(rx64);
+                FEC::Advance_Round_64(g_fec_cmp_rx64);
 
                 int olen = 0;
-                if (FEC::Decode64_A(rx64, decoded, &olen, il_seed, bps, wb)) {
+                if (FEC::Decode64_A(
+                        g_fec_cmp_rx64, decoded, &olen, il_seed, bps, g_fec_cmp_wb)) {
                     crc_ok = true;
                     break;
                 }
@@ -917,8 +932,6 @@ MessageStats run_fec_v400_16chip_mode(
     std::vector<int16_t> flat_I(static_cast<size_t>(FEC::NSYM16 * nc));
     std::vector<int16_t> flat_Q(static_cast<size_t>(FEC::NSYM16 * nc));
 
-    FEC::WorkBuf wb{};
-
     for (int b = 0; b < kNumBlocks; ++b) {
         uint8_t info[FEC::MAX_INFO] = {};
         for (int i = 0; i < FEC::MAX_INFO; ++i) {
@@ -934,13 +947,12 @@ MessageStats run_fec_v400_16chip_mode(
         uint8_t decoded[FEC::MAX_INFO] = {};
 
         if (use_ir_harq) {
-            FEC::IR_RxState ir{};
-            FEC::IR_Init(ir);
+            FEC::IR_Init(g_fec_cmp_ir);
             for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
                 harq_used = k;
                 const int rv = (k - 1) & 3;
                 const int nsym = FEC::Encode16_IR(
-                    info, in_len, syms.data(), il_seed, rv, wb);
+                    info, in_len, syms.data(), il_seed, rv, g_fec_cmp_wb);
                 if (nsym <= 0) {
                     break;
                 }
@@ -974,22 +986,21 @@ MessageStats run_fec_v400_16chip_mode(
                         bps,
                         il_seed,
                         rv,
-                        ir,
+                        g_fec_cmp_ir,
                         decoded,
                         &olen,
-                        wb)) {
+                        g_fec_cmp_wb)) {
                     crc_ok = true;
                     break;
                 }
             }
         }
         else {
-            FEC::RxState16 rx16{};
-            FEC::Init16(rx16);
+            FEC::Init16(g_fec_cmp_rx16);
             for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
                 harq_used = k;
                 const int nsym = FEC::Encode16(
-                    info, in_len, syms.data(), il_seed, wb);
+                    info, in_len, syms.data(), il_seed, g_fec_cmp_wb);
                 if (nsym <= 0) {
                     break;
                 }
@@ -1015,20 +1026,21 @@ MessageStats run_fec_v400_16chip_mode(
                     rng);
 
                 for (int s = 0; s < nsym; ++s) {
-                    int16_t iBuf[16];
-                    int16_t qBuf[16];
+                    int16_t iBuf[16] = {};
+                    int16_t qBuf[16] = {};
                     for (int c = 0; c < nc; ++c) {
                         const size_t idx =
                             static_cast<size_t>(s * nc + c);
                         iBuf[c] = flat_I[idx];
                         qBuf[c] = flat_Q[idx];
                     }
-                    FEC::Feed16_1sym(rx16, iBuf, qBuf, s);
+                    FEC::Feed16_1sym(g_fec_cmp_rx16, iBuf, qBuf, s);
                 }
-                FEC::Advance_Round_16(rx16);
+                FEC::Advance_Round_16(g_fec_cmp_rx16);
 
                 int olen = 0;
-                if (FEC::Decode16(rx16, decoded, &olen, il_seed, wb)) {
+                if (FEC::Decode16(
+                        g_fec_cmp_rx16, decoded, &olen, il_seed, g_fec_cmp_wb)) {
                     crc_ok = true;
                     break;
                 }

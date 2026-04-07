@@ -462,6 +462,20 @@ static_assert(
         % (static_cast<uint32_t>(FEC::C64) * 4u) == 0u,
     "symbol-block scatter: 4096B slab must hold whole Walsh symbols");
 
+namespace {
+
+alignas(64) static uint8_t g_pv2_logical_tx[kMaxFecBytes];
+alignas(64) static uint8_t g_pv2_wire_buf[kMaxFecBytes];
+alignas(64) static uint8_t g_pv2_logical_rx[kMaxFecBytes];
+alignas(64) static uint8_t g_pv2_syms[static_cast<size_t>(FEC::NSYM64)];
+alignas(64) static int16_t g_pv2_flat_I[static_cast<size_t>(FEC::NSYM64 * FEC::C64)];
+alignas(64) static int16_t g_pv2_flat_Q[static_cast<size_t>(FEC::NSYM64 * FEC::C64)];
+static FEC::WorkBuf g_pv2_wb{};
+static FEC::IR_RxState g_pv2_ir{};
+static FEC::RxState64 g_pv2_rx64{};
+
+} // namespace
+
 static const double kIntensitySweep[] = {
     5, 10, 15, 20, 25, 30, 35, 40, 45, 50
 };
@@ -492,20 +506,17 @@ static MessageStats run_pipeline_v2_scenario(
     MessageStats msg{};
     msg.total_blocks = kNumBlocks;
 
+    std::memset(g_pv2_logical_tx, 0, kMaxFecBytes);
+    std::memset(g_pv2_wire_buf, 0, kMaxFecBytes);
+    std::memset(g_pv2_logical_rx, 0, kMaxFecBytes);
+    std::memset(g_pv2_syms, 0, sizeof(g_pv2_syms));
+    std::memset(g_pv2_flat_I, 0, sizeof(g_pv2_flat_I));
+    std::memset(g_pv2_flat_Q, 0, sizeof(g_pv2_flat_Q));
+
     std::mt19937 rng(scenario_seed);
 
     const int bps = FEC::BPS64;
     const int nc = FEC::C64;
-
-    std::array<uint8_t, kMaxFecBytes> logical_tx{};
-    std::array<uint8_t, kMaxFecBytes> wire_buf{};
-    std::array<uint8_t, kMaxFecBytes> logical_rx{};
-
-    std::array<uint8_t, static_cast<size_t>(FEC::NSYM64)> syms{};
-    std::array<int16_t, static_cast<size_t>(FEC::NSYM64 * FEC::C64)> flat_I{};
-    std::array<int16_t, static_cast<size_t>(FEC::NSYM64 * FEC::C64)> flat_Q{};
-
-    FEC::WorkBuf wb{};
 
     for (int b = 0; b < kNumBlocks; ++b) {
         std::array<uint8_t, static_cast<size_t>(FEC::MAX_INFO)> info{};
@@ -526,35 +537,34 @@ static MessageStats run_pipeline_v2_scenario(
             | static_cast<uint64_t>(static_cast<uint32_t>(b));
 
         if (use_ir_harq) {
-            FEC::IR_RxState ir{};
-            FEC::IR_Init(ir);
+            FEC::IR_Init(g_pv2_ir);
             for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
                 harq_used = k;
                 metrics.current_bps.store(
                     static_cast<uint8_t>(bps), std::memory_order_relaxed);
                 const int rv = (k - 1) & 3;
                 const int nsym = FEC::Encode64_IR(
-                    info.data(), in_len, syms.data(), il_seed, bps, rv, wb);
+                    info.data(), in_len, g_pv2_syms, il_seed, bps, rv, g_pv2_wb);
                 if (nsym <= 0) {
                     break;
                 }
                 for (int s = 0; s < nsym; ++s) {
-                    int16_t wI[64];
-                    int16_t wQ[64];
-                    fec_walsh_enc64(syms[static_cast<size_t>(s)],
+                    int16_t wI[64] = {};
+                    int16_t wQ[64] = {};
+                    fec_walsh_enc64(g_pv2_syms[static_cast<size_t>(s)],
                         kFecWalshAmp, wI, wQ);
                     for (int c = 0; c < nc; ++c) {
                         const size_t idx =
                             static_cast<size_t>(s * nc + c);
-                        flat_I[idx] = wI[c];
-                        flat_Q[idx] = wQ[c];
+                        g_pv2_flat_I[idx] = wI[c];
+                        g_pv2_flat_Q[idx] = wQ[c];
                     }
                 }
                 const uint32_t fec_byte_len =
                     static_cast<uint32_t>(nsym) * static_cast<uint32_t>(nc) * 4u;
 
                 iq_plane_to_bytes(
-                    flat_I.data(), flat_Q.data(), nsym, nc, logical_tx.data());
+                    g_pv2_flat_I, g_pv2_flat_Q, nsym, nc, g_pv2_logical_tx);
 
                 scatter_gather_symbol_slabs_tx(
                     use_dynamic_mapper,
@@ -562,13 +572,13 @@ static MessageStats run_pipeline_v2_scenario(
                     session_id,
                     static_cast<uint32_t>(b),
                     static_cast<uint32_t>(k - 1u),
-                    logical_tx.data(),
-                    wire_buf.data(),
+                    g_pv2_logical_tx,
+                    g_pv2_wire_buf,
                     nsym,
                     nc);
 
                 apply_wire_channel(
-                    wire_buf.data(),
+                    g_pv2_wire_buf,
                     static_cast<size_t>(fec_byte_len),
                     ch_type,
                     ch_intensity,
@@ -582,62 +592,61 @@ static MessageStats run_pipeline_v2_scenario(
                     session_id,
                     static_cast<uint32_t>(b),
                     static_cast<uint32_t>(k - 1u),
-                    wire_buf.data(),
-                    logical_rx.data(),
+                    g_pv2_wire_buf,
+                    g_pv2_logical_rx,
                     nsym,
                     nc);
 
                 bytes_to_iq_plane(
-                    logical_rx.data(),
-                    flat_I.data(), flat_Q.data(), nsym, nc);
+                    g_pv2_logical_rx,
+                    g_pv2_flat_I, g_pv2_flat_Q, nsym, nc);
 
                 int olen = 0;
                 if (FEC::Decode64_IR(
-                        flat_I.data(),
-                        flat_Q.data(),
+                        g_pv2_flat_I,
+                        g_pv2_flat_Q,
                         nsym,
                         nc,
                         bps,
                         il_seed,
                         rv,
-                        ir,
+                        g_pv2_ir,
                         decoded.data(),
                         &olen,
-                        wb)) {
+                        g_pv2_wb)) {
                     crc_ok = true;
                     break;
                 }
             }
         }
         else {
-            FEC::RxState64 rx64{};
-            FEC::Init64(rx64);
+            FEC::Init64(g_pv2_rx64);
             for (int k = 1; k <= kFecHarqMaxRounds; ++k) {
                 harq_used = k;
                 metrics.current_bps.store(
                     static_cast<uint8_t>(bps), std::memory_order_relaxed);
                 const int nsym = FEC::Encode64_A(
-                    info.data(), in_len, syms.data(), il_seed, bps, wb);
+                    info.data(), in_len, g_pv2_syms, il_seed, bps, g_pv2_wb);
                 if (nsym <= 0) {
                     break;
                 }
                 for (int s = 0; s < nsym; ++s) {
-                    int16_t wI[64];
-                    int16_t wQ[64];
-                    fec_walsh_enc64(syms[static_cast<size_t>(s)],
+                    int16_t wI[64] = {};
+                    int16_t wQ[64] = {};
+                    fec_walsh_enc64(g_pv2_syms[static_cast<size_t>(s)],
                         kFecWalshAmp, wI, wQ);
                     for (int c = 0; c < nc; ++c) {
                         const size_t idx =
                             static_cast<size_t>(s * nc + c);
-                        flat_I[idx] = wI[c];
-                        flat_Q[idx] = wQ[c];
+                        g_pv2_flat_I[idx] = wI[c];
+                        g_pv2_flat_Q[idx] = wQ[c];
                     }
                 }
                 const uint32_t fec_byte_len =
                     static_cast<uint32_t>(nsym) * static_cast<uint32_t>(nc) * 4u;
 
                 iq_plane_to_bytes(
-                    flat_I.data(), flat_Q.data(), nsym, nc, logical_tx.data());
+                    g_pv2_flat_I, g_pv2_flat_Q, nsym, nc, g_pv2_logical_tx);
 
                 scatter_gather_symbol_slabs_tx(
                     use_dynamic_mapper,
@@ -645,13 +654,13 @@ static MessageStats run_pipeline_v2_scenario(
                     session_id,
                     static_cast<uint32_t>(b),
                     static_cast<uint32_t>(k - 1u),
-                    logical_tx.data(),
-                    wire_buf.data(),
+                    g_pv2_logical_tx,
+                    g_pv2_wire_buf,
                     nsym,
                     nc);
 
                 apply_wire_channel(
-                    wire_buf.data(),
+                    g_pv2_wire_buf,
                     static_cast<size_t>(fec_byte_len),
                     ch_type,
                     ch_intensity,
@@ -665,30 +674,31 @@ static MessageStats run_pipeline_v2_scenario(
                     session_id,
                     static_cast<uint32_t>(b),
                     static_cast<uint32_t>(k - 1u),
-                    wire_buf.data(),
-                    logical_rx.data(),
+                    g_pv2_wire_buf,
+                    g_pv2_logical_rx,
                     nsym,
                     nc);
 
                 bytes_to_iq_plane(
-                    logical_rx.data(),
-                    flat_I.data(), flat_Q.data(), nsym, nc);
+                    g_pv2_logical_rx,
+                    g_pv2_flat_I, g_pv2_flat_Q, nsym, nc);
 
                 for (int s = 0; s < nsym; ++s) {
-                    int16_t iBuf[64];
-                    int16_t qBuf[64];
+                    int16_t iBuf[64] = {};
+                    int16_t qBuf[64] = {};
                     for (int c = 0; c < nc; ++c) {
                         const size_t idx =
                             static_cast<size_t>(s * nc + c);
-                        iBuf[c] = flat_I[idx];
-                        qBuf[c] = flat_Q[idx];
+                        iBuf[c] = g_pv2_flat_I[idx];
+                        qBuf[c] = g_pv2_flat_Q[idx];
                     }
-                    FEC::Feed64_1sym(rx64, iBuf, qBuf, s);
+                    FEC::Feed64_1sym(g_pv2_rx64, iBuf, qBuf, s);
                 }
-                FEC::Advance_Round_64(rx64);
+                FEC::Advance_Round_64(g_pv2_rx64);
 
                 int olen = 0;
-                if (FEC::Decode64_A(rx64, decoded.data(), &olen, il_seed, bps, wb)) {
+                if (FEC::Decode64_A(
+                        g_pv2_rx64, decoded.data(), &olen, il_seed, bps, g_pv2_wb)) {
                     crc_ok = true;
                     break;
                 }

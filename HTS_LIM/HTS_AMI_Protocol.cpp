@@ -394,7 +394,9 @@ namespace ProtectedEngine {
 
         // IPC 전송 실패 등으로 ERROR에 고정되면 REPORTING 전이 불가 → Tick 주기 보고 영구 정지.
         // CFI 표에서 ERROR→IDLE 허용 — 복구 후 정상 경로 유지(알고리즘·전이 순서 불변).
-        if (impl->state == AMI_State::ERROR) {
+        if ((static_cast<uint8_t>(impl->state)
+                & static_cast<uint8_t>(AMI_State::ERROR))
+            == static_cast<uint8_t>(AMI_State::ERROR)) {
             (void)impl->Transition_State(AMI_State::IDLE);
         }
 
@@ -564,7 +566,9 @@ namespace ProtectedEngine {
 
         // 이전 주기에서 ERROR(송신 실패 등)에 머물면 PROCESSING 전이 불가 → 요청 처리 영구 차단.
         // ERROR→IDLE은 합법 전이 — 한 번 복귀 후 본 요청 처리(동일 호출 내 CFI 실패 경로는 기존 유지).
-        if (impl->state == AMI_State::ERROR) {
+        if ((static_cast<uint8_t>(impl->state)
+                & static_cast<uint8_t>(AMI_State::ERROR))
+            == static_cast<uint8_t>(AMI_State::ERROR)) {
             (void)impl->Transition_State(AMI_State::IDLE);
         }
 

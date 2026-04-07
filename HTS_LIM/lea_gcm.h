@@ -206,7 +206,9 @@ int MAKE_FUNC(gcm_final)(LEA_GCM_CTX *ctx, unsigned char *tag, int tag_len)
 	unsigned char tmp[16];
 
 	if (!ctx || !tag){
-		memset(ctx, 0, sizeof(LEA_GCM_CTX));
+		if (ctx != NULL) {
+			memset(ctx, 0, sizeof(LEA_GCM_CTX));
+		}
 		return -1;
 	}
 	if (tag_len < 4){
