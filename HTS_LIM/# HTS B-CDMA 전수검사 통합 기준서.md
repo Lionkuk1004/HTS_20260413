@@ -354,7 +354,7 @@ Layer 18 — 테스트 [전체 SKIP — PC 전용]
 
 ※ **섹션 3 ↔ §8 부록 동기화:** Layer 4(KAT 통합), Layer 5·13·14(호스트 TU), Layer 8·11(AntiJam), Layer 14(Voice Codec), Layer 0(`util.c`), **Layer 15~17(`*_Defs.h`·`Universal_API.def`)** 는 `HTS_LIM.vcxproj` `ClCompile`/`ClInclude`/`None` 과 정합. TU 목록 §8-7, Defs·필터 §8-2·§8-8. **M4 SRAM 합계·`.map`** 은 정적 라이브러리 단독 빌드로는 미완 — §8-11.
 
----
+---  
 
 ## 4. 파일당 처리 절차
 
