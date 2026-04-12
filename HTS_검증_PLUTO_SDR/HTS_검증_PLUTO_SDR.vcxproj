@@ -120,14 +120,37 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
+      <AdditionalIncludeDirectories>D:\libiio-0.25-gb6028fd-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalLibraryDirectories>D:\libiio-0.25-gb6028fd-windows\Windows-VS-2022-x64;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libiio.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
+    <PostBuildEvent>
+      <Command>copy "D:\libiio-0.25-gb6028fd-windows\Windows-VS-2022-x64\*.dll" "$(OutDir)"</Command>
+    </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_검증_PLUTO_SDR.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.h" />
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_BitOps.h" />
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.hpp" />
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RF_Metrics.h" />
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.h" />
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.h" />
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.hpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\HTS_TEST\PLUTO_SDR\HTS_검증_PLUTO_SDR.vcxproj" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

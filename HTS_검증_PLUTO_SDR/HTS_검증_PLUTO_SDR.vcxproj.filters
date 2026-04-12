@@ -15,8 +15,49 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_검증_PLUTO_SDR.cpp">
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_BitOps.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RF_Metrics.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="..\HTS_TEST\PLUTO_SDR\HTS_검증_PLUTO_SDR.vcxproj" />
   </ItemGroup>
 </Project>
