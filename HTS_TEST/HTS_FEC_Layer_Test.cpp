@@ -30,6 +30,8 @@ using ProtectedEngine::PayloadMode;
 using ProtectedEngine::SoftClipPolicy;
 static constexpr int16_t kAmp = 2000;
 static constexpr double kAmpD = 2000.0;
+/// V4 64chip DATA 스윕 전용 시행 수 (다른 레이어는 kTrials 유지)
+static constexpr int kTrialsV464 = 100;
 static constexpr double kAgcTarget = 26000.0;
 static constexpr uint32_t popc32(uint32_t x) noexcept {
     x = x - ((x >> 1u) & 0x55555555u);
@@ -647,6 +649,10 @@ static LayerResult test_full_stack_v4(PayloadMode mode, double js_db,
     res.trials = trials;
 
     for (int t = 0; t < trials; ++t) {
+        if (mode == PayloadMode::DATA && trials == kTrialsV464) {
+            std::printf("  V4-64 J/S=%.0f dB  %d/100\r", js_db, t + 1);
+            std::fflush(stdout);
+        }
         g_last = DecodedPacket{};
         const uint32_t ds = seed_base ^ static_cast<uint32_t>(t * 0x9E3779B9u);
         const uint32_t ns =
@@ -723,6 +729,9 @@ static LayerResult test_full_stack_v4(PayloadMode mode, double js_db,
         }
     }
 
+    if (mode == PayloadMode::DATA && trials == kTrialsV464) {
+        std::printf("\n");
+    }
     if (res.crc_ok > 0)
         res.avg_rounds /= res.crc_ok;
     return res;
@@ -882,11 +891,11 @@ int main() {
     std::printf(
         "================================================================\n");
 
-    std::printf("\n── V4 64chip DATA BPS=4 ──\n");
+    std::printf("\n── V4 64chip DATA BPS=4 (trials=%d) ──\n", kTrialsV464);
     for (double js : js_sweep) {
         print_row("V4-64",
                   test_full_stack_v4(
-                      PayloadMode::DATA, js, kMaxRounds, kTrials, 4,
+                      PayloadMode::DATA, js, kMaxRounds, kTrialsV464, 4,
                       kSeed ^ static_cast<uint32_t>(static_cast<int>(js * 100))));
         std::fflush(stdout);
     }

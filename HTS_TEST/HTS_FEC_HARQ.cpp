@@ -329,10 +329,10 @@ void FEC_HARQ::Viterbi_Decode(const int32_t *soft, int nc, uint8_t *out, int no,
     for (int i = 0; i < no && i < steps; ++i)
         out[i] = wb.tb[i];
 }
-// ── [BUG-FIX-LLR4] 부호 상관 LLR + 고정 >>12 스케일 ──────
+// ── 부호 상관 LLR + 경로별 고정 시프트 정규화 ──────
 //  부호 상관: corr[m] = fI[m] + fQ[m] (부호 보존)
-//  비트별 LLR = Σ corr[bit=0] - Σ corr[bit=1]
-//  정규화: per-symbol peak/Q16 스케일 대신 고정 >>12 → 심볼 간 신뢰도 비율 보존
+//  Conv: 비트별 LLR = Σ corr(bit=0) − Σ corr(bit=1), 출력 >>12 (Viterbi 메트릭)
+//  Polar: Max-Log-MAP raw, 출력 >>10 (SCL min-sum 해상도)
 void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
                           int32_t *llr) noexcept {
     const int nsym = 1 << bps;
@@ -374,13 +374,18 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
         raw[b] = pos_sum - neg_sum;
 #endif
     }
-    // 고정 시프트 정규화: >>12
-    // max|raw| = valid × max|corr| = 16 × (2 × 64 × 32767) = 67,108,864
-    // >>12 = 16,384 → tpe_clamp_llr(±500,000) 이내, Viterbi 안전
-    // 심볼 간 신뢰도 비율 보존 (per-symbol peak 정규화 제거)
+    // 고정 시프트 정규화: Polar >>10 / Conv >>12
+    // max|raw| ≈ valid × max|corr|; 시프트 후 tpe_clamp_llr 범위 내
     // UDIV 제거 → ARM 사이클 절감
     for (int b = 0; b < bps; ++b) {
+#if defined(HTS_FEC_POLAR_ENABLE)
+        // Polar용: >>10 (SCL min-sum 해상도 확보)
+        // ±38400 >> 10 = ±37, HARQ 32R 누적 = ±1184 < int16 ✓
+        llr[b] = raw[b] >> 10;
+#else
+        // Conv용: >>12 (Viterbi 경로 메트릭 최적화)
         llr[b] = raw[b] >> 12;
+#endif
     }
 }
 // ── Xorshift PRNG ──
@@ -998,23 +1003,78 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
 #if defined(HTS_FEC_POLAR_ENABLE)
     (void)il_seed;
     (void)rv;
-    // Polar 디코딩: 심볼 순서 LLR → 688→512 폴딩 (Bit_Deinterleave 생략)
-    static constexpr int k_pn = 512;
-    static int32_t polar_llr_fold[k_pn];
-    std::memset(static_cast<void *>(polar_llr_fold), 0, sizeof(polar_llr_fold));
-    for (int i = 0; i < TOTAL_CODED; ++i) {
-        polar_llr_fold[static_cast<std::size_t>(i % k_pn)] +=
-            wb.ru.all_llr[static_cast<std::size_t>(i)];
+    // ── Polar 칩 누적 디코딩 경로 (CURSOR_POLAR_REVERT_BASELINE) ──
+    // 칩 도메인 coherent 누적(I+Q) → 단일 FWHT → Max-Log LLR → Polar
+    // (위 심볼 루프의 wb.ru.all_llr는 Polar에서 미사용; Conv #else만 사용)
+
+    static int32_t s_chip_acc[NSYM64 * C64];
+    static int16_t polar_llr16[POLAR_N];
+
+    if (ir_state.rounds_done == 0) {
+        std::memset(static_cast<void *>(s_chip_acc), 0, sizeof(s_chip_acc));
     }
-    for (int i = 0; i < k_pn; ++i) {
-        ir_state.llr_accum[static_cast<std::size_t>(i)] = tpe_sat_add_llr(
-            ir_state.llr_accum[static_cast<std::size_t>(i)],
-            polar_llr_fold[static_cast<std::size_t>(i)]);
+
+    for (int s = 0; s < nsym; ++s) {
+        const int base = s * nc;
+        for (int c = 0; c < nc; ++c) {
+            const int32_t Ii = static_cast<int32_t>(sym_I[base + c]);
+            const int32_t Qi = static_cast<int32_t>(sym_Q[base + c]);
+            static constexpr int32_t kErasureMagTh = 20000;
+            const int32_t mag =
+                fec_ir_fast_abs_i32(Ii) + fec_ir_fast_abs_i32(Qi);
+            const uint32_t allow_chip =
+                (1u - er_en) | static_cast<uint32_t>(mag <= kErasureMagTh);
+            const int32_t mask = -static_cast<int32_t>(allow_chip);
+            s_chip_acc[base + c] += (Ii & mask) + (Qi & mask);
+        }
     }
     ++ir_state.rounds_done;
 
+    int32_t polar_llr_coded[TOTAL_CODED] = {};
+
+    for (int sym = 0; sym < nsym; ++sym) {
+        const int sym_base = sym * nc;
+        for (int c = 0; c < nc; ++c) {
+            g_fec_dec_fI[static_cast<std::size_t>(c)] =
+                s_chip_acc[sym_base + c];
+        }
+        FWHT(g_fec_dec_fI.data(), nc);
+        const int valid = 1 << bps;
+        for (int b = 0; b < bps; ++b) {
+            const int sh_bit = bps - 1 - b;
+            int32_t pos_max = INT32_MIN;
+            int32_t neg_max = INT32_MIN;
+            for (int m = 0; m < valid; ++m) {
+                const int32_t corr =
+                    g_fec_dec_fI[static_cast<std::size_t>(m)];
+                const uint32_t is_one =
+                    0u - ((static_cast<uint32_t>(m) >>
+                           static_cast<uint32_t>(sh_bit)) &
+                          1u);
+                const uint32_t is_zero = ~is_one;
+                if (is_zero != 0u && corr > pos_max) {
+                    pos_max = corr;
+                }
+                if (is_one != 0u && corr > neg_max) {
+                    neg_max = corr;
+                }
+            }
+            const int bi = sym * bps + b;
+            if (bi < TOTAL_CODED) {
+                polar_llr_coded[bi] = (pos_max - neg_max) >> 10;
+            }
+        }
+    }
+
+    std::memset(static_cast<void *>(ir_state.llr_accum), 0,
+                static_cast<std::size_t>(POLAR_N) * sizeof(int32_t));
+    for (int i = 0; i < TOTAL_CODED; ++i) {
+        ir_state.llr_accum[static_cast<std::size_t>(i % POLAR_N)] +=
+            polar_llr_coded[i];
+    }
+
     int32_t max_abs = 1;
-    for (int i = 0; i < k_pn; ++i) {
+    for (int i = 0; i < POLAR_N; ++i) {
         int32_t a = ir_state.llr_accum[static_cast<std::size_t>(i)];
         if (a < 0) {
             a = -a;
@@ -1028,8 +1088,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         ++shift;
     }
 
-    int16_t polar_llr16[k_pn];
-    for (int i = 0; i < k_pn; ++i) {
+    for (int i = 0; i < POLAR_N; ++i) {
         int32_t v = ir_state.llr_accum[static_cast<std::size_t>(i)] >> shift;
         if (v > 32767) {
             v = 32767;
