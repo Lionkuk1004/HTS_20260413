@@ -341,9 +341,28 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
     const int valid = (nsym & ns_lt) | (nc & ~ns_lt);
     int32_t raw[BPS64_MAX]{};
     for (int b = 0; b < bps; ++b) {
+        const int sh_bit = bps - 1 - b;
+#if defined(HTS_FEC_POLAR_ENABLE)
+        // Max-Log-MAP: max(corr|bit=0) - max(corr|bit=1) — Sum 대비 잡음 빈 누적 완화
+        int32_t pos_max = INT32_MIN;
+        int32_t neg_max = INT32_MIN;
+        for (int m = 0; m < valid; ++m) {
+            const int32_t corr = fI[m] + fQ[m];
+            const uint32_t is_one = 0u - ((static_cast<uint32_t>(m) >>
+                                           static_cast<uint32_t>(sh_bit)) &
+                                          1u);
+            const uint32_t is_zero = ~is_one;
+            if (is_zero != 0u && corr > pos_max) {
+                pos_max = corr;
+            }
+            if (is_one != 0u && corr > neg_max) {
+                neg_max = corr;
+            }
+        }
+        raw[b] = pos_max - neg_max;
+#else
         int32_t pos_sum = 0;
         int32_t neg_sum = 0;
-        const int sh_bit = bps - 1 - b;
         for (int m = 0; m < valid; ++m) {
             const int32_t corr = fI[m] + fQ[m];
             const uint32_t is_one = 0u - ((static_cast<uint32_t>(m) >>
@@ -353,6 +372,7 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
             neg_sum += corr & static_cast<int32_t>(is_one);
         }
         raw[b] = pos_sum - neg_sum;
+#endif
     }
     // 고정 시프트 정규화: >>12
     // max|raw| = valid × max|corr| = 16 × (2 × 64 × 32767) = 67,108,864
@@ -477,6 +497,37 @@ void FEC_HARQ::Deinterleave(int16_t *I, int16_t *Q, const uint8_t *p,
         Q[i] = tQ[i];
     }
 }
+#if defined(HTS_FEC_POLAR_ENABLE)
+// Polar(512,80) 인코딩 + 688 cyclic repetition → 심볼 배열 (64칩 전용)
+static int polar_encode_to_syms(const uint8_t *info, int len, uint8_t *syms,
+                                int bps, int nsym) noexcept {
+    static constexpr int k_pn = 512;
+    if (info == nullptr || syms == nullptr || len <= 0 ||
+        len > FEC_HARQ::MAX_INFO) {
+        return 0;
+    }
+    uint8_t coded[static_cast<std::size_t>(k_pn / 8)] = {};
+    if (HTS_Polar_Codec::Encode(info, len, coded) != k_pn) {
+        return 0;
+    }
+    for (int s = 0; s < nsym; ++s) {
+        uint8_t val = 0u;
+        for (int b = 0; b < bps; ++b) {
+            const int bi_688 = s * bps + b;
+            const int bi_512 = bi_688 % k_pn;
+            const int byte_idx = bi_512 >> 3;
+            const int bit_idx = 7 - (bi_512 & 7);
+            val |= static_cast<uint8_t>(
+                ((coded[static_cast<std::size_t>(byte_idx)] >>
+                  static_cast<unsigned>(bit_idx)) &
+                 1u)
+                << static_cast<unsigned>(bps - 1 - b));
+        }
+        syms[s] = val;
+    }
+    return nsym;
+}
+#endif
 // =================================================================
 //  Encode Core
 // =================================================================
@@ -684,7 +735,13 @@ bool FEC_HARQ::Decode16(const RxState16 &s, uint8_t *out, int *len, uint32_t il,
 // ── 64칩 래퍼 ──
 int FEC_HARQ::Encode64(const uint8_t *info, int len, uint8_t *syms, uint32_t il,
                        WorkBuf &wb) noexcept {
+#if defined(HTS_FEC_POLAR_ENABLE)
+    (void)il;
+    (void)wb;
+    return polar_encode_to_syms(info, len, syms, BPS64, NSYM64);
+#else
     return Encode_Core(info, len, syms, il, BPS64, NSYM64, wb);
+#endif
 }
 void FEC_HARQ::Init64(RxState64 &s) noexcept {
     std::memset(static_cast<void *>(&s), 0, sizeof(s));
@@ -712,7 +769,13 @@ int FEC_HARQ::Encode64_A(const uint8_t *info, int len, uint8_t *syms,
         return 0;
     if (nsym_for_bps(bps) > NSYM64)
         return 0;
+#if defined(HTS_FEC_POLAR_ENABLE)
+    (void)il;
+    (void)wb;
+    return polar_encode_to_syms(info, len, syms, bps, nsym_for_bps(bps));
+#else
     return Encode_Core(info, len, syms, il, bps, nsym_for_bps(bps), wb);
+#endif
 }
 void FEC_HARQ::Feed64_A(RxState64 &s, const int16_t I[][C64],
                         const int16_t Q[][C64], int nsym) noexcept {
@@ -854,8 +917,15 @@ int FEC_HARQ::Encode64_IR(const uint8_t *info, int len, uint8_t *syms,
     const int ns = nsym_for_bps(bps);
     if (ns > NSYM64)
         return 0;
+#if defined(HTS_FEC_POLAR_ENABLE)
+    (void)wb;
+    (void)il_seed;
+    (void)rv;
+    return polar_encode_to_syms(info, len, syms, bps, ns);
+#else
     const uint32_t il_eff = il_seed ^ RV_SALT[static_cast<std::size_t>(rv & 3)];
     return Encode_Core(info, len, syms, il_eff, bps, ns, wb);
+#endif
 }
 bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                            int nc, int bps, uint32_t il_seed, int rv,
@@ -925,6 +995,72 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 static_cast<int32_t>(in_range);
         }
     }
+#if defined(HTS_FEC_POLAR_ENABLE)
+    (void)il_seed;
+    (void)rv;
+    // Polar 디코딩: 심볼 순서 LLR → 688→512 폴딩 (Bit_Deinterleave 생략)
+    static constexpr int k_pn = 512;
+    static int32_t polar_llr_fold[k_pn];
+    std::memset(static_cast<void *>(polar_llr_fold), 0, sizeof(polar_llr_fold));
+    for (int i = 0; i < TOTAL_CODED; ++i) {
+        polar_llr_fold[static_cast<std::size_t>(i % k_pn)] +=
+            wb.ru.all_llr[static_cast<std::size_t>(i)];
+    }
+    for (int i = 0; i < k_pn; ++i) {
+        ir_state.llr_accum[static_cast<std::size_t>(i)] = tpe_sat_add_llr(
+            ir_state.llr_accum[static_cast<std::size_t>(i)],
+            polar_llr_fold[static_cast<std::size_t>(i)]);
+    }
+    ++ir_state.rounds_done;
+
+    int32_t max_abs = 1;
+    for (int i = 0; i < k_pn; ++i) {
+        int32_t a = ir_state.llr_accum[static_cast<std::size_t>(i)];
+        if (a < 0) {
+            a = -a;
+        }
+        if (a > max_abs) {
+            max_abs = a;
+        }
+    }
+    int shift = 0;
+    while ((max_abs >> shift) > 8000 && shift < 20) {
+        ++shift;
+    }
+
+    int16_t polar_llr16[k_pn];
+    for (int i = 0; i < k_pn; ++i) {
+        int32_t v = ir_state.llr_accum[static_cast<std::size_t>(i)] >> shift;
+        if (v > 32767) {
+            v = 32767;
+        }
+        if (v < -32768) {
+            v = -32768;
+        }
+        polar_llr16[static_cast<std::size_t>(i)] = static_cast<int16_t>(v);
+    }
+
+    uint8_t rx[static_cast<std::size_t>(MAX_INFO)] = {};
+    int olen_p = 0;
+    bool dec_ok =
+        HTS_Polar_Codec::Decode_SCL(polar_llr16, rx, &olen_p);
+    dec_ok = dec_ok && (olen_p == MAX_INFO);
+
+    const uint32_t ok_mask = 0u - static_cast<uint32_t>(dec_ok);
+    const uint32_t fail_mask = ~ok_mask;
+    for (int i = 0; i < MAX_INFO; ++i) {
+        const uint32_t rxv =
+            static_cast<uint32_t>(rx[static_cast<std::size_t>(i)]);
+        out[i] = static_cast<uint8_t>(rxv & ok_mask);
+        ir_state.sic_tentative[static_cast<std::size_t>(i)] =
+            static_cast<uint8_t>(rxv & fail_mask);
+    }
+    *olen = static_cast<int>(static_cast<uint32_t>(MAX_INFO) & ok_mask);
+    ir_state.ok = (ok_mask != 0u);
+    ir_state.sic_tentative_valid = fail_mask & 1u;
+    fec_secure_wipe_stack(static_cast<void *>(rx), sizeof(rx));
+    return dec_ok;
+#else
     const uint32_t il_eff = il_seed ^ RV_SALT[static_cast<std::size_t>(rv & 3)];
     Bit_Deinterleave(wb.ru.all_llr, TOTAL_CODED, il_eff, wb);
     for (int i = 0; i < TOTAL_CODED; ++i) {
@@ -979,6 +1115,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     fec_secure_wipe_stack(static_cast<void *>(dec.data()), dec.size());
     fec_secure_wipe_stack(static_cast<void *>(rx.data()), rx.size());
     return dec_ok;
+#endif
 }
 int FEC_HARQ::Encode16_IR(const uint8_t *info, int len, uint8_t *syms,
                           uint32_t il_seed, int rv, WorkBuf &wb) noexcept {

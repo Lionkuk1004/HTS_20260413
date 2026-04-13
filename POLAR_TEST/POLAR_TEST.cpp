@@ -184,7 +184,7 @@ static void test_L2_awgn_ber() {
                 Polar::N, Polar::K, Polar::SCL_L);
     std::printf("  Eb/N0  |  SC BLER  |  SCL BLER |  Frames\n");
     std::printf("  -------+-----------+-----------+--------\n");
-    const double snr_list[] = {-1, 0, 1, 2, 3, 4, 5, 6, 7, 8};
+    const double snr_list[] = {0, 2, 4, 6, 8, 9, 10, 11, 12, 13, 14, 15};
     const int n_snr = sizeof(snr_list) / sizeof(snr_list[0]);
     for (int si = 0; si < n_snr; ++si) {
         const double snr = snr_list[si];

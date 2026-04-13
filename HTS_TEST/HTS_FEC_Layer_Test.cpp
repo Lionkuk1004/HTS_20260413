@@ -734,6 +734,15 @@ int main() {
     static constexpr uint32_t kSeed = 0xB40730u;
     static constexpr double js_sweep[] = {-1, 0,  5,  10, 15, 20,
                                           25, 30, 35, 40, 45, 50};
+    std::printf(
+        "\n================================================================\n");
+#if defined(HTS_FEC_POLAR_ENABLE)
+    std::printf("  [FEC] Polar SCL-8 (N=512, K=80, 688rep)\n");
+#else
+    std::printf("  [FEC] Conv K=7 + REP4 (기존)\n");
+#endif
+    std::printf(
+        "================================================================\n");
     if (!test_layer0()) {
         std::printf("\n[FATAL] Layer 0 FAIL\n");
         return 1;

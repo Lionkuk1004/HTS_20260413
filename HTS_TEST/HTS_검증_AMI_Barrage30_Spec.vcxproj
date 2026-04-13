@@ -166,8 +166,10 @@
     <ClCompile Include="HTS_FEC_Layer_Test.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="HTS_Polar_Codec.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="HTS_Polar_Codec.h" />
     <ClInclude Include="HTS_Preamble_Sync.h" />
     <ClInclude Include="HTS_TPE_Bitwise_Controller.h" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
