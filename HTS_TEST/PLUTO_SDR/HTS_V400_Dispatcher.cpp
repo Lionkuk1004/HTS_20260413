@@ -1199,7 +1199,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                                 int32_t vi = static_cast<int32_t>(buf_I_[c]);
                                 int32_t vq = static_cast<int32_t>(buf_Q_[c]);
                                 // ① Derotation 먼저: 위상을 0도 기저대역으로 복원
-                                if (est_count_ > 0) {
+                                if (est_count_ >= 2) {
                                     const int64_t proj_I =
                                         static_cast<int64_t>(vi) * eI64 +
                                         static_cast<int64_t>(vq) * eQ64;
@@ -1970,7 +1970,7 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
     const int carry = 64 - commit_off;
     p0_carry_count_ = carry;
     if (carry > 0) {
-        const int src = commit_off + 64;
+        const int src = commit_off + 128;
         for (int j = 0; j < carry; ++j) {
             p0_carry_I_[j] = p0_buf128_I_[src + j];
             p0_carry_Q_[j] = p0_buf128_Q_[src + j];
@@ -2044,6 +2044,24 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 best_off, best_e63, avg_others, r_avg, r_sep);
 
     if (pass) {
+        // ── Phase 0 → est 시딩: 홀로그램 투영 ──
+        // Phase 0 첫 번째 정렬 블록 [best_off..best_off+63]의
+        // walsh63_dot 결과를 est에 미리 축적.
+        // 이 블록은 carry에 포함되지 않는 소모된 데이터이므로
+        // Phase 1과 중복 없음.
+        // carry=32일 때 Phase 1에서 n=1만 추가되어도
+        // 총 est_count_ >= 2를 보장 → HDR 디코딩 + IR derotation 안정.
+        {
+            int32_t seed_dot_I = 0, seed_dot_Q = 0;
+            walsh63_dot_(&p0_buf128_I_[best_off],
+                         &p0_buf128_Q_[best_off],
+                         seed_dot_I, seed_dot_Q);
+            est_I_ += seed_dot_I;
+            est_Q_ += seed_dot_Q;
+            ++est_count_;
+            std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
+                        seed_dot_I, seed_dot_Q, est_I_, est_Q_, est_count_);
+        }
         std::printf("[P0-ALIGNED] off=%d carry=%d r_avg=%d\n",
                     best_off, 64 - best_off, r_avg);
         psal_off_ = best_off;
@@ -2222,7 +2240,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
                 soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
             }
-            SymDecResult rh = walsh_dec_dot_proj_full_(orig_I_, orig_Q_, false);
+            SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
             int8_t sym = rh.sym;
             if (sym >= 0 && sym < 64) {
                 hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
