@@ -1202,22 +1202,41 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                             g_sic_bits[static_cast<std::size_t>(sym_idx_)];
                         const int32_t sic_amp =
                             static_cast<int32_t>(sic_walsh_amp_);
-                        for (int c = 0; c < nc; ++c) {
-                            int32_t vi = static_cast<int32_t>(buf_I_[c]);
-                            int32_t vq = static_cast<int32_t>(buf_Q_[c]);
-                            const uint32_t neg = static_cast<uint32_t>(
-                                (sic_sym_bits >>
-                                 static_cast<uint32_t>(c)) & 1u);
-                            const int32_t sic_chip =
-                                sic_amp - 2 * sic_amp *
-                                static_cast<int32_t>(neg);
-                            const int32_t sub =
-                                sic_chip *
-                                static_cast<int32_t>(use_sic_u);
-                            vi -= sub;
-                            vq -= sub;
-                            ir_chip_I_[base + c] = ssat16_dispatch_(vi);
-                            ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
+                        {
+                            // est는 심볼 내 고정 — 루프 밖 상수화 (M4F 64bit 연산 최소화)
+                            const int32_t use_derot = static_cast<int32_t>(est_count_ > 0);
+                            const int64_t eI64 = static_cast<int64_t>(est_I_) * static_cast<int64_t>(use_derot);
+                            const int64_t eQ64 = static_cast<int64_t>(est_Q_) * static_cast<int64_t>(use_derot);
+                            const int sh = derot_shift_;
+                            for (int c = 0; c < nc; ++c) {
+                                int32_t vi = static_cast<int32_t>(buf_I_[c]);
+                                int32_t vq = static_cast<int32_t>(buf_Q_[c]);
+                                // ① Derotation 먼저: 위상을 0도 기저대역으로 복원
+                                if (est_count_ > 0) {
+                                    const int64_t proj_I =
+                                        static_cast<int64_t>(vi) * eI64 +
+                                        static_cast<int64_t>(vq) * eQ64;
+                                    const int64_t proj_Q =
+                                        static_cast<int64_t>(vq) * eI64 -
+                                        static_cast<int64_t>(vi) * eQ64;
+                                    vi = static_cast<int32_t>(proj_I >> sh);
+                                    vq = static_cast<int32_t>(proj_Q >> sh);
+                                }
+                                // ② SIC 차감: 위상 복원 후 기저대역에서 수행
+                                const uint32_t neg = static_cast<uint32_t>(
+                                    (sic_sym_bits >>
+                                     static_cast<uint32_t>(c)) & 1u);
+                                const int32_t sic_chip =
+                                    sic_amp - 2 * sic_amp *
+                                    static_cast<int32_t>(neg);
+                                const int32_t sub =
+                                    sic_chip *
+                                    static_cast<int32_t>(use_sic_u);
+                                vi -= sub;
+                                vq -= sub;
+                                ir_chip_I_[base + c] = ssat16_dispatch_(vi);
+                                ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
+                            }
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
@@ -2024,8 +2043,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             : 999;
     (void)r_sep;
 
-    static constexpr int32_t k_R_AVG_MIN    = 10;
-    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    static constexpr int32_t k_R_AVG_MIN     = 10;
+    static constexpr int32_t k_E63_ALIGN_MIN  = 50000;
 
     const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
                        best_e63 >= k_E63_ALIGN_MIN);

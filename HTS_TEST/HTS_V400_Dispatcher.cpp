@@ -61,12 +61,6 @@ alignas(64) static uint64_t g_sic_bits[FEC_HARQ::NSYM64];
 static_assert(sizeof(g_sic_bits) == FEC_HARQ::NSYM64 * 8u,
               "SIC bit-pack size mismatch");
 static_assert(FEC_HARQ::C64 == 64, "SIC bit-pack requires C64==64");
-// ── [BUG-FIX-PRE2] 프리앰블 연판정 누적 버퍼 ──
-//  pre_reps_ 반복 프리앰블의 칩 레벨 I/Q 누적
-//  FWHT는 누적 완료 후 1회만 수행 → 신호 coherent ×N, 잡음 √N
-alignas(64) static int32_t g_pre_acc_I[64] = {};
-alignas(64) static int32_t g_pre_acc_Q[64] = {};
-static int g_pre_acc_n = 0;
 // ── Q8 사인파 LUT (sin(2π×k/8)×256) ──
 // AntiJamEngine.cpp의 k_cw_lut8와 동일한 값 — 두 모듈 일관성 유지
 static constexpr int16_t k_cw_lut8[8] = {0, 181, 256, 181, 0, -181, -256, -181};
@@ -196,11 +190,8 @@ static void fwht_raw(int32_t *d, int n) noexcept {
 }
 //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
 alignas(64) static const int16_t k_walsh_dummy_iq_[64] = {};
-// ── [BUG-FIX-PRE1] 부호 상관 기반 심볼 검출 ──
-//  기존: max(fI²+fQ²) → 제곱이 부호 파괴 → 잡음 빈 63개 중 1개가 신호 초과 시
-//  오검출 수정: max(fI+fQ)   → TX가 I=Q 동일 전송 → 신호 항상 양수, 잡음 ±상쇄
-//  효과: 프리앰블·헤더·페이로드 심볼 검출 한계 ~10dB 확장
-//  best_e/second_e: AJC 호환용 에너지 (검출된 빈의 I²+Q² 그대로 산출)
+// ── Walsh 피크 탐색: I²+Q² 에너지 (위상 불변, RF 90° 회전에도 신호 소멸 없음) ──
+//  best_e/second_e: AJC 호환용 — 검출된 빈의 I²+Q² 그대로 산출
 HTS_V400_Dispatcher::SymDecResult
 HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
                                      bool cap_search_to_bps) noexcept {
@@ -222,17 +213,15 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
         const int valid = 1 << bps;
         search = (valid < n_eff) ? valid : n_eff;
     }
-    // ── 부호 상관 기반 피크 탐색 (branchless) ──
-    //  corr = fI + fQ: TX가 I=Q이므로 신호 빈은 항상 양수 편향
-    //  잡음 빈: 평균 0 → 신호 빈이 최대 상관값
-    //  max|corr| = 2 × 64 × 32767 = 4,194,176 < INT32_MAX ✓
+    // ── 피크 탐색: I²+Q² 에너지 (branchless) ──
     int32_t best_c = INT32_MIN;
     int32_t second_c = INT32_MIN;
     uint8_t dec = 0xFFu;
     uint8_t dec2 = 0xFFu;
     for (int m = 0; m < search; ++m) {
-        const int32_t c =
-            static_cast<int32_t>(dec_wI_[m]) + static_cast<int32_t>(dec_wQ_[m]);
+        const int64_t eI = static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m];
+        const int64_t eQ = static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m];
+        const int32_t c = static_cast<int32_t>((eI + eQ) >> 16);
         // 0/1 플래그 → 0x00000000/0xFFFFFFFF 풀 마스크 변환
         const uint32_t m_gt_best = 0u - static_cast<uint32_t>(c > best_c);
         const uint32_t m_gt_sec =
@@ -597,7 +586,7 @@ void HTS_V400_Dispatcher::blackhole_(int16_t *I, int16_t *Q, int nc) noexcept {
 //
 //  [처리 순서]
 //   1) sin 상관 → ja_I, ja_Q (corr >> 13)
-//   2) IIR α=1/4 누적, 평활 출력 smooth = ema >> 2
+//   2.5) IIR α=1/4, smooth = ema >> 2 (Walsh 오염 심볼 간 상쇄)
 //   3) 노이즈 가드: |smooth_I|+|smooth_Q| vs TH
 //   4) AJC: Seed_CW_Profile — else: 수동 sin LUT 차감
 // =====================================================================
@@ -616,16 +605,15 @@ void HTS_V400_Dispatcher::cw_cancel_64_(int16_t *I, int16_t *Q) noexcept {
     }
     const int32_t ja_I = corr_I >> 13;
     const int32_t ja_Q = corr_Q >> 13;
-
-    // Step 2: IIR 평활 (α = 1/4, Walsh 오염 심볼 간 상쇄)
-    //  ema = ema - (ema >> 2) + sample
-    //  평활 출력 = ema >> 2
+    // Step 2.5: IIR 평활 (α=1/4, Walsh 오염 심볼 간 상쇄)
+    //  ema = ema - (ema >> 2) + sample, 평활 출력 = ema >> 2
+    //  오버플로: ja 최대 65534, ema 최대 65534×4 = 262136 < INT32_MAX ✓
     cw_ema_I_ = cw_ema_I_ - (cw_ema_I_ >> 2) + ja_I;
     cw_ema_Q_ = cw_ema_Q_ - (cw_ema_Q_ >> 2) + ja_Q;
     const int32_t smooth_I = cw_ema_I_ >> 2;
     const int32_t smooth_Q = cw_ema_Q_ >> 2;
 
-    // Step 3: 노이즈 가드
+    // Step 3: 노이즈 가드 — 비트마스크 (조기 반환 제거)
     static constexpr int32_t CW_CANCEL_NOISE_TH = 30;
     const uint32_t ja_sum = fast_abs(smooth_I) + fast_abs(smooth_Q);
     const int32_t guard_diff =
@@ -874,6 +862,8 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     cur_mode_ = PayloadMode::UNKNOWN;
     buf_idx_ = 0;
     pre_phase_ = 0;
+    first_c63_ = 0;
+    m63_gap_ = 0;
     cw_ema_I_ = 0;
     cw_ema_Q_ = 0;
     p0_chip_count_ = 0;
@@ -916,10 +906,8 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     sic_expect_valid_ = false;
     retx_ready_ = false;
     std::memset(g_sic_bits, 0, sizeof(g_sic_bits));
-    // [BUG-FIX-PRE2] 프리앰블 누적 버퍼 초기화
-    std::memset(g_pre_acc_I, 0, sizeof(g_pre_acc_I));
-    std::memset(g_pre_acc_Q, 0, sizeof(g_pre_acc_Q));
-    g_pre_acc_n = 0;
+    std::memset(buf_I_, 0, sizeof(buf_I_));
+    std::memset(buf_Q_, 0, sizeof(buf_Q_));
     if (ir_mode_ && ir_state_ != nullptr) {
         FEC_HARQ::IR_Init(*ir_state_);
     }
@@ -975,6 +963,8 @@ void HTS_V400_Dispatcher::fhss_abort_rx_for_hop_() noexcept {
     wait_sync_head_ = 0;
     wait_sync_count_ = 0;
     pre_phase_ = 0;
+    first_c63_ = 0;
+    m63_gap_ = 0;
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -1128,7 +1118,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
         if (nc == 16) {
             if (sym_idx_ < FEC_HARQ::NSYM16) {
                 if (ir_mode_) {
-                    /* IR 칩: ECCM 후 buf (cw_cancel / AJC / soft_clip 반영) */
+                    /* IR 칩: ECCM 후 버퍼 저장 (CW 제거 효과 반영) */
                     const int base = sym_idx_ * FEC_HARQ::C16;
                     for (int c = 0; c < nc; ++c) {
                         ir_chip_I_[base + c] = buf_I_[c];
@@ -1190,7 +1180,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 // ── I=Q 동일 또는 IR-HARQ (칩 보관) ──
                 if (sym_idx_ < nsym64) {
                     if (ir_mode_) {
-                        /* IR 칩: ECCM 후 buf 기준 + SIC */
+                        /* IR 칩: ECCM 후 버퍼 + SIC (CW 제거 효과 반영) */
                         const int base = sym_idx_ * FEC_HARQ::C64;
                         const uint32_t use_sic_u =
                             static_cast<uint32_t>(sic_expect_valid_) & 1u;
@@ -1199,22 +1189,41 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                             g_sic_bits[static_cast<std::size_t>(sym_idx_)];
                         const int32_t sic_amp =
                             static_cast<int32_t>(sic_walsh_amp_);
-                        for (int c = 0; c < nc; ++c) {
-                            int32_t vi = static_cast<int32_t>(buf_I_[c]);
-                            int32_t vq = static_cast<int32_t>(buf_Q_[c]);
-                            const uint32_t neg = static_cast<uint32_t>(
-                                (sic_sym_bits >>
-                                 static_cast<uint32_t>(c)) & 1u);
-                            const int32_t sic_chip =
-                                sic_amp - 2 * sic_amp *
-                                static_cast<int32_t>(neg);
-                            const int32_t sub =
-                                sic_chip *
-                                static_cast<int32_t>(use_sic_u);
-                            vi -= sub;
-                            vq -= sub;
-                            ir_chip_I_[base + c] = ssat16_dispatch_(vi);
-                            ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
+                        {
+                            // est는 심볼 내 고정 — 루프 밖 상수화 (M4F 64bit 연산 최소화)
+                            const int32_t use_derot = static_cast<int32_t>(est_count_ > 0);
+                            const int64_t eI64 = static_cast<int64_t>(est_I_) * static_cast<int64_t>(use_derot);
+                            const int64_t eQ64 = static_cast<int64_t>(est_Q_) * static_cast<int64_t>(use_derot);
+                            const int sh = derot_shift_;
+                            for (int c = 0; c < nc; ++c) {
+                                int32_t vi = static_cast<int32_t>(buf_I_[c]);
+                                int32_t vq = static_cast<int32_t>(buf_Q_[c]);
+                                // ① Derotation 먼저: 위상을 0도 기저대역으로 복원
+                                if (est_count_ > 0) {
+                                    const int64_t proj_I =
+                                        static_cast<int64_t>(vi) * eI64 +
+                                        static_cast<int64_t>(vq) * eQ64;
+                                    const int64_t proj_Q =
+                                        static_cast<int64_t>(vq) * eI64 -
+                                        static_cast<int64_t>(vi) * eQ64;
+                                    vi = static_cast<int32_t>(proj_I >> sh);
+                                    vq = static_cast<int32_t>(proj_Q >> sh);
+                                }
+                                // ② SIC 차감: 위상 복원 후 기저대역에서 수행
+                                const uint32_t neg = static_cast<uint32_t>(
+                                    (sic_sym_bits >>
+                                     static_cast<uint32_t>(c)) & 1u);
+                                const int32_t sic_chip =
+                                    sic_amp - 2 * sic_amp *
+                                    static_cast<int32_t>(neg);
+                                const int32_t sub =
+                                    sic_chip *
+                                    static_cast<int32_t>(use_sic_u);
+                                vi -= sub;
+                                vq -= sub;
+                                ir_chip_I_[base + c] = ssat16_dispatch_(vi);
+                                ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
+                            }
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
@@ -1323,6 +1332,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
         if (ir_mode_) {
             harq_round_++;
             const int rv = ir_rv_;
+#if defined(HTS_IR_DIAG_ENABLE)
             if (g_hts_ir_diag_chip0 != 0 && ir_chip_I_ != nullptr &&
                 ir_state_ != nullptr) {
                 std::printf("[IR-DIAG] pre-Decode16_IR feed=%d harq_round_=%d "
@@ -1331,6 +1341,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             harq_round_, static_cast<int>(ir_chip_I_[0]),
                             ir_state_->rounds_done);
             }
+#endif
             pkt.success_mask = static_cast<uint32_t>(
                 0u - static_cast<uint32_t>(
                          (ir_state_ != nullptr && ir_chip_I_ != nullptr &&
@@ -1385,6 +1396,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                     ir_chip_I_ != nullptr && ir_chip_Q_ != nullptr) {
                     const int nsym_ir = FEC_HARQ::nsym_for_bps(bps);
                     const int rv = ir_rv_;
+#if defined(HTS_IR_DIAG_ENABLE)
                     if (g_hts_ir_diag_chip0 != 0) {
                         std::printf(
                             "[IR-DIAG] pre-Decode64_IR feed=%d harq_round_=%d "
@@ -1398,6 +1410,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             bps, nsym_ir, static_cast<unsigned>(il), rv,
                             ir_state_->rounds_done);
                     }
+#endif
                     pkt.success_mask = static_cast<uint32_t>(
                         0u -
                         static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
@@ -1647,8 +1660,10 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                    (static_cast<uint16_t>(psyms) & 0x01FFu);
 
     uint8_t syms_v1[80] = {};
-    uint8_t syms16[FEC_HARQ::NSYM16] = {};
-    uint8_t syms64[FEC_HARQ::NSYM64] = {};
+    uint8_t syms16_ir[FEC_HARQ::NSYM16] = {};
+    uint8_t syms16_pl[FEC_HARQ::NSYM16] = {};
+    uint8_t syms64_ir[FEC_HARQ::NSYM64] = {};
+    uint8_t syms64_pl[FEC_HARQ::NSYM64] = {};
     const int irb = static_cast<int>(ir_mode_);
 
     const int il_v1 = ilen * static_cast<int>(u0);
@@ -1657,14 +1672,30 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 
     const int n_v1 = FEC_HARQ::Encode1(info, il_v1, syms_v1);
     const int enc16_ir =
-        FEC_HARQ::Encode16_IR(info, il_16, syms16, il, ir_rv_, wb_);
-    const int enc16_pl = FEC_HARQ::Encode16(info, il_16, syms16, il, wb_);
+        FEC_HARQ::Encode16_IR(info, il_16, syms16_ir, il, ir_rv_, wb_);
+    const int enc16_pl = FEC_HARQ::Encode16(info, il_16, syms16_pl, il, wb_);
     const int enc16 = enc16_ir * irb + enc16_pl * (1 - irb);
-    const int enc64_ir = FEC_HARQ::Encode64_IR(info, il_64, syms64, il,
+    const int enc64_ir = FEC_HARQ::Encode64_IR(info, il_64, syms64_ir, il,
                                                cur_bps64_, ir_rv_, wb_);
     const int enc64_pl =
-        FEC_HARQ::Encode64_A(info, il_64, syms64, il, cur_bps64_, wb_);
+        FEC_HARQ::Encode64_A(info, il_64, syms64_pl, il, cur_bps64_, wb_);
     const int enc64 = enc64_ir * irb + enc64_pl * (1 - irb);
+
+    // IR/plain 선택 (TPE 비트마스크 — 분기 없음)
+    uint8_t syms16[FEC_HARQ::NSYM16] = {};
+    uint8_t syms64[FEC_HARQ::NSYM64] = {};
+    const uint32_t ir_mask = 0u - static_cast<uint32_t>(irb);
+    const uint32_t pl_mask = ~ir_mask;
+    for (int i = 0; i < FEC_HARQ::NSYM16; ++i) {
+        syms16[i] = static_cast<uint8_t>(
+            (static_cast<uint32_t>(syms16_ir[i]) & ir_mask) |
+            (static_cast<uint32_t>(syms16_pl[i]) & pl_mask));
+    }
+    for (int i = 0; i < FEC_HARQ::NSYM64; ++i) {
+        syms64[i] = static_cast<uint8_t>(
+            (static_cast<uint32_t>(syms64_ir[i]) & ir_mask) |
+            (static_cast<uint32_t>(syms64_pl[i]) & pl_mask));
+    }
 
     // TPE: per-mode encode validity — inactive mode is always “ok”
     const uint32_t ok_v1 =
@@ -1729,6 +1760,8 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         pos += 16 * inc;
     }
     SecureMemory::secureWipe(static_cast<void *>(syms16), sizeof(syms16));
+    SecureMemory::secureWipe(static_cast<void *>(syms16_ir), sizeof(syms16_ir));
+    SecureMemory::secureWipe(static_cast<void *>(syms16_pl), sizeof(syms16_pl));
 
     // TPE: DATA split path gated by u3 — non-DATA ⇒ 0 Walsh iterations
     const uint32_t split_u =
@@ -1758,6 +1791,8 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         pos += 64 * inc;
     }
     SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));
+    SecureMemory::secureWipe(static_cast<void *>(syms64_ir), sizeof(syms64_ir));
+    SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));
 
     tx_seq_ += static_cast<uint32_t>(go & 1u);
     return pos;
@@ -1789,30 +1824,52 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
     const uint32_t iq_ind_u =
         static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
 
-    uint8_t syms16[FEC_HARQ::NSYM16] = {};
-    uint8_t syms64[FEC_HARQ::NSYM64] = {};
+    uint8_t syms16_ir[FEC_HARQ::NSYM16] = {};
+    uint8_t syms16_pl[FEC_HARQ::NSYM16] = {};
+    uint8_t syms64_ir[FEC_HARQ::NSYM64] = {};
+    uint8_t syms64_pl[FEC_HARQ::NSYM64] = {};
     const int irb = static_cast<int>(ir_mode_);
 
     const int il_16 = ilen * static_cast<int>(u16);
     const int il_64 = ilen * static_cast<int>(u3);
 
     const int enc16_ir =
-        FEC_HARQ::Encode16_IR(info, il_16, syms16, il, ir_rv_, wb_);
-    const int enc16_pl = FEC_HARQ::Encode16(info, il_16, syms16, il, wb_);
+        FEC_HARQ::Encode16_IR(info, il_16, syms16_ir, il, ir_rv_, wb_);
+    const int enc16_pl = FEC_HARQ::Encode16(info, il_16, syms16_pl, il, wb_);
     const int enc16 = enc16_ir * irb + enc16_pl * (1 - irb);
 
-    const int enc64_ir = FEC_HARQ::Encode64_IR(info, il_64, syms64, il,
+    const int enc64_ir = FEC_HARQ::Encode64_IR(info, il_64, syms64_ir, il,
                                                cur_bps64_, ir_rv_, wb_);
     const int enc64_pl =
-        FEC_HARQ::Encode64_A(info, il_64, syms64, il, cur_bps64_, wb_);
+        FEC_HARQ::Encode64_A(info, il_64, syms64_pl, il, cur_bps64_, wb_);
     const int enc64 = enc64_ir * irb + enc64_pl * (1 - irb);
+
+    // IR/plain 선택 (TPE 비트마스크)
+    uint8_t syms16[FEC_HARQ::NSYM16] = {};
+    uint8_t syms64[FEC_HARQ::NSYM64] = {};
+    const uint32_t ir_mask = 0u - static_cast<uint32_t>(irb);
+    const uint32_t pl_mask = ~ir_mask;
+    for (int i = 0; i < FEC_HARQ::NSYM16; ++i) {
+        syms16[i] = static_cast<uint8_t>(
+            (static_cast<uint32_t>(syms16_ir[i]) & ir_mask) |
+            (static_cast<uint32_t>(syms16_pl[i]) & pl_mask));
+    }
+    for (int i = 0; i < FEC_HARQ::NSYM64; ++i) {
+        syms64[i] = static_cast<uint8_t>(
+            (static_cast<uint32_t>(syms64_ir[i]) & ir_mask) |
+            (static_cast<uint32_t>(syms64_pl[i]) & pl_mask));
+    }
 
     const uint32_t bad_enc =
         (u16 & (0u - static_cast<uint32_t>(enc16 <= 0))) |
         (u3 & (0u - static_cast<uint32_t>(enc64 <= 0)));
     if (bad_enc != 0u) {
         SecureMemory::secureWipe(static_cast<void *>(syms16), sizeof(syms16));
+        SecureMemory::secureWipe(static_cast<void *>(syms16_ir), sizeof(syms16_ir));
+        SecureMemory::secureWipe(static_cast<void *>(syms16_pl), sizeof(syms16_pl));
         SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));
+        SecureMemory::secureWipe(static_cast<void *>(syms64_ir), sizeof(syms64_ir));
+        SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));
         return 0;
     }
 
@@ -1822,8 +1879,16 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
         if (space < 16) {
             SecureMemory::secureWipe(static_cast<void *>(syms16),
                                      sizeof(syms16));
+            SecureMemory::secureWipe(static_cast<void *>(syms16_ir),
+                                     sizeof(syms16_ir));
+            SecureMemory::secureWipe(static_cast<void *>(syms16_pl),
+                                     sizeof(syms16_pl));
             SecureMemory::secureWipe(static_cast<void *>(syms64),
                                      sizeof(syms64));
+            SecureMemory::secureWipe(static_cast<void *>(syms64_ir),
+                                     sizeof(syms64_ir));
+            SecureMemory::secureWipe(static_cast<void *>(syms64_pl),
+                                     sizeof(syms64_pl));
             return 0;
         }
         walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp, &oI[pos],
@@ -1846,8 +1911,16 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
         if (space < 64) {
             SecureMemory::secureWipe(static_cast<void *>(syms16),
                                      sizeof(syms16));
+            SecureMemory::secureWipe(static_cast<void *>(syms16_ir),
+                                     sizeof(syms16_ir));
+            SecureMemory::secureWipe(static_cast<void *>(syms16_pl),
+                                     sizeof(syms16_pl));
             SecureMemory::secureWipe(static_cast<void *>(syms64),
                                      sizeof(syms64));
+            SecureMemory::secureWipe(static_cast<void *>(syms64_ir),
+                                     sizeof(syms64_ir));
+            SecureMemory::secureWipe(static_cast<void *>(syms64_pl),
+                                     sizeof(syms64_pl));
             return 0;
         }
         const uint8_t sI = syms64[static_cast<std::size_t>(s)];
@@ -1866,8 +1939,16 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
         if (space < 64) {
             SecureMemory::secureWipe(static_cast<void *>(syms16),
                                      sizeof(syms16));
+            SecureMemory::secureWipe(static_cast<void *>(syms16_ir),
+                                     sizeof(syms16_ir));
+            SecureMemory::secureWipe(static_cast<void *>(syms16_pl),
+                                     sizeof(syms16_pl));
             SecureMemory::secureWipe(static_cast<void *>(syms64),
                                      sizeof(syms64));
+            SecureMemory::secureWipe(static_cast<void *>(syms64_ir),
+                                     sizeof(syms64_ir));
+            SecureMemory::secureWipe(static_cast<void *>(syms64_pl),
+                                     sizeof(syms64_pl));
             return 0;
         }
         walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp, &oI[pos],
@@ -1876,7 +1957,11 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
     }
 
     SecureMemory::secureWipe(static_cast<void *>(syms16), sizeof(syms16));
+    SecureMemory::secureWipe(static_cast<void *>(syms16_ir), sizeof(syms16_ir));
+    SecureMemory::secureWipe(static_cast<void *>(syms16_pl), sizeof(syms16_pl));
     SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));
+    SecureMemory::secureWipe(static_cast<void *>(syms64_ir), sizeof(syms64_ir));
+    SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));
     return pos;
 }
 void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
@@ -1949,8 +2034,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             : 999;
     (void)r_sep;
 
-    static constexpr int32_t k_R_AVG_MIN    = 10;
-    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    static constexpr int32_t k_R_AVG_MIN     = 10;
+    static constexpr int32_t k_E63_ALIGN_MIN  = 50000;
 
     const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
                        best_e63 >= k_E63_ALIGN_MIN);

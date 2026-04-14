@@ -888,6 +888,7 @@ static void test_T6_sim() {
             tx_disp.Set_SoftClip_Policy(SoftClipPolicy::NEVER);
             tx_disp.Set_Packet_Callback(on_pkt);
             tx_disp.Update_Adaptive_BPS(1000);
+            tx_disp.Set_Lab_IQ_Mode_Jam_Harness();
 
             uint8_t info[8]{};
             for (int b = 0; b < 8; ++b)
