@@ -2036,21 +2036,11 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
 
     static constexpr int32_t k_R_AVG_MIN    = 10;
     static constexpr int32_t k_E63_ALIGN_MIN = 50000;
-
     const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
                        best_e63 >= k_E63_ALIGN_MIN);
-
     std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
                 best_off, best_e63, avg_others, r_avg, r_sep);
-
     if (pass) {
-        // ── Phase 0 → est 시딩: 홀로그램 투영 ──
-        // Phase 0 첫 번째 정렬 블록 [best_off..best_off+63]의
-        // walsh63_dot 결과를 est에 미리 축적.
-        // 이 블록은 carry에 포함되지 않는 소모된 데이터이므로
-        // Phase 1과 중복 없음.
-        // carry=32일 때 Phase 1에서 n=1만 추가되어도
-        // 총 est_count_ >= 2를 보장 → HDR 디코딩 + IR derotation 안정.
         {
             int32_t seed_dot_I = 0, seed_dot_Q = 0;
             walsh63_dot_(&p0_buf128_I_[best_off],
