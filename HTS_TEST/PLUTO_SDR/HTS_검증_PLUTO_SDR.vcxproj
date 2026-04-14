@@ -194,6 +194,7 @@
   <ItemGroup>
     <ClCompile Include="HTS_Pluto_Test.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="HTS_Polar_Codec.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
     <ClCompile Include="HTS_RS_GF16.cpp" />
     <ClCompile Include="HTS_Secure_Memory.cpp" />
@@ -201,6 +202,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HTS_FEC_HARQ.hpp" />
+    <ClInclude Include="HTS_Polar_Codec.h" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_RS_GF16.h" />
     <ClInclude Include="HTS_Secure_Memory.h" />

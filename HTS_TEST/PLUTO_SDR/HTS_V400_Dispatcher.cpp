@@ -61,12 +61,6 @@ alignas(64) static uint64_t g_sic_bits[FEC_HARQ::NSYM64];
 static_assert(sizeof(g_sic_bits) == FEC_HARQ::NSYM64 * 8u,
               "SIC bit-pack size mismatch");
 static_assert(FEC_HARQ::C64 == 64, "SIC bit-pack requires C64==64");
-// ── [BUG-FIX-PRE2] 프리앰블 연판정 누적 버퍼 ──
-//  pre_reps_ 반복 프리앰블의 칩 레벨 I/Q 누적
-//  FWHT는 누적 완료 후 1회만 수행 → 신호 coherent ×N, 잡음 √N
-alignas(64) static int32_t g_pre_acc_I[64] = {};
-alignas(64) static int32_t g_pre_acc_Q[64] = {};
-static int g_pre_acc_n = 0;
 // ── Q8 사인파 LUT (sin(2π×k/8)×256) ──
 // AntiJamEngine.cpp의 k_cw_lut8와 동일한 값 — 두 모듈 일관성 유지
 static constexpr int16_t k_cw_lut8[8] = {0, 181, 256, 181, 0, -181, -256, -181};
@@ -78,6 +72,38 @@ static constexpr uint32_t popc32(uint32_t x) noexcept {
 static constexpr uint32_t fast_abs(int32_t x) noexcept {
     const uint32_t m = 0u - static_cast<uint32_t>(x < 0);
     return (static_cast<uint32_t>(x) ^ m) + m;
+}
+/// @brief Walsh-Hadamard 행렬 H_64의 63번 행.
+///        w63[j] = (-1)^popcount(j).  ROM 배치.
+static constexpr int8_t k_w63[64] = {
+    +1, -1, -1, +1, -1, +1, +1, -1,
+    -1, +1, +1, -1, +1, -1, -1, +1,
+    -1, +1, +1, -1, +1, -1, -1, +1,
+    +1, -1, -1, +1, -1, +1, +1, -1,
+    -1, +1, +1, -1, +1, -1, -1, +1,
+    +1, -1, -1, +1, -1, +1, +1, -1,
+    +1, -1, -1, +1, -1, +1, +1, -1,
+    -1, +1, +1, -1, +1, -1, -1, +1
+};
+
+/// Walsh-63 bin dot (ADD/SUB만) — Phase 0 스캔용
+static void walsh63_dot_(const int16_t *chip_I, const int16_t *chip_Q,
+                         int32_t &dot_I, int32_t &dot_Q) noexcept {
+    int32_t dI = 0;
+    int32_t dQ = 0;
+    for (int j = 0; j < 64; ++j) {
+        const int32_t sI = static_cast<int32_t>(chip_I[j]);
+        const int32_t sQ = static_cast<int32_t>(chip_Q[j]);
+        if (k_w63[static_cast<std::size_t>(j)] > 0) {
+            dI += sI;
+            dQ += sQ;
+        } else {
+            dI -= sI;
+            dQ -= sQ;
+        }
+    }
+    dot_I = dI;
+    dot_Q = dQ;
 }
 static void fwht_raw(int32_t *d, int n) noexcept {
     if (n == 64) {
@@ -164,8 +190,8 @@ static void fwht_raw(int32_t *d, int n) noexcept {
 }
 //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
 alignas(64) static const int16_t k_walsh_dummy_iq_[64] = {};
-// ── PLUTO: walsh_dec_full_ non-coherent (>>8, sI²+sQ²) — 위상 무관 피크 탐색 ──
-//  페이로드/헤더/Phase 1 심볼 검출. best_e/second_e: 검출 빈 I²+Q² (AJC 호환).
+// ── Walsh 피크 탐색: I²+Q² 에너지 (위상 불변, RF 90° 회전에도 신호 소멸 없음) ──
+//  best_e/second_e: AJC 호환용 — 검출된 빈의 I²+Q² 그대로 산출
 HTS_V400_Dispatcher::SymDecResult
 HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
                                      bool cap_search_to_bps) noexcept {
@@ -187,20 +213,21 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
         const int valid = 1 << bps;
         search = (valid < n_eff) ? valid : n_eff;
     }
-    // ── Non-coherent 피크 탐색 (위상 무관) ──
-    //  에너지 = (fI>>8)² + (fQ>>8)²
-    int32_t best_c = -1;
-    int32_t second_c = -1;
+    // ── 피크 탐색: I²+Q² 에너지 (branchless) ──
+    int32_t best_c = INT32_MIN;
+    int32_t second_c = INT32_MIN;
     uint8_t dec = 0xFFu;
     uint8_t dec2 = 0xFFu;
     for (int m = 0; m < search; ++m) {
-        const int32_t sI = dec_wI_[m] >> 8;
-        const int32_t sQ = dec_wQ_[m] >> 8;
-        const int32_t c = sI * sI + sQ * sQ;
+        const int64_t eI = static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m];
+        const int64_t eQ = static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m];
+        const int32_t c = static_cast<int32_t>((eI + eQ) >> 16);
+        // 0/1 플래그 → 0x00000000/0xFFFFFFFF 풀 마스크 변환
         const uint32_t m_gt_best = 0u - static_cast<uint32_t>(c > best_c);
         const uint32_t m_gt_sec =
             0u - ((~m_gt_best & 1u) & static_cast<uint32_t>(c > second_c));
         const uint32_t m_none = ~(m_gt_best | m_gt_sec);
+        // second 갱신: best가 밀려오거나 sec 직접 갱신
         second_c =
             static_cast<int32_t>((static_cast<uint32_t>(best_c) & m_gt_best) |
                                  (static_cast<uint32_t>(c) & m_gt_sec) |
@@ -208,6 +235,7 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
         dec2 = static_cast<uint8_t>((static_cast<uint32_t>(dec) & m_gt_best) |
                                     (static_cast<uint32_t>(m) & m_gt_sec) |
                                     (static_cast<uint32_t>(dec2) & m_none));
+        // best 갱신
         best_c =
             static_cast<int32_t>((static_cast<uint32_t>(c) & m_gt_best) |
                                  (static_cast<uint32_t>(best_c) & ~m_gt_best));
@@ -215,8 +243,8 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
                                    (static_cast<uint32_t>(dec) & ~m_gt_best));
     }
     const int32_t mk = -static_cast<int32_t>(p_ok);
-    const int8_t sym_raw = (best_c < 0) ? static_cast<int8_t>(-1)
-                                        : static_cast<int8_t>(dec);
+    const int8_t sym_raw = (best_c == INT32_MIN) ? static_cast<int8_t>(-1)
+                                                 : static_cast<int8_t>(dec);
     const int8_t sym_out =
         static_cast<int8_t>((static_cast<int32_t>(sym_raw) & mk) |
                             (static_cast<int32_t>(-1) & ~mk));
@@ -234,6 +262,66 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
     be &= static_cast<uint32_t>(mk);
     se &= static_cast<uint32_t>(mk);
     return {sym_out, be, se};
+}
+HTS_V400_Dispatcher::SymDecResult
+HTS_V400_Dispatcher::walsh_dec_dot_proj_full_(const int16_t *I, const int16_t *Q,
+                                              bool cap_search_to_bps) noexcept {
+    const uint32_t p_ok =
+        static_cast<uint32_t>((I != nullptr) & (Q != nullptr));
+    const int16_t *srcI = (p_ok != 0u) ? I : k_walsh_dummy_iq_;
+    const int16_t *srcQ = (p_ok != 0u) ? Q : k_walsh_dummy_iq_;
+    for (int i = 0; i < 64; ++i) {
+        dec_wI_[i] = static_cast<int32_t>(srcI[i]);
+        dec_wQ_[i] = static_cast<int32_t>(srcQ[i]);
+    }
+    fwht_raw(dec_wI_, 64);
+    fwht_raw(dec_wQ_, 64);
+    int search = 64;
+    if (cap_search_to_bps) {
+        const int bps = cur_bps64_;
+        const int valid = 1 << bps;
+        search = (valid < 64) ? valid : 64;
+    }
+    uint8_t best_m = 0u;
+    if (est_count_ > 0) {
+        int64_t best_score = INT64_MIN;
+        for (int m = 0; m < search; ++m) {
+            const int64_t score =
+                static_cast<int64_t>(dec_wI_[m]) *
+                    static_cast<int64_t>(est_I_) +
+                static_cast<int64_t>(dec_wQ_[m]) *
+                    static_cast<int64_t>(est_Q_);
+            if (score > best_score) {
+                best_score = score;
+                best_m = static_cast<uint8_t>(m);
+            }
+        }
+    } else {
+        int32_t best_e = 0;
+        for (int m = 0; m < search; ++m) {
+            const int64_t eI =
+                static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m];
+            const int64_t eQ =
+                static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m];
+            const int32_t e = static_cast<int32_t>((eI + eQ) >> 16);
+            if (e > best_e) {
+                best_e = e;
+                best_m = static_cast<uint8_t>(m);
+            }
+        }
+    }
+    const int32_t mk = -static_cast<int32_t>(p_ok);
+    const int8_t sym_raw =
+        (p_ok == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(best_m);
+    const int8_t sym_out = static_cast<int8_t>(
+        (static_cast<int32_t>(sym_raw) & mk) |
+        (static_cast<int32_t>(-1) & ~mk));
+    const uint32_t bi = static_cast<uint32_t>(best_m) & 63u;
+    const int64_t eI = static_cast<int64_t>(dec_wI_[bi]) * dec_wI_[bi];
+    const int64_t eQ = static_cast<int64_t>(dec_wQ_[bi]) * dec_wQ_[bi];
+    uint32_t be = static_cast<uint32_t>((eI + eQ) >> 16);
+    be &= static_cast<uint32_t>(mk);
+    return {sym_out, be, 0u};
 }
 // ── I=Q 동일 모드 (재밍 방어) ──
 // ── [적응형 I/Q] I/Q 독립 디코딩 ──────────────────────────
@@ -498,7 +586,7 @@ void HTS_V400_Dispatcher::blackhole_(int16_t *I, int16_t *Q, int nc) noexcept {
 //
 //  [처리 순서]
 //   1) sin 상관 → ja_I, ja_Q (corr >> 13)
-//   2) IIR α=1/4 누적, 평활 출력 smooth = ema >> 2
+//   2.5) IIR α=1/4, smooth = ema >> 2 (Walsh 오염 심볼 간 상쇄)
 //   3) 노이즈 가드: |smooth_I|+|smooth_Q| vs TH
 //   4) AJC: Seed_CW_Profile — else: 수동 sin LUT 차감
 // =====================================================================
@@ -517,16 +605,15 @@ void HTS_V400_Dispatcher::cw_cancel_64_(int16_t *I, int16_t *Q) noexcept {
     }
     const int32_t ja_I = corr_I >> 13;
     const int32_t ja_Q = corr_Q >> 13;
-
-    // Step 2: IIR 평활 (α = 1/4, Walsh 오염 심볼 간 상쇄)
-    //  ema = ema - (ema >> 2) + sample
-    //  평활 출력 = ema >> 2
+    // Step 2.5: IIR 평활 (α=1/4, Walsh 오염 심볼 간 상쇄)
+    //  ema = ema - (ema >> 2) + sample, 평활 출력 = ema >> 2
+    //  오버플로: ja 최대 65534, ema 최대 65534×4 = 262136 < INT32_MAX ✓
     cw_ema_I_ = cw_ema_I_ - (cw_ema_I_ >> 2) + ja_I;
     cw_ema_Q_ = cw_ema_Q_ - (cw_ema_Q_ >> 2) + ja_Q;
     const int32_t smooth_I = cw_ema_I_ >> 2;
     const int32_t smooth_Q = cw_ema_Q_ >> 2;
 
-    // Step 3: 노이즈 가드
+    // Step 3: 노이즈 가드 — 비트마스크 (조기 반환 제거)
     static constexpr int32_t CW_CANCEL_NOISE_TH = 30;
     const uint32_t ja_sum = fast_abs(smooth_I) + fast_abs(smooth_Q);
     const int32_t guard_diff =
@@ -779,6 +866,23 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     m63_gap_ = 0;
     cw_ema_I_ = 0;
     cw_ema_Q_ = 0;
+    p0_chip_count_ = 0;
+    p0_carry_count_ = 0;
+    p1_carry_pending_ = 0;
+    p1_carry_prefix_ = 0;
+    p1_tail_collect_rem_ = 0;
+    p1_tail_idx_ = 0;
+    psal_pending_ = false;
+    psal_off_ = 0;
+    psal_e63_ = 0;
+    est_I_ = 0;
+    est_Q_ = 0;
+    est_count_ = 0;
+    derot_shift_ = 17;
+    std::memset(p0_buf128_I_, 0, sizeof(p0_buf128_I_));
+    std::memset(p0_buf128_Q_, 0, sizeof(p0_buf128_Q_));
+    std::memset(p0_carry_I_, 0, sizeof(p0_carry_I_));
+    std::memset(p0_carry_Q_, 0, sizeof(p0_carry_Q_));
     wait_sync_head_ = 0;
     wait_sync_count_ = 0;
     hdr_count_ = 0;
@@ -802,13 +906,36 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     sic_expect_valid_ = false;
     retx_ready_ = false;
     std::memset(g_sic_bits, 0, sizeof(g_sic_bits));
-    // [BUG-FIX-PRE2] 프리앰블 누적 버퍼 초기화
-    std::memset(g_pre_acc_I, 0, sizeof(g_pre_acc_I));
-    std::memset(g_pre_acc_Q, 0, sizeof(g_pre_acc_Q));
-    g_pre_acc_n = 0;
+    std::memset(buf_I_, 0, sizeof(buf_I_));
+    std::memset(buf_Q_, 0, sizeof(buf_Q_));
     if (ir_mode_ && ir_state_ != nullptr) {
         FEC_HARQ::IR_Init(*ir_state_);
     }
+}
+void HTS_V400_Dispatcher::update_derot_shift_from_est_() noexcept {
+    const int32_t mI = est_I_ >> 31;
+    const int32_t mQ = est_Q_ >> 31;
+    const int32_t abs_eI = (est_I_ + mI) ^ mI;
+    const int32_t abs_eQ = (est_Q_ + mQ) ^ mQ;
+    const uint64_t est_mag64 =
+        static_cast<uint64_t>(static_cast<uint32_t>(abs_eI)) +
+        static_cast<uint64_t>(static_cast<uint32_t>(abs_eQ));
+    if (est_mag64 == 0ull) {
+        derot_shift_ = 17;
+        return;
+    }
+    const uint32_t mag_u =
+        (est_mag64 > static_cast<uint64_t>(UINT32_MAX))
+            ? UINT32_MAX
+            : static_cast<uint32_t>(est_mag64);
+    int sh = 0;
+    for (int b = 31; b >= 0; --b) {
+        if ((mag_u & (1u << static_cast<unsigned>(b))) != 0u) {
+            sh = b;
+            break;
+        }
+    }
+    derot_shift_ = sh;
 }
 // =====================================================================
 //
@@ -838,6 +965,19 @@ void HTS_V400_Dispatcher::fhss_abort_rx_for_hop_() noexcept {
     pre_phase_ = 0;
     first_c63_ = 0;
     m63_gap_ = 0;
+    p0_chip_count_ = 0;
+    p0_carry_count_ = 0;
+    p1_carry_pending_ = 0;
+    p1_carry_prefix_ = 0;
+    p1_tail_collect_rem_ = 0;
+    p1_tail_idx_ = 0;
+    psal_pending_ = false;
+    psal_off_ = 0;
+    psal_e63_ = 0;
+    est_I_ = 0;
+    est_Q_ = 0;
+    est_count_ = 0;
+    derot_shift_ = 17;
     hdr_count_ = 0;
     hdr_fail_ = 0;
     pay_recv_ = 0;
@@ -965,10 +1105,10 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
            덮어쓰기. */
         std::memcpy(orig_I_, buf_I_, nc * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, nc * sizeof(int16_t));
-        if (cur_mode_ == PayloadMode::DATA) {
+        if (cur_mode_ == PayloadMode::DATA && est_count_ == 0) {
             cw_cancel_64_(buf_I_, buf_Q_);
         }
-        if (ajc_enabled_) {
+        if (ajc_enabled_ && est_count_ == 0) {
             ajc_.Process(buf_I_, buf_Q_, nc);
         }
         /* BUG-FIX-SC3: retx 경로 soft_clip 비활성화 — IR LLR 누적 품질 보존 */
@@ -978,7 +1118,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
         if (nc == 16) {
             if (sym_idx_ < FEC_HARQ::NSYM16) {
                 if (ir_mode_) {
-                    /* IR 칩: ECCM 후 buf (cw_cancel / AJC / soft_clip 반영) */
+                    /* IR 칩: ECCM 후 버퍼 저장 (CW 제거 효과 반영) */
                     const int base = sym_idx_ * FEC_HARQ::C16;
                     for (int c = 0; c < nc; ++c) {
                         ir_chip_I_[base + c] = buf_I_[c];
@@ -1040,7 +1180,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 // ── I=Q 동일 또는 IR-HARQ (칩 보관) ──
                 if (sym_idx_ < nsym64) {
                     if (ir_mode_) {
-                        /* IR 칩: ECCM 후 buf 기준 + SIC */
+                        /* IR 칩: ECCM 후 버퍼 + SIC (CW 제거 효과 반영) */
                         const int base = sym_idx_ * FEC_HARQ::C64;
                         const uint32_t use_sic_u =
                             static_cast<uint32_t>(sic_expect_valid_) & 1u;
@@ -1076,13 +1216,28 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         }
                         sym_idx_++;
                     } else {
-                        for (int c = 0; c < nc; ++c) {
-                            rx_.m64_I.aI[sym_idx_][c] +=
-                                static_cast<int32_t>(buf_I_[c]);
-                        }
-                        for (int c = 0; c < nc; ++c) {
-                            harq_Q_[sym_idx_][c] +=
-                                static_cast<int32_t>(buf_Q_[c]);
+                        if (est_count_ > 0) {
+                            const int sh = derot_shift_;
+                            for (int c = 0; c < nc; ++c) {
+                                const int64_t proj =
+                                    static_cast<int64_t>(buf_I_[c]) *
+                                        static_cast<int64_t>(est_I_) +
+                                    static_cast<int64_t>(buf_Q_[c]) *
+                                        static_cast<int64_t>(est_Q_);
+                                const int32_t corrected =
+                                    static_cast<int32_t>(proj >> sh);
+                                rx_.m64_I.aI[sym_idx_][c] += corrected;
+                                harq_Q_[sym_idx_][c] += corrected;
+                            }
+                        } else {
+                            for (int c = 0; c < nc; ++c) {
+                                rx_.m64_I.aI[sym_idx_][c] +=
+                                    static_cast<int32_t>(buf_I_[c]);
+                            }
+                            for (int c = 0; c < nc; ++c) {
+                                harq_Q_[sym_idx_][c] +=
+                                    static_cast<int32_t>(buf_Q_[c]);
+                            }
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
@@ -1115,11 +1270,16 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                                 rs.second_eQ, nc);
             }
         } else {
-            // I=Q 동일: 결합 FWHT
-            SymDecResult r = walsh_dec_full_(buf_I_, buf_Q_, nc);
-            if (ajc_enabled_) {
-                ajc_.Update_AJC(orig_I_, orig_Q_, r.sym, r.best_e, r.second_e,
-                                nc);
+            // I=Q 동일: projection 또는 결합 FWHT
+            if (est_count_ > 0 && nc == 64) {
+                SymDecResult r = walsh_dec_dot_proj_full_(buf_I_, buf_Q_, true);
+                (void)r;
+            } else {
+                SymDecResult r = walsh_dec_full_(buf_I_, buf_Q_, nc);
+                if (ajc_enabled_) {
+                    ajc_.Update_AJC(orig_I_, orig_Q_, r.sym, r.best_e, r.second_e,
+                                    nc);
+                }
             }
         }
     }
@@ -1153,6 +1313,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
         if (ir_mode_) {
             harq_round_++;
             const int rv = ir_rv_;
+#if defined(HTS_IR_DIAG_ENABLE)
             if (g_hts_ir_diag_chip0 != 0 && ir_chip_I_ != nullptr &&
                 ir_state_ != nullptr) {
                 std::printf("[IR-DIAG] pre-Decode16_IR feed=%d harq_round_=%d "
@@ -1161,6 +1322,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             harq_round_, static_cast<int>(ir_chip_I_[0]),
                             ir_state_->rounds_done);
             }
+#endif
             pkt.success_mask = static_cast<uint32_t>(
                 0u - static_cast<uint32_t>(
                          (ir_state_ != nullptr && ir_chip_I_ != nullptr &&
@@ -1215,6 +1377,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                     ir_chip_I_ != nullptr && ir_chip_Q_ != nullptr) {
                     const int nsym_ir = FEC_HARQ::nsym_for_bps(bps);
                     const int rv = ir_rv_;
+#if defined(HTS_IR_DIAG_ENABLE)
                     if (g_hts_ir_diag_chip0 != 0) {
                         std::printf(
                             "[IR-DIAG] pre-Decode64_IR feed=%d harq_round_=%d "
@@ -1228,6 +1391,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             bps, nsym_ir, static_cast<unsigned>(il), rv,
                             ir_state_->rounds_done);
                     }
+#endif
                     pkt.success_mask = static_cast<uint32_t>(
                         0u -
                         static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
@@ -1781,6 +1945,99 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
     SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));
     return pos;
 }
+void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
+    psal_pending_ = false;
+    const int commit_off = psal_off_;
+    const int carry = 64 - commit_off;
+    p0_carry_count_ = carry;
+    if (carry > 0) {
+        const int src = commit_off + 64;
+        for (int j = 0; j < carry; ++j) {
+            p0_carry_I_[j] = p0_buf128_I_[src + j];
+            p0_carry_Q_[j] = p0_buf128_Q_[src + j];
+        }
+    }
+    pre_phase_ = 1;
+    p1_carry_pending_ = (carry > 0) ? 1 : 0;
+    p1_tail_collect_rem_ = 0;
+    p1_tail_idx_ = 0;
+    p1_carry_prefix_ = 0;
+    buf_idx_ = 0;
+    wait_sync_head_ = 0;
+    wait_sync_count_ = 0;
+    p0_chip_count_ = 0;
+}
+
+void HTS_V400_Dispatcher::phase0_scan_() noexcept {
+    int32_t e63[64];
+    for (int i = 0; i < 64; ++i) e63[i] = 0;
+
+    for (int off = 0; off < 64; ++off) {
+        int32_t accum = 0;
+        for (int blk = 0; blk < 2; ++blk) {
+            const int base = off + (blk << 6);
+            int32_t dot_I = 0, dot_Q = 0;
+            walsh63_dot_(&p0_buf128_I_[base], &p0_buf128_Q_[base],
+                         dot_I, dot_Q);
+            const int64_t eI = static_cast<int64_t>(dot_I) * dot_I;
+            const int64_t eQ = static_cast<int64_t>(dot_Q) * dot_Q;
+            accum += static_cast<int32_t>((eI + eQ) >> 16);
+        }
+        e63[off] = accum;
+    }
+
+    int32_t best_e63 = 0;
+    int best_off = -1;
+    int64_t sum_all = 0;
+    for (int off = 0; off < 64; ++off) {
+        sum_all += static_cast<int64_t>(e63[off]);
+        if (e63[off] > best_e63) {
+            best_e63 = e63[off];
+            best_off = off;
+        }
+    }
+    const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
+    const int32_t avg_others = static_cast<int32_t>(sum_others / 63);
+    const int32_t r_avg =
+        (avg_others > 0)
+            ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
+                                   static_cast<int64_t>(avg_others))
+            : 999;
+    int32_t second_e63 = 0;
+    for (int off = 0; off < 64; ++off) {
+        if (e63[off] < best_e63 && e63[off] > second_e63)
+            second_e63 = e63[off];
+    }
+    const int32_t r_sep =
+        (second_e63 > 0)
+            ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
+                                   static_cast<int64_t>(second_e63))
+            : 999;
+    (void)r_sep;
+
+    static constexpr int32_t k_R_AVG_MIN    = 10;
+    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+
+    const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
+                       best_e63 >= k_E63_ALIGN_MIN);
+
+    std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
+                best_off, best_e63, avg_others, r_avg, r_sep);
+
+    if (pass) {
+        std::printf("[P0-ALIGNED] off=%d carry=%d r_avg=%d\n",
+                    best_off, 64 - best_off, r_avg);
+        psal_off_ = best_off;
+        psal_e63_ = best_e63;
+        psal_commit_align_();
+    } else {
+        std::memmove(p0_buf128_I_, p0_buf128_I_ + 128,
+                     static_cast<size_t>(64) * sizeof(int16_t));
+        std::memmove(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                     static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+    }
+}
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     if (phase_ == RxPhase::RF_SETTLING) {
         (void)rx_I;
@@ -1794,149 +2051,141 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         return;
     }
     if (phase_ == RxPhase::WAIT_SYNC) {
-        // ════════════════════════════════════════════════
-        //  2단계 하이브리드 동기화 (Sync & Accumulate)
-        //
-        //  Phase 0 (슬라이딩 탐색):
-        //   1심볼(64칩) 단위 FWHT, 1칩 슬라이드
-        //   PRE_SYM0 검출 → 타이밍 락 → Phase 1
-        //
-        //  Phase 1 (제자리 누적):
-        //   타이밍 고정, 64칩 정렬 수집
-        //   PRE_SYM0 → 누적 (에너지 증폭)
-        //   PRE_SYM1 → 동기 완료 → READ_HEADER
-        // ════════════════════════════════════════════════
-        if (wait_sync_count_ >= 64)
+        if (pre_phase_ == 0) {
+            p0_buf128_I_[p0_chip_count_] = rx_I;
+            p0_buf128_Q_[p0_chip_count_] = rx_Q;
+            ++p0_chip_count_;
+            if (p0_chip_count_ < 192)
+                return;
+            phase0_scan_();
             return;
-        const int widx = (wait_sync_head_ + wait_sync_count_) & 63;
-        buf_I_[widx] = rx_I;
-        buf_Q_[widx] = rx_Q;
-        wait_sync_count_++;
-        if (wait_sync_count_ < 64)
+        }
+        // ── Phase 1: carry + Walsh-63/0 dual dot ──
+        if (p1_tail_collect_rem_ > 0) {
+            p0_carry_I_[p1_tail_idx_] = rx_I;
+            p0_carry_Q_[p1_tail_idx_] = rx_Q;
+            ++p1_tail_idx_;
+            if (p1_tail_idx_ < p1_tail_collect_rem_)
+                return;
+            p0_carry_count_ = p1_tail_collect_rem_;
+            p1_carry_pending_ = 1;
+            p1_tail_collect_rem_ = 0;
+            p1_tail_idx_ = 0;
             return;
-        for (int j = 0; j < 64; ++j) {
-            const int p = (wait_sync_head_ + j) & 63;
-            orig_I_[j] = buf_I_[p];
-            orig_Q_[j] = buf_Q_[p];
         }
-        cw_cancel_64_(orig_I_, orig_Q_);
-        if (ajc_enabled_) {
-            ajc_.Process(orig_I_, orig_Q_, 64);
+        bool carry_only_full = false;
+        bool p1_rx_in_buf = false;
+        if (buf_idx_ == 0 && p1_carry_pending_) {
+            const int cc = p0_carry_count_;
+            for (int j = 0; j < cc; ++j) {
+                buf_I_[j] = p0_carry_I_[j];
+                buf_Q_[j] = p0_carry_Q_[j];
+            }
+            buf_idx_ = cc;
+            p1_carry_prefix_ = cc;
+            p1_carry_pending_ = 0;
+            if (buf_idx_ == 64) carry_only_full = true;
         }
+        if (!carry_only_full) {
+            buf_I_[buf_idx_] = rx_I;
+            buf_Q_[buf_idx_] = rx_Q;
+            ++buf_idx_;
+            p1_rx_in_buf = true;
+            if (buf_idx_ < 64) return;
+        }
+        buf_idx_ = 0;
+        std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
+        std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
         if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
             soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
         }
-        if (pre_phase_ == 0) {
-            // ── Phase 0: 누적 기반 프리앰블 검출 ──
-            //  매 64칩 윈도우를 g_pre_acc_I/Q에 누적
-            //  누적 후 FWHT → PRE_SYM0 검출 시도
-            //  신호: coherent ×N, 잡음: √N → SNR ∝ √N
-            //  pre_reps_=8 → +9dB 동기 이득
-            if (g_pre_acc_n == 0) {
-                // 첫 윈도우: 누적 버퍼 초기화
-                for (int j = 0; j < 64; ++j) {
-                    g_pre_acc_I[j] = static_cast<int32_t>(orig_I_[j]);
-                    g_pre_acc_Q[j] = static_cast<int32_t>(orig_Q_[j]);
-                }
-                g_pre_acc_n = 1;
+        int32_t dot63_I = 0, dot63_Q = 0;
+        int32_t dot0_I = 0, dot0_Q = 0;
+        for (int j = 0; j < 64; ++j) {
+            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
+            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
+            dot0_I += cI;
+            dot0_Q += cQ;
+            if (k_w63[static_cast<std::size_t>(j)] > 0) {
+                dot63_I += cI; dot63_Q += cQ;
             } else {
-                // 후속 윈도우: coherent 누적
-                for (int j = 0; j < 64; ++j) {
-                    g_pre_acc_I[j] += static_cast<int32_t>(orig_I_[j]);
-                    g_pre_acc_Q[j] += static_cast<int32_t>(orig_Q_[j]);
-                }
-                g_pre_acc_n++;
+                dot63_I -= cI; dot63_Q -= cQ;
             }
-
-            // 누적 버퍼로 FWHT → 검출 시도
-            for (int j = 0; j < 64; ++j) {
-                dec_wI_[j] = g_pre_acc_I[j];
-                dec_wQ_[j] = g_pre_acc_Q[j];
+        }
+        const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I
+                             + static_cast<int64_t>(dot63_Q) * dot63_Q;
+        const int64_t e0_64  = static_cast<int64_t>(dot0_I) * dot0_I
+                             + static_cast<int64_t>(dot0_Q) * dot0_Q;
+        const int32_t e63_sh = static_cast<int32_t>(e63_64 >> 16);
+        const int32_t e0_sh  = static_cast<int32_t>(e0_64 >> 16);
+        static constexpr int32_t k_P1_MIN_E = 1000;
+        const int32_t max_e_sh = (e63_sh >= e0_sh) ? e63_sh : e0_sh;
+        if (max_e_sh < k_P1_MIN_E) {
+            pre_phase_ = 0;
+            psal_pending_ = false; psal_off_ = 0; psal_e63_ = 0;
+            p0_chip_count_ = 0; p0_carry_count_ = 0;
+            p1_carry_pending_ = 0; p1_tail_collect_rem_ = 0;
+            p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
+            buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
+            if (carry_only_full && !p1_rx_in_buf) {
+                p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+                p0_chip_count_ = 1;
             }
-            fwht_raw(dec_wI_, 64);
-            fwht_raw(dec_wQ_, 64);
-            // PLUTO Phase 0: non-coherent (>>8, sI²+sQ²)
-            int32_t best_c = -1;
-            uint8_t best_m = 0u;
-            for (int m = 0; m < 64; ++m) {
-                const int32_t sI = dec_wI_[m] >> 8;
-                const int32_t sQ = dec_wQ_[m] >> 8;
-                const int32_t c = sI * sI + sQ * sQ;
-                const uint32_t gt = 0u - static_cast<uint32_t>(c > best_c);
-                best_c =
-                    static_cast<int32_t>((static_cast<uint32_t>(c) & gt) |
-                                         (static_cast<uint32_t>(best_c) & ~gt));
-                best_m =
-                    static_cast<uint8_t>((static_cast<uint32_t>(m) & gt) |
-                                         (static_cast<uint32_t>(best_m) & ~gt));
-            }
-
-            // ── First Partial Reference: 신호 레벨 독립 검출 ──
-            static constexpr int32_t k_NOISE_FLOOR = 100;
-
-            if (best_m == PRE_SYM0 && best_c > k_NOISE_FLOOR) {
-                m63_gap_ = 0;
-                if (first_c63_ == 0) {
-                    first_c63_ = best_c;
-                } else if (static_cast<int64_t>(best_c) >
-                           static_cast<int64_t>(first_c63_) * 3) {
-                    pre_phase_ = 1;
-                    wait_sync_head_ = 0;
-                    wait_sync_count_ = 0;
-                    buf_idx_ = 0;
-                    first_c63_ = 0;
-                    m63_gap_ = 0;
-                }
-            } else {
-                m63_gap_++;
-                if (m63_gap_ > 128) {
-                    first_c63_ = 0;
-                }
-            }
-
-            if (g_pre_acc_n >= pre_reps_ && pre_phase_ == 0) {
-                std::memset(g_pre_acc_I, 0, sizeof(g_pre_acc_I));
-                std::memset(g_pre_acc_Q, 0, sizeof(g_pre_acc_Q));
-                g_pre_acc_n = 0;
-                wait_sync_head_ = (wait_sync_head_ + 1) & 63;
-                wait_sync_count_ = 63;
-            } else if (pre_phase_ == 0 && g_pre_acc_n < pre_reps_) {
-                wait_sync_head_ = 0;
-                wait_sync_count_ = 0;
-            }
+            return;
+        }
+        uint8_t best_m = 0u;
+        if (e63_64 >= e0_64) {
+            best_m = PRE_SYM0;
+            est_I_ += dot63_I; est_Q_ += dot63_Q; ++est_count_;
         } else {
-            // ── Phase 1: 제자리 누적 (타이밍 락 상태) ──
-            SymDecResult r0 = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
-            int8_t sym = r0.sym;
-            if (sym == static_cast<int8_t>(PRE_SYM1)) {
-                // ── 동기 완료 → READ_HEADER ──
-                set_phase_(RxPhase::READ_HEADER);
-                hdr_count_ = 0;
-                hdr_fail_ = 0;
-                wait_sync_head_ = 0;
-                wait_sync_count_ = 0;
-                buf_idx_ = 0;
-            } else if (sym == static_cast<int8_t>(PRE_SYM0)) {
-                // ── PRE_SYM0 반복: 제자리 누적 ──
-                for (int j = 0; j < 64; ++j) {
-                    g_pre_acc_I[j] += static_cast<int32_t>(orig_I_[j]);
-                    g_pre_acc_Q[j] += static_cast<int32_t>(orig_Q_[j]);
-                }
-                g_pre_acc_n++;
-                wait_sync_head_ = 0;
-                wait_sync_count_ = 0;
-                buf_idx_ = 0;
+            best_m = PRE_SYM1;
+        }
+        const int8_t sym = static_cast<int8_t>(best_m);
+        const int tail_rem = p1_carry_prefix_;
+        p1_carry_prefix_ = 0;
+        std::printf("[P1-NC] sym=%d e63=%d e0=%d est=(%d,%d) n=%d carry_pend=%d\n",
+                    static_cast<int>(sym), e63_sh, e0_sh,
+                    est_I_, est_Q_, est_count_, p1_carry_pending_);
+        if (sym == static_cast<int8_t>(PRE_SYM1)) {
+            p1_tail_collect_rem_ = 0; p1_tail_idx_ = 0;
+            p1_carry_pending_ = 0; p0_carry_count_ = 0;
+            update_derot_shift_from_est_();
+            set_phase_(RxPhase::READ_HEADER);
+            hdr_count_ = 0; hdr_fail_ = 0;
+            wait_sync_head_ = 0; wait_sync_count_ = 0;
+            std::printf("[P1→HDR] est=(%d,%d) n=%d\n",
+                        est_I_, est_Q_, est_count_);
+            if (carry_only_full && !p1_rx_in_buf) {
+                buf_I_[0] = rx_I; buf_Q_[0] = rx_Q; buf_idx_ = 1;
             } else {
-                // 예상 외 심볼 → Phase 0 리셋
-                pre_phase_ = 0;
-                first_c63_ = 0;
-                m63_gap_ = 0;
-                std::memset(g_pre_acc_I, 0, sizeof(g_pre_acc_I));
-                std::memset(g_pre_acc_Q, 0, sizeof(g_pre_acc_Q));
-                g_pre_acc_n = 0;
-                wait_sync_head_ = (wait_sync_head_ + 1) & 63;
-                wait_sync_count_ = 63;
+                buf_idx_ = 0;
             }
+            return;
+        }
+        if (sym == static_cast<int8_t>(PRE_SYM0)) {
+            if (tail_rem > 0) {
+                p1_tail_collect_rem_ = tail_rem; p1_tail_idx_ = 0;
+                if (carry_only_full) {
+                    p0_carry_I_[0] = rx_I; p0_carry_Q_[0] = rx_Q;
+                    p1_tail_idx_ = 1;
+                    if (p1_tail_idx_ >= p1_tail_collect_rem_) {
+                        p0_carry_count_ = tail_rem; p1_carry_pending_ = 1;
+                        p1_tail_collect_rem_ = 0; p1_tail_idx_ = 0;
+                    }
+                }
+            }
+            buf_idx_ = 0;
+            return;
+        }
+        pre_phase_ = 0;
+        psal_pending_ = false; psal_off_ = 0; psal_e63_ = 0;
+        p0_chip_count_ = 0; p0_carry_count_ = 0;
+        p1_carry_pending_ = 0; p1_tail_collect_rem_ = 0;
+        p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
+        buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
+        if (carry_only_full && !p1_rx_in_buf) {
+            p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+            p0_chip_count_ = 1;
         }
         return;
     }
@@ -1949,16 +2198,12 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         if (buf_idx_ == 64) {
             std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
             std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
-            cw_cancel_64_(orig_I_, orig_Q_);
-            if (ajc_enabled_) {
-                ajc_.Process(orig_I_, orig_Q_, 64);
-            }
             /* BUG-FIX-SC2: soft_clip 정책 분기 — ALWAYS=기존동작,
              * SYNC_ONLY=페이로드OFF, NEVER=전체OFF */
             if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
                 soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
             }
-            SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+            SymDecResult rh = walsh_dec_dot_proj_full_(orig_I_, orig_Q_, false);
             int8_t sym = rh.sym;
             if (sym >= 0 && sym < 64) {
                 hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);

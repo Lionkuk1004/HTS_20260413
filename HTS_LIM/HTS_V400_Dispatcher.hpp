@@ -509,6 +509,25 @@ namespace ProtectedEngine {
         int32_t first_c63_ = 0; ///< FPR: preamble first m=63 energy
         int32_t m63_gap_ = 0;   ///< FPR: consecutive non-m63 gap count
 
+        // ── Phase 0: 128칩 cross-offset 스캔 ──
+        int16_t p0_buf128_I_[192] = {};
+        int16_t p0_buf128_Q_[192] = {};
+        int     p0_chip_count_    = 0;
+        int16_t p0_carry_I_[64]   = {};
+        int16_t p0_carry_Q_[64]   = {};
+        int     p0_carry_count_   = 0;
+        int     p1_carry_pending_     = 0;
+        int     p1_carry_prefix_      = 0;
+        int     p1_tail_collect_rem_  = 0;
+        int     p1_tail_idx_          = 0;
+        bool    psal_pending_ = false;
+        int     psal_off_     = 0;
+        int32_t psal_e63_     = 0;
+        int32_t est_I_     = 0;
+        int32_t est_Q_     = 0;
+        int     est_count_ = 0;
+        int     derot_shift_ = 17;
+
         /// @brief Walsh 디코딩 결과 (심볼 + 에너지)
         struct SymDecResult {
             int8_t   sym;       ///< 디코딩된 심볼 (-1 = 실패)
@@ -530,6 +549,12 @@ namespace ProtectedEngine {
         /// false=프리앰블·헤더(0..63 Walsh 전체). BPS<6 시 동기 필수.
         SymDecResult walsh_dec_full_(const int16_t* I, const int16_t* Q, int n,
                                      bool cap_search_to_bps = true) noexcept;
+
+        void phase0_scan_() noexcept;
+        void psal_commit_align_() noexcept;
+        void update_derot_shift_from_est_() noexcept;
+        SymDecResult walsh_dec_dot_proj_full_(const int16_t *I, const int16_t *Q,
+                                         bool cap_search_to_bps) noexcept;
 
         /// @brief I/Q 독립 디코딩 — 각 채널 FWHT 분리 수행
         SymDecResultSplit walsh_dec_split_(

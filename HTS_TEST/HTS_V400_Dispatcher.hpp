@@ -299,6 +299,24 @@ class HTS_V400_Dispatcher {
     /// WAIT_SYNC 전용: 64칩 링(물리 시프트 없음), 선형 복사는 orig_ 로만
     int wait_sync_head_{0};
     int wait_sync_count_{0};
+    // ── Phase 0: 128칩 cross-offset 스캔 ──
+    int16_t p0_buf128_I_[192] = {};
+    int16_t p0_buf128_Q_[192] = {};
+    int p0_chip_count_ = 0;
+    int16_t p0_carry_I_[64] = {};
+    int16_t p0_carry_Q_[64] = {};
+    int p0_carry_count_ = 0;
+    int p1_carry_pending_ = 0;
+    int p1_carry_prefix_ = 0;
+    int p1_tail_collect_rem_ = 0;
+    int p1_tail_idx_ = 0;
+    bool psal_pending_ = false;
+    int psal_off_ = 0;
+    int32_t psal_e63_ = 0;
+    int32_t est_I_ = 0;
+    int32_t est_Q_ = 0;
+    int est_count_ = 0;
+    int derot_shift_ = 17;
     int pre_phase_; ///< 프리앰블 매칭 단계 (0 또는 1)
     int pre_reps_ = 1;
     int pre_boost_ = 1; ///< 프리앰블 진폭 배수 (1=기존, 2=+6dB, 4=+12dB)
@@ -459,6 +477,9 @@ class HTS_V400_Dispatcher {
     void try_decode_() noexcept;
     void handle_video_(uint32_t decode_ok_mask) noexcept;
     void full_reset_() noexcept;
+    void phase0_scan_() noexcept;
+    void psal_commit_align_() noexcept;
+    void update_derot_shift_from_est_() noexcept;
     void harq_feedback_seed_(const uint8_t *data, int data_len, int nc,
                              uint32_t il) noexcept;
     int32_t dec_wI_[64] = {}; ///< Walsh 디코딩 워킹 버퍼 I
@@ -486,6 +507,8 @@ class HTS_V400_Dispatcher {
     /// false=프리앰블·헤더(0..63 Walsh 전체). Lab BPS<6 시 동기 필수.
     SymDecResult walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
                                  bool cap_search_to_bps = true) noexcept;
+    SymDecResult walsh_dec_dot_proj_full_(const int16_t *I, const int16_t *Q,
+                                         bool cap_search_to_bps) noexcept;
     /// @brief I/Q 독립 디코딩 — 각 채널 FWHT 분리 수행
     SymDecResultSplit walsh_dec_split_(const int16_t *I, const int16_t *Q,
                                        int n) noexcept;

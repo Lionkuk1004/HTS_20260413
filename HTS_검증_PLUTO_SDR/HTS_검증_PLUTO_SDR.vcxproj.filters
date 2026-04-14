@@ -33,6 +33,9 @@
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.h">
@@ -54,6 +57,12 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_DWT_Profiler.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

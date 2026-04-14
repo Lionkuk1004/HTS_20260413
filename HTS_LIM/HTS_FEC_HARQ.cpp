@@ -10,6 +10,9 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
+#if defined(HTS_FEC_POLAR_ENABLE)
+#include "HTS_DWT_Profiler.h"
+#endif
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif
@@ -1006,9 +1009,12 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     // ── Polar 칩 누적 디코딩 경로 (CURSOR_POLAR_REVERT_BASELINE) ──
     // 칩 도메인 coherent 누적(I+Q) → 단일 FWHT → Max-Log LLR → Polar
     // (위 심볼 루프의 wb.ru.all_llr는 Polar에서 미사용; Conv #else만 사용)
+    // T18: DWT CYCCNT / TSC 구간 계측 (로직 불변)
 
     static int32_t s_chip_acc[NSYM64 * C64];
     static int16_t polar_llr16[POLAR_N];
+
+    const uint32_t t18_total_start = HTS_DWT::Read();
 
     if (ir_state.rounds_done == 0) {
         std::memset(static_cast<void *>(s_chip_acc), 0, sizeof(s_chip_acc));
@@ -1032,6 +1038,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
 
     int32_t polar_llr_coded[TOTAL_CODED] = {};
 
+    const uint32_t t18_fwht_start = HTS_DWT::Read();
     for (int sym = 0; sym < nsym; ++sym) {
         const int sym_base = sym * nc;
         for (int c = 0; c < nc; ++c) {
@@ -1065,6 +1072,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             }
         }
     }
+    const uint32_t t18_fwht_end = HTS_DWT::Read();
 
     std::memset(static_cast<void *>(ir_state.llr_accum), 0,
                 static_cast<std::size_t>(POLAR_N) * sizeof(int32_t));
@@ -1098,12 +1106,14 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         polar_llr16[static_cast<std::size_t>(i)] = static_cast<int16_t>(v);
     }
+    const uint32_t t18_fold_end = HTS_DWT::Read();
 
     uint8_t rx[static_cast<std::size_t>(MAX_INFO)] = {};
     int olen_p = 0;
     bool dec_ok =
         HTS_Polar_Codec::Decode_SCL(polar_llr16, rx, &olen_p);
     dec_ok = dec_ok && (olen_p == MAX_INFO);
+    const uint32_t t18_scl_end = HTS_DWT::Read();
 
     const uint32_t ok_mask = 0u - static_cast<uint32_t>(dec_ok);
     const uint32_t fail_mask = ~ok_mask;
@@ -1118,6 +1128,18 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     ir_state.ok = (ok_mask != 0u);
     ir_state.sic_tentative_valid = fail_mask & 1u;
     fec_secure_wipe_stack(static_cast<void *>(rx), sizeof(rx));
+
+    const uint32_t t18_total_end = HTS_DWT::Read();
+    // Step 2: fwht 구간 = nsym×(FWHT+Max-Log); llr는 동일 구간에 포함 → 0
+    HTS_DWT::g_prof.fwht_cycles = t18_fwht_end - t18_fwht_start;
+    HTS_DWT::g_prof.llr_cycles = 0u;
+    HTS_DWT::g_prof.fold_cycles = t18_fold_end - t18_fwht_end;
+    HTS_DWT::g_prof.scl_cycles = t18_scl_end - t18_fold_end;
+    HTS_DWT::g_prof.total_cycles = t18_total_end - t18_total_start;
+    HTS_DWT::g_prof.rounds =
+        static_cast<uint32_t>(ir_state.rounds_done);
+    HTS_DWT::Stats_Update(HTS_DWT::g_prof);
+
     return dec_ok;
 #else
     const uint32_t il_eff = il_seed ^ RV_SALT[static_cast<std::size_t>(rv & 3)];

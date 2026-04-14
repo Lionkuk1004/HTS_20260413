@@ -16,6 +16,9 @@
 #endif
 #include "HTS_FEC_HARQ.hpp"
 #include "HTS_V400_Dispatcher.hpp"
+#if defined(HTS_FEC_POLAR_ENABLE)
+#include "HTS_DWT_Profiler.h"
+#endif
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
@@ -743,6 +746,9 @@ int main() {
     static constexpr uint32_t kSeed = 0xB40730u;
     static constexpr double js_sweep[] = {-1, 0,  5,  10, 15, 20,
                                           25, 30, 35, 40, 45, 50};
+#if defined(HTS_FEC_POLAR_ENABLE)
+    HTS_DWT::Init();
+#endif
     std::printf(
         "\n================================================================\n");
 #if defined(HTS_FEC_POLAR_ENABLE)
@@ -892,6 +898,9 @@ int main() {
         "================================================================\n");
 
     std::printf("\n── V4 64chip DATA BPS=4 (trials=%d) ──\n", kTrialsV464);
+#if defined(HTS_FEC_POLAR_ENABLE)
+    HTS_DWT::Stats_Reset();
+#endif
     for (double js : js_sweep) {
         print_row("V4-64",
                   test_full_stack_v4(
@@ -899,6 +908,11 @@ int main() {
                       kSeed ^ static_cast<uint32_t>(static_cast<int>(js * 100))));
         std::fflush(stdout);
     }
+#if defined(HTS_FEC_POLAR_ENABLE)
+    std::printf("\n── T18: Decode64_IR Polar CYCCNT/TSC (V4-64 누적) ──\n");
+    HTS_DWT::Stats_Print();
+    HTS_DWT::Stats_Reset();
+#endif
 
     std::printf("\n── V4 16chip VOICE ──\n");
     for (double js : js_sweep) {

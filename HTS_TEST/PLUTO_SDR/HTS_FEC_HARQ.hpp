@@ -72,6 +72,10 @@
 //   정적 전용 클래스 — 인스턴스화 불가 (상태 없음)
 //
 #pragma once
+#define HTS_FEC_POLAR_ENABLE
+#if defined(HTS_FEC_POLAR_ENABLE)
+#include "HTS_Polar_Codec.h"
+#endif
 #include "HTS_BitOps.h"
 #include <cstdint>
 #include <cstddef>
@@ -100,6 +104,11 @@ namespace ProtectedEngine {
         static constexpr int CONV_OUT = CONV_IN * 2;
         static constexpr int REP = 4;
         static constexpr int TOTAL_CODED = CONV_OUT * REP;
+#if defined(HTS_FEC_POLAR_ENABLE)
+        // Polar(512,80): 512 coded bits → 688 cyclic rep = 동일 TOTAL_CODED
+        static constexpr int POLAR_N = 512;
+        static constexpr int POLAR_K_BYTES = 8;
+#endif
 
         static constexpr uint8_t G0 = 0x79u;  // Conv 생성 다항식 (공개 표준)
         static constexpr uint8_t G1 = 0x5Bu;
@@ -437,5 +446,9 @@ namespace ProtectedEngine {
         "RxState64 exceeds 128KB — NSYM64 또는 C64 재검토 필요");
     static_assert(sizeof(FEC_HARQ::IR_RxState) <= 4096u,
         "IR_RxState exceeds 4KB — TOTAL_CODED·정렬 재검토");
+#if defined(HTS_FEC_POLAR_ENABLE)
+    static_assert(FEC_HARQ::POLAR_N == HTS_Polar_Codec::N,
+                  "FEC POLAR_N must match HTS_Polar_Codec::N");
+#endif
 
 } // namespace ProtectedEngine
