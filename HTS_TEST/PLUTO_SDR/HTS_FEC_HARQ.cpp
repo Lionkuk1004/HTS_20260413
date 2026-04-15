@@ -644,6 +644,10 @@ bool FEC_HARQ::Decode_Core(const int32_t *accI, const int32_t *accQ, int nsym,
                         static_cast<std::size_t>(nc) * sizeof(int32_t));
             FWHT(fI.data(), nc);
             FWHT(fQ.data(), nc);
+            // DC bin 제거: Walsh bin 0 = Σchips (DC 성분)
+            // Pluto LO leakage / ADC offset → bin 0에 집중 → LLR bias 방지
+            fI[0] = 0;
+            fQ[0] = 0;
             Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
             for (int b = 0; b < bps; ++b) {
                 const int bi = sym * bps + b;
@@ -993,6 +997,9 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         FWHT(fI.data(), nc);
         FWHT(fQ.data(), nc);
+        // DC bin 제거: Walsh bin 0 = Σchips (DC 성분)
+        fI[0] = 0;
+        fQ[0] = 0;
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
         for (int b = 0; b < bps; ++b) {
             const int bi = sym * bps + b;
@@ -1046,6 +1053,8 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 s_chip_acc[sym_base + c];
         }
         FWHT(g_fec_dec_fI.data(), nc);
+        // DC bin 제거: Walsh bin 0 = Σchips (DC 성분)
+        g_fec_dec_fI[0] = 0;
         const int valid = 1 << bps;
         for (int b = 0; b < bps; ++b) {
             const int sh_bit = bps - 1 - b;
@@ -1255,6 +1264,9 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         FWHT(fI.data(), nc);
         FWHT(fQ.data(), nc);
+        // DC bin 제거: Walsh bin 0 = Σchips (DC 성분)
+        fI[0] = 0;
+        fQ[0] = 0;
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
         for (int b = 0; b < bps; ++b) {
             const int bi = sym * bps + b;

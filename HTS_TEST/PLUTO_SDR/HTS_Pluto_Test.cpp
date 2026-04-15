@@ -23,12 +23,16 @@ using ProtectedEngine::HTS_V400_Dispatcher;
 using ProtectedEngine::PayloadMode;
 using ProtectedEngine::RxPhase;
 using ProtectedEngine::SoftClipPolicy;
-static constexpr long long PLUTO_FREQ_HZ = 915000000LL;
-static constexpr long long PLUTO_SAMPLE_RATE = 4000000LL;
-static constexpr long long PLUTO_BW_HZ = 4000000LL;
-static constexpr int PLUTO_BUF_SAMPLES = 32768;
-static constexpr long long PLUTO_TX_GAIN_INIT = -89LL;
-static constexpr long long PLUTO_RX_GAIN_INIT = 50LL;
+// ── PS-LTE 재난안전통신망 (Band 28, 700 MHz) ──
+// 하향: 773~783 MHz, 상향: 718~728 MHz
+// HTS B-CDMA 칩레이트 200 kc/s → 점유 BW ~200 kHz
+static constexpr long long PLUTO_FREQ_HZ =
+    778000000LL; // PS-LTE DL 중심 (TX/RX 동일 LO, 근거리 루프백)
+static constexpr long long PLUTO_SAMPLE_RATE = 1000000LL; // 1 MSPS
+static constexpr long long PLUTO_BW_HZ = 1000000LL;       // 1 MHz RF BW
+static constexpr int PLUTO_BUF_SAMPLES = 8192; // 1 MSPS × 8 ms
+static constexpr long long PLUTO_TX_GAIN_INIT = -50LL; // 근거리 테스트
+static constexpr long long PLUTO_RX_GAIN_INIT = 40LL;   // 포화 방지
 static long long g_tx_gain = PLUTO_TX_GAIN_INIT;
 static constexpr int16_t kAmp = 1000;
 static constexpr double kAmpD = 1000.0;
@@ -109,8 +113,10 @@ static bool pluto_open(PlutoCtx &p) {
     if (!p.tx_buf || !p.rx_buf)
         return false;
     std::printf(
-        "[PLUTO] USB 연결 OK: %.0f MHz, TX=%lld dB, RX=%lld dB, Cyclic TX\n",
-        PLUTO_FREQ_HZ / 1e6, PLUTO_TX_GAIN_INIT, PLUTO_RX_GAIN_INIT);
+        "[PLUTO] USB 연결 OK: LO=%.0f MHz (PS-LTE DL), BW=%.0f MHz, "
+        "%.0f MSPS, TX=%lld dB, RX=%lld dB, Cyclic TX\n",
+        PLUTO_FREQ_HZ / 1e6, PLUTO_BW_HZ / 1e6,
+        PLUTO_SAMPLE_RATE / 1e6, PLUTO_TX_GAIN_INIT, PLUTO_RX_GAIN_INIT);
     return true;
 }
 static void pluto_close(PlutoCtx &p) {
@@ -125,15 +131,15 @@ static void pluto_close(PlutoCtx &p) {
 static void pluto_set_tx_gain(PlutoCtx &p, long long g) {
     if (g < -89)
         g = -89;
-    if (g > -40)
-        g = -40;
+    if (g > 0)
+        g = 0; // AD9361 TX 범위: -89 ~ 0 dB
     auto *ch = iio_device_find_channel(p.phy, "voltage0", true);
     if (ch)
         wr_lli(ch, "hardwaregain", g);
     g_tx_gain = g;
 }
 static void pluto_flush_rx(PlutoCtx &p) {
-    // 32768 samples @ 4MHz = 8.2ms/refill. 20회 = ~164ms 분량 클리어
+    // 8192 samples @ 1 MSPS → ~8.192 ms/refill. 20회 클리어
     for (int i = 0; i < 20; ++i)
         iio_buffer_refill(p.rx_buf);
 }
@@ -2148,7 +2154,7 @@ static void test_T18(PlutoCtx & /*p*/) {
                 max_us, MEASURE_ROUNDS);
     std::printf("  M4 환산(x%.0f): avg=%.0fus(%.0f cyc) max=%.0fus(%.0f cyc)\n",
                 M4_FACTOR, m4_avg_us, m4_avg_cycles, m4_max_us, m4_max_cycles);
-    // 실시간 마진: 64칩 1심볼 @ 4MHz = 16us
+    // 실시간 마진: 64칩 1심볼 @ PLUTO_SAMPLE_RATE (1 MSPS → 64us)
     double sym_time_us = 64.0 / (static_cast<double>(PLUTO_SAMPLE_RATE) / 1e6);
     double frame_time_us = sym_time_us * nsym;
     std::printf("  프레임 시간: %.0fus, M4 마진: %.1f%%\n", frame_time_us,
