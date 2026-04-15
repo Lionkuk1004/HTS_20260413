@@ -2282,36 +2282,182 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
                 soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
             }
-            SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
-            int8_t sym = rh.sym;
-            if (sym >= 0 && sym < 64) {
-                // ── HDR Soft Decision: 확신도 검증 ──
-                // best_e < second_e × 2 → 신뢰 부족 → 이 블록 버리고 HDR 재수집
-                // J/S +12dB에서 Soft 통과 시 정확도 99.3% (무조건 수용 시 84.7%)
-                if (rh.second_e > 0u &&
-                    rh.best_e < rh.second_e * 2u) {
+            static int16_t s_hdr_blk0_I[64], s_hdr_blk0_Q[64];
+            if (hdr_count_ == 0) {
+                const SymDecResult rh =
+                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                if (rh.sym >= 0 && rh.sym < 64) {
+                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(rh.sym);
+                    std::memcpy(s_hdr_blk0_I, orig_I_, 64 * sizeof(int16_t));
+                    std::memcpy(s_hdr_blk0_Q, orig_Q_, 64 * sizeof(int16_t));
+                    hdr_count_++;
+                } else {
+                    hdr_fail_++;
+                    if (hdr_fail_ >= HDR_FAIL_MAX) {
 #if defined(HTS_DIAG_PRINTF)
-                    std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
-                                rh.best_e, rh.second_e);
+                        std::printf("[HDR-FAIL] max fail, back to P1\n");
 #endif
-                    hdr_count_ = 0;
-                    buf_idx_ = 0;
-                    return;
+                        hdr_count_ = 0;
+                        hdr_fail_ = 0;
+                        buf_idx_ = 0;
+                        set_phase_(RxPhase::WAIT_SYNC);
+                    }
                 }
-                hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
-                hdr_count_++;
-            } else {
-                hdr_fail_++;
-                if (hdr_fail_ >= HDR_FAIL_MAX) {
-                    // full_reset 대신 Phase 1 복귀
+            } else if (hdr_count_ == 1) {
+                static constexpr struct {
+                    uint8_t mb;
+                    uint16_t plen;
+                } k_hdr_defs[] = {
+                    {0u, static_cast<uint16_t>(FEC_HARQ::NSYM1)},
+                    {0u, static_cast<uint16_t>(FEC_HARQ::NSYM1)},
+                    {1u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {1u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {2u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {2u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(4))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(4))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(5))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(5))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
+                };
+                int best_idx = -1;
+                int64_t best_corr = 0;
+                int64_t second_corr = 0;
+                for (int ti = 0; ti < 12; ++ti) {
+                    const uint8_t mb = k_hdr_defs[static_cast<size_t>(ti)].mb;
+                    const uint16_t pl = k_hdr_defs[static_cast<size_t>(ti)].plen;
+                    const uint16_t iq =
+                        (static_cast<unsigned>(ti) & 1u) != 0u
+                            ? static_cast<uint16_t>(HDR_IQ_BIT)
+                            : 0u;
+                    const uint16_t hdr_val =
+                        (static_cast<uint16_t>(mb) << 10u) | iq | pl;
+                    const uint8_t sym0 =
+                        static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
+                    const uint8_t sym1 =
+                        static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    int64_t corr = 0;
+                    for (int j = 0; j < 64; ++j) {
+                        const int32_t v =
+                            static_cast<int32_t>(s_hdr_blk0_I[j]) +
+                            static_cast<int32_t>(s_hdr_blk0_Q[j]);
+                        const unsigned u =
+                            static_cast<unsigned>(sym0) &
+                            static_cast<unsigned>(j);
+                        unsigned p = u;
+                        p ^= p >> 4u;
+                        p ^= p >> 2u;
+                        p ^= p >> 1u;
+                        const int sign = (p & 1u) != 0u ? -1 : 1;
+                        corr += static_cast<int64_t>(v) * static_cast<int64_t>(sign);
+                    }
+                    for (int j = 0; j < 64; ++j) {
+                        const int32_t v = static_cast<int32_t>(orig_I_[j]) +
+                                          static_cast<int32_t>(orig_Q_[j]);
+                        const unsigned u =
+                            static_cast<unsigned>(sym1) &
+                            static_cast<unsigned>(j);
+                        unsigned p = u;
+                        p ^= p >> 4u;
+                        p ^= p >> 2u;
+                        p ^= p >> 1u;
+                        const int sign = (p & 1u) != 0u ? -1 : 1;
+                        corr += static_cast<int64_t>(v) * static_cast<int64_t>(sign);
+                    }
+                    if (corr < 0) {
+                        corr = -corr;
+                    }
+                    if (corr > best_corr) {
+                        second_corr = best_corr;
+                        best_corr = corr;
+                        best_idx = ti;
+                    } else if (corr > second_corr) {
+                        second_corr = corr;
+                    }
+                }
+                const bool tmpl_ok =
+                    (best_idx >= 0) &&
+                    ((second_corr == 0) ||
+                     ((best_corr << 2) >
+                      ((second_corr << 2) + second_corr)));
+                if (tmpl_ok) {
+                    const uint8_t mb =
+                        k_hdr_defs[static_cast<size_t>(best_idx)].mb;
+                    const uint16_t pl =
+                        k_hdr_defs[static_cast<size_t>(best_idx)].plen;
+                    const uint16_t iq =
+                        (static_cast<unsigned>(best_idx) & 1u) != 0u
+                            ? static_cast<uint16_t>(HDR_IQ_BIT)
+                            : 0u;
+                    const uint16_t hdr_val =
+                        (static_cast<uint16_t>(mb) << 10u) | iq | pl;
+                    hdr_syms_[0] =
+                        static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
+                    hdr_syms_[1] = static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    hdr_count_ = 2;
 #if defined(HTS_DIAG_PRINTF)
-                    std::printf("[HDR-FAIL] max fail, back to P1\n");
+                    std::printf("[HDR-TMPL] matched idx=%d hdr=0x%03X\n",
+                                best_idx, static_cast<unsigned>(hdr_val));
 #endif
-                    hdr_count_ = 0;
-                    hdr_fail_ = 0;
-                    buf_idx_ = 0;
-                    set_phase_(RxPhase::WAIT_SYNC);
-                    return;
+                } else {
+                    SymDecResult rh =
+                        walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                    int8_t sym = rh.sym;
+                    if (sym >= 0 && sym < 64) {
+                        if (rh.second_e > 0u &&
+                            rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
+                            std::printf("[HDR-SOFT] unreliable, reset\n");
+#endif
+                            hdr_count_ = 0;
+                            buf_idx_ = 0;
+                            return;
+                        }
+                        hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                        hdr_count_++;
+                    } else {
+                        hdr_fail_++;
+                        if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                            std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                            hdr_count_ = 0;
+                            hdr_fail_ = 0;
+                            buf_idx_ = 0;
+                            set_phase_(RxPhase::WAIT_SYNC);
+                        }
+                    }
+                }
+            } else {
+                SymDecResult rh =
+                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                int8_t sym = rh.sym;
+                if (sym >= 0 && sym < 64) {
+                    if (rh.second_e > 0u &&
+                        rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
+                                    rh.best_e, rh.second_e);
+#endif
+                        hdr_count_ = 0;
+                        buf_idx_ = 0;
+                        return;
+                    }
+                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                    hdr_count_++;
+                } else {
+                    hdr_fail_++;
+                    if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                        hdr_count_ = 0;
+                        hdr_fail_ = 0;
+                        buf_idx_ = 0;
+                        set_phase_(RxPhase::WAIT_SYNC);
+                        return;
+                    }
                 }
             }
             if (hdr_count_ >= HDR_SYMS) {
