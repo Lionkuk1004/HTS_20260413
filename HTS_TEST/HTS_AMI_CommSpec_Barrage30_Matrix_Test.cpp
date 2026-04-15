@@ -49,8 +49,6 @@ static constexpr double kAgcTarget = 26000.0;
 static constexpr int kMaxChipsBase = 256 + FEC_HARQ::NSYM64 * 64;
 static constexpr int kMaxChipsSlack = 2048;
 static constexpr int kMaxChips = kMaxChipsBase + kMaxChipsSlack;
-// T6-SIM과 동일 프리앰블 반복 (동기·헤더 안정)
-static constexpr int kBarragePreReps = 4;
 
 DecodedPacket g_last{};
 static void on_pkt(const DecodedPacket& p) noexcept { g_last = p; }
@@ -155,37 +153,21 @@ static SweepResult run_one(PayloadMode mode, const FecConfig& cfg, double js_db,
         const uint32_t ns =
             (seed_base << 1) ^ static_cast<uint32_t>(t * 0x85EBCA6Bu);
 
-        // ── TX 인스턴스 (송신 전용) ──
-        HTS_V400_Dispatcher tx_disp;
-        tx_disp.Set_IR_Mode(true);
-        tx_disp.Set_Seed(ds);
-        tx_disp.Set_Preamble_Boost(cfg.boost);
-        tx_disp.Set_IR_SIC_Enabled(cfg.sic);
-        tx_disp.Set_CW_Cancel(false);
-        tx_disp.Set_AJC_Enabled(false);
-        tx_disp.Set_SoftClip_Policy(cfg.clip);
-        tx_disp.Set_Lab_IQ_Mode_Jam_Harness();
-        tx_disp.Set_Lab_BPS64(cfg.bps);
-        // T6-SIM과 동일: 프리앰블 반복·적응형 BPS 시딩 (p_metrics=null이면 BPS는 Lab 값 유지)
-        tx_disp.Set_Preamble_Reps(kBarragePreReps);
-        tx_disp.Update_Adaptive_BPS(1000u);
-
-        // ── RX 인스턴스 (수신 전용) ──
-        HTS_V400_Dispatcher rx_disp;
-        rx_disp.Set_IR_Mode(true);
-        rx_disp.Set_Seed(ds);
-        rx_disp.Set_Preamble_Boost(cfg.boost);
-        rx_disp.Set_IR_SIC_Enabled(cfg.sic);
-        rx_disp.Set_CW_Cancel(false);
-        rx_disp.Set_AJC_Enabled(false);
-        rx_disp.Set_SoftClip_Policy(cfg.clip);
-        rx_disp.Set_Packet_Callback(on_pkt);
-        rx_disp.Set_Lab_IQ_Mode_Jam_Harness();
-        rx_disp.Set_Lab_BPS64(cfg.bps);
-        rx_disp.Set_Preamble_Reps(kBarragePreReps);
-        rx_disp.Update_Adaptive_BPS(1000u);
-
-        bps_act_acc += tx_disp.Get_Current_BPS64();
+        // ── 단일 인스턴스 (IR-HARQ rv 동기화 필수) ──
+        HTS_V400_Dispatcher disp;
+        disp.Set_IR_Mode(true);
+        disp.Set_Seed(ds);
+        disp.Set_Preamble_Boost(cfg.boost);
+        disp.Set_Preamble_Reps(4);
+        disp.Set_IR_SIC_Enabled(cfg.sic);
+        disp.Set_CW_Cancel(false);
+        disp.Set_AJC_Enabled(false);
+        disp.Set_SoftClip_Policy(cfg.clip);
+        disp.Set_Packet_Callback(on_pkt);
+        disp.Set_Lab_IQ_Mode_Jam_Harness();
+        disp.Set_Lab_BPS64(cfg.bps);
+        disp.Update_Adaptive_BPS(1000u);
+        bps_act_acc += disp.Get_Current_BPS64();
 
         uint8_t info[8]{};
         for (int b = 0; b < 8; ++b) {
@@ -198,10 +180,10 @@ static SweepResult run_one(PayloadMode mode, const FecConfig& cfg, double js_db,
         std::mt19937 rng(ns);
         for (int feed = 0; feed < max_feeds && success == 0; ++feed) {
             int n = 0;
-            if (feed == 0 || !rx_disp.Is_Retx_Ready()) {
-                n = tx_disp.Build_Packet(mode, info, 8, kAmp, oI, oQ, kMaxChips);
+            if (feed == 0 || !disp.Is_Retx_Ready()) {
+                n = disp.Build_Packet(mode, info, 8, kAmp, oI, oQ, kMaxChips);
             } else {
-                n = tx_disp.Build_Retx(mode, info, 8, kAmp, oI, oQ, kMaxChips);
+                n = disp.Build_Retx(mode, info, 8, kAmp, oI, oQ, kMaxChips);
             }
             if (n <= 0) {
                 break;
@@ -210,13 +192,13 @@ static SweepResult run_one(PayloadMode mode, const FecConfig& cfg, double js_db,
                 barrage_dbl(oI, dbl, n, js_db, rng);
                 agc_q(dbl, oI, oQ, n);
             }
-            if (feed == 0 || !rx_disp.Is_Retx_Ready()) {
+            if (feed == 0 || !disp.Is_Retx_Ready()) {
                 for (int i = 0; i < n; ++i) {
-                    rx_disp.Feed_Chip(oI[i], oQ[i]);
+                    disp.Feed_Chip(oI[i], oQ[i]);
                 }
             } else {
                 for (int i = 0; i < n; ++i) {
-                    rx_disp.Feed_Retx_Chip(oI[i], oQ[i]);
+                    disp.Feed_Retx_Chip(oI[i], oQ[i]);
                 }
             }
             if (g_last.success_mask == DecodedPacket::DECODE_MASK_OK) {
@@ -231,7 +213,7 @@ static SweepResult run_one(PayloadMode mode, const FecConfig& cfg, double js_db,
                 max_h = g_last.harq_k;
             }
         } else {
-            const RxPhase ph = rx_disp.Get_Phase();
+            const RxPhase ph = disp.Get_Phase();
             if (ph == RxPhase::WAIT_SYNC) {
                 ++n_fail_sync;
             } else if (ph == RxPhase::READ_HEADER) {
