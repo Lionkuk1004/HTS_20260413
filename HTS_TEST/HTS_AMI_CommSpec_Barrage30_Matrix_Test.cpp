@@ -44,7 +44,11 @@ static constexpr int16_t kAmp = 2000;
 static constexpr double kAmpD = 2000.0;
 static constexpr double kBaseNoise = 0.01;
 static constexpr double kAgcTarget = 26000.0;
-static constexpr int kMaxChips = 256 + FEC_HARQ::NSYM64 * 64;
+// Build_Packet: total_need = pre_chips + 128 + nsym64*64 (HTS_V400_Dispatcher).
+// 예전 하드코드 256+NSYM64*64는 한계와 동일해 go=0 → n=0 이 될 수 있음 → 슬랙.
+static constexpr int kMaxChipsBase = 256 + FEC_HARQ::NSYM64 * 64;
+static constexpr int kMaxChipsSlack = 2048;
+static constexpr int kMaxChips = kMaxChipsBase + kMaxChipsSlack;
 
 DecodedPacket g_last{};
 static void on_pkt(const DecodedPacket& p) noexcept { g_last = p; }
@@ -179,6 +183,12 @@ static SweepResult run_one(PayloadMode mode, const FecConfig& cfg, double js_db,
                 n = disp.Build_Retx(mode, info, 8, kAmp, oI, oQ, kMaxChips);
             }
             if (n <= 0) {
+                std::printf(
+                    "[AMI-B30] %s n=%d phase=%d feed=%d trial=%d max_c=%d\n",
+                    (feed == 0 || !disp.Is_Retx_Ready()) ? "Build_Packet"
+                                                       : "Build_Retx",
+                    n, static_cast<int>(disp.Get_Phase()), feed, t,
+                    kMaxChips);
                 break;
             }
             if (js_db >= 0.0) {
