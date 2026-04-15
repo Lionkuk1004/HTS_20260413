@@ -29,8 +29,6 @@ namespace ProtectedEngine {
 alignas(64) static uint8_t g_v400_sym_scratch[FEC_HARQ::NSYM64];
 alignas(16) static int16_t g_v400_harq_fb_tmp_I[16];
 alignas(16) static int16_t g_v400_harq_fb_tmp_Q[16];
-alignas(64) static int16_t g_hdr_tmpl_I[128];
-alignas(64) static int16_t g_hdr_tmpl_Q[128];
 static_assert(sizeof(g_v400_sym_scratch) >= FEC_HARQ::NSYM16,
               "sym scratch must cover NSYM16 encode");
 // ── HARQ CCM union: Chase Q 누적 ↔ IR 칩 버퍼 + IR_RxState (SRAM 추가 0) ─
@@ -1089,177 +1087,6 @@ uint32_t HTS_V400_Dispatcher::parse_hdr_(PayloadMode &mode,
     }
     return static_cast<uint32_t>(0u - ok_u);
 }
-
-static bool hdr_wire_payload_ok_(uint16_t hdr) noexcept {
-    const uint8_t mb = static_cast<uint8_t>((hdr >> 10u) & 0x03u);
-    const int plen = static_cast<int>(hdr & 0x01FFu);
-    const uint32_t m0 = static_cast<uint32_t>(mb == 0u);
-    const uint32_t m1 = static_cast<uint32_t>(mb == 1u);
-    const uint32_t m2 = static_cast<uint32_t>(mb == 2u);
-    const uint32_t m3 = static_cast<uint32_t>(mb == 3u);
-    const uint32_t plen_ok_v1 = static_cast<uint32_t>(plen == FEC_HARQ::NSYM1);
-    const uint32_t plen_ok_v16 =
-        static_cast<uint32_t>(plen == FEC_HARQ::NSYM16);
-    const int bps = FEC_HARQ::bps_from_nsym(plen);
-    const uint32_t bps_ge =
-        static_cast<uint32_t>(bps >= FEC_HARQ::BPS64_MIN_OPERABLE);
-    const uint32_t bps_le = static_cast<uint32_t>(bps <= FEC_HARQ::BPS64_MAX);
-    const uint32_t plen_sym =
-        static_cast<uint32_t>(plen == FEC_HARQ::nsym_for_bps(bps));
-    const uint32_t data_ok = m3 & bps_ge & bps_le & plen_sym;
-    const uint32_t ok_u = (m0 & plen_ok_v1) | (m1 & plen_ok_v16) |
-                          (m2 & plen_ok_v16) | data_ok;
-    return ok_u != 0u;
-}
-
-void HTS_V400_Dispatcher::apply_hdr_payload_entry_(PayloadMode mode,
-                                                   int plen) noexcept {
-    cur_mode_ = mode;
-    pay_cps_ = (mode == PayloadMode::VIDEO_1) ? 1
-               : (mode == PayloadMode::DATA)  ? 64
-                                              : 16;
-    pay_total_ = plen;
-    pay_recv_ = 0;
-    v1_idx_ = 0;
-    sym_idx_ = 0;
-    max_harq_ = FEC_HARQ::DATA_K;
-    set_phase_(RxPhase::READ_PAYLOAD);
-    buf_idx_ = 0;
-    if (!harq_inited_) {
-        if (mode == PayloadMode::VIDEO_16 || mode == PayloadMode::VOICE) {
-            if (ir_mode_) {
-                SecureMemory::secureWipe(static_cast<void *>(&g_harq_ccm_union),
-                                         sizeof(g_harq_ccm_union));
-                if (ir_state_ != nullptr) {
-                    FEC_HARQ::IR_Init(*ir_state_);
-                }
-                ir_rv_ = 0;
-            } else {
-                FEC_HARQ::Init16(rx_.m16);
-            }
-        } else if (mode == PayloadMode::DATA) {
-            SecureMemory::secureWipe(static_cast<void *>(&g_harq_ccm_union),
-                                     sizeof(g_harq_ccm_union));
-            if (ir_mode_) {
-                if (ir_state_ != nullptr) {
-                    FEC_HARQ::IR_Init(*ir_state_);
-                }
-                ir_rv_ = 0;
-            } else {
-                SecureMemory::secureWipe(static_cast<void *>(rx_.m64_I.aI),
-                                         sizeof(rx_.m64_I.aI));
-                rx_.m64_I.k = 0;
-                rx_.m64_I.ok = false;
-            }
-        }
-        harq_inited_ = true;
-    }
-    if (pay_cps_ != ajc_last_nc_) {
-        ajc_.Reset(pay_cps_);
-        ajc_last_nc_ = pay_cps_;
-    }
-}
-
-uint32_t HTS_V400_Dispatcher::hdr_template_match_(
-    const int16_t *b0I, const int16_t *b0Q, const int16_t *b1I,
-    const int16_t *b1Q, PayloadMode &mode, int &plen) noexcept {
-    uint16_t cand_hdr[16];
-    int cand_n = 0;
-    const int iq_loops =
-        (!ir_mode_ && iq_mode_ == IQ_Mode::IQ_INDEPENDENT) ? 2 : 1;
-    for (int iq_i = 0; iq_i < iq_loops; ++iq_i) {
-        const uint16_t iq_bit =
-            (iq_i == 1) ? static_cast<uint16_t>(HDR_IQ_BIT) : 0u;
-        const uint16_t h0 =
-            (0u << 10u) | iq_bit |
-            (static_cast<uint16_t>(FEC_HARQ::NSYM1) & 0x01FFu);
-        if (hdr_wire_payload_ok_(h0) && cand_n < 16) {
-            cand_hdr[cand_n++] = h0;
-        }
-        const uint16_t h1 =
-            (1u << 10u) | iq_bit |
-            (static_cast<uint16_t>(FEC_HARQ::NSYM16) & 0x01FFu);
-        if (hdr_wire_payload_ok_(h1) && cand_n < 16) {
-            cand_hdr[cand_n++] = h1;
-        }
-        const uint16_t h2 =
-            (2u << 10u) | iq_bit |
-            (static_cast<uint16_t>(FEC_HARQ::NSYM16) & 0x01FFu);
-        if (hdr_wire_payload_ok_(h2) && cand_n < 16) {
-            cand_hdr[cand_n++] = h2;
-        }
-        for (int bi = 3; bi <= 6; ++bi) {
-            const int p = FEC_HARQ::nsym_for_bps(bi);
-            const uint16_t h3 =
-                (3u << 10u) | iq_bit |
-                (static_cast<uint16_t>(p) & 0x01FFu);
-            if (hdr_wire_payload_ok_(h3) && cand_n < 16) {
-                cand_hdr[cand_n++] = h3;
-            }
-        }
-    }
-    if (cand_n <= 0) {
-        return PARSE_HDR_MASK_FAIL;
-    }
-    const int16_t pre_amp = static_cast<int16_t>(
-        static_cast<int32_t>(sic_walsh_amp_) *
-        static_cast<int32_t>(pre_boost_));
-    int64_t best_dot = INT64_MIN;
-    int64_t second_dot = INT64_MIN;
-    int best_idx = -1;
-    for (int c = 0; c < cand_n; ++c) {
-        const uint16_t h = cand_hdr[static_cast<size_t>(c)];
-        const uint8_t s0 = static_cast<uint8_t>((h >> 6u) & 0x3Fu);
-        const uint8_t s1 = static_cast<uint8_t>(h & 0x3Fu);
-        walsh_enc(s0, 64, pre_amp, g_hdr_tmpl_I, g_hdr_tmpl_Q);
-        walsh_enc(s1, 64, pre_amp, g_hdr_tmpl_I + 64, g_hdr_tmpl_Q + 64);
-        int64_t dot = 0;
-        for (int i = 0; i < 64; ++i) {
-            dot += static_cast<int64_t>(b0I[i]) *
-                   static_cast<int64_t>(g_hdr_tmpl_I[i]);
-            dot += static_cast<int64_t>(b0Q[i]) *
-                   static_cast<int64_t>(g_hdr_tmpl_Q[i]);
-        }
-        for (int i = 0; i < 64; ++i) {
-            dot += static_cast<int64_t>(b1I[i]) *
-                   static_cast<int64_t>(g_hdr_tmpl_I[64 + i]);
-            dot += static_cast<int64_t>(b1Q[i]) *
-                   static_cast<int64_t>(g_hdr_tmpl_Q[64 + i]);
-        }
-        if (dot > best_dot) {
-            second_dot = best_dot;
-            best_dot = dot;
-            best_idx = c;
-        } else if (dot > second_dot) {
-            second_dot = dot;
-        }
-    }
-    if (best_idx < 0 || best_dot <= 0) {
-        return PARSE_HDR_MASK_FAIL;
-    }
-    const uint32_t has_second =
-        static_cast<uint32_t>(second_dot > 0 && second_dot != INT64_MIN);
-    const uint64_t best_u = static_cast<uint64_t>(best_dot);
-    const uint64_t sec_u =
-        static_cast<uint64_t>(second_dot) * static_cast<uint64_t>(has_second);
-    if (has_second != 0u && (best_u * 4u) <= (sec_u * 5u)) {
-        return PARSE_HDR_MASK_FAIL;
-    }
-    const uint16_t win = cand_hdr[static_cast<size_t>(best_idx)];
-    hdr_syms_[0] = static_cast<uint8_t>((win >> 6u) & 0x3Fu);
-    hdr_syms_[1] = static_cast<uint8_t>(win & 0x3Fu);
-    static constexpr PayloadMode k_hdr_modes[4] = {
-        PayloadMode::VIDEO_1,
-        PayloadMode::VIDEO_16,
-        PayloadMode::VOICE,
-        PayloadMode::DATA,
-    };
-    const uint8_t mb = static_cast<uint8_t>((win >> 10u) & 0x03u);
-    mode = k_hdr_modes[static_cast<size_t>(mb & 3u)];
-    plen = static_cast<int>(win & 0x01FFu);
-    return PARSE_HDR_MASK_OK;
-}
-
 void HTS_V400_Dispatcher::on_sym_() noexcept {
     pay_recv_++;
     if (cur_mode_ == PayloadMode::VIDEO_1) {
@@ -2455,96 +2282,107 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
                 soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
             }
-            if (hdr_count_ == 0) {
-                std::memcpy(hdr_blk0_I_, orig_I_, 64 * sizeof(int16_t));
-                std::memcpy(hdr_blk0_Q_, orig_Q_, 64 * sizeof(int16_t));
-                const SymDecResult rh0 =
-                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
-                if (rh0.sym >= 0 && rh0.sym < 64) {
-                    hdr_syms_[0] = static_cast<uint8_t>(rh0.sym);
-                    hdr_count_ = 1;
-                } else {
-                    hdr_fail_++;
-                    if (hdr_fail_ >= HDR_FAIL_MAX) {
+            SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+            int8_t sym = rh.sym;
+            if (sym >= 0 && sym < 64) {
+                // ── HDR Soft Decision: 확신도 검증 ──
+                // best_e < second_e × 2 → 신뢰 부족 → 이 블록 버리고 HDR 재수집
+                // J/S +12dB에서 Soft 통과 시 정확도 99.3% (무조건 수용 시 84.7%)
+                if (rh.second_e > 0u &&
+                    rh.best_e < rh.second_e * 2u) {
 #if defined(HTS_DIAG_PRINTF)
-                        std::printf("[HDR-FAIL] max fail, back to P1\n");
+                    std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
+                                rh.best_e, rh.second_e);
 #endif
-                        hdr_count_ = 0;
-                        hdr_fail_ = 0;
-                        buf_idx_ = 0;
-                        set_phase_(RxPhase::WAIT_SYNC);
-                        return;
-                    }
+                    hdr_count_ = 0;
+                    buf_idx_ = 0;
+                    return;
                 }
+                hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                hdr_count_++;
             } else {
-                PayloadMode tmpl_mode = PayloadMode::DATA;
-                int tmpl_plen = 0;
-                const uint32_t tmpl_ok = hdr_template_match_(
-                    hdr_blk0_I_, hdr_blk0_Q_, orig_I_, orig_Q_, tmpl_mode,
-                    tmpl_plen);
-                if (tmpl_ok != 0u) {
-                    PayloadMode mode = tmpl_mode;
-                    int plen = tmpl_plen;
-                    if (parse_hdr_(mode, plen) != 0u) {
-                        apply_hdr_payload_entry_(mode, plen);
-                        hdr_count_ = HDR_SYMS;
-                    } else {
+                hdr_fail_++;
+                if (hdr_fail_ >= HDR_FAIL_MAX) {
+                    // full_reset 대신 Phase 1 복귀
 #if defined(HTS_DIAG_PRINTF)
-                        std::printf(
-                            "[HDR-RETRY] template+parse inconsistency\n");
+                    std::printf("[HDR-FAIL] max fail, back to P1\n");
 #endif
-                        hdr_count_ = 0;
-                        buf_idx_ = 0;
-                        phase_ = RxPhase::WAIT_SYNC;
-                    }
-                } else {
-                    const SymDecResult rh1 =
-                        walsh_dec_full_(orig_I_, orig_Q_, 64, false);
-                    const int8_t sym = rh1.sym;
-                    if (sym >= 0 && sym < 64) {
-                        if (rh1.second_e > 0u &&
-                            rh1.best_e < rh1.second_e * 2u) {
-#if defined(HTS_DIAG_PRINTF)
-                            std::printf("[HDR-SOFT] unreliable, reset\n");
-#endif
-                            hdr_count_ = 0;
-                            buf_idx_ = 0;
-                            return;
-                        }
-                        hdr_syms_[1] = static_cast<uint8_t>(sym);
-                        hdr_count_ = HDR_SYMS;
-                    } else {
-                        hdr_fail_++;
-                        if (hdr_fail_ >= HDR_FAIL_MAX) {
-#if defined(HTS_DIAG_PRINTF)
-                            std::printf("[HDR-FAIL] max fail, back to P1\n");
-#endif
-                            hdr_count_ = 0;
-                            hdr_fail_ = 0;
-                            buf_idx_ = 0;
-                            set_phase_(RxPhase::WAIT_SYNC);
-                            return;
-                        }
-                    }
-                    if (hdr_count_ >= HDR_SYMS) {
-                        PayloadMode mode = PayloadMode::DATA;
-                        int plen = 0;
-                        if (parse_hdr_(mode, plen) != 0u) {
-                            apply_hdr_payload_entry_(mode, plen);
-                        } else {
-#if defined(HTS_DIAG_PRINTF)
-                            std::printf("[HDR-RETRY] parse fail, back to P1\n");
-#endif
-                            hdr_count_ = 0;
-                            buf_idx_ = 0;
-                            phase_ = RxPhase::WAIT_SYNC;
-                        }
-                    }
+                    hdr_count_ = 0;
+                    hdr_fail_ = 0;
+                    buf_idx_ = 0;
+                    set_phase_(RxPhase::WAIT_SYNC);
+                    return;
                 }
             }
-            if (phase_ == RxPhase::READ_HEADER) {
-                buf_idx_ = 0;
+            if (hdr_count_ >= HDR_SYMS) {
+                PayloadMode mode;
+                int plen = 0;
+                if (parse_hdr_(mode, plen) != 0u) {
+                    cur_mode_ = mode;
+                    pay_cps_ = (mode == PayloadMode::VIDEO_1) ? 1
+                               : (mode == PayloadMode::DATA)  ? 64
+                                                              : 16;
+                    pay_total_ = plen;
+                    pay_recv_ = 0;
+                    v1_idx_ = 0;
+                    sym_idx_ = 0;
+                    max_harq_ = FEC_HARQ::DATA_K; // 모든 모드에서 32
+                    set_phase_(RxPhase::READ_PAYLOAD);
+                    buf_idx_ = 0;
+                    //  try_decode_ 내부에서 Init → Feed 이후라 데이터 파괴
+                    //  READ_PAYLOAD 진입 시 첫 라운드만 Init
+                    if (!harq_inited_) {
+                        if (mode == PayloadMode::VIDEO_16 ||
+                            mode == PayloadMode::VOICE) {
+                            if (ir_mode_) {
+                                SecureMemory::secureWipe(
+                                    static_cast<void *>(&g_harq_ccm_union),
+                                    sizeof(g_harq_ccm_union));
+                                if (ir_state_ != nullptr) {
+                                    FEC_HARQ::IR_Init(*ir_state_);
+                                }
+                                ir_rv_ = 0;
+                            } else {
+                                FEC_HARQ::Init16(rx_.m16);
+                            }
+                        } else if (mode == PayloadMode::DATA) {
+                            // DATA READ_PAYLOAD: CCM union 전체 한 회 wipe
+                            SecureMemory::secureWipe(
+                                static_cast<void *>(&g_harq_ccm_union),
+                                sizeof(g_harq_ccm_union));
+                            if (ir_mode_) {
+                                if (ir_state_ != nullptr) {
+                                    FEC_HARQ::IR_Init(*ir_state_);
+                                }
+                                ir_rv_ = 0;
+                            } else {
+                                SecureMemory::secureWipe(
+                                    static_cast<void *>(rx_.m64_I.aI),
+                                    sizeof(rx_.m64_I.aI));
+                                rx_.m64_I.k = 0;
+                                rx_.m64_I.ok = false;
+                            }
+                        }
+                        harq_inited_ = true;
+                    }
+                    if (pay_cps_ != ajc_last_nc_) {
+                        ajc_.Reset(pay_cps_);
+                        ajc_last_nc_ = pay_cps_;
+                    }
+                } else {
+                    // HDR parse 실패: P0 재시작 대신 Phase 1로 복귀
+                    // est/derot 유지 — 다음 프리앰블(HARQ 라운드)에서 재시도
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf("[HDR-RETRY] parse fail, back to P1\n");
+#endif
+                    hdr_count_ = 0;
+                    buf_idx_ = 0;
+                    phase_ = RxPhase::WAIT_SYNC;
+                    // pre_phase_ 유지 → Phase 1 계속
+                }
             }
+            if (phase_ == RxPhase::READ_HEADER)
+                buf_idx_ = 0;
         }
     } else if (phase_ == RxPhase::READ_PAYLOAD) {
         if (buf_idx_ >= pay_cps_)

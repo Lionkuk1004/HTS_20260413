@@ -337,8 +337,6 @@ namespace ProtectedEngine {
         int     pre_reps_ = 1;
         int     pre_boost_ = 1;  ///< 프리앰블 진폭 배수 (1=기존, 2=+6dB, 4=+12dB)
         uint8_t hdr_syms_[2] = {};      ///< 수신된 헤더 심볼
-        int16_t hdr_blk0_I_[64] = {}; ///< HDR 블록 0 보관 (128칩 템플릿 매칭)
-        int16_t hdr_blk0_Q_[64] = {};
         int     hdr_count_;             ///< 수신된 헤더 심볼 수
         int     hdr_fail_;              ///< 헤더 디코딩 연속 실패 수
         static constexpr int HDR_FAIL_MAX = 3;  ///< 헤더 실패 허용 횟수
@@ -509,10 +507,6 @@ namespace ProtectedEngine {
         static constexpr uint32_t PARSE_HDR_MASK_OK = 0xFFFFFFFFu;
         static constexpr uint32_t PARSE_HDR_MASK_FAIL = 0x00000000u;
         uint32_t parse_hdr_(PayloadMode& mode, int& plen) noexcept;
-        uint32_t hdr_template_match_(const int16_t *b0I, const int16_t *b0Q,
-                                     const int16_t *b1I, const int16_t *b1Q,
-                                     PayloadMode &mode, int &plen) noexcept;
-        void apply_hdr_payload_entry_(PayloadMode mode, int plen) noexcept;
 
         /// Decode64_IR 실패 직후: `sic_tentative`·직전 RV로 예상 칩 버퍼 채움
         void fill_sic_expected_64_() noexcept;
