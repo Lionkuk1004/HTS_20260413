@@ -2304,6 +2304,12 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     }
                 }
             } else if (hdr_count_ == 1) {
+                static constexpr uint8_t k_par6[64] = {
+                    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+                    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+                    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+                    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+                };
                 static constexpr struct {
                     uint8_t mb;
                     uint16_t plen;
@@ -2342,31 +2348,24 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         const int32_t v =
                             static_cast<int32_t>(s_hdr_blk0_I[j]) +
                             static_cast<int32_t>(s_hdr_blk0_Q[j]);
-                        const unsigned u =
-                            static_cast<unsigned>(sym0) &
-                            static_cast<unsigned>(j);
-                        unsigned p = u;
-                        p ^= p >> 4u;
-                        p ^= p >> 2u;
-                        p ^= p >> 1u;
-                        const int sign = (p & 1u) != 0u ? -1 : 1;
-                        corr += static_cast<int64_t>(v) * static_cast<int64_t>(sign);
+                        const int32_t sign_mask = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(
+                                static_cast<uint8_t>(sym0) &
+                                static_cast<uint8_t>(j))]);
+                        corr += static_cast<int64_t>((v ^ sign_mask) - sign_mask);
                     }
                     for (int j = 0; j < 64; ++j) {
                         const int32_t v = static_cast<int32_t>(orig_I_[j]) +
                                           static_cast<int32_t>(orig_Q_[j]);
-                        const unsigned u =
-                            static_cast<unsigned>(sym1) &
-                            static_cast<unsigned>(j);
-                        unsigned p = u;
-                        p ^= p >> 4u;
-                        p ^= p >> 2u;
-                        p ^= p >> 1u;
-                        const int sign = (p & 1u) != 0u ? -1 : 1;
-                        corr += static_cast<int64_t>(v) * static_cast<int64_t>(sign);
+                        const int32_t sign_mask = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(
+                                static_cast<uint8_t>(sym1) &
+                                static_cast<uint8_t>(j))]);
+                        corr += static_cast<int64_t>((v ^ sign_mask) - sign_mask);
                     }
-                    if (corr < 0) {
-                        corr = -corr;
+                    {
+                        const int64_t neg_mask = corr >> 63;
+                        corr = (corr ^ neg_mask) - neg_mask;
                     }
                     if (corr > best_corr) {
                         second_corr = best_corr;
