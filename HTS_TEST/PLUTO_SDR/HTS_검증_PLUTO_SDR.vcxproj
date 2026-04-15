@@ -125,7 +125,7 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>$(LibIioCppDefines);NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>$(LibIioCppDefines);NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
       <AdditionalIncludeDirectories>$(ProjectDir);$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>

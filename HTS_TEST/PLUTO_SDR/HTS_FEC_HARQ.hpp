@@ -72,6 +72,7 @@
 //   정적 전용 클래스 — 인스턴스화 불가 (상태 없음)
 //
 #pragma once
+// PLUTO: vcxproj에 HTS_FEC_POLAR_DISABLE 시 Polar OFF → IR 누적 후 Viterbi 경로
 #if !defined(HTS_FEC_POLAR_DISABLE)
 #define HTS_FEC_POLAR_ENABLE
 #endif
