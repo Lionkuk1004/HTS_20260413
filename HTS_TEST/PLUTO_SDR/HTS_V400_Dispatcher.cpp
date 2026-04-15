@@ -2257,12 +2257,30 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
             int8_t sym = rh.sym;
             if (sym >= 0 && sym < 64) {
+                // ── HDR Soft Decision: 확신도 검증 ──
+                // best_e < second_e × 2 → 신뢰 부족 → 이 블록 버리고 HDR 재수집
+                // J/S +12dB에서 Soft 통과 시 정확도 99.3% (무조건 수용 시 84.7%)
+                if (rh.second_e > 0u &&
+                    rh.best_e < rh.second_e * 2u) {
+                    std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
+                                rh.best_e, rh.second_e);
+                    hdr_count_ = 0;
+                    buf_idx_ = 0;
+                    return;
+                }
                 hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
                 hdr_count_++;
             } else {
                 hdr_fail_++;
-                if (hdr_fail_ >= HDR_FAIL_MAX)
-                    full_reset_();
+                if (hdr_fail_ >= HDR_FAIL_MAX) {
+                    // full_reset 대신 Phase 1 복귀
+                    std::printf("[HDR-FAIL] max fail, back to P1\n");
+                    hdr_count_ = 0;
+                    hdr_fail_ = 0;
+                    buf_idx_ = 0;
+                    set_phase_(RxPhase::WAIT_SYNC);
+                    return;
+                }
             }
             if (hdr_count_ >= HDR_SYMS) {
                 PayloadMode mode;
