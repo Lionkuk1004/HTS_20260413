@@ -27,13 +27,20 @@ using ProtectedEngine::SoftClipPolicy;
 // 하향: 773~783 MHz, 상향: 718~728 MHz
 // HTS B-CDMA 칩레이트 200 kc/s → 점유 BW ~200 kHz
 static constexpr long long PLUTO_FREQ_HZ =
-    778000000LL; // PS-LTE DL 중심 (TX/RX 동일 LO, 근거리 루프백)
-static constexpr long long PLUTO_SAMPLE_RATE = 1000000LL; // 1 MSPS
-static constexpr long long PLUTO_BW_HZ = 1000000LL;       // 1 MHz RF BW
+    778000000LL; // PS-LTE DL (TX/RX 동일 LO, 근거리 루프백)
+static constexpr long long PLUTO_SAMPLE_RATE =
+    4000000LL; // 4 MSPS (원복)
+static constexpr long long PLUTO_BW_HZ =
+    4000000LL; // 4 MHz RF BW (원복)
+// PLUTO_BUF_SAMPLES: PS-LTE / SMA 직결 시 검증 포인트
+//  · T0: 스캔 상한 -20 dB(SMA). main은 test_T0 반환 gain 유지. RX max≥200 sanity는 아래 동일 칩 패턴 블록
+//  · T2: 32768 > 패킷(~11456) — 한 버퍼에 패킷 전체 + 여유, DMA 잘림 해소
+//  · T6: rx=32768 ≥ tx≈11456 — 루프백에서 전 패킷 수신·동기 정렬 여유
 static constexpr int PLUTO_BUF_SAMPLES =
-    32768; // 패킷(~11500) + 가드 + 여유 (1 MSPS)
+    32768; // 패킷(~11500) + 가드 + 여유 (@4 MSPS)
 static constexpr long long PLUTO_TX_GAIN_INIT = -50LL; // 근거리 테스트
-static constexpr long long PLUTO_RX_GAIN_INIT = 40LL;   // 포화 방지
+static constexpr long long PLUTO_RX_GAIN_INIT =
+    70LL; // AD9361 범위 0~73, SMA 직결 안전
 static long long g_tx_gain = PLUTO_TX_GAIN_INIT;
 static constexpr int16_t kAmp = 1000;
 static constexpr double kAmpD = 1000.0;
@@ -483,7 +490,7 @@ static long long test_T0(PlutoCtx &p) {
             std::printf("  [T0] 전 구간 미감지 — TX chain reset 후 재스캔\n");
             if (!pluto_reset_tx_chain(p)) {
                 std::printf(
-                    "  [T0] TX chain reset 실패 — 디폴트 -40 dB 사용\n");
+                    "  [T0] TX chain reset 실패 — 디폴트 -35 dB 사용\n");
                 pluto_set_tx_gain(p, -35);
                 return -35;
             }
@@ -1281,15 +1288,16 @@ static void test_T7(PlutoCtx &p) {
             std::memset(&wb, 0, sizeof(wb));
             FEC_HARQ::Encode64_IR(info, 8, syms, il, bps, rv & 3, wb);
             std::vector<int16_t> sI(total), sQ(total);
-            // DAC 클리핑 방지: J/S=20dB에서 3σ=1800 < 2048
-            static constexpr int16_t kAmpT7 = 60;
+            // RF 채널 SNR 확보: Walsh 진폭과 바라지 σ 동일 스케일
+            static constexpr int16_t kAmpT7 = 500;
             for (int s = 0; s < nsym; ++s)
                 walsh_enc(syms[s], nc, kAmpT7, &sI[s * nc], &sQ[s * nc]);
             std::vector<int16_t> refI = sI, refQ = sQ;
             std::mt19937 rng(ts ^ (uint32_t)(rv * 0x85EBCA6Bu));
-            // kAmpT7 기준 바라지 (kAmpD 대신 60.0)
+            // kAmpT7 기준 바라지 (20 dB J/S)
             {
-                double sigma_t7 = 60.0 * std::sqrt(std::pow(10.0, 20.0 / 10.0));
+                double sigma_t7 =
+                    500.0 * std::sqrt(std::pow(10.0, 20.0 / 10.0));
                 std::normal_distribution<double> nd(0.0, sigma_t7);
                 for (int i = 0; i < total; ++i) {
                     double vi = (double)sI[i] + nd(rng);
@@ -1561,8 +1569,16 @@ static void test_T10(PlutoCtx &p) {
                     std::memset(&wb, 0, sizeof(wb));
                     FEC_HARQ::Encode64_IR(info, 8, syms, il, bps, rv & 3, wb);
                     std::vector<int16_t> sI(total), sQ(total);
+                    // DAC 클리핑 방지: T4와 동일 패턴
+                    const double lin_t10 = std::pow(10.0, j / 10.0);
+                    const double denom_t10 = 1.0 + 3.0 * std::sqrt(lin_t10);
+                    int16_t amp_t10 = static_cast<int16_t>(std::min(
+                        static_cast<double>(kAmp), 2047.0 / denom_t10));
+                    if (amp_t10 < 100) {
+                        amp_t10 = 100;
+                    }
                     for (int s = 0; s < nsym; ++s)
-                        walsh_enc(syms[s], nc, kAmp, &sI[s * nc], &sQ[s * nc]);
+                        walsh_enc(syms[s], nc, amp_t10, &sI[s * nc], &sQ[s * nc]);
                     std::vector<int16_t> refI = sI, refQ = sQ;
                     add_multi_cw(sI.data(), sQ.data(), total, j, cc.num_tones,
                                  cc.base_period, cc.spacing);
@@ -2020,6 +2036,8 @@ static void test_T16(PlutoCtx &p) {
 // ════════════════════════════════════════════════════════════
 static void test_T17(PlutoCtx &p) {
     std::printf("\n══ T17: FHSS + Partial-Band 재밍 ══\n");
+    // [보류] 실제 RF hop 없이 SW 모의만으로는 단일 LO 루프백에서 검증 의미 제한.
+    // 하네스·주파수 도약 설계는 별도 세션 — 현재는 디지털 시뮬 구조만 유지.
     // FHSS 도약은 단일 Pluto 루프백에서는 실제 주파수 도약 불가
     // → 디지털 도메인: FHSS hop을 시드 기반으로 시뮬, partial-band 재밍 적용
     const int bps = 3, nc = 64;
@@ -2279,7 +2297,7 @@ static void test_T20(PlutoCtx &p) {
             std::printf("  [RF-%2d] STUCK after noise injection\n", t);
         }
     }
-    pluto_set_tx_gain(p, -40); // 복원
+    pluto_set_tx_gain(p, -20); // 복원 (SMA 직결 상한과 정합)
     std::printf("  T20: SW chaos normal=%d stuck=%d | RF chaos stuck=%d/20\n",
                 normal_count, stuck_count, rf_stuck);
     std::printf("  T20: %s\n",
@@ -2303,7 +2321,7 @@ int main() {
     pluto_flush_rx(pluto);
     // ── Pluto RF 웜업 (T0 직전: PLL/RX 경로 정착) ──
     std::printf("══ RF 웜업 ══\n");
-    pluto_set_tx_gain(pluto, -40);
+    pluto_set_tx_gain(pluto, -20);
     {
         std::vector<int16_t> wtx(PLUTO_BUF_SAMPLES), wtq(PLUTO_BUF_SAMPLES);
         std::memset(wtx.data(), 0, PLUTO_BUF_SAMPLES * sizeof(int16_t));
@@ -2315,10 +2333,9 @@ int main() {
             std::printf("  warmup %d/3\n", w + 1);
         }
     }
-    test_T0(pluto);
-    const long long tx_gain = -40;
+    long long tx_gain = test_T0(pluto);
     pluto_set_tx_gain(pluto, tx_gain);
-    // 안정성 확인: TX=-40 dB에서 RX max (T0와 동일 칩 패턴), 200 미만이면
+    // 안정성 확인: T0가 선택한 TX gain에서 RX max (T0와 동일 칩 패턴), 200 미만이면
     // TX chain reset 후 재측정
     {
         std::vector<int16_t> chk_txI(PLUTO_BUF_SAMPLES),
