@@ -1993,16 +1993,21 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     int64_t sum_all = 0;
 
     for (int off = 0; off < 64; ++off) {
-        int32_t accum = 0;
+        // ── T1-A: coherent 합산 (2블록 dot 진폭 합 → 제곱) ──
+        // 비간섭: e0+e1 → alias off=32와 동일 에너지
+        // 간섭: (d0+d1)² → sym63/sym0 경계에서 alias 분리 강화
+        int32_t sum_I = 0, sum_Q = 0;
         for (int blk = 0; blk < 2; ++blk) {
             const int base = off + (blk << 6);
             int32_t dot_I = 0, dot_Q = 0;
             walsh63_dot_(&p0_buf128_I_[base], &p0_buf128_Q_[base],
                          dot_I, dot_Q);
-            const int64_t eI = static_cast<int64_t>(dot_I) * dot_I;
-            const int64_t eQ = static_cast<int64_t>(dot_Q) * dot_Q;
-            accum += static_cast<int32_t>((eI + eQ) >> 16);
+            sum_I += dot_I;
+            sum_Q += dot_Q;
         }
+        const int32_t accum = static_cast<int32_t>(
+            (static_cast<int64_t>(sum_I) * sum_I +
+             static_cast<int64_t>(sum_Q) * sum_Q) >> 16);
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
