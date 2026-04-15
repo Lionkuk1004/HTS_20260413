@@ -2404,6 +2404,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         walsh_dec_full_(orig_I_, orig_Q_, 64, false);
                     int8_t sym = rh.sym;
                     if (sym >= 0 && sym < 64) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-FB] best_e=%u second_e=%u ratio=%.2f "
+                                    "sym=%u\n",
+                                    static_cast<unsigned>(rh.best_e),
+                                    static_cast<unsigned>(rh.second_e),
+                                    (rh.second_e > 0u)
+                                        ? static_cast<double>(rh.best_e) /
+                                              static_cast<double>(rh.second_e)
+                                        : 999.0,
+                                    static_cast<unsigned>(
+                                        static_cast<uint8_t>(rh.sym & 0x7F)));
+#endif
                         if (rh.second_e > 0u &&
                             rh.best_e < rh.second_e * 2u) {
 #if defined(HTS_DIAG_PRINTF)
@@ -2433,6 +2445,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     walsh_dec_full_(orig_I_, orig_Q_, 64, false);
                 int8_t sym = rh.sym;
                 if (sym >= 0 && sym < 64) {
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf("[HDR-FB] best_e=%u second_e=%u ratio=%.2f "
+                                "sym=%u\n",
+                                static_cast<unsigned>(rh.best_e),
+                                static_cast<unsigned>(rh.second_e),
+                                (rh.second_e > 0u)
+                                    ? static_cast<double>(rh.best_e) /
+                                          static_cast<double>(rh.second_e)
+                                    : 999.0,
+                                static_cast<unsigned>(
+                                    static_cast<uint8_t>(rh.sym & 0x7F)));
+#endif
                     if (rh.second_e > 0u &&
                         rh.best_e < rh.second_e * 2u) {
 #if defined(HTS_DIAG_PRINTF)
