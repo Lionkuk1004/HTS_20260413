@@ -1988,7 +1988,6 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 }
 
 void HTS_V400_Dispatcher::phase0_scan_() noexcept {
-    // ── 1-pass: best/second/sum 동시 추적 (e63[] 배열 제거, −256B) ──
     int32_t best_e63 = 0, second_e63 = 0;
     int best_off = -1;
     int64_t sum_all = 0;
@@ -2014,33 +2013,48 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
     }
 
-    // ── 나눗셈 제거: shift+add 비교로 r_avg/sep_ok 판정 (MUL 0) ──
     const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
 
-    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
-
-    // r_avg >= 10: (best<<6)-best >= (so<<3)+(so<<1) [곱셈 0]
+    // r_avg >= 5: (best<<6)-best >= (so<<3)+(so<<1)+(so) = so*5...
+    // 아니, 5 = (1<<2)+1: so*5 = (so<<2)+so
+    // r_avg >= 5 ↔ best*63 >= so*5
     const int64_t best_x63 = (static_cast<int64_t>(best_e63) << 6) -
                               static_cast<int64_t>(best_e63);
-    const int64_t so_x10   = (sum_others << 3) + (sum_others << 1);
-    const bool r_avg_ok = (sum_others <= 0) || (best_x63 >= so_x10);
+    const int64_t so_x5    = (sum_others << 2) + sum_others;
+    const bool r_avg_ok = (sum_others <= 0) || (best_x63 >= so_x5);
 
-    // sep_ok: best<<2 > (second<<2)+second [곱셈 0]
-    const int64_t best_x4  = static_cast<int64_t>(best_e63) << 2;
-    const int64_t sec_x5   = (static_cast<int64_t>(second_e63) << 2) +
-                              static_cast<int64_t>(second_e63);
-    const bool sep_ok = (second_e63 == 0) || (best_x4 > sec_x5);
+    // r_avg >= 8 판정 (sep_ok 활성화용, 곱셈 0)
+    // best*63 >= so*8 ↔ best_x63 >= so<<3
+    const bool r_avg_high = (sum_others <= 0) ||
+        (best_x63 >= (sum_others << 3));
+
+    // 적응형 sep_ok: r_avg≥8일 때만 alias 방어
+    const int64_t best_x4 = static_cast<int64_t>(best_e63) << 2;
+    const int64_t sec_x5  = (static_cast<int64_t>(second_e63) << 2) +
+                             static_cast<int64_t>(second_e63);
+    const bool sep_ok = (!r_avg_high) ||
+        (second_e63 == 0) || (best_x4 > sec_x5);
+
+    // 적응형 e63_min: noise_floor × 5 (하한 5000)
+    const int32_t avg_others =
+        (sum_others > 0)
+            ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
+            : 0;
+    // avg_others * 5 = (avg<<2)+avg [SHIFT]
+    const int32_t adaptive_min =
+        (avg_others > 0)
+            ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
+                                    avg_others)
+            : 5000;
+    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    const int32_t e63_min =
+        (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
 
     const bool pass = (best_off >= 0 && r_avg_ok &&
-                       best_e63 >= k_E63_ALIGN_MIN && sep_ok);
+                       best_e63 >= e63_min && sep_ok);
 
 #if defined(HTS_DIAG_PRINTF)
-    // ── 진단 printf (나눗셈은 진단 전용, 핫패스 외부) ──
     {
-        const int32_t avg_others =
-            (sum_others > 0)
-                ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
-                : 0;
         const int32_t r_avg =
             (avg_others > 0)
                 ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
@@ -2051,13 +2065,13 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
                                        static_cast<int64_t>(second_e63))
                 : 999;
-        std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
-                    best_off, best_e63, avg_others, r_avg, r_sep);
+        std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d emin=%d sep=%d\n",
+                    best_off, best_e63, avg_others, r_avg, r_sep,
+                    e63_min, static_cast<int>(sep_ok));
     }
 #endif
 
     if (pass) {
-        // ── 2블록 est seed (128칩 coherent, est_count_=2) ──
         {
             int32_t seed_dot_I = 0, seed_dot_Q = 0;
             for (int blk = 0; blk < 2; ++blk) {
@@ -2075,15 +2089,16 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
                         est_count_);
-            std::printf("[P0-ALIGNED] off=%d carry=%d\n",
-                        best_off, 64 - best_off);
 #endif
         }
+#if defined(HTS_DIAG_PRINTF)
+        std::printf("[P0-ALIGNED] off=%d carry=%d\n",
+                    best_off, 64 - best_off);
+#endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
         psal_commit_align_();
     } else {
-        // ── 64칩 전진 (소스[128..191] → 목적지[0..63], 비중첩 → memcpy) ──
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
