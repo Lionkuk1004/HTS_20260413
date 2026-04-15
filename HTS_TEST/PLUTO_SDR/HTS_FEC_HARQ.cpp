@@ -1076,9 +1076,12 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
 
     std::memset(static_cast<void *>(ir_state.llr_accum), 0,
                 static_cast<std::size_t>(POLAR_N) * sizeof(int32_t));
+    static_assert((static_cast<unsigned>(POLAR_N) &
+                    (static_cast<unsigned>(POLAR_N) - 1u)) == 0u,
+                  "POLAR_N must be power of 2 for AND mask");
     for (int i = 0; i < TOTAL_CODED; ++i) {
-        ir_state.llr_accum[static_cast<std::size_t>(i % POLAR_N)] +=
-            polar_llr_coded[i];
+        ir_state.llr_accum[static_cast<std::size_t>(
+            i & (POLAR_N - 1))] += polar_llr_coded[i];
     }
 
     int32_t max_abs = 1;
@@ -1091,20 +1094,25 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             max_abs = a;
         }
     }
+    // ── constant-time shift (while 동치): 최대 20스텝, 데이터 독립 ──
+    // 단일 CLZ식(18-clz 등)은 8001·비2^k 경계에서 while과 불일치 가능.
+    const uint32_t umx = static_cast<uint32_t>(max_abs);
     int shift = 0;
-    while ((max_abs >> shift) > 8000 && shift < 20) {
-        ++shift;
+    for (int k = 0; k < 20; ++k) {
+        shift += static_cast<int>(
+            ((umx >> static_cast<unsigned>(shift)) > 8000u) &
+            static_cast<unsigned>(shift < 20));
     }
 
     for (int i = 0; i < POLAR_N; ++i) {
-        int32_t v = ir_state.llr_accum[static_cast<std::size_t>(i)] >> shift;
-        if (v > 32767) {
-            v = 32767;
-        }
-        if (v < -32768) {
-            v = -32768;
-        }
-        polar_llr16[static_cast<std::size_t>(i)] = static_cast<int16_t>(v);
+        const int32_t v =
+            ir_state.llr_accum[static_cast<std::size_t>(i)] >> shift;
+        const int32_t m_hi = -static_cast<int32_t>(v > 32767);
+        const int32_t m_lo = -static_cast<int32_t>(v < -32768);
+        const int32_t clamped =
+            (32767 & m_hi) | (-32768 & m_lo) | (v & ~(m_hi | m_lo));
+        polar_llr16[static_cast<std::size_t>(i)] =
+            static_cast<int16_t>(clamped);
     }
     const uint32_t t18_fold_end = HTS_DWT::Read();
 
