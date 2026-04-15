@@ -72,7 +72,9 @@
 //   정적 전용 클래스 — 인스턴스화 불가 (상태 없음)
 //
 #pragma once
+#if !defined(HTS_FEC_POLAR_DISABLE)
 #define HTS_FEC_POLAR_ENABLE
+#endif
 #if defined(HTS_FEC_POLAR_ENABLE)
 #include "HTS_Polar_Codec.h"
 #endif
