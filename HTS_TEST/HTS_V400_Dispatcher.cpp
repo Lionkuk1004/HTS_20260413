@@ -1105,10 +1105,10 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
            덮어쓰기. */
         std::memcpy(orig_I_, buf_I_, nc * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, nc * sizeof(int16_t));
-        if (cur_mode_ == PayloadMode::DATA && est_count_ == 0) {
+        if (cur_mode_ == PayloadMode::DATA) {
             cw_cancel_64_(buf_I_, buf_Q_);
         }
-        if (ajc_enabled_ && est_count_ == 0) {
+        if (ajc_enabled_) {
             ajc_.Process(buf_I_, buf_Q_, nc);
         }
         /* BUG-FIX-SC3: retx 경로 soft_clip 비활성화 — IR LLR 누적 품질 보존 */
@@ -1199,7 +1199,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                                 int32_t vi = static_cast<int32_t>(buf_I_[c]);
                                 int32_t vq = static_cast<int32_t>(buf_Q_[c]);
                                 // ① Derotation 먼저: 위상을 0도 기저대역으로 복원
-                                if (est_count_ > 0) {
+                                if (est_count_ >= 2) {
                                     const int64_t proj_I =
                                         static_cast<int64_t>(vi) * eI64 +
                                         static_cast<int64_t>(vq) * eQ64;
@@ -1970,7 +1970,7 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
     const int carry = 64 - commit_off;
     p0_carry_count_ = carry;
     if (carry > 0) {
-        const int src = commit_off + 64;
+        const int src = commit_off + 128;
         for (int j = 0; j < carry; ++j) {
             p0_carry_I_[j] = p0_buf128_I_[src + j];
             p0_carry_Q_[j] = p0_buf128_Q_[src + j];
@@ -1988,72 +1988,126 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 }
 
 void HTS_V400_Dispatcher::phase0_scan_() noexcept {
-    int32_t e63[64];
-    for (int i = 0; i < 64; ++i) e63[i] = 0;
+    int32_t best_e63 = 0, second_e63 = 0;
+    int best_off = -1;
+    int64_t sum_all = 0;
 
     for (int off = 0; off < 64; ++off) {
-        int32_t accum = 0;
+        // ── T1-A: coherent 합산 (2블록 dot 진폭 합 → 제곱) ──
+        // 비간섭: e0+e1 → alias off=32와 동일 에너지
+        // 간섭: (d0+d1)² → sym63/sym0 경계에서 alias 분리 강화
+        int32_t sum_I = 0, sum_Q = 0;
         for (int blk = 0; blk < 2; ++blk) {
             const int base = off + (blk << 6);
             int32_t dot_I = 0, dot_Q = 0;
             walsh63_dot_(&p0_buf128_I_[base], &p0_buf128_Q_[base],
                          dot_I, dot_Q);
-            const int64_t eI = static_cast<int64_t>(dot_I) * dot_I;
-            const int64_t eQ = static_cast<int64_t>(dot_Q) * dot_Q;
-            accum += static_cast<int32_t>((eI + eQ) >> 16);
+            sum_I += dot_I;
+            sum_Q += dot_Q;
         }
-        e63[off] = accum;
-    }
-
-    int32_t best_e63 = 0;
-    int best_off = -1;
-    int64_t sum_all = 0;
-    for (int off = 0; off < 64; ++off) {
-        sum_all += static_cast<int64_t>(e63[off]);
-        if (e63[off] > best_e63) {
-            best_e63 = e63[off];
+        const int32_t accum = static_cast<int32_t>(
+            (static_cast<int64_t>(sum_I) * sum_I +
+             static_cast<int64_t>(sum_Q) * sum_Q) >> 16);
+        sum_all += static_cast<int64_t>(accum);
+        if (accum > best_e63) {
+            second_e63 = best_e63;
+            best_e63 = accum;
             best_off = off;
+        } else if (accum > second_e63) {
+            second_e63 = accum;
         }
     }
+
     const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
-    const int32_t avg_others = static_cast<int32_t>(sum_others / 63);
-    const int32_t r_avg =
+
+    // r_avg >= 5: (best<<6)-best >= (so<<3)+(so<<1)+(so) = so*5...
+    // 아니, 5 = (1<<2)+1: so*5 = (so<<2)+so
+    // r_avg >= 5 ↔ best*63 >= so*5
+    const int64_t best_x63 = (static_cast<int64_t>(best_e63) << 6) -
+                              static_cast<int64_t>(best_e63);
+    const int64_t so_x5    = (sum_others << 2) + sum_others;
+    const bool r_avg_ok = (sum_others <= 0) || (best_x63 >= so_x5);
+
+    // r_avg >= 8 판정 (sep_ok 활성화용, 곱셈 0)
+    // best*63 >= so*8 ↔ best_x63 >= so<<3
+    const bool r_avg_high = (sum_others <= 0) ||
+        (best_x63 >= (sum_others << 3));
+
+    // 적응형 sep_ok: r_avg≥8일 때만 alias 방어
+    const int64_t best_x4 = static_cast<int64_t>(best_e63) << 2;
+    const int64_t sec_x5  = (static_cast<int64_t>(second_e63) << 2) +
+                             static_cast<int64_t>(second_e63);
+    const bool sep_ok = (!r_avg_high) ||
+        (second_e63 == 0) || (best_x4 > sec_x5);
+
+    // 적응형 e63_min: noise_floor × 5 (하한 5000)
+    const int32_t avg_others =
+        (sum_others > 0)
+            ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
+            : 0;
+    // avg_others * 5 = (avg<<2)+avg [SHIFT]
+    const int32_t adaptive_min =
         (avg_others > 0)
-            ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
-                                   static_cast<int64_t>(avg_others))
-            : 999;
-    int32_t second_e63 = 0;
-    for (int off = 0; off < 64; ++off) {
-        if (e63[off] < best_e63 && e63[off] > second_e63)
-            second_e63 = e63[off];
+            ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
+                                    avg_others)
+            : 5000;
+    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    const int32_t e63_min =
+        (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
+
+    const bool pass = (best_off >= 0 && r_avg_ok &&
+                       best_e63 >= e63_min && sep_ok);
+
+#if defined(HTS_DIAG_PRINTF)
+    {
+        const int32_t r_avg =
+            (avg_others > 0)
+                ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
+                                       static_cast<int64_t>(avg_others))
+                : 999;
+        const int32_t r_sep =
+            (second_e63 > 0)
+                ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
+                                       static_cast<int64_t>(second_e63))
+                : 999;
+        std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d emin=%d sep=%d\n",
+                    best_off, best_e63, avg_others, r_avg, r_sep,
+                    e63_min, static_cast<int>(sep_ok));
     }
-    const int32_t r_sep =
-        (second_e63 > 0)
-            ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
-                                   static_cast<int64_t>(second_e63))
-            : 999;
-    (void)r_sep;
-
-    static constexpr int32_t k_R_AVG_MIN     = 10;
-    static constexpr int32_t k_E63_ALIGN_MIN  = 50000;
-
-    const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
-                       best_e63 >= k_E63_ALIGN_MIN);
-
-    std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
-                best_off, best_e63, avg_others, r_avg, r_sep);
+#endif
 
     if (pass) {
-        std::printf("[P0-ALIGNED] off=%d carry=%d r_avg=%d\n",
-                    best_off, 64 - best_off, r_avg);
+        {
+            int32_t seed_dot_I = 0, seed_dot_Q = 0;
+            for (int blk = 0; blk < 2; ++blk) {
+                int32_t di = 0, dq = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off + (blk << 6)],
+                             &p0_buf128_Q_[best_off + (blk << 6)],
+                             di, dq);
+                seed_dot_I += di;
+                seed_dot_Q += dq;
+            }
+            est_I_ = seed_dot_I;
+            est_Q_ = seed_dot_Q;
+            est_count_ = 2;
+#if defined(HTS_DIAG_PRINTF)
+            std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
+                        seed_dot_I, seed_dot_Q, est_I_, est_Q_,
+                        est_count_);
+#endif
+        }
+#if defined(HTS_DIAG_PRINTF)
+        std::printf("[P0-ALIGNED] off=%d carry=%d\n",
+                    best_off, 64 - best_off);
+#endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
         psal_commit_align_();
     } else {
-        std::memmove(p0_buf128_I_, p0_buf128_I_ + 128,
-                     static_cast<size_t>(64) * sizeof(int16_t));
-        std::memmove(p0_buf128_Q_, p0_buf128_Q_ + 128,
-                     static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
         p0_chip_count_ = 64;
     }
 }
@@ -2118,6 +2172,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
             soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
         }
+        if (ajc_enabled_ && pre_phase_ != 0)
+            ajc_.Process(orig_I_, orig_Q_, 64);
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I = 0, dot0_Q = 0;
         for (int j = 0; j < 64; ++j) {
@@ -2155,25 +2211,34 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         uint8_t best_m = 0u;
         if (e63_64 >= e0_64) {
             best_m = PRE_SYM0;
-            est_I_ += dot63_I; est_Q_ += dot63_Q; ++est_count_;
+            est_I_ += dot63_I;
+            est_Q_ += dot63_Q;
+            ++est_count_;
         } else {
             best_m = PRE_SYM1;
         }
         const int8_t sym = static_cast<int8_t>(best_m);
         const int tail_rem = p1_carry_prefix_;
         p1_carry_prefix_ = 0;
+#if defined(HTS_DIAG_PRINTF)
         std::printf("[P1-NC] sym=%d e63=%d e0=%d est=(%d,%d) n=%d carry_pend=%d\n",
                     static_cast<int>(sym), e63_sh, e0_sh,
                     est_I_, est_Q_, est_count_, p1_carry_pending_);
+#endif
         if (sym == static_cast<int8_t>(PRE_SYM1)) {
             p1_tail_collect_rem_ = 0; p1_tail_idx_ = 0;
             p1_carry_pending_ = 0; p0_carry_count_ = 0;
             update_derot_shift_from_est_();
             set_phase_(RxPhase::READ_HEADER);
+            // CW EMA 리셋: WAIT_SYNC 동안 학습된 프리앰블 잔상 제거
+            cw_ema_I_ = 0;
+            cw_ema_Q_ = 0;
             hdr_count_ = 0; hdr_fail_ = 0;
             wait_sync_head_ = 0; wait_sync_count_ = 0;
+#if defined(HTS_DIAG_PRINTF)
             std::printf("[P1→HDR] est=(%d,%d) n=%d\n",
                         est_I_, est_Q_, est_count_);
+#endif
             if (carry_only_full && !p1_rx_in_buf) {
                 buf_I_[0] = rx_I; buf_Q_[0] = rx_Q; buf_idx_ = 1;
             } else {
@@ -2222,15 +2287,177 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
                 soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
             }
-            SymDecResult rh = walsh_dec_dot_proj_full_(orig_I_, orig_Q_, false);
-            int8_t sym = rh.sym;
-            if (sym >= 0 && sym < 64) {
-                hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
-                hdr_count_++;
+            static int16_t s_hdr_blk0_I[64], s_hdr_blk0_Q[64];
+            if (hdr_count_ == 0) {
+                const SymDecResult rh =
+                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                if (rh.sym >= 0 && rh.sym < 64) {
+                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(rh.sym);
+                    std::memcpy(s_hdr_blk0_I, orig_I_, 64 * sizeof(int16_t));
+                    std::memcpy(s_hdr_blk0_Q, orig_Q_, 64 * sizeof(int16_t));
+                    hdr_count_++;
+                } else {
+                    hdr_fail_++;
+                    if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                        hdr_count_ = 0;
+                        hdr_fail_ = 0;
+                        buf_idx_ = 0;
+                        set_phase_(RxPhase::WAIT_SYNC);
+                    }
+                }
+            } else if (hdr_count_ == 1) {
+                // 6-bit 패리티 LUT (popcount&1 대체, ARM 1사이클)
+                static constexpr uint8_t k_par6[64] = {
+                    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+                    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+                    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+                    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+                };
+                static constexpr struct {
+                    uint8_t mb;
+                    uint16_t plen;
+                } k_hdr_defs[] = {
+                    {0u, static_cast<uint16_t>(FEC_HARQ::NSYM1)},
+                    {0u, static_cast<uint16_t>(FEC_HARQ::NSYM1)},
+                    {1u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {1u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {2u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {2u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(4))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(4))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(5))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(5))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
+                };
+                int best_idx = -1;
+                int64_t best_corr = 0;
+                int64_t second_corr = 0;
+                for (int ti = 0; ti < 12; ++ti) {
+                    const uint8_t mb = k_hdr_defs[static_cast<size_t>(ti)].mb;
+                    const uint16_t pl = k_hdr_defs[static_cast<size_t>(ti)].plen;
+                    const uint16_t iq =
+                        (static_cast<unsigned>(ti) & 1u) != 0u
+                            ? static_cast<uint16_t>(HDR_IQ_BIT)
+                            : 0u;
+                    const uint16_t hdr_val =
+                        (static_cast<uint16_t>(mb) << 10u) | iq | pl;
+                    const uint8_t sym0 =
+                        static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
+                    const uint8_t sym1 =
+                        static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    int64_t corr = 0;
+                    for (int j = 0; j < 64; ++j) {
+                        const int32_t v =
+                            static_cast<int32_t>(s_hdr_blk0_I[j]) +
+                            static_cast<int32_t>(s_hdr_blk0_Q[j]);
+                        const int32_t sm = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(sym0 & j)]);
+                        corr += static_cast<int64_t>((v ^ sm) - sm);
+                    }
+                    for (int j = 0; j < 64; ++j) {
+                        const int32_t v = static_cast<int32_t>(orig_I_[j]) +
+                                          static_cast<int32_t>(orig_Q_[j]);
+                        const int32_t sm = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(sym1 & j)]);
+                        corr += static_cast<int64_t>((v ^ sm) - sm);
+                    }
+                    const int64_t neg = corr >> 63;
+                    corr = (corr ^ neg) - neg;
+                    if (corr > best_corr) {
+                        second_corr = best_corr;
+                        best_corr = corr;
+                        best_idx = ti;
+                    } else if (corr > second_corr) {
+                        second_corr = corr;
+                    }
+                }
+                const bool tmpl_ok =
+                    (best_idx >= 0) &&
+                    ((second_corr == 0) ||
+                     ((best_corr << 2) >
+                      ((second_corr << 2) + second_corr)));
+                if (tmpl_ok) {
+                    const uint8_t mb =
+                        k_hdr_defs[static_cast<size_t>(best_idx)].mb;
+                    const uint16_t pl =
+                        k_hdr_defs[static_cast<size_t>(best_idx)].plen;
+                    const uint16_t iq =
+                        (static_cast<unsigned>(best_idx) & 1u) != 0u
+                            ? static_cast<uint16_t>(HDR_IQ_BIT)
+                            : 0u;
+                    const uint16_t hdr_val =
+                        (static_cast<uint16_t>(mb) << 10u) | iq | pl;
+                    hdr_syms_[0] =
+                        static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
+                    hdr_syms_[1] = static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    hdr_count_ = 2;
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf("[HDR-TMPL] matched idx=%d hdr=0x%03X\n",
+                                best_idx, static_cast<unsigned>(hdr_val));
+#endif
+                } else {
+                    SymDecResult rh =
+                        walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                    int8_t sym = rh.sym;
+                    if (sym >= 0 && sym < 64) {
+                        if (rh.second_e > 0u &&
+                            rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
+                            std::printf("[HDR-SOFT] unreliable, reset\n");
+#endif
+                            hdr_count_ = 0;
+                            buf_idx_ = 0;
+                            return;
+                        }
+                        hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                        hdr_count_++;
+                    } else {
+                        hdr_fail_++;
+                        if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                            std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                            hdr_count_ = 0;
+                            hdr_fail_ = 0;
+                            buf_idx_ = 0;
+                            set_phase_(RxPhase::WAIT_SYNC);
+                        }
+                    }
+                }
             } else {
-                hdr_fail_++;
-                if (hdr_fail_ >= HDR_FAIL_MAX)
-                    full_reset_();
+                SymDecResult rh =
+                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                int8_t sym = rh.sym;
+                if (sym >= 0 && sym < 64) {
+                    if (rh.second_e > 0u &&
+                        rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
+                                    rh.best_e, rh.second_e);
+#endif
+                        hdr_count_ = 0;
+                        buf_idx_ = 0;
+                        return;
+                    }
+                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                    hdr_count_++;
+                } else {
+                    hdr_fail_++;
+                    if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                        hdr_count_ = 0;
+                        hdr_fail_ = 0;
+                        buf_idx_ = 0;
+                        set_phase_(RxPhase::WAIT_SYNC);
+                        return;
+                    }
+                }
             }
             if (hdr_count_ >= HDR_SYMS) {
                 PayloadMode mode;
@@ -2288,7 +2515,15 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         ajc_last_nc_ = pay_cps_;
                     }
                 } else {
-                    full_reset_();
+                    // HDR parse 실패: P0 재시작 대신 Phase 1로 복귀
+                    // est/derot 유지 — 다음 프리앰블(HARQ 라운드)에서 재시도
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf("[HDR-RETRY] parse fail, back to P1\n");
+#endif
+                    hdr_count_ = 0;
+                    buf_idx_ = 0;
+                    phase_ = RxPhase::WAIT_SYNC;
+                    // pre_phase_ 유지 → Phase 1 계속
                 }
             }
             if (phase_ == RxPhase::READ_HEADER)
