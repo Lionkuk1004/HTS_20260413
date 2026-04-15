@@ -2014,22 +2014,22 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
     }
 
-    // ── 나눗셈 제거: 곱셈 비교로 r_avg/sep_ok 판정 ──
+    // ── 나눗셈 제거: shift+add 비교로 r_avg/sep_ok 판정 (MUL 0) ──
     const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
 
-    static constexpr int32_t k_R_AVG_MIN     = 10;
     static constexpr int32_t k_E63_ALIGN_MIN = 50000;
 
-    // r_avg >= 10  ↔  best_e63 * 63 >= sum_others * 10 (나눗셈 0)
-    const bool r_avg_ok = (sum_others > 0)
-        ? (static_cast<int64_t>(best_e63) * 63 >=
-           sum_others * static_cast<int64_t>(k_R_AVG_MIN))
-        : true;
+    // r_avg >= 10: (best<<6)-best >= (so<<3)+(so<<1) [곱셈 0]
+    const int64_t best_x63 = (static_cast<int64_t>(best_e63) << 6) -
+                              static_cast<int64_t>(best_e63);
+    const int64_t so_x10   = (sum_others << 3) + (sum_others << 1);
+    const bool r_avg_ok = (sum_others <= 0) || (best_x63 >= so_x10);
 
-    // best/second > 1.25  ↔  best * 4 > second * 5 (나눗셈 0)
-    const bool sep_ok = (second_e63 == 0) ||
-        (static_cast<int64_t>(best_e63) * 4 >
-         static_cast<int64_t>(second_e63) * 5);
+    // sep_ok: best<<2 > (second<<2)+second [곱셈 0]
+    const int64_t best_x4  = static_cast<int64_t>(best_e63) << 2;
+    const int64_t sec_x5   = (static_cast<int64_t>(second_e63) << 2) +
+                              static_cast<int64_t>(second_e63);
+    const bool sep_ok = (second_e63 == 0) || (best_x4 > sec_x5);
 
     const bool pass = (best_off >= 0 && r_avg_ok &&
                        best_e63 >= k_E63_ALIGN_MIN && sep_ok);
