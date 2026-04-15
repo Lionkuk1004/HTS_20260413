@@ -163,7 +163,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_AMI_CommSpec_Barrage30_Matrix_Test.cpp" />
+    <ClCompile Include="HTS_AMI_Barrage30_Test_V2.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
   </ItemGroup>

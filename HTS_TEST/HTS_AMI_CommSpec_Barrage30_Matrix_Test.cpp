@@ -201,6 +201,15 @@ static SweepResult run_one(PayloadMode mode, const FecConfig& cfg, double js_db,
                     disp.Feed_Retx_Chip(oI[i], oQ[i]);
                 }
             }
+            if (t == 0 && feed < 5) {
+                std::printf(
+                    "[DIAG] feed=%d n=%d retx=%d phase=%d "
+                    "mask=0x%08X harq_k=%d js=%.0f\n",
+                    feed, n, static_cast<int>(disp.Is_Retx_Ready()),
+                    static_cast<int>(disp.Get_Phase()),
+                    static_cast<unsigned>(g_last.success_mask), g_last.harq_k,
+                    js_db);
+            }
             if (g_last.success_mask == DecodedPacket::DECODE_MASK_OK) {
                 success = 1;
             }
@@ -272,7 +281,8 @@ static double pg_for_mode(PayloadMode m) {
 // ========== FAST: 기준 설정, 희소 J/S 사다리 ==========
 static void run_profile_fast(int max_feeds) {
     static constexpr int kTrials = 5;
-    static constexpr double kJsLadder[] = {0.0, 15.0, 30.0, 40.0, 50.0};
+    static constexpr double kJsLadder[] = {0.0, 5.0, 10.0, 15.0, 20.0, 25.0,
+                                           30.0};
     static constexpr PayloadMode kModes[] = {PayloadMode::DATA, PayloadMode::VOICE};
 
     const FecConfig base = baseline_config();
@@ -329,7 +339,20 @@ static void run_profile_standard(int max_feeds) {
     };
 
     std::printf("=== Barrage30 profile=STANDARD ===\n");
-    std::printf("A) Option sensitivity @ J/S = 25, 40 dB (DATA mode)\n");
+    std::printf("A0) Baseline sanity @ J/S=0 (DATA + VOICE, baseline cfg only)\n");
+    std::printf("trials=%d\n", kTrials);
+    {
+        const uint32_t seed0 = kSeed ^ 0xA0E0u;
+        const SweepResult s0d = run_one(PayloadMode::DATA, base, 0.0, max_feeds,
+                                        kTrials, seed0);
+        const SweepResult s0v = run_one(PayloadMode::VOICE, base, 0.0, max_feeds,
+                                        kTrials, seed0 ^ 1u);
+        std::printf("  DATA:  CRC%%=%.1f avgR=%.2f maxH=%d\n", s0d.crc_pct,
+                    s0d.avg_rounds, s0d.max_harq);
+        std::printf("  VOICE: CRC%%=%.1f avgR=%.2f maxH=%d\n", s0v.crc_pct,
+                    s0v.avg_rounds, s0v.max_harq);
+    }
+    std::printf("\nA) Option sensitivity @ J/S = 25, 40 dB (DATA mode)\n");
     std::printf("trials=%d\n\n", kTrials);
 
     for (double js : kJsSense) {
