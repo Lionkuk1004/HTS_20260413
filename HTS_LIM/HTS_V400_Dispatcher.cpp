@@ -2172,6 +2172,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
             soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
         }
+        if (ajc_enabled_ && pre_phase_ != 0)
+            ajc_.Process(orig_I_, orig_Q_, 64);
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I = 0, dot0_Q = 0;
         for (int j = 0; j < 64; ++j) {
@@ -2228,6 +2230,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p1_carry_pending_ = 0; p0_carry_count_ = 0;
             update_derot_shift_from_est_();
             set_phase_(RxPhase::READ_HEADER);
+            // CW EMA 리셋: WAIT_SYNC 동안 학습된 프리앰블 잔상 제거
+            cw_ema_I_ = 0;
+            cw_ema_Q_ = 0;
             hdr_count_ = 0; hdr_fail_ = 0;
             wait_sync_head_ = 0; wait_sync_count_ = 0;
 #if defined(HTS_DIAG_PRINTF)
@@ -2304,6 +2309,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     }
                 }
             } else if (hdr_count_ == 1) {
+                // 6-bit 패리티 LUT (popcount&1 대체, ARM 1사이클)
                 static constexpr uint8_t k_par6[64] = {
                     0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
                     1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
@@ -2348,25 +2354,19 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         const int32_t v =
                             static_cast<int32_t>(s_hdr_blk0_I[j]) +
                             static_cast<int32_t>(s_hdr_blk0_Q[j]);
-                        const int32_t sign_mask = -static_cast<int32_t>(
-                            k_par6[static_cast<uint8_t>(
-                                static_cast<uint8_t>(sym0) &
-                                static_cast<uint8_t>(j))]);
-                        corr += static_cast<int64_t>((v ^ sign_mask) - sign_mask);
+                        const int32_t sm = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(sym0 & j)]);
+                        corr += static_cast<int64_t>((v ^ sm) - sm);
                     }
                     for (int j = 0; j < 64; ++j) {
                         const int32_t v = static_cast<int32_t>(orig_I_[j]) +
                                           static_cast<int32_t>(orig_Q_[j]);
-                        const int32_t sign_mask = -static_cast<int32_t>(
-                            k_par6[static_cast<uint8_t>(
-                                static_cast<uint8_t>(sym1) &
-                                static_cast<uint8_t>(j))]);
-                        corr += static_cast<int64_t>((v ^ sign_mask) - sign_mask);
+                        const int32_t sm = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(sym1 & j)]);
+                        corr += static_cast<int64_t>((v ^ sm) - sm);
                     }
-                    {
-                        const int64_t neg_mask = corr >> 63;
-                        corr = (corr ^ neg_mask) - neg_mask;
-                    }
+                    const int64_t neg = corr >> 63;
+                    corr = (corr ^ neg) - neg;
                     if (corr > best_corr) {
                         second_corr = best_corr;
                         best_corr = corr;
