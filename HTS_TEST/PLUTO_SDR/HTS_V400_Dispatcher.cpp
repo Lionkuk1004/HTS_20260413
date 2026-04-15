@@ -2022,33 +2022,42 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
                                    static_cast<int64_t>(avg_others))
             : 999;
+    // ── alias 분리: best 대비 second가 충분히 낮은지 곱셈 비교 ──
     int32_t second_e63 = 0;
-    for (int off = 0; off < 64; ++off) {
-        if (e63[off] < best_e63 && e63[off] > second_e63)
-            second_e63 = e63[off];
+    for (int i = 0; i < 64; ++i) {
+        if (i != best_off && e63[i] > second_e63)
+            second_e63 = e63[i];
     }
+    // best * 4 > second * 5  ↔  best/second > 1.25 (나눗셈 없음)
+    const bool sep_ok = (second_e63 == 0) ||
+        (static_cast<int64_t>(best_e63) * 4 >
+         static_cast<int64_t>(second_e63) * 5);
+
+    static constexpr int32_t k_R_AVG_MIN    = 10;
+    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
+                       best_e63 >= k_E63_ALIGN_MIN && sep_ok);
     const int32_t r_sep =
         (second_e63 > 0)
             ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
                                    static_cast<int64_t>(second_e63))
             : 999;
-    (void)r_sep;
-
-    static constexpr int32_t k_R_AVG_MIN    = 10;
-    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
-    const bool pass = (best_off >= 0 && r_avg >= k_R_AVG_MIN &&
-                       best_e63 >= k_E63_ALIGN_MIN);
     std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
                 best_off, best_e63, avg_others, r_avg, r_sep);
     if (pass) {
         {
             int32_t seed_dot_I = 0, seed_dot_Q = 0;
-            walsh63_dot_(&p0_buf128_I_[best_off],
-                         &p0_buf128_Q_[best_off],
-                         seed_dot_I, seed_dot_Q);
-            est_I_ += seed_dot_I;
-            est_Q_ += seed_dot_Q;
-            ++est_count_;
+            for (int blk = 0; blk < 2; ++blk) {
+                int32_t di = 0, dq = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off + (blk << 6)],
+                             &p0_buf128_Q_[best_off + (blk << 6)],
+                             di, dq);
+                seed_dot_I += di;
+                seed_dot_Q += dq;
+            }
+            est_I_ = seed_dot_I;
+            est_Q_ = seed_dot_Q;
+            est_count_ = 2;
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_, est_count_);
         }
@@ -2163,7 +2172,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         uint8_t best_m = 0u;
         if (e63_64 >= e0_64) {
             best_m = PRE_SYM0;
-            est_I_ += dot63_I; est_Q_ += dot63_Q; ++est_count_;
+            est_I_ += dot63_I;
+            est_Q_ += dot63_Q;
+            ++est_count_;
         } else {
             best_m = PRE_SYM1;
         }
@@ -2296,7 +2307,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         ajc_last_nc_ = pay_cps_;
                     }
                 } else {
-                    full_reset_();
+                    // HDR parse 실패: P0 재시작 대신 Phase 1로 복귀
+                    // est/derot 유지 — 다음 프리앰블(HARQ 라운드)에서 재시도
+                    std::printf("[HDR-RETRY] parse fail, back to P1\n");
+                    hdr_count_ = 0;
+                    buf_idx_ = 0;
+                    phase_ = RxPhase::WAIT_SYNC;
+                    // pre_phase_ 유지 → Phase 1 계속
                 }
             }
             if (phase_ == RxPhase::READ_HEADER)
