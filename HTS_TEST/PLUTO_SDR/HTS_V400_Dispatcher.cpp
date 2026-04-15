@@ -2075,12 +2075,10 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
                         est_count_);
+            std::printf("[P0-ALIGNED] off=%d carry=%d\n",
+                        best_off, 64 - best_off);
 #endif
         }
-#if defined(HTS_DIAG_PRINTF)
-        std::printf("[P0-ALIGNED] off=%d carry=%d\n",
-                    best_off, 64 - best_off);
-#endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
         psal_commit_align_();
