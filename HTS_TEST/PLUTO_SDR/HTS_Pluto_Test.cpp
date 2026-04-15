@@ -30,7 +30,8 @@ static constexpr long long PLUTO_FREQ_HZ =
     778000000LL; // PS-LTE DL 중심 (TX/RX 동일 LO, 근거리 루프백)
 static constexpr long long PLUTO_SAMPLE_RATE = 1000000LL; // 1 MSPS
 static constexpr long long PLUTO_BW_HZ = 1000000LL;       // 1 MHz RF BW
-static constexpr int PLUTO_BUF_SAMPLES = 8192; // 1 MSPS × 8 ms
+static constexpr int PLUTO_BUF_SAMPLES =
+    32768; // 패킷(~11500) + 가드 + 여유 (1 MSPS)
 static constexpr long long PLUTO_TX_GAIN_INIT = -50LL; // 근거리 테스트
 static constexpr long long PLUTO_RX_GAIN_INIT = 40LL;   // 포화 방지
 static long long g_tx_gain = PLUTO_TX_GAIN_INIT;
@@ -489,7 +490,7 @@ static long long test_T0(PlutoCtx &p) {
         }
         long long best = -80;
         bool any_detected = false;
-        for (long long gain = -80; gain <= -40; gain += 5) {
+        for (long long gain = -80; gain <= -20; gain += 5) {
             pluto_set_tx_gain(p, gain);
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             std::vector<int16_t> rxI(PLUTO_BUF_SAMPLES), rxQ(PLUTO_BUF_SAMPLES);
