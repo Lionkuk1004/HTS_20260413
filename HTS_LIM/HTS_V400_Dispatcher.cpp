@@ -2034,6 +2034,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     const bool pass = (best_off >= 0 && r_avg_ok &&
                        best_e63 >= k_E63_ALIGN_MIN && sep_ok);
 
+#if defined(HTS_DIAG_PRINTF)
     // ── 진단 printf (나눗셈은 진단 전용, 핫패스 외부) ──
     {
         const int32_t avg_others =
@@ -2053,6 +2054,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
                     best_off, best_e63, avg_others, r_avg, r_sep);
     }
+#endif
 
     if (pass) {
         // ── 2블록 est seed (128칩 coherent, est_count_=2) ──
@@ -2069,12 +2071,16 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
+#if defined(HTS_DIAG_PRINTF)
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
                         est_count_);
+#endif
         }
+#if defined(HTS_DIAG_PRINTF)
         std::printf("[P0-ALIGNED] off=%d carry=%d\n",
                     best_off, 64 - best_off);
+#endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
         psal_commit_align_();
@@ -2194,9 +2200,11 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         const int8_t sym = static_cast<int8_t>(best_m);
         const int tail_rem = p1_carry_prefix_;
         p1_carry_prefix_ = 0;
+#if defined(HTS_DIAG_PRINTF)
         std::printf("[P1-NC] sym=%d e63=%d e0=%d est=(%d,%d) n=%d carry_pend=%d\n",
                     static_cast<int>(sym), e63_sh, e0_sh,
                     est_I_, est_Q_, est_count_, p1_carry_pending_);
+#endif
         if (sym == static_cast<int8_t>(PRE_SYM1)) {
             p1_tail_collect_rem_ = 0; p1_tail_idx_ = 0;
             p1_carry_pending_ = 0; p0_carry_count_ = 0;
@@ -2204,8 +2212,10 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             set_phase_(RxPhase::READ_HEADER);
             hdr_count_ = 0; hdr_fail_ = 0;
             wait_sync_head_ = 0; wait_sync_count_ = 0;
+#if defined(HTS_DIAG_PRINTF)
             std::printf("[P1→HDR] est=(%d,%d) n=%d\n",
                         est_I_, est_Q_, est_count_);
+#endif
             if (carry_only_full && !p1_rx_in_buf) {
                 buf_I_[0] = rx_I; buf_Q_[0] = rx_Q; buf_idx_ = 1;
             } else {
@@ -2262,8 +2272,10 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 // J/S +12dB에서 Soft 통과 시 정확도 99.3% (무조건 수용 시 84.7%)
                 if (rh.second_e > 0u &&
                     rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
                     std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
                                 rh.best_e, rh.second_e);
+#endif
                     hdr_count_ = 0;
                     buf_idx_ = 0;
                     return;
@@ -2274,7 +2286,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 hdr_fail_++;
                 if (hdr_fail_ >= HDR_FAIL_MAX) {
                     // full_reset 대신 Phase 1 복귀
+#if defined(HTS_DIAG_PRINTF)
                     std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
                     hdr_count_ = 0;
                     hdr_fail_ = 0;
                     buf_idx_ = 0;
@@ -2340,7 +2354,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 } else {
                     // HDR parse 실패: P0 재시작 대신 Phase 1로 복귀
                     // est/derot 유지 — 다음 프리앰블(HARQ 라운드)에서 재시도
+#if defined(HTS_DIAG_PRINTF)
                     std::printf("[HDR-RETRY] parse fail, back to P1\n");
+#endif
                     hdr_count_ = 0;
                     buf_idx_ = 0;
                     phase_ = RxPhase::WAIT_SYNC;
