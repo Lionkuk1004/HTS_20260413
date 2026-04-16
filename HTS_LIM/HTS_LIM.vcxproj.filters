@@ -360,6 +360,9 @@
     <ClCompile Include="HTS_IPC_Protocol.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="HTS_Polar_Codec.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HTS_Anchor_Vault.hpp">
@@ -647,6 +650,9 @@
     <ClInclude Include="HTS_Console_Manager_Defs.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_CFO_Compensator.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Device_Profile.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -819,6 +825,12 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Channel_Physics.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Polar_Codec.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_TPC_Controller.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

@@ -68,6 +68,7 @@
 #include <cstddef>
 #include "HTS_FEC_HARQ.hpp"
 #include "HTS_AntiJam_Engine.h"
+#include "HTS_CFO_Compensator.h"
 
 namespace ProtectedEngine {
 
@@ -400,6 +401,7 @@ namespace ProtectedEngine {
         int16_t tx_amp_{ 1000 };         ///< TPC 연동 (Set_Tx_Amp / Build_Packet)
         int32_t dc_est_I_{ 0 };          ///< DC IIR 추정값 (Q7 고정소수)
         int32_t dc_est_Q_{ 0 };
+        HTS_CFO_Compensator cfo_;       ///< P0 추정 CFO 역회전 (Q14)
 
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부

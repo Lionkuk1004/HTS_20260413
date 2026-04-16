@@ -877,6 +877,7 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     cw_ema_Q_ = 0;
     dc_est_I_ = 0;
     dc_est_Q_ = 0;
+    cfo_.Init();
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -2105,6 +2106,15 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
+            // CFO 추정: 연속 2블록 위상차
+            {
+                int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
+                             d0I, d0Q);
+                walsh63_dot_(&p0_buf128_I_[best_off + 64],
+                             &p0_buf128_Q_[best_off + 64], d1I, d1Q);
+                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
+            }
 #if defined(HTS_DIAG_PRINTF)
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
@@ -2137,6 +2147,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+    // CFO 보정 (DC 제거 후)
+    cfo_.Apply(chip_I, chip_Q);
     if (phase_ == RxPhase::RF_SETTLING) {
         (void)chip_I;
         (void)chip_Q;
