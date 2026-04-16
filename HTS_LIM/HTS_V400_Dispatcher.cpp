@@ -732,6 +732,15 @@ bool HTS_V400_Dispatcher::Get_IR_SIC_Enabled() const noexcept {
 void HTS_V400_Dispatcher::Set_SIC_Walsh_Amp(int16_t amp) noexcept {
     sic_walsh_amp_ = amp;
 }
+void HTS_V400_Dispatcher::Set_Tx_Amp(int16_t amp) noexcept {
+    if (amp < 64) {
+        amp = 64;
+    }
+    if (amp > 1024) {
+        amp = 1024;
+    }
+    tx_amp_ = amp;
+}
 void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
     sic_expect_valid_ = false;
     if (!sic_ir_enabled_ || ir_state_ == nullptr) {
@@ -866,6 +875,8 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     m63_gap_ = 0;
     cw_ema_I_ = 0;
     cw_ema_Q_ = 0;
+    dc_est_I_ = 0;
+    dc_est_Q_ = 0;
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -1622,6 +1633,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    tx_amp_ = amp;  // TPC 적응형 문턱 연동
     /* 신규 PDU 송신: 인코드 RV는 0부터 (try_decode_ 첫 라운드 rv=0 과 정합) */
     ir_rv_ = 0;
     /* BUG-FIX-PRE5: 프리앰블 반복 폐기, amp 부스트로 교체.
@@ -2040,7 +2052,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     const bool sep_ok = (!r_avg_high) ||
         (second_e63 == 0) || (best_x4 > sec_x5);
 
-    // 적응형 e63_min: noise_floor × 5 (하한 5000), 고정 하한 k_E63_ALIGN_MIN
+    // 적응형 e63_min: noise_floor × 5 (하한 5000), amp×38 하한 (TPC tx_amp_ 연동)
     const int32_t avg_others =
         (sum_others > 0)
             ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
@@ -2051,7 +2063,10 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
                                     avg_others)
             : 5000;
-    static constexpr int32_t k_E63_ALIGN_MIN = 38000;
+    // 적응형: amp × 38 (shift: (amp<<5)+(amp<<2)+(amp<<1) = amp×38)
+    const int32_t amp32 = static_cast<int32_t>(tx_amp_);
+    const int32_t k_E63_ALIGN_MIN =
+        (amp32 << 5) + (amp32 << 2) + (amp32 << 1);  // amp × 38
     const int32_t e63_min =
         (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
 
@@ -2112,9 +2127,19 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 }
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+    int16_t chip_I = rx_I;
+    int16_t chip_Q = rx_Q;
+    // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
+    // dc_est = dc_est - (dc_est >> 7) + (chip >> 7)
+    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+                (static_cast<int32_t>(chip_I) >> 7);
+    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+                (static_cast<int32_t>(chip_Q) >> 7);
+    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
     if (phase_ == RxPhase::RF_SETTLING) {
-        (void)rx_I;
-        (void)rx_Q;
+        (void)chip_I;
+        (void)chip_Q;
         const uint32_t nz =
             static_cast<uint32_t>(rf_settle_chips_remaining_ > 0);
         rf_settle_chips_remaining_ -= static_cast<int>(nz);
@@ -2125,8 +2150,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     }
     if (phase_ == RxPhase::WAIT_SYNC) {
         if (pre_phase_ == 0) {
-            p0_buf128_I_[p0_chip_count_] = rx_I;
-            p0_buf128_Q_[p0_chip_count_] = rx_Q;
+            p0_buf128_I_[p0_chip_count_] = chip_I;
+            p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
             if (p0_chip_count_ < 192)
                 return;
@@ -2135,8 +2160,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         }
         // ── Phase 1: carry + Walsh-63/0 dual dot ──
         if (p1_tail_collect_rem_ > 0) {
-            p0_carry_I_[p1_tail_idx_] = rx_I;
-            p0_carry_Q_[p1_tail_idx_] = rx_Q;
+            p0_carry_I_[p1_tail_idx_] = chip_I;
+            p0_carry_Q_[p1_tail_idx_] = chip_Q;
             ++p1_tail_idx_;
             if (p1_tail_idx_ < p1_tail_collect_rem_)
                 return;
@@ -2160,8 +2185,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (buf_idx_ == 64) carry_only_full = true;
         }
         if (!carry_only_full) {
-            buf_I_[buf_idx_] = rx_I;
-            buf_Q_[buf_idx_] = rx_Q;
+            buf_I_[buf_idx_] = chip_I;
+            buf_Q_[buf_idx_] = chip_Q;
             ++buf_idx_;
             p1_rx_in_buf = true;
             if (buf_idx_ < 64) return;
@@ -2203,7 +2228,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
             buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
             if (carry_only_full && !p1_rx_in_buf) {
-                p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+                p0_buf128_I_[0] = chip_I; p0_buf128_Q_[0] = chip_Q;
                 p0_chip_count_ = 1;
             }
             return;
@@ -2240,7 +2265,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         est_I_, est_Q_, est_count_);
 #endif
             if (carry_only_full && !p1_rx_in_buf) {
-                buf_I_[0] = rx_I; buf_Q_[0] = rx_Q; buf_idx_ = 1;
+                buf_I_[0] = chip_I; buf_Q_[0] = chip_Q; buf_idx_ = 1;
             } else {
                 buf_idx_ = 0;
             }
@@ -2250,7 +2275,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (tail_rem > 0) {
                 p1_tail_collect_rem_ = tail_rem; p1_tail_idx_ = 0;
                 if (carry_only_full) {
-                    p0_carry_I_[0] = rx_I; p0_carry_Q_[0] = rx_Q;
+                    p0_carry_I_[0] = chip_I; p0_carry_Q_[0] = chip_Q;
                     p1_tail_idx_ = 1;
                     if (p1_tail_idx_ >= p1_tail_collect_rem_) {
                         p0_carry_count_ = tail_rem; p1_carry_pending_ = 1;
@@ -2268,15 +2293,15 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
         buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
         if (carry_only_full && !p1_rx_in_buf) {
-            p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+            p0_buf128_I_[0] = chip_I; p0_buf128_Q_[0] = chip_Q;
             p0_chip_count_ = 1;
         }
         return;
     }
     if (buf_idx_ >= 64)
         return;
-    buf_I_[buf_idx_] = rx_I;
-    buf_Q_[buf_idx_] = rx_Q;
+    buf_I_[buf_idx_] = chip_I;
+    buf_Q_[buf_idx_] = chip_Q;
     buf_idx_++;
     if (phase_ == RxPhase::READ_HEADER) {
         if (buf_idx_ == 64) {

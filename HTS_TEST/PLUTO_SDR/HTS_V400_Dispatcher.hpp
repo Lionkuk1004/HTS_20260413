@@ -243,6 +243,8 @@ namespace ProtectedEngine {
         [[nodiscard]] bool Get_IR_SIC_Enabled() const noexcept;
         /// @brief SIC용 Walsh 진폭 — TX `Build_Packet(..., amp, ...)` 와 동일 스케일 권장 (기본 300)
         void Set_SIC_Walsh_Amp(int16_t amp) noexcept;
+        /// @brief TPC 송신 진폭(amp) — 적응형 e63 정렬 문턱(amp×38) 연동
+        void Set_Tx_Amp(int16_t amp) noexcept;
 
         /// @brief IR-HARQ 1라운드 RTT (ms) — HTS 독자 링크; 양산 시 실측·스케줄로 확정.
         /// @note Chase/소프트 텐서 벤치의 `LTE_HARQ_Controller::HARQ_RTT_MS`(8ms)와 별도.
@@ -395,6 +397,9 @@ namespace ProtectedEngine {
         bool sic_ir_enabled_{ false };   ///< IR 64칩 SIC (기본 OFF)
         bool sic_expect_valid_{ false }; ///< 직전 실패 라운드에서 예상 칩 생성됨
         int16_t sic_walsh_amp_{ 300 };   ///< Walsh 인코드 진폭 (Build_Packet amp 정합)
+        int16_t tx_amp_{ 1000 };         ///< TPC 연동 (Set_Tx_Amp / Build_Packet)
+        int32_t dc_est_I_{ 0 };          ///< DC IIR 추정값 (Q7 고정소수)
+        int32_t dc_est_Q_{ 0 };
 
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부
