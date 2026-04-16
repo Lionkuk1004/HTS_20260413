@@ -72,6 +72,21 @@ namespace ProtectedEngine {
             const uint32_t* tensor, size_t t_len,
             int32_t* output, size_t out_cap) noexcept;
 
+        /// @brief Walsh 칩 1:8 오버샘플 Gaussian 펄스 성형 (BT=0.3)
+        /// @param walsh_I/Q  Walsh 칩 I/Q 입력 (±amp)
+        /// @param chip_count 입력 칩 수 (최대 2048)
+        /// @param out_I/Q    int16 출력 (최소 chip_count*8)
+        /// @param out_cap    출력 배열 용량
+        /// @return 출력 샘플 수 (0=실패)
+        /// @note  ITU-R SM.328 OBW 7.7x 압축, 3GPP ACLR -117 dBc 시뮬 확인
+        size_t Apply_Pulse_Shaping_Walsh_IQ_x8(
+            const int16_t* walsh_I,
+            const int16_t* walsh_Q,
+            size_t chip_count,
+            int16_t* out_I,
+            int16_t* out_Q,
+            size_t out_cap) noexcept;
+
         /// @brief IIR DC 블로커 상태 초기화 (패킷 간 State Bleed 방지)
         void Reset_Filter_State() noexcept;
 

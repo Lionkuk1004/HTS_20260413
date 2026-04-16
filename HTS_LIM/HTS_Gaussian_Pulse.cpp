@@ -284,4 +284,69 @@ namespace ProtectedEngine {
         return out_len;
     }
 
+    namespace {
+        // V3 정규화 + Ultra 구조 LUT (BT=0.3, OVS=8, SPAN=5)
+        // 각 polyphase 브랜치 합=8192, 전체=65536
+        // 뒤 7개 패딩으로 분기 제거
+        constexpr size_t k_walsh_ovs_shift = 3;
+        constexpr size_t k_walsh_ovs = 1u << k_walsh_ovs_shift;
+        constexpr size_t k_walsh_span = 5;
+        constexpr size_t k_walsh_lut_size =
+            (k_walsh_span + 1) << k_walsh_ovs_shift;
+        constexpr int16_t k_walsh_gauss_lut[k_walsh_lut_size] = {
+            0, 0, 0, 0, 0, 1, 3, 9,
+            24, 60, 135, 280, 547, 1010, 1750, 2803,
+            4072, 5320, 6304, 6901, 7098, 6901, 6304, 5320,
+            4072, 2803, 1750, 1010, 547, 280, 135, 60,
+            24, 9, 3, 1, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, 0, 0, 0};
+    } // namespace
+
+    size_t Gaussian_Pulse_Shaper::Apply_Pulse_Shaping_Walsh_IQ_x8(
+        const int16_t* walsh_I, const int16_t* walsh_Q,
+        size_t chip_count, int16_t* out_I, int16_t* out_Q,
+        size_t out_cap) noexcept {
+        if (!walsh_I || !walsh_Q || !out_I || !out_Q) return 0;
+        if (chip_count == 0u || chip_count > 2048u) return 0;
+        const size_t out_len = chip_count << k_walsh_ovs_shift;
+        if (out_len > out_cap) return 0;
+
+        // Warm-up
+        size_t n = 0;
+        for (; n < k_walsh_span && n < chip_count; ++n) {
+            for (size_t p = 0; p < k_walsh_ovs; ++p) {
+                int32_t aI = 0, aQ = 0;
+                for (size_t j = 0; j <= k_walsh_span; ++j) {
+                    const int ci = static_cast<int>(n) - static_cast<int>(j);
+                    if (ci >= 0) {
+                        const int16_t c =
+                            k_walsh_gauss_lut[(j << k_walsh_ovs_shift) | p];
+                        aI += static_cast<int32_t>(walsh_I[ci]) * c;
+                        aQ += static_cast<int32_t>(walsh_Q[ci]) * c;
+                    }
+                }
+                const size_t oi = (n << k_walsh_ovs_shift) | p;
+                out_I[oi] = static_cast<int16_t>(aI >> 13);
+                out_Q[oi] = static_cast<int16_t>(aQ >> 13);
+            }
+        }
+        // Steady-state
+        for (; n < chip_count; ++n) {
+            for (size_t p = 0; p < k_walsh_ovs; ++p) {
+                int32_t aI = 0, aQ = 0;
+                for (size_t j = 0; j <= k_walsh_span; ++j) {
+                    const size_t ci = n - j;
+                    const int16_t c =
+                        k_walsh_gauss_lut[(j << k_walsh_ovs_shift) | p];
+                    aI += static_cast<int32_t>(walsh_I[ci]) * c;
+                    aQ += static_cast<int32_t>(walsh_Q[ci]) * c;
+                }
+                const size_t oi = (n << k_walsh_ovs_shift) | p;
+                out_I[oi] = static_cast<int16_t>(aI >> 13);
+                out_Q[oi] = static_cast<int16_t>(aQ >> 13);
+            }
+        }
+        return out_len;
+    }
+
 } // namespace ProtectedEngine
