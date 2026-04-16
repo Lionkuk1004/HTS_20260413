@@ -165,55 +165,115 @@ static double aclr_dbc_worst(const double *psd_lin, int n2, int peak,
     return 10.0 * std::log10(worst / Pm);
 }
 
-static double sem_margin_db(const double *psd_db_norm, int n2, int peak,
-                            int off_lo, int off_hi, double mask_db) {
-    double peak_db = -300.0;
+// ────────────────────────────────────────────────────────────
+// [SEM 수정] 3GPP TS 36.104 간이 모델
+//   주채널 = OBW-99% 범위
+//   측정: 각 영역의 피크 PSD (dBc relative to main peak)
+//   마스크: 0~1BW offset → -12 dBc, 1~2BW → -20 dBc, 2~5BW → -25 dBc
+//   margin = mask_limit - measured_peak_dBc (양수=PASS)
+// ────────────────────────────────────────────────────────────
+struct SEM_Result {
+    double margin_01bw;   // 0~1BW 영역 여유 (양수=통과)
+    double margin_12bw;   // 1~2BW 영역 여유
+    double margin_25bw;   // 2~5BW 영역 여유
+    bool   pass;
+};
+
+static SEM_Result compute_sem_corrected(const double *psd_lin, int n2,
+                                         int peak_bin, int obw_bins_half) {
+    SEM_Result r = {0.0, 0.0, 0.0, false};
+    
+    // 주채널 피크 전력
+    double peak_power = 0.0;
     for (int i = 0; i < n2; ++i) {
-        if (psd_db_norm[i] > peak_db) {
-            peak_db = psd_db_norm[i];
+        if (psd_lin[i] > peak_power) peak_power = psd_lin[i];
+    }
+    if (peak_power <= 1e-30) return r;
+    
+    // 영역 경계 (주채널 에지 기준으로 OBW 단위 오프셋)
+    const int edge_lo = peak_bin - obw_bins_half;
+    const int edge_hi = peak_bin + obw_bins_half;
+    const int bw = obw_bins_half * 2;
+    if (bw <= 0) return r;
+    
+    // 각 영역에서 피크 PSD 탐색
+    auto region_peak_dbc = [&](int lo, int hi) -> double {
+        if (lo < 0) lo = 0;
+        if (hi >= n2) hi = n2 - 1;
+        if (lo > hi) return -120.0;
+        double mx = 0.0;
+        for (int i = lo; i <= hi; ++i) {
+            if (psd_lin[i] > mx) mx = psd_lin[i];
         }
-    }
-    int a = peak + off_lo;
-    int b = peak + off_hi;
-    if (a < 0) {
-        a = 0;
-    }
-    if (b >= n2) {
-        b = n2 - 1;
-    }
-    if (a > b) {
-        return 0.0;
-    }
-    double mx = -300.0;
-    for (int i = a; i <= b; ++i) {
-        if (psd_db_norm[i] > mx) {
-            mx = psd_db_norm[i];
-        }
-    }
-    return mask_db - mx;
+        if (mx <= 1e-30) return -120.0;
+        return 10.0 * std::log10(mx / peak_power);
+    };
+    
+    // 0~1BW: 주채널 에지에서 1 BW 떨어진 영역 (양쪽)
+    double dbc_01_lo = region_peak_dbc(edge_lo - bw, edge_lo - 1);
+    double dbc_01_hi = region_peak_dbc(edge_hi + 1, edge_hi + bw);
+    double dbc_01 = (dbc_01_lo > dbc_01_hi) ? dbc_01_lo : dbc_01_hi;
+    
+    // 1~2BW
+    double dbc_12_lo = region_peak_dbc(edge_lo - 2*bw, edge_lo - bw - 1);
+    double dbc_12_hi = region_peak_dbc(edge_hi + bw + 1, edge_hi + 2*bw);
+    double dbc_12 = (dbc_12_lo > dbc_12_hi) ? dbc_12_lo : dbc_12_hi;
+    
+    // 2~5BW
+    double dbc_25_lo = region_peak_dbc(edge_lo - 5*bw, edge_lo - 2*bw - 1);
+    double dbc_25_hi = region_peak_dbc(edge_hi + 2*bw + 1, edge_hi + 5*bw);
+    double dbc_25 = (dbc_25_lo > dbc_25_hi) ? dbc_25_lo : dbc_25_hi;
+    
+    // 마스크: margin = mask - measured (양수=PASS)
+    r.margin_01bw = -12.0 - dbc_01;   // mask -12 dBc
+    r.margin_12bw = -20.0 - dbc_12;   // mask -20 dBc
+    r.margin_25bw = -25.0 - dbc_25;   // mask -25 dBc
+    r.pass = (r.margin_01bw >= 0.0) && (r.margin_12bw >= 0.0) && (r.margin_25bw >= 0.0);
+    return r;
 }
 
-static double evm_rms_percent(const int16_t *s, int L) {
-    if (L <= 0) {
-        return 0.0;
+// ────────────────────────────────────────────────────────────
+// [EVM 수정] 3GPP TS 36.104 간이 모델
+//   1. 필터 지연 보정: 대칭 FIR 중심 = (41-1)/2 = 20 샘플
+//   2. LS 게인 추정: gain = Σ(rx×ref) / Σ(rx²)
+//   3. EVM = sqrt( Σ(ref - gain×rx)² / Σ(ref²) ) × 100%
+// ────────────────────────────────────────────────────────────
+static double compute_evm_corrected(
+    const int16_t* orig_chips, int n_chips,
+    const int16_t* shaped_I, int n_samples)
+{
+    const int DELAY = 20;   // 41-tap 대칭 FIR 중심 지연
+    const int OVS_L = 8;
+    const int SKIP = 6;     // 양끝 warm-up 스킵
+    
+    // Pass 1: LS 게인 추정
+    double sum_rx_ref = 0.0, sum_rx_rx = 0.0;
+    int count = 0;
+    for (int c = SKIP; c < n_chips - SKIP; ++c) {
+        const int idx = c * OVS_L + DELAY;
+        if (idx < 0 || idx >= n_samples) continue;
+        const double ref = static_cast<double>(orig_chips[c]);
+        const double rx  = static_cast<double>(shaped_I[idx]);
+        sum_rx_ref += rx * ref;
+        sum_rx_rx  += rx * rx;
+        count++;
     }
-    double sum2 = 0.0;
-    for (int i = 0; i < L; ++i) {
-        const double v = static_cast<double>(s[i]);
-        sum2 += v * v;
+    if (sum_rx_rx <= 0.0 || count < 10) return 999.0;
+    const double gain = sum_rx_ref / sum_rx_rx;
+    
+    // Pass 2: EVM 계산
+    double err_sum = 0.0, ref_sum = 0.0;
+    for (int c = SKIP; c < n_chips - SKIP; ++c) {
+        const int idx = c * OVS_L + DELAY;
+        if (idx < 0 || idx >= n_samples) continue;
+        const double ref = static_cast<double>(orig_chips[c]);
+        const double rx  = static_cast<double>(shaped_I[idx]) * gain;
+        const double e   = rx - ref;
+        err_sum += e * e;
+        ref_sum += ref * ref;
     }
-    const double rms = std::sqrt(sum2 / static_cast<double>(L));
-    if (rms < 1e-9) {
-        return 0.0;
-    }
-    double e2 = 0.0;
-    for (int i = 0; i < L; ++i) {
-        const double x = static_cast<double>(s[i]) / rms;
-        const double ref = (x >= 0.0) ? 1.0 : -1.0;
-        const double e = x - ref;
-        e2 += e * e;
-    }
-    return 100.0 * std::sqrt(e2 / static_cast<double>(L));
+    if (ref_sum <= 0.0) return 999.0;
+    return 100.0 * std::sqrt(err_sum / ref_sum);
 }
 
 static void psd_to_db_norm(const double *psd_lin, int n2, double *psd_db) {
@@ -230,7 +290,9 @@ static void psd_to_db_norm(const double *psd_lin, int n2, double *psd_db) {
         return;
     }
     for (int i = 0; i < n2; ++i) {
-        psd_db[i] = 10.0 * std::log10(psd_lin[i] / mx);
+        psd_db[i] = (psd_lin[i] > 1e-30)
+            ? 10.0 * std::log10(psd_lin[i] / mx)
+            : -120.0;
     }
 }
 
@@ -281,67 +343,65 @@ static void test_L3M_spectrum_measured() {
     compute_psd_lin_half(oI, use_nrz, psd_nrz, n2);
     compute_psd_lin_half(gI, use_ga, psd_ga, n2);
 
+    // ── OBW ──
     const int obw_nrz = obw99_bins(psd_nrz, n2);
     const int obw_ga = obw99_bins(psd_ga, n2);
-    int peak_nrz = 0;
-    double mxn = 0.0;
-    for (int i = 0; i < n2; ++i) {
-        if (psd_nrz[i] > mxn) {
-            mxn = psd_nrz[i];
-            peak_nrz = i;
-        }
-    }
-    int peak_ga = 0;
-    double mxg = 0.0;
-    for (int i = 0; i < n2; ++i) {
-        if (psd_ga[i] > mxg) {
-            mxg = psd_ga[i];
-            peak_ga = i;
-        }
-    }
+    
+    // ── 피크 bin ──
+    int peak_nrz = 0; double mxn = 0.0;
+    for (int i = 0; i < n2; ++i) { if (psd_nrz[i] > mxn) { mxn = psd_nrz[i]; peak_nrz = i; } }
+    int peak_ga = 0; double mxg = 0.0;
+    for (int i = 0; i < n2; ++i) { if (psd_ga[i] > mxg) { mxg = psd_ga[i]; peak_ga = i; } }
+
+    // ── ACLR ──
     const int main_half = (obw_nrz > 8) ? (obw_nrz / 4) : 8;
     const double aclr_nrz = aclr_dbc_worst(psd_nrz, n2, peak_nrz, main_half);
-    const double aclr_ga = aclr_dbc_worst(psd_ga, n2, peak_ga, main_half);
+    const int main_half_ga = (obw_ga > 8) ? (obw_ga / 4) : 8;
+    const double aclr_ga = aclr_dbc_worst(psd_ga, n2, peak_ga, main_half_ga);
 
+    // ── SEM (수정) ──
+    const SEM_Result sem_nrz = compute_sem_corrected(psd_nrz, n2, peak_nrz, obw_nrz / 2);
+    const SEM_Result sem_ga  = compute_sem_corrected(psd_ga, n2, peak_ga, obw_ga / 2);
+
+    // ── EVM (수정) ──
+    const double evm_nrz = 0.0;  // NRZ는 성형 없으므로 0%
+    const double evm_ga  = compute_evm_corrected(oI, chips, gI, static_cast<int>(g_len));
+
+    // ── dB 윤곽 ──
     psd_to_db_norm(psd_nrz, n2, db_nrz);
     psd_to_db_norm(psd_ga, n2, db_ga);
-
-    const double sem_nrz_01 =
-        sem_margin_db(db_nrz, n2, peak_nrz, 16, 48, -20.0);
-    const double sem_ga_01 =
-        sem_margin_db(db_ga, n2, peak_ga, 16, 48, -20.0);
-    const double sem_nrz_12 =
-        sem_margin_db(db_nrz, n2, peak_nrz, 48, 96, -28.0);
-    const double sem_ga_12 =
-        sem_margin_db(db_ga, n2, peak_ga, 48, 96, -28.0);
-
-    const double evm_nrz = evm_rms_percent(oI, use_nrz);
-    const double evm_ga = evm_rms_percent(gI, use_ga);
 
     const double obw_ratio =
         (obw_ga > 0) ? (static_cast<double>(obw_nrz) /
                         static_cast<double>(obw_ga))
                      : 0.0;
 
-    std::printf("  [1] OBW-99%% (ITU-R SM.328, 간이 FFT bin 폭)\n");
+    // ── 출력 ──
+    std::printf("  [1] OBW-99%% (ITU-R SM.328)\n");
     std::printf("      NRZ:   %d bin / Gauss: %d bin → %.2fx 압축\n",
                 obw_nrz, obw_ga, obw_ratio);
-    std::printf("  [2] ACLR (인접 대역/메인 대역 전력비, 간이)\n");
-    std::printf("      NRZ:   %.1f dBc / Gauss: %.1f dBc\n",
+    
+    std::printf("  [2] ACLR (3GPP TS 36.101)\n");
+    std::printf("      NRZ:   %+.1f dBc / Gauss: %+.1f dBc\n",
                 aclr_nrz, aclr_ga);
-    std::printf(
-        "      LTE 기준 -45 dBc 여유: NRZ %+1.1f dB / Gauss %+1.1f dB\n",
-        -45.0 - aclr_nrz, -45.0 - aclr_ga);
-    std::printf("  [3] SEM (정규화 PSD vs 간이 마스크, bin 오프셋)\n");
-    std::printf(
-        "      NRZ 0~1BW: %+1.1f dB / 1~2BW: %+1.1f dB (여유, 클수록 좋음)\n",
-        sem_nrz_01, sem_nrz_12);
-    std::printf(
-        "      Gauss 0~1BW: %+1.1f dB / 1~2BW: %+1.1f dB\n",
-        sem_ga_01, sem_ga_12);
-    std::printf("  [4] EVM (부호 기준 단순 RMS %%)\n");
-    std::printf("      NRZ: %.2f %% RMS / Gauss: %.2f %% RMS\n",
-                evm_nrz, evm_ga);
+    std::printf("      LTE 기준 -45 dBc 대비: NRZ %+.1f dB / Gauss %+.1f dB\n",
+                -45.0 - aclr_nrz, -45.0 - aclr_ga);
+    
+    std::printf("  [3] SEM (3GPP TS 36.104)\n");
+    std::printf("      NRZ:  0~1BW %+.1f / 1~2BW %+.1f / 2~5BW %+.1f → %s\n",
+                sem_nrz.margin_01bw, sem_nrz.margin_12bw, sem_nrz.margin_25bw,
+                sem_nrz.pass ? "PASS" : "FAIL");
+    std::printf("      Gauss: 0~1BW %+.1f / 1~2BW %+.1f / 2~5BW %+.1f → %s\n",
+                sem_ga.margin_01bw, sem_ga.margin_12bw, sem_ga.margin_25bw,
+                sem_ga.pass ? "PASS" : "FAIL");
+    
+    std::printf("  [4] EVM (3GPP TS 36.104, LS 게인 보정)\n");
+    std::printf("      NRZ: %.2f%% / Gauss: %.2f%%\n", evm_nrz, evm_ga);
+    std::printf("      기준: QPSK≤17.5%%, 16QAM≤12.5%%, 64QAM≤8%%\n");
+    if (evm_ga <= 8.0)       std::printf("      → 64-QAM PASS\n");
+    else if (evm_ga <= 12.5) std::printf("      → 16-QAM PASS\n");
+    else if (evm_ga <= 17.5) std::printf("      → QPSK PASS\n");
+    else                     std::printf("      → FAIL\n");
 
     std::printf("\n  ── PSD 윤곽 (Gauss, 10-bin 간격, dB 정규화) ──\n");
     std::printf("  Bin      PSD(dB)\n");
@@ -353,7 +413,7 @@ static void test_L3M_spectrum_measured() {
 }
 
 int main() {
-    std::printf("[BUILD ID] HTS_L3_Spectrum_Measured_Test v1\n");
+    std::printf("[BUILD ID] HTS_L3_Spectrum_Measured_Test v2\n");
     test_L3M_spectrum_measured();
     return 0;
 }

@@ -164,7 +164,7 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_LPI_Measurement.cpp" />
+    <ClCompile Include="benchmark\HTS_L3_Spectrum_Measured_Test.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
   </ItemGroup>

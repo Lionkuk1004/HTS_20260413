@@ -307,7 +307,7 @@ namespace ProtectedEngine {
         size_t chip_count, int16_t* out_I, int16_t* out_Q,
         size_t out_cap) noexcept {
         if (!walsh_I || !walsh_Q || !out_I || !out_Q) return 0;
-        if (chip_count == 0u || chip_count > 2048u) return 0;
+        if (chip_count == 0u || chip_count > 4096u) return 0;
         const size_t out_len = chip_count << k_walsh_ovs_shift;
         if (out_len > out_cap) return 0;
 
