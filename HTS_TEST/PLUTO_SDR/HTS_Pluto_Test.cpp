@@ -1222,8 +1222,8 @@ static void test_T6(PlutoCtx &p) {
             std::printf("  [%2d] RX FAIL\n", t);
             continue;
         }
-        // AGC만 (phase correction 제거)
-        apply_digital_agc(rxI.data(), rxQ.data(), nr);
+        // AGC만 (phase correction 제거); 타겟 kAmp과 동일 → RF 진폭 SW에 정합
+        apply_digital_agc(rxI.data(), rxQ.data(), nr, 1000);
         // 정렬
         int ss = find_signal_start(rxI.data(), rxQ.data(), nr,
                                    sigI.data(), sigQ.data(), n);
