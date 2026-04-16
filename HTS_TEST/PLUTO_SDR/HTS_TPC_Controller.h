@@ -30,7 +30,7 @@ public:
     // → LUT로 사전 계산하여 런타임 연산 제거
     static constexpr int32_t kLevelCount = 9;
     static constexpr int32_t kLevelMax = 0;   // 최대 출력 (0dB)
-    static constexpr int32_t kLevelMin = 8;   // 최소 출력 (-24dB)
+    static constexpr int32_t kLevelMin = 3;   // 최소 출력 (-9dB), 은닉 +27dB
     static constexpr int32_t kLevelInit = 4;  // 초기 레벨 (-12dB)
 
     // 전력 레벨 LUT (인덱스 = 레벨, 값 = 진폭)
@@ -120,6 +120,27 @@ public:
 
     /// @brief 최소 출력으로 설정 (LPI 극대화)
     void Set_Min_Power() noexcept;
+
+    // ── 페이로드 피드백 삽입/추출 (info[7] 상위 2비트) ──
+
+    /// @brief [RX→TX] 디코딩 성공한 info 배열에 TPC 피드백 삽입
+    /// @param info 8바이트 페이로드 (info[7] 상위 2비트 덮어쓰기)
+    /// @param fb 2비트 피드백 코드
+    /// @note 원본 info[7]의 상위 2비트는 손실됨 → 프로토콜 예약
+    static void Embed_Feedback(uint8_t* info, uint8_t fb) noexcept {
+        if (info == nullptr) return;
+        info[7] = static_cast<uint8_t>(
+            (info[7] & 0x3Fu) |
+            (static_cast<uint8_t>(fb & kFbMask) << 6u));
+    }
+
+    /// @brief [TX측] 수신한 ACK 페이로드에서 TPC 피드백 추출
+    /// @param info 8바이트 수신 페이로드
+    /// @return 2비트 피드백 코드
+    static uint8_t Extract_Feedback(const uint8_t* info) noexcept {
+        if (info == nullptr) return kFbHold;
+        return static_cast<uint8_t>((info[7] >> 6u) & kFbMask);
+    }
 
     // ── LPI 은닉 마진 계산 (보고용, 연산에 shift만 사용) ──
     /// @brief 현재 레벨의 칩 SNR 마진 (dB, 정수)

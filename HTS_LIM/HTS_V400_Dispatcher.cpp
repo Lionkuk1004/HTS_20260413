@@ -741,6 +741,20 @@ void HTS_V400_Dispatcher::Set_Tx_Amp(int16_t amp) noexcept {
     }
     tx_amp_ = amp;
 }
+HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() noexcept { return tpc_; }
+const HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() const noexcept {
+    return tpc_;
+}
+void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
+    DecodedPacket& pkt) noexcept {
+    if (pkt.data_len < 8)
+        return;
+    tpc_.Apply_Feedback(HTS_TPC_Controller::Extract_Feedback(pkt.data));
+    const int32_t nc_fb = static_cast<int32_t>(pay_cps_);
+    const uint8_t fb = HTS_TPC_Controller::Measure_RSSI_Feedback(
+        orig_I_, orig_Q_, nc_fb, tpc_.Get_Tx_Amp());
+    HTS_TPC_Controller::Embed_Feedback(pkt.data, fb);
+}
 void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
     sic_expect_valid_ = false;
     if (!sic_ir_enabled_ || ir_state_ == nullptr) {
@@ -878,6 +892,7 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     dc_est_I_ = 0;
     dc_est_Q_ = 0;
     cfo_.Init();
+    tpc_.Init();
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -1334,6 +1349,9 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                                            v1_rx_, pkt.data, &pkt.data_len)));
         pkt.harq_k = 1;
         handle_video_(pkt.success_mask);
+        if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+            tpc_rx_feedback_after_decode_(pkt);
+        }
         if (on_pkt_ != nullptr) {
             on_pkt_(pkt);
         }
@@ -1384,6 +1402,9 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             }
             if (cur_mode_ == PayloadMode::VIDEO_16) {
                 handle_video_(pkt.success_mask);
+            }
+            if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+                tpc_rx_feedback_after_decode_(pkt);
             }
             if (on_pkt_ != nullptr) {
                 on_pkt_(pkt);
@@ -1478,6 +1499,9 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                     rx_.m64_I.ok = true;
                 }
                 harq_feedback_seed_(pkt.data, pkt.data_len, 64, il);
+            }
+            if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+                tpc_rx_feedback_after_decode_(pkt);
             }
             if (on_pkt_ != nullptr) {
                 on_pkt_(pkt);
@@ -1634,7 +1658,10 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
-    tx_amp_ = amp;  // TPC 적응형 문턱 연동
+    // TPC 제어 amp 사용 (외부 amp 파라미터보다 TPC 우선)
+    const int16_t effective_amp = tpc_.Get_Tx_Amp();
+    tx_amp_ = effective_amp;
+    (void)amp; // API 호환: 실제 진폭은 TPC LUT
     /* 신규 PDU 송신: 인코드 RV는 0부터 (try_decode_ 첫 라운드 rv=0 과 정합) */
     ir_rv_ = 0;
     /* BUG-FIX-PRE5: 프리앰블 반복 폐기, amp 부스트로 교체.
@@ -1642,7 +1669,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
        RX: 동기·헤더는 Walsh 인덱스 0..63 — walsh_dec_full_(…, cap=false)로
        전빈 탐색. 페이로드만 2^BPS 제한(cap=true)으로 FEC 심볼 집합과 정합. */
     const int16_t pre_amp =
-        static_cast<int16_t>(static_cast<int32_t>(amp) * pre_boost_);
+        static_cast<int16_t>(static_cast<int32_t>(effective_amp) * pre_boost_);
     // [BUG-FIX-PRE2] 프리앰블 반복 전송 — pre_reps_ × PRE_SYM0 + 1 × PRE_SYM1
     const int pre_chips = (pre_reps_ + 1) * 64;
     const uint32_t il = seed_ ^ (tx_seq_ * 0xA5A5A5A5u);
@@ -1754,7 +1781,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     for (int s = 0; s < n_send_v1; ++s) {
         const uint8_t sv = syms_v1[static_cast<std::size_t>(s)];
         const uint32_t nz = 0u - static_cast<uint32_t>(sv != 0u);
-        const int32_t amp32 = static_cast<int32_t>(amp);
+        const int32_t amp32 = static_cast<int32_t>(effective_amp);
         const int32_t v32 =
             amp32 + (static_cast<int32_t>(nz) & (-2 * amp32));
         const int16_t v = static_cast<int16_t>(v32);
@@ -1768,7 +1795,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 
     const int n_send16 = FEC_HARQ::NSYM16 * inc * static_cast<int>(u16);
     for (int s = 0; s < n_send16; ++s) {
-        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp,
+        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, effective_amp,
                   bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
         pos += 16 * inc;
     }
@@ -1794,12 +1821,12 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
             static_cast<size_t>(s2u) & static_cast<size_t>(have2);
         const uint8_t sQ = static_cast<uint8_t>(
             static_cast<uint32_t>(syms64[idx2]) & (have2 & 0xFFu));
-        walsh_enc_split(sI, sQ, 64, amp, bp_dst_i(oI, pos, okm),
+        walsh_enc_split(sI, sQ, 64, effective_amp, bp_dst_i(oI, pos, okm),
                         bp_dst_q(oQ, pos, okm));
         pos += 64 * inc;
     }
     for (int s = 0; s < n_sim; ++s) {
-        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp,
+        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, effective_amp,
                   bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
         pos += 64 * inc;
     }
@@ -1821,6 +1848,9 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    const int16_t effective_amp = tpc_.Get_Tx_Amp();
+    tx_amp_ = effective_amp;
+    (void)amp; // API 호환: 실제 진폭은 TPC LUT
     int pos = 0;
     /* Build_Packet가 tx_seq_++ 한 뒤이므로 Retx il은 직전 송신
        시퀀스(tx_seq_-1)와 수신 il(seed_ ^ rx_seq_*0xA5A5A5A5) 정합 */
@@ -1904,8 +1934,8 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
                                      sizeof(syms64_pl));
             return 0;
         }
-        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp, &oI[pos],
-                  &oQ[pos]);
+        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, effective_amp,
+                  &oI[pos], &oQ[pos]);
         pos += 16;
     }
 
@@ -1944,7 +1974,7 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
             static_cast<size_t>(s2u) & static_cast<size_t>(have2);
         const uint8_t sQ = static_cast<uint8_t>(
             static_cast<uint32_t>(syms64[idx2]) & (have2 & 0xFFu));
-        walsh_enc_split(sI, sQ, 64, amp, &oI[pos], &oQ[pos]);
+        walsh_enc_split(sI, sQ, 64, effective_amp, &oI[pos], &oQ[pos]);
         pos += 64;
     }
     for (int s = 0; s < n_sim; ++s) {
@@ -1964,8 +1994,8 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
                                      sizeof(syms64_pl));
             return 0;
         }
-        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp, &oI[pos],
-                  &oQ[pos]);
+        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, effective_amp,
+                  &oI[pos], &oQ[pos]);
         pos += 64;
     }
 

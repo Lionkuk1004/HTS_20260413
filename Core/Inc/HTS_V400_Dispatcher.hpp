@@ -69,6 +69,7 @@
 #include "HTS_FEC_HARQ.hpp"
 #include "HTS_AntiJam_Engine.h"
 #include "HTS_CFO_Compensator.h"
+#include "HTS_TPC_Controller.h"
 
 namespace ProtectedEngine {
 
@@ -246,6 +247,9 @@ namespace ProtectedEngine {
         void Set_SIC_Walsh_Amp(int16_t amp) noexcept;
         /// @brief TPC 송신 진폭(amp) — 적응형 e63 정렬 문턱(amp×38) 연동
         void Set_Tx_Amp(int16_t amp) noexcept;
+        /// @brief TPC 컨트롤러 참조 반환 (외부 설정용)
+        HTS_TPC_Controller& Get_TPC() noexcept;
+        const HTS_TPC_Controller& Get_TPC() const noexcept;
 
         /// @brief IR-HARQ 1라운드 RTT (ms) — HTS 독자 링크; 양산 시 실측·스케줄로 확정.
         /// @note Chase/소프트 텐서 벤치의 `LTE_HARQ_Controller::HARQ_RTT_MS`(8ms)와 별도.
@@ -402,6 +406,7 @@ namespace ProtectedEngine {
         int32_t dc_est_I_{ 0 };          ///< DC IIR 추정값 (Q7 고정소수)
         int32_t dc_est_Q_{ 0 };
         HTS_CFO_Compensator cfo_;       ///< P0 추정 CFO 역회전 (Q14)
+        HTS_TPC_Controller tpc_;        ///< TPC (페이로드 info[7] 상위 2b 피드백)
 
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부
@@ -526,6 +531,8 @@ namespace ProtectedEngine {
         void update_derot_shift_from_est_() noexcept;
         void harq_feedback_seed_(const uint8_t* data, int data_len,
             int nc, uint32_t il) noexcept;
+        /// @brief 디코드 성공 후 TPC: 상위 2b 추출·적용 → RSSI 기반 재삽입
+        void tpc_rx_feedback_after_decode_(DecodedPacket& pkt) noexcept;
 
         int32_t dec_wI_[64] = {};       ///< Walsh 디코딩 워킹 버퍼 I
         int32_t dec_wQ_[64] = {};       ///< Walsh 디코딩 워킹 버퍼 Q
