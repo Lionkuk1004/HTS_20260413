@@ -427,19 +427,33 @@ static void test_L3M_spectrum_measured() {
                 scI, scQ, 4096);
 
             if (sc_chips > 0 && chips > 0) {
-                // 3. V400 칩 × Holo 스칼라 (Q13)
+                // 3. Mix=0.50: 원본 50% + 스칼라 50% (Q13 mixed 게인)
                 const size_t apply_len =
                     (static_cast<size_t>(chips) < sc_chips)
                         ? static_cast<size_t>(chips)
                         : sc_chips;
+                // max 스칼라 절대값 (I 경로 기준)
+                int32_t max_sc = 1;
+                for (size_t j = 0; j < apply_len; ++j) {
+                    const int32_t a =
+                        (scI[j] < 0) ? (-static_cast<int32_t>(scI[j]))
+                                     : static_cast<int32_t>(scI[j]);
+                    if (a > max_sc) {
+                        max_sc = a;
+                    }
+                }
                 for (size_t i = 0; i < static_cast<size_t>(chips); ++i) {
                     const size_t si = i % apply_len;
-                    const int32_t prodI = static_cast<int32_t>(hoI[i]) *
-                        static_cast<int32_t>(scI[si]);
-                    const int32_t prodQ = static_cast<int32_t>(hoQ[i]) *
-                        static_cast<int32_t>(scQ[si]);
-                    hoI[i] = static_cast<int16_t>(prodI >> 13);
-                    hoQ[i] = static_cast<int16_t>(prodQ >> 13);
+                    // 정규화: [-1,+1] × 4096 + 4096 = [0, 8192]
+                    const int64_t norm64 =
+                        (static_cast<int64_t>(scI[si]) * 4096) /
+                        static_cast<int64_t>(max_sc);
+                    const int32_t norm = static_cast<int32_t>(norm64);
+                    const int32_t mixed = 4096 + norm;
+                    hoI[i] = static_cast<int16_t>(
+                        (static_cast<int32_t>(hoI[i]) * mixed) >> 13);
+                    hoQ[i] = static_cast<int16_t>(
+                        (static_cast<int32_t>(hoQ[i]) * mixed) >> 13);
                 }
 
                 // 4. Kurtosis 측정 (오버레이 후)
