@@ -31,7 +31,7 @@ public:
     static constexpr int32_t kLevelCount = 9;
     static constexpr int32_t kLevelMax = 0;   // 최대 출력 (0dB)
     static constexpr int32_t kLevelMin = 3;   // 최소 출력 (-9dB), 은닉 +27dB
-    static constexpr int32_t kLevelInit = 4;  // 초기 레벨 (-12dB)
+    static constexpr int32_t kLevelInit = 0;  // 초기: 최대 출력 (안전)
 
     // 전력 레벨 LUT (인덱스 = 레벨, 값 = 진폭)
     // Level 0: 1024 (0dB)     Level 4: 256 (-12dB)
