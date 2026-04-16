@@ -328,6 +328,8 @@ namespace ProtectedEngine {
         bool    psal_pending_ = false;
         int     psal_off_     = 0;
         int32_t psal_e63_     = 0;
+        /// 직전 P0 프리앰블 검출 성공 시 Walsh-63 피크 에너지 (e63 적응 문턱 기준)
+        int32_t p0_ref_energy_ = 0;
         int32_t est_I_     = 0;
         int32_t est_Q_     = 0;
         int     est_count_ = 0;

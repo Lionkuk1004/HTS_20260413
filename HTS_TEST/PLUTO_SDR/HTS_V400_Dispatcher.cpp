@@ -875,6 +875,7 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     psal_pending_ = false;
     psal_off_ = 0;
     psal_e63_ = 0;
+    p0_ref_energy_ = 0;
     est_I_ = 0;
     est_Q_ = 0;
     est_count_ = 0;
@@ -2040,26 +2041,26 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     const bool sep_ok = (!r_avg_high) ||
         (second_e63 == 0) || (best_x4 > sec_x5);
 
-    // 적응형 e63_min: noise_floor × 5 (하한 5000)
-    const int32_t avg_others =
-        (sum_others > 0)
-            ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
-            : 0;
-    // avg_others * 5 = (avg<<2)+avg [SHIFT]
-    const int32_t adaptive_min =
-        (avg_others > 0)
-            ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
-                                    avg_others)
-            : 5000;
-    static constexpr int32_t k_E63_ALIGN_MIN = 15000;
-    const int32_t e63_min =
-        (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
+    // 적응 문턱: 직전 P0 성공 피크의 75% (×3>>2), 미보유 시 절대 하한
+    static constexpr int32_t k_E63_ALIGN_FLOOR = 2000;
+    const int32_t e63_adaptive =
+        (p0_ref_energy_ > 0)
+            ? static_cast<int32_t>(
+                  (static_cast<int64_t>(p0_ref_energy_) * 3LL) >> 2)
+            : k_E63_ALIGN_FLOOR;
+    const int32_t e63_min = (e63_adaptive > k_E63_ALIGN_FLOOR)
+        ? e63_adaptive
+        : k_E63_ALIGN_FLOOR;
 
     const bool pass = (best_off >= 0 && r_avg_ok &&
                        best_e63 >= e63_min && sep_ok);
 
 #if defined(HTS_DIAG_PRINTF)
     {
+        const int32_t avg_others =
+            (sum_others > 0)
+                ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
+                : 0;
         const int32_t r_avg =
             (avg_others > 0)
                 ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
@@ -2102,6 +2103,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
+        p0_ref_energy_ = static_cast<int32_t>(best_e63);
         psal_commit_align_();
     } else {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
