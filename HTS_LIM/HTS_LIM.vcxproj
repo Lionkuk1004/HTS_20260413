@@ -358,6 +358,7 @@
     <ClInclude Include="HTS_Console_Manager.h" />
     <ClInclude Include="HTS_Console_Manager_Defs.h" />
     <ClInclude Include="HTS_CFO_Compensator.h" />
+    <ClInclude Include="HTS_Preamble_AGC.h" />
     <ClInclude Include="HTS_Crypto_KAT.h" />
     <ClInclude Include="HTS_CTR_DRBG.h" />
     <ClInclude Include="HTS_Device_Profile.h" />

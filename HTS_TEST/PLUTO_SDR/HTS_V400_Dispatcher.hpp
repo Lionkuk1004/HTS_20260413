@@ -70,6 +70,7 @@
 #include "HTS_AntiJam_Engine.h"
 #include "HTS_CFO_Compensator.h"
 #include "HTS_TPC_Controller.h"
+#include "HTS_Preamble_AGC.h"
 
 namespace ProtectedEngine {
 
@@ -407,6 +408,7 @@ namespace ProtectedEngine {
         int32_t dc_est_Q_{ 0 };
         HTS_CFO_Compensator cfo_;       ///< P0 추정 CFO 역회전 (Q14)
         HTS_TPC_Controller tpc_;        ///< TPC (페이로드 info[7] 상위 2b 피드백)
+        HTS_Preamble_AGC pre_agc_;    ///< P0 피크 기반 디지털 AGC (shift만)
 
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부

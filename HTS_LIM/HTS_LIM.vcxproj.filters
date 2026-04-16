@@ -653,6 +653,9 @@
     <ClInclude Include="HTS_CFO_Compensator.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_Preamble_AGC.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Device_Profile.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>

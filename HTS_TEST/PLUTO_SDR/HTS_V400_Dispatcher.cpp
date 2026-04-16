@@ -893,6 +893,7 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     dc_est_Q_ = 0;
     cfo_.Init();
     tpc_.Init();
+    pre_agc_.Init();
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -2145,6 +2146,23 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                              &p0_buf128_Q_[best_off + 64], d1I, d1Q);
                 cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
             }
+            // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
+            {
+                int32_t mag_sum = 0;
+                for (int j = 0; j < 64; ++j) {
+                    const int32_t ai =
+                        static_cast<int32_t>(p0_buf128_I_[best_off + j]);
+                    const int32_t aq =
+                        static_cast<int32_t>(p0_buf128_Q_[best_off + j]);
+                    const int32_t si = ai >> 31;
+                    mag_sum += (ai ^ si) - si;
+                    const int32_t sq = aq >> 31;
+                    mag_sum += (aq ^ sq) - sq;
+                }
+                // 칩당 평균 (>>6 = /64)
+                const int32_t peak_avg = mag_sum >> 6;
+                pre_agc_.Set_From_Peak(peak_avg);
+            }
 #if defined(HTS_DIAG_PRINTF)
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
@@ -2179,6 +2197,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
     // CFO 보정 (DC 제거 후)
     cfo_.Apply(chip_I, chip_Q);
+    // 프리앰블 AGC (DC/CFO 후)
+    pre_agc_.Apply(chip_I, chip_Q);
     if (phase_ == RxPhase::RF_SETTLING) {
         (void)chip_I;
         (void)chip_Q;
