@@ -136,9 +136,9 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\HTS_TEST\HTS_TPC_LPI_Test.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.cpp" />

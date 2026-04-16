@@ -732,6 +732,29 @@ bool HTS_V400_Dispatcher::Get_IR_SIC_Enabled() const noexcept {
 void HTS_V400_Dispatcher::Set_SIC_Walsh_Amp(int16_t amp) noexcept {
     sic_walsh_amp_ = amp;
 }
+void HTS_V400_Dispatcher::Set_Tx_Amp(int16_t amp) noexcept {
+    if (amp < 64) {
+        amp = 64;
+    }
+    if (amp > 1024) {
+        amp = 1024;
+    }
+    tx_amp_ = amp;
+}
+HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() noexcept { return tpc_; }
+const HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() const noexcept {
+    return tpc_;
+}
+void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
+    DecodedPacket& pkt) noexcept {
+    if (pkt.data_len < 8)
+        return;
+    tpc_.Apply_Feedback(HTS_TPC_Controller::Extract_Feedback(pkt.data));
+    const int32_t nc_fb = static_cast<int32_t>(pay_cps_);
+    const uint8_t fb = HTS_TPC_Controller::Measure_RSSI_Feedback(
+        orig_I_, orig_Q_, nc_fb, tpc_.Get_Tx_Amp());
+    HTS_TPC_Controller::Embed_Feedback(pkt.data, fb);
+}
 void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
     sic_expect_valid_ = false;
     if (!sic_ir_enabled_ || ir_state_ == nullptr) {
@@ -866,6 +889,11 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     m63_gap_ = 0;
     cw_ema_I_ = 0;
     cw_ema_Q_ = 0;
+    dc_est_I_ = 0;
+    dc_est_Q_ = 0;
+    cfo_.Init();
+    tpc_.Init();
+    pre_agc_.Init();
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -1190,26 +1218,15 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         const int32_t sic_amp =
                             static_cast<int32_t>(sic_walsh_amp_);
                         {
-                            // est는 심볼 내 고정 — 루프 밖 상수화 (M4F 64bit 연산 최소화)
-                            const int32_t use_derot = static_cast<int32_t>(est_count_ > 0);
-                            const int64_t eI64 = static_cast<int64_t>(est_I_) * static_cast<int64_t>(use_derot);
-                            const int64_t eQ64 = static_cast<int64_t>(est_Q_) * static_cast<int64_t>(use_derot);
-                            const int sh = derot_shift_;
+                            // Derotation 제거: FEC_HARQ::Decode64_IR이 위상 불변
+                            // 디코딩(I²+Q² 에너지 기반)을 수행하므로 Dispatcher
+                            // 레벨 derotation은 불필요하며, RF 환경에서 est 벡터의
+                            // 노이즈로 인해 스케일 왜곡을 유발하여 FEC 실패 원인이 됨.
+                            // T9(FEC 직접 호출)가 99/100 성공하는 것이 증명.
                             for (int c = 0; c < nc; ++c) {
                                 int32_t vi = static_cast<int32_t>(buf_I_[c]);
                                 int32_t vq = static_cast<int32_t>(buf_Q_[c]);
-                                // ① Derotation 먼저: 위상을 0도 기저대역으로 복원
-                                if (est_count_ >= 2) {
-                                    const int64_t proj_I =
-                                        static_cast<int64_t>(vi) * eI64 +
-                                        static_cast<int64_t>(vq) * eQ64;
-                                    const int64_t proj_Q =
-                                        static_cast<int64_t>(vq) * eI64 -
-                                        static_cast<int64_t>(vi) * eQ64;
-                                    vi = static_cast<int32_t>(proj_I >> sh);
-                                    vq = static_cast<int32_t>(proj_Q >> sh);
-                                }
-                                // ② SIC 차감: 위상 복원 후 기저대역에서 수행
+                                // SIC 차감: 기저대역 직접 차감
                                 const uint32_t neg = static_cast<uint32_t>(
                                     (sic_sym_bits >>
                                      static_cast<uint32_t>(c)) & 1u);
@@ -1235,28 +1252,14 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         }
                         sym_idx_++;
                     } else {
-                        if (est_count_ > 0) {
-                            const int sh = derot_shift_;
-                            for (int c = 0; c < nc; ++c) {
-                                const int64_t proj =
-                                    static_cast<int64_t>(buf_I_[c]) *
-                                        static_cast<int64_t>(est_I_) +
-                                    static_cast<int64_t>(buf_Q_[c]) *
-                                        static_cast<int64_t>(est_Q_);
-                                const int32_t corrected =
-                                    static_cast<int32_t>(proj >> sh);
-                                rx_.m64_I.aI[sym_idx_][c] += corrected;
-                                harq_Q_[sym_idx_][c] += corrected;
-                            }
-                        } else {
-                            for (int c = 0; c < nc; ++c) {
-                                rx_.m64_I.aI[sym_idx_][c] +=
-                                    static_cast<int32_t>(buf_I_[c]);
-                            }
-                            for (int c = 0; c < nc; ++c) {
-                                harq_Q_[sym_idx_][c] +=
-                                    static_cast<int32_t>(buf_Q_[c]);
-                            }
+                        // Derotation 제거 (위 IR 경로 주석 참조)
+                        for (int c = 0; c < nc; ++c) {
+                            rx_.m64_I.aI[sym_idx_][c] +=
+                                static_cast<int32_t>(buf_I_[c]);
+                        }
+                        for (int c = 0; c < nc; ++c) {
+                            harq_Q_[sym_idx_][c] +=
+                                static_cast<int32_t>(buf_Q_[c]);
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
@@ -1322,6 +1325,9 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                                            v1_rx_, pkt.data, &pkt.data_len)));
         pkt.harq_k = 1;
         handle_video_(pkt.success_mask);
+        if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+            tpc_rx_feedback_after_decode_(pkt);
+        }
         if (on_pkt_ != nullptr) {
             on_pkt_(pkt);
         }
@@ -1372,6 +1378,9 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             }
             if (cur_mode_ == PayloadMode::VIDEO_16) {
                 handle_video_(pkt.success_mask);
+            }
+            if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+                tpc_rx_feedback_after_decode_(pkt);
             }
             if (on_pkt_ != nullptr) {
                 on_pkt_(pkt);
@@ -1466,6 +1475,9 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                     rx_.m64_I.ok = true;
                 }
                 harq_feedback_seed_(pkt.data, pkt.data_len, 64, il);
+            }
+            if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+                tpc_rx_feedback_after_decode_(pkt);
             }
             if (on_pkt_ != nullptr) {
                 on_pkt_(pkt);
@@ -1622,6 +1634,9 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    // TPC는 외부에서 명시적으로 사용할 때만 적용
+    // 기본: caller의 amp 파라미터 사용 (기존 호환)
+    tx_amp_ = amp;
     /* 신규 PDU 송신: 인코드 RV는 0부터 (try_decode_ 첫 라운드 rv=0 과 정합) */
     ir_rv_ = 0;
     /* BUG-FIX-PRE5: 프리앰블 반복 폐기, amp 부스트로 교체.
@@ -1808,6 +1823,9 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    // TPC는 외부에서 명시적으로 사용할 때만 적용
+    // 기본: caller의 amp 파라미터 사용 (기존 호환)
+    tx_amp_ = amp;
     int pos = 0;
     /* Build_Packet가 tx_seq_++ 한 뒤이므로 Retx il은 직전 송신
        시퀀스(tx_seq_-1)와 수신 il(seed_ ^ rx_seq_*0xA5A5A5A5) 정합 */
@@ -1891,8 +1909,8 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
                                      sizeof(syms64_pl));
             return 0;
         }
-        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp, &oI[pos],
-                  &oQ[pos]);
+        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp,
+                  &oI[pos], &oQ[pos]);
         pos += 16;
     }
 
@@ -1951,8 +1969,8 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
                                      sizeof(syms64_pl));
             return 0;
         }
-        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp, &oI[pos],
-                  &oQ[pos]);
+        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp,
+                  &oI[pos], &oQ[pos]);
         pos += 64;
     }
 
@@ -2040,7 +2058,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     const bool sep_ok = (!r_avg_high) ||
         (second_e63 == 0) || (best_x4 > sec_x5);
 
-    // 적응형 e63_min: noise_floor × 5 (하한 5000)
+    // 적응형 e63_min: noise_floor × 5 (하한 5000), amp×38 하한 (TPC tx_amp_ 연동)
     const int32_t avg_others =
         (sum_others > 0)
             ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
@@ -2051,7 +2069,10 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
                                     avg_others)
             : 5000;
-    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    // 적응형: amp × 38 (shift: (amp<<5)+(amp<<2)+(amp<<1) = amp×38)
+    const int32_t amp32 = static_cast<int32_t>(tx_amp_);
+    const int32_t k_E63_ALIGN_MIN =
+        (amp32 << 5) + (amp32 << 2) + (amp32 << 1);  // amp × 38
     const int32_t e63_min =
         (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
 
@@ -2090,6 +2111,32 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
+            // B-2: est seed 확정 직후 mag/recip 즉시 계산
+            //   이후 on_sym_ 심볼당 정규화 derotation 사용
+            update_derot_shift_from_est_();
+            // CFO 추정: 연속 2블록 위상차
+            {
+                int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
+                             d0I, d0Q);
+                walsh63_dot_(&p0_buf128_I_[best_off + 64],
+                             &p0_buf128_Q_[best_off + 64], d1I, d1Q);
+                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
+            }
+            // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
+            {
+                int32_t mag_sum = 0;
+                for (int j = 0; j < 64; ++j) {
+                    const int32_t ai = p0_buf128_I_[best_off + j];
+                    const int32_t aq = p0_buf128_Q_[best_off + j];
+                    const int32_t si = ai >> 31;
+                    mag_sum += (ai ^ si) - si;
+                    const int32_t sq = aq >> 31;
+                    mag_sum += (aq ^ sq) - sq;
+                }
+                const int32_t peak_avg = mag_sum >> 6;
+                pre_agc_.Set_From_Peak(peak_avg);
+            }
 #if defined(HTS_DIAG_PRINTF)
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
@@ -2112,9 +2159,23 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 }
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+    int16_t chip_I = rx_I;
+    int16_t chip_Q = rx_Q;
+    // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
+    // dc_est = dc_est - (dc_est >> 7) + (chip >> 7)
+    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+                (static_cast<int32_t>(chip_I) >> 7);
+    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+                (static_cast<int32_t>(chip_Q) >> 7);
+    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+    // CFO 보정 (DC 제거 후)
+    cfo_.Apply(chip_I, chip_Q);
+    // 프리앰블 AGC (DC/CFO 후)
+    pre_agc_.Apply(chip_I, chip_Q);
     if (phase_ == RxPhase::RF_SETTLING) {
-        (void)rx_I;
-        (void)rx_Q;
+        (void)chip_I;
+        (void)chip_Q;
         const uint32_t nz =
             static_cast<uint32_t>(rf_settle_chips_remaining_ > 0);
         rf_settle_chips_remaining_ -= static_cast<int>(nz);
@@ -2125,8 +2186,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     }
     if (phase_ == RxPhase::WAIT_SYNC) {
         if (pre_phase_ == 0) {
-            p0_buf128_I_[p0_chip_count_] = rx_I;
-            p0_buf128_Q_[p0_chip_count_] = rx_Q;
+            p0_buf128_I_[p0_chip_count_] = chip_I;
+            p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
             if (p0_chip_count_ < 192)
                 return;
@@ -2135,8 +2196,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         }
         // ── Phase 1: carry + Walsh-63/0 dual dot ──
         if (p1_tail_collect_rem_ > 0) {
-            p0_carry_I_[p1_tail_idx_] = rx_I;
-            p0_carry_Q_[p1_tail_idx_] = rx_Q;
+            p0_carry_I_[p1_tail_idx_] = chip_I;
+            p0_carry_Q_[p1_tail_idx_] = chip_Q;
             ++p1_tail_idx_;
             if (p1_tail_idx_ < p1_tail_collect_rem_)
                 return;
@@ -2160,8 +2221,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (buf_idx_ == 64) carry_only_full = true;
         }
         if (!carry_only_full) {
-            buf_I_[buf_idx_] = rx_I;
-            buf_Q_[buf_idx_] = rx_Q;
+            buf_I_[buf_idx_] = chip_I;
+            buf_Q_[buf_idx_] = chip_Q;
             ++buf_idx_;
             p1_rx_in_buf = true;
             if (buf_idx_ < 64) return;
@@ -2203,7 +2264,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
             buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
             if (carry_only_full && !p1_rx_in_buf) {
-                p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+                p0_buf128_I_[0] = chip_I; p0_buf128_Q_[0] = chip_Q;
                 p0_chip_count_ = 1;
             }
             return;
@@ -2214,6 +2275,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             est_I_ += dot63_I;
             est_Q_ += dot63_Q;
             ++est_count_;
+            // B-2: Phase 1 est 갱신 시 mag/recip 동기 갱신
+            //   est_count_ 증가 → 매 갱신 시 정규화 상수 재계산
+            update_derot_shift_from_est_();
         } else {
             best_m = PRE_SYM1;
         }
@@ -2240,7 +2304,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         est_I_, est_Q_, est_count_);
 #endif
             if (carry_only_full && !p1_rx_in_buf) {
-                buf_I_[0] = rx_I; buf_Q_[0] = rx_Q; buf_idx_ = 1;
+                buf_I_[0] = chip_I; buf_Q_[0] = chip_Q; buf_idx_ = 1;
             } else {
                 buf_idx_ = 0;
             }
@@ -2250,7 +2314,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (tail_rem > 0) {
                 p1_tail_collect_rem_ = tail_rem; p1_tail_idx_ = 0;
                 if (carry_only_full) {
-                    p0_carry_I_[0] = rx_I; p0_carry_Q_[0] = rx_Q;
+                    p0_carry_I_[0] = chip_I; p0_carry_Q_[0] = chip_Q;
                     p1_tail_idx_ = 1;
                     if (p1_tail_idx_ >= p1_tail_collect_rem_) {
                         p0_carry_count_ = tail_rem; p1_carry_pending_ = 1;
@@ -2268,15 +2332,15 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
         buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
         if (carry_only_full && !p1_rx_in_buf) {
-            p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+            p0_buf128_I_[0] = chip_I; p0_buf128_Q_[0] = chip_Q;
             p0_chip_count_ = 1;
         }
         return;
     }
     if (buf_idx_ >= 64)
         return;
-    buf_I_[buf_idx_] = rx_I;
-    buf_Q_[buf_idx_] = rx_Q;
+    buf_I_[buf_idx_] = chip_I;
+    buf_Q_[buf_idx_] = chip_Q;
     buf_idx_++;
     if (phase_ == RxPhase::READ_HEADER) {
         if (buf_idx_ == 64) {

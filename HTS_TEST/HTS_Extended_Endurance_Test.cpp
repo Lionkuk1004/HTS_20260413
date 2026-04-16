@@ -1,6 +1,8 @@
-// HTS_AMI_Barrage30_Test_V2.cpp — FEC/HARQ 직접 테스트 (동기/HDR bypass)
-// 동기+HDR은 T6-SIM 39/40으로 검증 완료.
-// 이 하네스는 FEC+IR-HARQ 성능만 측정.
+// HTS_Extended_Endurance_Test.cpp — AMI V2 FEC 하네스 확장 (BPS 래더 + 내구도)
+// HTS_AMI_Barrage30_Test_V2.cpp의 Inject + Feed 패턴을 따르되,
+// run_trial을 BPS 가변(DATA 3~6)으로 일반화.
+// DATA: BPS 3~6 × J/S 래더 × trials=100
+// VOICE: 16칩 × J/S 래더 × trials=100
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)
 #error "[HTS_FATAL] PC 전용"
 #endif
@@ -26,7 +28,7 @@ using ProtectedEngine::SoftClipPolicy;
 static constexpr int16_t kAmp = 500;
 static constexpr int kMaxChips = 16384;
 static constexpr int kMaxFeeds = 32;
-static constexpr int kTrials = 20;
+static constexpr int kTrials = 100;
 
 static DecodedPacket g_last{};
 static void on_pkt(const DecodedPacket& p) noexcept { g_last = p; }
@@ -62,31 +64,25 @@ static void add_barrage(int16_t* sI, int16_t* sQ, int n, double js_db,
     }
 }
 
-// FEC 직접 테스트: Inject_Payload_Phase로 동기/HDR 우회
-// TX는 Build_Packet의 페이로드 부분만 사용
-// RX는 Inject_Payload_Phase 후 Feed_Chip/Feed_Retx_Chip
-static bool run_trial(PayloadMode mode, double js_db, uint32_t seed,
+// Barrage30 V2와 동일 구조: bps는 DATA 전용(3~6). VOICE는 bps 무시(16칩 경로).
+static bool run_trial(PayloadMode mode, int bps, double js_db, uint32_t seed,
                       int& out_harq_k) noexcept {
-    const int bps = 4;
-    const uint32_t il = seed ^ (0u * 0xA5A5A5A5u); // tx_seq=0
+    const uint32_t il = seed ^ (0u * 0xA5A5A5A5u);
 
     uint8_t info[8]{};
     for (int b = 0; b < 8; ++b) {
         info[b] = static_cast<uint8_t>((seed >> (b * 4)) ^ b);
     }
 
-    // ── TX: Encode만 (Dispatcher 불필요) ──
     FEC_HARQ::WorkBuf wb{};
     const int nsym = (mode == PayloadMode::DATA) ? FEC_HARQ::nsym_for_bps(bps)
                                                  : FEC_HARQ::NSYM16;
     const int nc = (mode == PayloadMode::DATA) ? 64 : 16;
 
-    // IR-HARQ: 각 라운드마다 다른 RV salt로 인코딩
     std::mt19937 rng(seed ^ 0xBEEF0000u);
     g_last = DecodedPacket{};
     out_harq_k = 0;
 
-    // RX Dispatcher (Inject 모드)
     HTS_V400_Dispatcher rx;
     rx.Set_IR_Mode(true);
     rx.Set_Seed(seed);
@@ -96,18 +92,23 @@ static bool run_trial(PayloadMode mode, double js_db, uint32_t seed,
     rx.Set_SoftClip_Policy(SoftClipPolicy::NEVER);
     rx.Set_Packet_Callback(on_pkt);
     rx.Set_Lab_IQ_Mode_Jam_Harness();
-    rx.Set_Lab_BPS64(bps);
-    rx.Update_Adaptive_BPS(1000u);
+    if (mode == PayloadMode::DATA) {
+        if (bps < FEC_HARQ::BPS64_MIN_OPERABLE || bps > FEC_HARQ::BPS64_MAX) {
+            return false;
+        }
+        rx.Set_Lab_BPS64(bps);
+        rx.Update_Adaptive_BPS(1000u);
+    } else {
+        rx.Set_Lab_BPS64(4);
+        rx.Update_Adaptive_BPS(1000u);
+    }
 
-    // Inject: 동기/HDR 건너뛰고 READ_PAYLOAD 직접 진입
-    rx.Inject_Payload_Phase(mode, bps);
+    rx.Inject_Payload_Phase(mode, (mode == PayloadMode::DATA) ? bps : 4);
 
-    // 각 라운드: TX encode → 잡음 추가 → RX Feed
     std::vector<int16_t> symI(static_cast<size_t>(nsym * nc));
     std::vector<int16_t> symQ(static_cast<size_t>(nsym * nc));
 
     for (int feed = 0; feed < kMaxFeeds; ++feed) {
-        // TX: IR encode (RV = feed & 3)
         uint8_t syms[FEC_HARQ::NSYM64]{};
         int enc_n = 0;
 
@@ -121,7 +122,6 @@ static bool run_trial(PayloadMode mode, double js_db, uint32_t seed,
             break;
         }
 
-        // Walsh 변조
         for (int s = 0; s < enc_n && s < nsym; ++s) {
             const uint8_t sym = syms[s];
             for (int c = 0; c < nc; ++c) {
@@ -136,14 +136,12 @@ static bool run_trial(PayloadMode mode, double js_db, uint32_t seed,
                     static_cast<int32_t>(kAmp) *
                     (1 - 2 * static_cast<int32_t>(p & 1u)));
                 symI[static_cast<size_t>(s * nc + c)] = chip;
-                symQ[static_cast<size_t>(s * nc + c)] = chip; // I=Q
+                symQ[static_cast<size_t>(s * nc + c)] = chip;
             }
         }
 
-        // 잡음 추가
         add_barrage(symI.data(), symQ.data(), enc_n * nc, js_db, rng);
 
-        // RX Feed (페이로드 칩만, 동기/HDR 없음)
         if (feed == 0) {
             for (int i = 0; i < enc_n * nc; ++i) {
                 rx.Feed_Chip(symI[static_cast<size_t>(i)],
@@ -156,7 +154,7 @@ static bool run_trial(PayloadMode mode, double js_db, uint32_t seed,
                                       symQ[static_cast<size_t>(i)]);
                 }
             } else {
-                break; // RX가 retx 준비 안 됨 → 포기
+                break;
             }
         }
 
@@ -168,23 +166,41 @@ static bool run_trial(PayloadMode mode, double js_db, uint32_t seed,
     return false;
 }
 
+// V2와 동일 J/S 격자 (래더)
+static constexpr double kJs[] = {0,  5,  10, 15, 20, 25, 28, 30,
+                                 32, 35, 38, 40, 42, 45};
+
+// DATA PG: bps4 기준 18.06 dB, 심볼 수 비율로 1차 근사 (표시용)
+static double pg_data_nominal(int bps) noexcept {
+    const int n = FEC_HARQ::nsym_for_bps(bps);
+    const int n4 = FEC_HARQ::nsym_for_bps(4);
+    if (n4 <= 0 || n <= 0) {
+        return 18.06;
+    }
+    return 18.06 + 10.0 * std::log10(static_cast<double>(n) /
+                                     static_cast<double>(n4));
+}
+
 } // namespace
 
 int main() {
     std::printf("═══════════════════════════════════════════════════\n");
-    std::printf("  HTS AMI Barrage30 V2 — FEC/IR-HARQ 직접 테스트\n");
-    std::printf("  동기/HDR: T6-SIM 39/40 검증 완료 (bypass)\n");
+    std::printf("  HTS Extended Endurance — BPS 3~6 + VOICE (AMI V2 harness)\n");
     std::printf("  trials=%d max_feeds=%d amp=%d\n", kTrials, kMaxFeeds, kAmp);
+    const int bps_lo = FEC_HARQ::BPS64_MIN_OPERABLE;
+    const int bps_hi = 6;
+    if (bps_lo > 3) {
+        std::printf("  [note] BPS64_MIN_OPERABLE=%d — BPS 3..%d skipped on this binary\n",
+                    bps_lo, bps_lo - 1);
+    }
     std::printf("═══════════════════════════════════════════════════\n\n");
 
-    static constexpr double kJs[] = {0,  5,  10, 15, 20, 25, 28, 30,
-                                     32, 35, 38, 40, 42, 45};
-    static constexpr PayloadMode kM[] = {PayloadMode::DATA, PayloadMode::VOICE};
-    static constexpr const char* kN[] = {"64chip(DATA)", "16chip(VOICE)"};
-    static constexpr double kPg[] = {18.06, 12.04};
+    int total_cells = 0;
+    int total_ok = 0;
 
-    for (int mi = 0; mi < 2; ++mi) {
-        std::printf("── %s  PG=%.2f dB ──\n", kN[mi], kPg[mi]);
+    for (int bps = bps_lo; bps <= bps_hi; ++bps) {
+        const double pg = pg_data_nominal(bps);
+        std::printf("── DATA BPS=%d  (nominal PG~%.2f dB) ──\n", bps, pg);
         std::printf("  %5s %7s  %5s %7s %5s\n", "J/S", "eff", "CRC%", "avgH",
                     "maxH");
 
@@ -194,11 +210,14 @@ int main() {
             int maxh = 0;
             for (int t = 0; t < kTrials; ++t) {
                 const uint32_t seed =
-                    0xB40730u ^ static_cast<uint32_t>(t * 0x9E3779B9u) ^
+                    0xE501u ^ static_cast<uint32_t>(bps * 0x10000u) ^
+                    static_cast<uint32_t>(t * 0x9E3779B9u) ^
                     static_cast<uint32_t>(static_cast<int>(js * 100));
                 int hk = 0;
-                if (run_trial(kM[mi], js, seed, hk)) {
+                ++total_cells;
+                if (run_trial(PayloadMode::DATA, bps, js, seed, hk)) {
                     ++ok;
+                    ++total_ok;
                     sumh += hk;
                     if (hk > maxh) {
                         maxh = hk;
@@ -206,15 +225,44 @@ int main() {
                 }
             }
             std::printf("  %5.0f %+6.1f  %4.0f%% %6.1f  %4d\n", js,
-                        js - kPg[mi], 100.0 * ok / kTrials,
+                        js - pg, 100.0 * ok / kTrials,
                         ok > 0 ? static_cast<double>(sumh) / ok : 0.0, maxh);
         }
         std::printf("\n");
     }
 
-    std::printf("═══════════════════════════════════════════════════\n");
-    std::printf("  동기 한계: T6-SIM Monte Carlo 참조\n");
-    std::printf("  AWGN 90%%=+8dB, EMP 90%%=+12dB, Combined 90%%=+12dB\n");
+    static constexpr double kPgVoice = 12.04;
+    std::printf("── VOICE 16chip  PG=%.2f dB ──\n", kPgVoice);
+    std::printf("  %5s %7s  %5s %7s %5s\n", "J/S", "eff", "CRC%", "avgH",
+                "maxH");
+    for (double js : kJs) {
+        int ok = 0;
+        int sumh = 0;
+        int maxh = 0;
+        for (int t = 0; t < kTrials; ++t) {
+            const uint32_t seed =
+                0xE502u ^ static_cast<uint32_t>(t * 0x9E3779B9u) ^
+                static_cast<uint32_t>(static_cast<int>(js * 100));
+            int hk = 0;
+            ++total_cells;
+            if (run_trial(PayloadMode::VOICE, 4, js, seed, hk)) {
+                ++ok;
+                ++total_ok;
+                sumh += hk;
+                if (hk > maxh) {
+                    maxh = hk;
+                }
+            }
+        }
+        std::printf("  %5.0f %+6.1f  %4.0f%% %6.1f  %4d\n", js,
+                    js - kPgVoice, 100.0 * ok / kTrials,
+                    ok > 0 ? static_cast<double>(sumh) / ok : 0.0, maxh);
+    }
+
+    std::printf("\n═══════════════════════════════════════════════════\n");
+    std::printf("  Aggregate: %d / %d decode successes (cell = J/S point x trial)\n",
+                total_ok, total_cells);
+    std::printf("  동기/HDR: Inject 경로 (Barrage30 V2와 동일 계열)\n");
     std::printf("═══════════════════════════════════════════════════\n");
     return 0;
 }

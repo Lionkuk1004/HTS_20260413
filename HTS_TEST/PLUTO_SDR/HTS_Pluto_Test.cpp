@@ -476,8 +476,15 @@ static bool fec16_txrx_decode(PlutoCtx &p, const uint8_t *info, uint32_t il,
 // ════════════════════════════════════════════════════════════
 //  T0~T9 + 진단 printf 추가
 // ════════════════════════════════════════════════════════════
+// ── T0 tuning ──
+// RX max 편차 3.7배(521~1920) 대응: 순간 spike 제거를 위한 표본 수
+static constexpr int kT0_SAMPLES_PER_GAIN = 5;
+// ① TX gain 하드 클램프 상한 — 과도한 TX→수신 포화→Walsh-63 alias 증폭 차단
+static constexpr long long kT0_TX_GAIN_MAX_DBFS = -50;
+
 static long long test_T0(PlutoCtx &p) {
-    std::printf("\n══ T0: 수신 레벨 탐색 ══\n");
+    std::printf("\n══ T0: 수신 레벨 탐색 (median-%d, cap %lld dB) ══\n",
+                kT0_SAMPLES_PER_GAIN, kT0_TX_GAIN_MAX_DBFS);
     std::vector<int16_t> txI(PLUTO_BUF_SAMPLES), txQ(PLUTO_BUF_SAMPLES);
     for (int i = 0; i < PLUTO_BUF_SAMPLES; ++i) {
         int16_t v = ((i / 32) & 1) ? 1000 : -1000;
@@ -490,61 +497,105 @@ static long long test_T0(PlutoCtx &p) {
             std::printf("  [T0] 전 구간 미감지 — TX chain reset 후 재스캔\n");
             if (!pluto_reset_tx_chain(p)) {
                 std::printf(
-                    "  [T0] TX chain reset 실패 — 디폴트 -35 dB 사용\n");
-                pluto_set_tx_gain(p, -35);
-                return -35;
+                    "  [T0] TX chain reset 실패 — 디폴트 %lld dB 사용\n",
+                    kT0_TX_GAIN_MAX_DBFS);
+                pluto_set_tx_gain(p, kT0_TX_GAIN_MAX_DBFS);
+                return kT0_TX_GAIN_MAX_DBFS;
             }
         }
         long long best = -80;
         bool any_detected = false;
+        std::vector<int16_t> rxI(PLUTO_BUF_SAMPLES), rxQ(PLUTO_BUF_SAMPLES);
         for (long long gain = -80; gain <= -20; gain += 5) {
             pluto_set_tx_gain(p, gain);
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
-            std::vector<int16_t> rxI(PLUTO_BUF_SAMPLES), rxQ(PLUTO_BUF_SAMPLES);
-            int n =
-                pluto_tx_then_rx(p, txI.data(), txQ.data(), PLUTO_BUF_SAMPLES,
-                                 rxI.data(), rxQ.data(), PLUTO_BUF_SAMPLES);
-            int32_t mx = 0;
-            for (int i = 0; i < n; ++i) {
-                int32_t a = rxI[i] < 0 ? -rxI[i] : rxI[i];
-                if (a > mx)
-                    mx = a;
+
+            // ── ② 다중 샘플링 + median ──
+            //   s=0: 전체 TX→RX 사이클 (TX 재시작 + PLL/DMA 정착, ~150ms)
+            //   s>0: cyclic TX 유지 상태에서 RX refill만 반복 (~8ms/회)
+            //        → 동일 TX 조건에서 RX-side 변동만 capture → spike 억제
+            int32_t mx_samples[kT0_SAMPLES_PER_GAIN]{};
+            int valid = 0;
+            for (int s = 0; s < kT0_SAMPLES_PER_GAIN; ++s) {
+                int n = 0;
+                if (s == 0) {
+                    n = pluto_tx_then_rx(p, txI.data(), txQ.data(),
+                                         PLUTO_BUF_SAMPLES, rxI.data(),
+                                         rxQ.data(), PLUTO_BUF_SAMPLES);
+                } else {
+                    n = pluto_rx(p, rxI.data(), rxQ.data(), PLUTO_BUF_SAMPLES);
+                }
+                if (n <= 0)
+                    continue;
+                int32_t mx = 0;
+                for (int i = 0; i < n; ++i) {
+                    int32_t a = rxI[i] < 0 ? -rxI[i] : rxI[i];
+                    if (a > mx)
+                        mx = a;
+                }
+                mx_samples[valid++] = mx;
             }
-            std::printf("  TX=%3lld dB → RX max=%5d", gain, (int)mx);
-            if (mx > 1800) {
+            if (valid == 0) {
+                std::printf(
+                    "  TX=%3lld dB → RX 샘플링 실패 (전 %d회 fail)\n",
+                    gain, kT0_SAMPLES_PER_GAIN);
+                continue;
+            }
+            std::sort(mx_samples, mx_samples + valid);
+            const int32_t mx_med = mx_samples[valid / 2];
+            const int32_t mx_min = mx_samples[0];
+            const int32_t mx_max = mx_samples[valid - 1];
+            const double spread =
+                mx_min > 0 ? static_cast<double>(mx_max) / mx_min : 0.0;
+            std::printf(
+                "  TX=%3lld dB → RX med=%5d (n=%d min=%5d max=%5d x%.1f)",
+                gain, static_cast<int>(mx_med), valid,
+                static_cast<int>(mx_min), static_cast<int>(mx_max), spread);
+
+            // 판정은 median 기준 — 순간 spike가 포화/적정 오판 유발 차단
+            if (mx_med > 1800) {
                 std::printf(" ← 포화!\n");
                 any_detected = true;
                 break;
             }
-            if (mx >= 300 && mx < 1500) {
+            if (mx_med >= 300 && mx_med < 1500) {
                 best = gain;
                 std::printf(" ← 적정 ✓\n");
                 any_detected = true;
                 break;
             }
-            if (mx >= 50) {
+            if (mx_med >= 50) {
                 best = gain;
                 std::printf(" ← 감지\n");
                 any_detected = true;
-            } else
+            } else {
                 std::printf(" ← 미감지\n");
+            }
         }
         if (any_detected) {
+            // ── ① 하드 클램프: -50 dB 상한 ──
+            // best+5 dB boost 후에도 cap을 넘으면 -50 dB로 강제 하향.
+            // 과도한 TX→포화→Walsh-63 alias→P0 sep_ok=0 폭주 원인 제거.
             long long boosted = best + 5;
             if (boosted > 0) {
                 boosted = 0;
             }
-            std::printf("  TX gain: %lld dB → 고정 %lld dB (+5 dB, cap 0)\n",
-                        best, boosted);
+            if (boosted > kT0_TX_GAIN_MAX_DBFS) {
+                boosted = kT0_TX_GAIN_MAX_DBFS;
+            }
+            std::printf(
+                "  TX gain: %lld dB → 고정 %lld dB (+5 dB, cap %lld)\n",
+                best, boosted, kT0_TX_GAIN_MAX_DBFS);
             pluto_set_tx_gain(p, boosted);
             return boosted;
         }
-        // 전 구간 미감지 — attempt 0이면 루프 계속(재시도), 1이면 폴백
+        // 전 구간 미감지 — attempt 0이면 재시도, 1이면 폴백
     }
-    // 2회 시도 후에도 전 구간 미감지 — 디폴트 폴백
-    std::printf("  [T0] 2회 시도 모두 미감지 — 디폴트 -35 dB 폴백\n");
-    pluto_set_tx_gain(p, -35);
-    return -35;
+    // 2회 시도 후에도 전 구간 미감지 — 상한으로 보수적 폴백
+    std::printf("  [T0] 2회 시도 모두 미감지 — 디폴트 %lld dB 폴백\n",
+                kT0_TX_GAIN_MAX_DBFS);
+    pluto_set_tx_gain(p, kT0_TX_GAIN_MAX_DBFS);
+    return kT0_TX_GAIN_MAX_DBFS;
 }
 static bool test_T1(PlutoCtx &p) {
     std::printf("\n══ T1: 연결 확인 ══\n");
@@ -1222,8 +1273,9 @@ static void test_T6(PlutoCtx &p) {
             std::printf("  [%2d] RX FAIL\n", t);
             continue;
         }
-        // AGC만 (phase correction 제거); 타겟 kAmp과 동일 → RF 진폭 SW에 정합
+        // AGC + phase correction (T9와 동일: apply_phase_correction 시그니처)
         apply_digital_agc(rxI.data(), rxQ.data(), nr, 1000);
+        apply_phase_correction(rxI.data(), rxQ.data(), nr);
         // 정렬
         int ss = find_signal_start(rxI.data(), rxQ.data(), nr,
                                    sigI.data(), sigQ.data(), n);

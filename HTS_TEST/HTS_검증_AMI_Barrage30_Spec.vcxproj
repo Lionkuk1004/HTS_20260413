@@ -73,16 +73,16 @@
     <IntDir>$(ProjectDir)int\$(Platform)\$(Configuration)\verify_ami_barrage30\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <TargetName>HTS_TPC_LPI_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <TargetName>HTS_TPC_LPI_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <TargetName>HTS_TPC_LPI_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <TargetName>HTS_TPC_LPI_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
@@ -164,14 +164,14 @@
     </ProjectReference>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_TPC_LPI_Test.cpp" />
+    <ClCompile Include="HTS_LPI_Measurement.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\HTS_LIM\HTS_TPC_Controller.h">
-      <Link>HTS_TPC_Controller.h</Link>
-    </ClInclude>
+    <ClInclude Include="HTS_TPC_Controller.h" />
+    <ClInclude Include="HTS_CFO_Compensator.h" />
+    <ClInclude Include="HTS_Preamble_AGC.h" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_FEC_HARQ.hpp" />
   </ItemGroup>

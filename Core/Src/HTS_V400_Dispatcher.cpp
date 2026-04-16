@@ -1218,26 +1218,15 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         const int32_t sic_amp =
                             static_cast<int32_t>(sic_walsh_amp_);
                         {
-                            // est는 심볼 내 고정 — 루프 밖 상수화 (M4F 64bit 연산 최소화)
-                            const int32_t use_derot = static_cast<int32_t>(est_count_ > 0);
-                            const int64_t eI64 = static_cast<int64_t>(est_I_) * static_cast<int64_t>(use_derot);
-                            const int64_t eQ64 = static_cast<int64_t>(est_Q_) * static_cast<int64_t>(use_derot);
-                            const int sh = derot_shift_;
+                            // Derotation 제거: FEC_HARQ::Decode64_IR이 위상 불변
+                            // 디코딩(I²+Q² 에너지 기반)을 수행하므로 Dispatcher
+                            // 레벨 derotation은 불필요하며, RF 환경에서 est 벡터의
+                            // 노이즈로 인해 스케일 왜곡을 유발하여 FEC 실패 원인이 됨.
+                            // T9(FEC 직접 호출)가 99/100 성공하는 것이 증명.
                             for (int c = 0; c < nc; ++c) {
                                 int32_t vi = static_cast<int32_t>(buf_I_[c]);
                                 int32_t vq = static_cast<int32_t>(buf_Q_[c]);
-                                // ① Derotation 먼저: 위상을 0도 기저대역으로 복원
-                                if (est_count_ >= 2) {
-                                    const int64_t proj_I =
-                                        static_cast<int64_t>(vi) * eI64 +
-                                        static_cast<int64_t>(vq) * eQ64;
-                                    const int64_t proj_Q =
-                                        static_cast<int64_t>(vq) * eI64 -
-                                        static_cast<int64_t>(vi) * eQ64;
-                                    vi = static_cast<int32_t>(proj_I >> sh);
-                                    vq = static_cast<int32_t>(proj_Q >> sh);
-                                }
-                                // ② SIC 차감: 위상 복원 후 기저대역에서 수행
+                                // SIC 차감: 기저대역 직접 차감
                                 const uint32_t neg = static_cast<uint32_t>(
                                     (sic_sym_bits >>
                                      static_cast<uint32_t>(c)) & 1u);
@@ -1263,28 +1252,14 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         }
                         sym_idx_++;
                     } else {
-                        if (est_count_ > 0) {
-                            const int sh = derot_shift_;
-                            for (int c = 0; c < nc; ++c) {
-                                const int64_t proj =
-                                    static_cast<int64_t>(buf_I_[c]) *
-                                        static_cast<int64_t>(est_I_) +
-                                    static_cast<int64_t>(buf_Q_[c]) *
-                                        static_cast<int64_t>(est_Q_);
-                                const int32_t corrected =
-                                    static_cast<int32_t>(proj >> sh);
-                                rx_.m64_I.aI[sym_idx_][c] += corrected;
-                                harq_Q_[sym_idx_][c] += corrected;
-                            }
-                        } else {
-                            for (int c = 0; c < nc; ++c) {
-                                rx_.m64_I.aI[sym_idx_][c] +=
-                                    static_cast<int32_t>(buf_I_[c]);
-                            }
-                            for (int c = 0; c < nc; ++c) {
-                                harq_Q_[sym_idx_][c] +=
-                                    static_cast<int32_t>(buf_Q_[c]);
-                            }
+                        // Derotation 제거 (위 IR 경로 주석 참조)
+                        for (int c = 0; c < nc; ++c) {
+                            rx_.m64_I.aI[sym_idx_][c] +=
+                                static_cast<int32_t>(buf_I_[c]);
+                        }
+                        for (int c = 0; c < nc; ++c) {
+                            harq_Q_[sym_idx_][c] +=
+                                static_cast<int32_t>(buf_Q_[c]);
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
@@ -2136,6 +2111,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
+            // B-2: est seed 확정 직후 mag/recip 즉시 계산
+            //   이후 on_sym_ 심볼당 정규화 derotation 사용
+            update_derot_shift_from_est_();
             // CFO 추정: 연속 2블록 위상차
             {
                 int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
@@ -2297,6 +2275,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             est_I_ += dot63_I;
             est_Q_ += dot63_Q;
             ++est_count_;
+            // B-2: Phase 1 est 갱신 시 mag/recip 동기 갱신
+            //   est_count_ 증가 → 매 갱신 시 정규화 상수 재계산
+            update_derot_shift_from_est_();
         } else {
             best_m = PRE_SYM1;
         }
