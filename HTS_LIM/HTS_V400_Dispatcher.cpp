@@ -2150,16 +2150,13 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             {
                 int32_t mag_sum = 0;
                 for (int j = 0; j < 64; ++j) {
-                    const int32_t ai =
-                        static_cast<int32_t>(p0_buf128_I_[best_off + j]);
-                    const int32_t aq =
-                        static_cast<int32_t>(p0_buf128_Q_[best_off + j]);
+                    const int32_t ai = p0_buf128_I_[best_off + j];
+                    const int32_t aq = p0_buf128_Q_[best_off + j];
                     const int32_t si = ai >> 31;
                     mag_sum += (ai ^ si) - si;
                     const int32_t sq = aq >> 31;
                     mag_sum += (aq ^ sq) - sq;
                 }
-                // 칩당 평균 (>>6 = /64)
                 const int32_t peak_avg = mag_sum >> 6;
                 pre_agc_.Set_From_Peak(peak_avg);
             }

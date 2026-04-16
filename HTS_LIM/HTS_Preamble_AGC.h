@@ -2,10 +2,10 @@
 // HTS_Preamble_AGC.h — 프리앰블 기반 디지털 AGC (AND/OR/SHIFT 전용)
 // =============================================================================
 // P0 검출 시 수신 에너지 측정 → 디지털 gain 계산 → 이후 칩에 적용.
-// 칩당 곱셈 없음 — shift 증폭만, 나눗셈 0.
-// gain은 shift 근사: 2^N 배율 (0,1,2,3,4 단계 = ×1,×2,×4,×8,×16)
+// gain은 shift 단계: 2^N 배율 (0~4 = ×1,×2,×4,×8,×16)
+// 곱셈/나눗셈/float 0회.
 //
-// @warning sizeof ≈ 12 bytes
+// @warning sizeof(HTS_Preamble_AGC) ≈ 8 bytes
 // =============================================================================
 #ifndef HTS_PREAMBLE_AGC_H
 #define HTS_PREAMBLE_AGC_H
@@ -23,8 +23,8 @@ public:
     void Init() noexcept;
 
     /// @brief P0 검출 성공 시 호출: 프리앰블 에너지로 gain 결정
-    /// @param peak_mag P0에서 측정한 피크 |I|+|Q| 평균
-    /// @note gain은 shift 단계 (0~4), 나눗셈 0
+    /// @param peak_mag P0에서 측정한 피크 |I|+|Q| 칩당 평균
+    /// @note gain은 shift 단계 (0~4), 곱셈/나눗셈 0
     void Set_From_Peak(int32_t peak_mag) noexcept;
 
     /// @brief 칩에 gain 적용 (Feed_Chip 내, DC/CFO 후)
@@ -63,9 +63,10 @@ inline void HTS_Preamble_AGC::Set_From_Peak(int32_t peak_mag) noexcept {
     // peak ≥ 500:  shift=1 (×2)
     // peak ≥ 250:  shift=2 (×4)
     // peak ≥ 125:  shift=3 (×8)
-    // peak < 125:   shift=4 (최대 ×16)
+    // peak ≥ 63:   shift=4 (×16)
+    // peak < 63:   shift=4 (최대, 더 올리면 잡음 증폭)
     //
-    // 비교만 사용 (나눗셈 0)
+    // 비교만 사용 (shift/곱셈 0)
     if (peak_mag <= 0) {
         gain_shift_ = 0;  // 신호 없음
         return;
@@ -91,8 +92,10 @@ inline void HTS_Preamble_AGC::Apply(int16_t& chipI, int16_t& chipQ) const noexce
     int32_t vq = static_cast<int32_t>(chipQ) << gain_shift_;
 
     // 클램프
-    if (vi > 32767) vi = 32767; if (vi < -32768) vi = -32768;
-    if (vq > 32767) vq = 32767; if (vq < -32768) vq = -32768;
+    if (vi > 32767) vi = 32767;
+    if (vi < -32768) vi = -32768;
+    if (vq > 32767) vq = 32767;
+    if (vq < -32768) vq = -32768;
 
     chipI = static_cast<int16_t>(vi);
     chipQ = static_cast<int16_t>(vq);
