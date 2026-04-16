@@ -38,6 +38,7 @@ add_library(hts_pc_layer2_tensor_fec STATIC
   "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Secure_Memory.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
 )
 target_include_directories(hts_pc_layer2_tensor_fec PUBLIC
   "${HTS_LIM_CORE_DIR}"
@@ -265,6 +266,7 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_AntiJam_Engine.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Security_Pipeline.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Universal_API.cpp"
@@ -315,6 +317,7 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_AntiJam_Engine.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Security_Pipeline.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Universal_API.cpp"

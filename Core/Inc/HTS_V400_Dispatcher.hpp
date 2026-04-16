@@ -268,6 +268,11 @@ namespace ProtectedEngine {
         void Set_SoftClip_Policy(SoftClipPolicy p) noexcept { soft_clip_policy_ = p; }
         SoftClipPolicy Get_SoftClip_Policy() const noexcept { return soft_clip_policy_; }
 
+        /// @brief TX Holo LPI 후처리 (Build_Packet / Build_Retx 칩열에 스칼라 적용)
+        /// @param lpi_seed 128비트 마스터 시드 (nullptr 이면 비활성화)
+        void Enable_Holo_LPI(const uint32_t lpi_seed[4]) noexcept;
+        void Disable_Holo_LPI() noexcept;
+
         /// @brief 현재 적응형 BPS 반환 (3~6)
         [[nodiscard]] int         Get_Current_BPS64()   const noexcept;
         /// @brief 현재 RX 상태 머신 단계 반환
@@ -490,6 +495,12 @@ namespace ProtectedEngine {
         int32_t cw_ema_Q_ = 0;   ///< CW 진폭 IIR 평활 Q (α=1/4 누적 상태)
         SoftClipPolicy soft_clip_policy_ = SoftClipPolicy::ALWAYS;
         bool ajc_enabled_{ true };        ///< AJC 활성화 (양산 기본 true)
+
+        /// Holo LPI (HTS_Holo_LPI::SECURE_TRUE / SECURE_FALSE)
+        uint32_t holo_lpi_en_{ 0xA5A5A5A5u };
+        uint32_t holo_lpi_seed_[4]{};
+        uint8_t holo_lpi_mix_q8_{ 128 };
+        int16_t holo_lpi_scalars_[64]{};
 
         /// @brief RF 측정값 (비소유 포인터, nullptr 허용)
         HTS_RF_Metrics* p_metrics_{ nullptr };

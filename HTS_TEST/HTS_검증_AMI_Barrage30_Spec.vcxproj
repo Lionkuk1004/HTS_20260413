@@ -166,6 +166,7 @@
   <ItemGroup>
     <ClCompile Include="benchmark\HTS_L3_Spectrum_Measured_Test.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -173,6 +174,7 @@
     <ClInclude Include="HTS_CFO_Compensator.h" />
     <ClInclude Include="HTS_Preamble_AGC.h" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="..\HTS_LIM\HTS_Holo_LPI.h" />
     <ClInclude Include="HTS_FEC_HARQ.hpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

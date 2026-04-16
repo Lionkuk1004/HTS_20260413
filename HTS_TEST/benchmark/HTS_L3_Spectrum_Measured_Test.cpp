@@ -306,6 +306,9 @@ static void test_L3M_spectrum_measured() {
     std::printf("═══════════════════════════════════════════════\n\n");
 
     ProtectedEngine::HTS_V400_Dispatcher tx_disp;
+    const uint32_t lpi_seed[4] = { 0x12345678u, 0xABCDEF01u, 0x98765432u,
+                                   0xFEDCBA09u };
+    tx_disp.Enable_Holo_LPI(lpi_seed);
     tx_disp.Set_Seed(0x12345678u);
 
     static const uint8_t info[8] = {

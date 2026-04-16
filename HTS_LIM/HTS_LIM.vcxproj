@@ -251,6 +251,7 @@
     <ClCompile Include="HTS_HMAC_Bridge.cpp" />
     <ClCompile Include="HTS_Holo_Dispatcher.cpp" />
     <ClCompile Include="HTS_Holo_Tensor_4D.cpp" />
+    <ClCompile Include="HTS_Holo_LPI.cpp" />
     <ClCompile Include="HTS_Holo_Tensor_Engine.cpp" />
     <ClCompile Include="HTS_IoT_Codec.cpp" />
     <ClCompile Include="host_aarch64\HTS_IPC_Protocol_A55.cpp" />
@@ -366,6 +367,7 @@
     <ClInclude Include="HTS_Holo_Dispatcher.h" />
     <ClInclude Include="HTS_Holo_Dispatcher_Defs.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D.h" />
+    <ClInclude Include="HTS_Holo_LPI.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_Defs.h" />
     <ClInclude Include="HTS_Sensor_ADC_Guard.h" />
     <ClInclude Include="HTS_Holo_Tensor_Engine.h" />
