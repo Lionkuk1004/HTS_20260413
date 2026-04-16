@@ -7,6 +7,7 @@
 //               (&harq_Q_[0][0] 금지 — 2차원 배열 타입과 혼동 시 HardFault)
 //
 #include "HTS_V400_Dispatcher.hpp"
+#include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h" // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
 #include <atomic>
@@ -664,7 +665,9 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       ,
       ajc_(), ajc_last_nc_(0), orig_acc_{}, orig_I_{}, orig_Q_{},
       cw_cancel_enabled_(true), soft_clip_policy_(SoftClipPolicy::ALWAYS),
-      ajc_enabled_(true), dec_wI_{}, dec_wQ_{} {}
+      ajc_enabled_(true), holo_lpi_en_(HTS_Holo_LPI::SECURE_FALSE),
+      holo_lpi_seed_{}, holo_lpi_mix_q8_(128), holo_lpi_scalars_{},
+      dec_wI_{}, dec_wQ_{} {}
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
     // 손상. AntiJamEngine: 가상 함수 없음 → Reset 후 스토리지 secureWipe,
@@ -684,6 +687,11 @@ HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
                              sizeof(scratch_mag_));
     SecureMemory::secureWipe(static_cast<void *>(scratch_sort_),
                              sizeof(scratch_sort_));
+    holo_lpi_en_ = HTS_Holo_LPI::SECURE_FALSE;
+    SecureMemory::secureWipe(static_cast<void *>(holo_lpi_seed_),
+                             sizeof(holo_lpi_seed_));
+    SecureMemory::secureWipe(static_cast<void *>(holo_lpi_scalars_),
+                             sizeof(holo_lpi_scalars_));
     SecureMemory::secureWipe(static_cast<void *>(&seed_), sizeof(seed_));
     SecureMemory::secureWipe(static_cast<void *>(&tx_seq_), sizeof(tx_seq_));
     SecureMemory::secureWipe(static_cast<void *>(&rx_seq_), sizeof(rx_seq_));
@@ -696,6 +704,27 @@ HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     ajc_last_nc_ = 0;
 }
 void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept { seed_ = s; }
+
+void HTS_V400_Dispatcher::Enable_Holo_LPI(
+    const uint32_t lpi_seed[4]) noexcept {
+    if (lpi_seed == nullptr) {
+        Disable_Holo_LPI();
+        return;
+    }
+    holo_lpi_seed_[0] = lpi_seed[0];
+    holo_lpi_seed_[1] = lpi_seed[1];
+    holo_lpi_seed_[2] = lpi_seed[2];
+    holo_lpi_seed_[3] = lpi_seed[3];
+    holo_lpi_en_ = HTS_Holo_LPI::SECURE_TRUE;
+}
+
+void HTS_V400_Dispatcher::Disable_Holo_LPI() noexcept {
+    holo_lpi_en_ = HTS_Holo_LPI::SECURE_FALSE;
+    SecureMemory::secureWipe(static_cast<void *>(holo_lpi_seed_),
+                             sizeof(holo_lpi_seed_));
+    SecureMemory::secureWipe(static_cast<void *>(holo_lpi_scalars_),
+                             sizeof(holo_lpi_scalars_));
+}
 void HTS_V400_Dispatcher::Set_Packet_Callback(PacketCB cb) noexcept {
     on_pkt_ = cb;
 }
@@ -1809,6 +1838,18 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     SecureMemory::secureWipe(static_cast<void *>(syms64_ir), sizeof(syms64_ir));
     SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));
 
+    if ((go & 1u) != 0u && pos > 0 &&
+        holo_lpi_en_ == HTS_Holo_LPI::SECURE_TRUE) {
+        if (HTS_Holo_LPI::Generate_Scalars(holo_lpi_seed_, tx_seq_,
+                                           holo_lpi_mix_q8_,
+                                           holo_lpi_scalars_) ==
+            HTS_Holo_LPI::SECURE_TRUE) {
+            const int pc = (pos > 65535) ? 65535 : pos;
+            HTS_Holo_LPI::Apply(oI, oQ, static_cast<uint16_t>(pc),
+                                holo_lpi_scalars_);
+        }
+    }
+
     tx_seq_ += static_cast<uint32_t>(go & 1u);
     return pos;
 }
@@ -1980,6 +2021,17 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
     SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));
     SecureMemory::secureWipe(static_cast<void *>(syms64_ir), sizeof(syms64_ir));
     SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));
+
+    if (pos > 0 && holo_lpi_en_ == HTS_Holo_LPI::SECURE_TRUE) {
+        if (HTS_Holo_LPI::Generate_Scalars(
+                holo_lpi_seed_, tx_seq_prev, holo_lpi_mix_q8_,
+                holo_lpi_scalars_) == HTS_Holo_LPI::SECURE_TRUE) {
+            const int pc = (pos > 65535) ? 65535 : pos;
+            HTS_Holo_LPI::Apply(oI, oQ, static_cast<uint16_t>(pc),
+                                holo_lpi_scalars_);
+        }
+    }
+
     return pos;
 }
 void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
