@@ -68,6 +68,7 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <!-- Include: $(ProjectDir)=HTS_TEST; $(ProjectDir)..\HTS_LIM = HTS_LIM\HTS_LIM (V400, FEC, HTS_TPC_Controller.h) -->
   <PropertyGroup>
     <IntDir>$(ProjectDir)int\$(Platform)\$(Configuration)\verify_ami_barrage30\</IntDir>
   </PropertyGroup>
@@ -168,7 +169,9 @@
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\HTS_LIM\HTS_TPC_Controller.h" />
+    <ClInclude Include="..\HTS_LIM\HTS_TPC_Controller.h">
+      <Link>HTS_TPC_Controller.h</Link>
+    </ClInclude>
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_FEC_HARQ.hpp" />
   </ItemGroup>
