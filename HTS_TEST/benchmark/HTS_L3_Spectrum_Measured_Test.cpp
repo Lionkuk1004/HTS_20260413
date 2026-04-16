@@ -11,6 +11,7 @@
 
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_Gaussian_Pulse.h"
+#include "HTS_Holo_Dispatcher.h"
 
 #include <cmath>
 #include <cstdint>
@@ -403,6 +404,104 @@ static void test_L3M_spectrum_measured() {
     else if (evm_ga <= 17.5) std::printf("      → QPSK PASS\n");
     else                     std::printf("      → FAIL\n");
 
+    // ── Holo Soft Overlay (V400 + 홀로그램 소프트 스칼라) ──
+    std::printf("\n  ── Holo Soft Overlay (V400 BPS + Holo Scalar) ──\n");
+    {
+        // 1. V400 칩 복사 (원본 oI 보존)
+        alignas(16) static int16_t hoI[4096], hoQ[4096];
+        std::memcpy(hoI, oI, sizeof(int16_t) * static_cast<size_t>(chips));
+        std::memcpy(hoQ, oQ, sizeof(int16_t) * static_cast<size_t>(chips));
+
+        // 2. 홀로그램 소프트 스칼라 생성 (Holo_Dispatcher 사용)
+        ProtectedEngine::HTS_Holo_Dispatcher holo_disp;
+        const uint32_t hseed[4] = {0x12345678u, 0xABCDEF01u, 0x98765432u,
+            0xFEDCBA09u};
+        const bool holo_ok = (holo_disp.Initialize(hseed) ==
+            ProtectedEngine::HTS_Holo_Dispatcher::SECURE_TRUE);
+
+        if (holo_ok) {
+            alignas(16) int16_t scI[4096], scQ[4096];
+            const size_t sc_chips = holo_disp.Build_Holo_Packet(
+                ProtectedEngine::HoloPayload::DATA_HOLO,
+                info, sizeof(info), static_cast<int16_t>(300),
+                scI, scQ, 4096);
+
+            if (sc_chips > 0 && chips > 0) {
+                // 3. V400 칩 × Holo 스칼라 (Q13)
+                const size_t apply_len =
+                    (static_cast<size_t>(chips) < sc_chips)
+                        ? static_cast<size_t>(chips)
+                        : sc_chips;
+                for (size_t i = 0; i < static_cast<size_t>(chips); ++i) {
+                    const size_t si = i % apply_len;
+                    const int32_t prodI = static_cast<int32_t>(hoI[i]) *
+                        static_cast<int32_t>(scI[si]);
+                    const int32_t prodQ = static_cast<int32_t>(hoQ[i]) *
+                        static_cast<int32_t>(scQ[si]);
+                    hoI[i] = static_cast<int16_t>(prodI >> 13);
+                    hoQ[i] = static_cast<int16_t>(prodQ >> 13);
+                }
+
+                // 4. Kurtosis 측정 (오버레이 후)
+                double hm = 0.0, hm2 = 0.0, hm4 = 0.0;
+                for (int i = 0; i < chips; ++i) {
+                    const double v = static_cast<double>(hoI[i]);
+                    hm += v;
+                    hm2 += v * v;
+                    hm4 += v * v * v * v;
+                }
+                hm /= static_cast<double>(chips);
+                hm2 /= static_cast<double>(chips);
+                hm4 /= static_cast<double>(chips);
+                double hvar = hm2 - hm * hm;
+                double hkurt = (hvar > 0.0) ? (hm4 / (hvar * hvar)) : 0.0;
+
+                // 5. 신호 전력 비교
+                double pwr_orig = 0.0, pwr_holo = 0.0;
+                for (int i = 0; i < chips; ++i) {
+                    pwr_orig += static_cast<double>(oI[i]) * static_cast<double>(oI[i]);
+                    pwr_holo += static_cast<double>(hoI[i]) * static_cast<double>(hoI[i]);
+                }
+                double pwr_diff = 0.0;
+                if (pwr_orig > 1e-30) {
+                    pwr_diff = 10.0 * std::log10(pwr_holo / pwr_orig);
+                }
+
+                std::printf("  V400 칩: %d, Holo 스칼라: %zu\n", chips, sc_chips);
+                std::printf("  Overlay Kurtosis: %.3f (BPSK=1.0, 잡음=3.0)\n", hkurt);
+                std::printf("  전력 변화: %+.1f dB\n", pwr_diff);
+
+                // 6. Gaussian 적용 후 측정
+                alignas(16) static int16_t hgI[32768], hgQ[32768];
+                const size_t hgl = shaper.Apply_Pulse_Shaping_Walsh_IQ_x8(
+                    hoI, hoQ, static_cast<size_t>(chips), hgI, hgQ, 32768u);
+                if (hgl > 0) {
+                    hm = 0.0;
+                    hm2 = 0.0;
+                    hm4 = 0.0;
+                    for (size_t i = 0; i < hgl; ++i) {
+                        const double v = static_cast<double>(hgI[i]);
+                        hm += v;
+                        hm2 += v * v;
+                        hm4 += v * v * v * v;
+                    }
+                    hm /= static_cast<double>(hgl);
+                    hm2 /= static_cast<double>(hgl);
+                    hm4 /= static_cast<double>(hgl);
+                    hvar = hm2 - hm * hm;
+                    hkurt = (hvar > 0.0) ? (hm4 / (hvar * hvar)) : 0.0;
+                    std::printf("  Gauss 후 Kurtosis: %.3f\n", hkurt);
+                    std::printf("  Overlay Gauss 샘플: %zu\n", hgl);
+                }
+            } else {
+                std::printf("  Build_Holo_Packet: 0 chips\n");
+            }
+            (void)holo_disp.Shutdown();
+        } else {
+            std::printf("  Holo_Dispatcher 초기화 실패\n");
+        }
+    }
+
     std::printf("\n  ── PSD 윤곽 (Gauss, 10-bin 간격, dB 정규화) ──\n");
     std::printf("  Bin      PSD(dB)\n");
     for (int i = 0; i < n2; i += 10) {
@@ -418,4 +517,6 @@ int main() {
     return 0;
 }
 
+#include "../../HTS_LIM/HTS_Holo_Dispatcher.cpp"
+#include "../../HTS_LIM/HTS_Holo_Tensor_4D.cpp"
 #include "../../HTS_LIM/HTS_Gaussian_Pulse.cpp"
