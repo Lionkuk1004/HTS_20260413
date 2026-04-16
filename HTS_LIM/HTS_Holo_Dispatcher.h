@@ -73,6 +73,23 @@
 
 namespace ProtectedEngine {
 
+    /// @brief HNS Phase 1: VOICE_HOLO / DATA_HOLO 에서 L=4 (L·K≤N, HOLO_MAX_LAYERS 검증).
+    ///        RESILIENT_HOLO 및 ROM `k_holo_profiles` 값은 변경하지 않음.
+    inline HoloTensor_Profile Holo_Mode_To_Profile_HNS(uint8_t mode) noexcept
+    {
+        HoloTensor_Profile p = Holo_Mode_To_Profile(mode);
+        if (mode == HoloPayload::VOICE_HOLO || mode == HoloPayload::DATA_HOLO) {
+            constexpr uint8_t kHnsL = 4u;
+            const uint32_t K = static_cast<uint32_t>(p.block_bits);
+            const uint32_t N = static_cast<uint32_t>(p.chip_count);
+            const uint32_t lk = static_cast<uint32_t>(kHnsL) * K;
+            if (lk <= N && kHnsL <= HOLO_MAX_LAYERS) {
+                p.num_layers = kHnsL;
+            }
+        }
+        return p;
+    }
+
     /// @brief 4D 홀로그램 디스패처 연동 모듈
     ///
     /// @warning sizeof ~ 1.2KB. 전역/정적 배치 권장.

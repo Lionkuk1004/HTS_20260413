@@ -141,7 +141,8 @@ namespace ProtectedEngine {
         if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
 
         // Initialize with default DATA profile
-        const HoloTensor_Profile prof = Holo_Mode_To_Profile(HoloPayload::DATA_HOLO);
+        const HoloTensor_Profile prof =
+            Holo_Mode_To_Profile_HNS(HoloPayload::DATA_HOLO);
         return (engine_.Initialize(master_seed, &prof) == HTS_Holo_Tensor_4D::SECURE_TRUE)
             ? SECURE_TRUE : SECURE_FALSE;
     }
@@ -200,7 +201,7 @@ namespace ProtectedEngine {
         if (!HoloPayload::Is_Holo_Mode(mode)) { return 0u; }
 
         // Get profile for this mode
-        const HoloTensor_Profile prof = Holo_Mode_To_Profile(mode);
+        const HoloTensor_Profile prof = Holo_Mode_To_Profile_HNS(mode);
         if (engine_.Set_Profile(&prof) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
             return 0u;
         }
@@ -256,14 +257,22 @@ namespace ProtectedEngine {
                 return 0u;
             }
 
-            // Convert soft chips to I/Q (proportional scaling)
-            // chip ranges from -(L*K) to +(L*K), max 32 for our profiles
-            // Scale: (chip * amp) / 32 — SDIV 대신 Int32_Div32_TruncZero (비트 시프트)
+            // Convert soft chips to I/Q (HNS: L*K 기반 동적 스케일)
+            // accum 범위 [-L*K, +L*K] → prod / (L*K) 로 기존 /32 등가 유지
+            const uint32_t lk = static_cast<uint32_t>(prof.num_layers)
+                * static_cast<uint32_t>(K);
             for (uint16_t i = 0u; i < N; ++i) {
                 const int32_t prod = static_cast<int32_t>(
                     chip_bpsk[static_cast<size_t>(i)]) *
                     static_cast<int32_t>(amp);
-                const int32_t val = Int32_Div32_TruncZero(prod);
+                const int32_t val = (lk > 0u)
+                    ? static_cast<int32_t>(
+                        (prod >= 0)
+                            ? static_cast<int32_t>(
+                                static_cast<uint32_t>(prod) / lk)
+                            : -static_cast<int32_t>(
+                                static_cast<uint32_t>(-prod) / lk))
+                    : Int32_Div32_TruncZero(prod);
                 const size_t out_idx = chip_pos;
                 // Clamp to int16_t (defensive)
                 if (val > 32767) { out_I[out_idx] = 32767; out_Q[out_idx] = 32767; }
@@ -299,8 +308,8 @@ namespace ProtectedEngine {
         if (chip_count == 0u) { return SECURE_FALSE; }
         *out_len = 0u;
 
-        const HoloTensor_Profile prof =
-            Holo_Mode_To_Profile(current_mode_.load(std::memory_order_acquire));
+        const HoloTensor_Profile prof = Holo_Mode_To_Profile_HNS(
+            current_mode_.load(std::memory_order_acquire));
         if (engine_.Set_Profile(&prof) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
             return SECURE_FALSE;
         }
