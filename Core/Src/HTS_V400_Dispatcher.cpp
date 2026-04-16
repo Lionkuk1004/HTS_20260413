@@ -732,6 +732,15 @@ bool HTS_V400_Dispatcher::Get_IR_SIC_Enabled() const noexcept {
 void HTS_V400_Dispatcher::Set_SIC_Walsh_Amp(int16_t amp) noexcept {
     sic_walsh_amp_ = amp;
 }
+void HTS_V400_Dispatcher::Set_Tx_Amp(int16_t amp) noexcept {
+    if (amp < 64) {
+        amp = 64;
+    }
+    if (amp > 1024) {
+        amp = 1024;
+    }
+    tx_amp_ = amp;
+}
 void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
     sic_expect_valid_ = false;
     if (!sic_ir_enabled_ || ir_state_ == nullptr) {
@@ -866,6 +875,9 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     m63_gap_ = 0;
     cw_ema_I_ = 0;
     cw_ema_Q_ = 0;
+    dc_est_I_ = 0;
+    dc_est_Q_ = 0;
+    cfo_.Init();
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -1622,6 +1634,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    tx_amp_ = amp;  // TPC 적응형 문턱 연동
     /* 신규 PDU 송신: 인코드 RV는 0부터 (try_decode_ 첫 라운드 rv=0 과 정합) */
     ir_rv_ = 0;
     /* BUG-FIX-PRE5: 프리앰블 반복 폐기, amp 부스트로 교체.
@@ -1988,22 +2001,26 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 }
 
 void HTS_V400_Dispatcher::phase0_scan_() noexcept {
-    // ── 1-pass: best/second/sum 동시 추적 (e63[] 배열 제거, −256B) ──
     int32_t best_e63 = 0, second_e63 = 0;
     int best_off = -1;
     int64_t sum_all = 0;
 
     for (int off = 0; off < 64; ++off) {
-        int32_t accum = 0;
+        // ── T1-A: coherent 합산 (2블록 dot 진폭 합 → 제곱) ──
+        // 비간섭: e0+e1 → alias off=32와 동일 에너지
+        // 간섭: (d0+d1)² → sym63/sym0 경계에서 alias 분리 강화
+        int32_t sum_I = 0, sum_Q = 0;
         for (int blk = 0; blk < 2; ++blk) {
             const int base = off + (blk << 6);
             int32_t dot_I = 0, dot_Q = 0;
             walsh63_dot_(&p0_buf128_I_[base], &p0_buf128_Q_[base],
                          dot_I, dot_Q);
-            const int64_t eI = static_cast<int64_t>(dot_I) * dot_I;
-            const int64_t eQ = static_cast<int64_t>(dot_Q) * dot_Q;
-            accum += static_cast<int32_t>((eI + eQ) >> 16);
+            sum_I += dot_I;
+            sum_Q += dot_Q;
         }
+        const int32_t accum = static_cast<int32_t>(
+            (static_cast<int64_t>(sum_I) * sum_I +
+             static_cast<int64_t>(sum_Q) * sum_Q) >> 16);
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
@@ -2014,32 +2031,51 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
     }
 
-    // ── 나눗셈 제거: 곱셈 비교로 r_avg/sep_ok 판정 ──
     const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
 
-    static constexpr int32_t k_R_AVG_MIN     = 10;
-    static constexpr int32_t k_E63_ALIGN_MIN = 50000;
+    // r_avg >= 5: (best<<6)-best >= (so<<3)+(so<<1)+(so) = so*5...
+    // 아니, 5 = (1<<2)+1: so*5 = (so<<2)+so
+    // r_avg >= 5 ↔ best*63 >= so*5
+    const int64_t best_x63 = (static_cast<int64_t>(best_e63) << 6) -
+                              static_cast<int64_t>(best_e63);
+    const int64_t so_x5    = (sum_others << 2) + sum_others;
+    const bool r_avg_ok = (sum_others <= 0) || (best_x63 >= so_x5);
 
-    // r_avg >= 10  ↔  best_e63 * 63 >= sum_others * 10 (나눗셈 0)
-    const bool r_avg_ok = (sum_others > 0)
-        ? (static_cast<int64_t>(best_e63) * 63 >=
-           sum_others * static_cast<int64_t>(k_R_AVG_MIN))
-        : true;
+    // r_avg >= 8 판정 (sep_ok 활성화용, 곱셈 0)
+    // best*63 >= so*8 ↔ best_x63 >= so<<3
+    const bool r_avg_high = (sum_others <= 0) ||
+        (best_x63 >= (sum_others << 3));
 
-    // best/second > 1.25  ↔  best * 4 > second * 5 (나눗셈 0)
-    const bool sep_ok = (second_e63 == 0) ||
-        (static_cast<int64_t>(best_e63) * 4 >
-         static_cast<int64_t>(second_e63) * 5);
+    // 적응형 sep_ok: r_avg≥8일 때만 alias 방어
+    const int64_t best_x4 = static_cast<int64_t>(best_e63) << 2;
+    const int64_t sec_x5  = (static_cast<int64_t>(second_e63) << 2) +
+                             static_cast<int64_t>(second_e63);
+    const bool sep_ok = (!r_avg_high) ||
+        (second_e63 == 0) || (best_x4 > sec_x5);
+
+    // 적응형 e63_min: noise_floor × 5 (하한 5000), amp×38 하한 (TPC tx_amp_ 연동)
+    const int32_t avg_others =
+        (sum_others > 0)
+            ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
+            : 0;
+    // avg_others * 5 = (avg<<2)+avg [SHIFT]
+    const int32_t adaptive_min =
+        (avg_others > 0)
+            ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
+                                    avg_others)
+            : 5000;
+    // 적응형: amp × 38 (shift: (amp<<5)+(amp<<2)+(amp<<1) = amp×38)
+    const int32_t amp32 = static_cast<int32_t>(tx_amp_);
+    const int32_t k_E63_ALIGN_MIN =
+        (amp32 << 5) + (amp32 << 2) + (amp32 << 1);  // amp × 38
+    const int32_t e63_min =
+        (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
 
     const bool pass = (best_off >= 0 && r_avg_ok &&
-                       best_e63 >= k_E63_ALIGN_MIN && sep_ok);
+                       best_e63 >= e63_min && sep_ok);
 
-    // ── 진단 printf (나눗셈은 진단 전용, 핫패스 외부) ──
+#if defined(HTS_DIAG_PRINTF)
     {
-        const int32_t avg_others =
-            (sum_others > 0)
-                ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
-                : 0;
         const int32_t r_avg =
             (avg_others > 0)
                 ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
@@ -2050,12 +2086,13 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 ? static_cast<int32_t>(static_cast<int64_t>(best_e63) /
                                        static_cast<int64_t>(second_e63))
                 : 999;
-        std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d\n",
-                    best_off, best_e63, avg_others, r_avg, r_sep);
+        std::printf("[P0-SCAN] off=%d e63=%d avg_o=%d r_avg=%d r_sep=%d emin=%d sep=%d\n",
+                    best_off, best_e63, avg_others, r_avg, r_sep,
+                    e63_min, static_cast<int>(sep_ok));
     }
+#endif
 
     if (pass) {
-        // ── 2블록 est seed (128칩 coherent, est_count_=2) ──
         {
             int32_t seed_dot_I = 0, seed_dot_Q = 0;
             for (int blk = 0; blk < 2; ++blk) {
@@ -2069,17 +2106,29 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
+            // CFO 추정: 연속 2블록 위상차
+            {
+                int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
+                             d0I, d0Q);
+                walsh63_dot_(&p0_buf128_I_[best_off + 64],
+                             &p0_buf128_Q_[best_off + 64], d1I, d1Q);
+                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
+            }
+#if defined(HTS_DIAG_PRINTF)
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
                         est_count_);
+#endif
         }
+#if defined(HTS_DIAG_PRINTF)
         std::printf("[P0-ALIGNED] off=%d carry=%d\n",
                     best_off, 64 - best_off);
+#endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
         psal_commit_align_();
     } else {
-        // ── 64칩 전진 (소스[128..191] → 목적지[0..63], 비중첩 → memcpy) ──
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -2088,9 +2137,21 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 }
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+    int16_t chip_I = rx_I;
+    int16_t chip_Q = rx_Q;
+    // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
+    // dc_est = dc_est - (dc_est >> 7) + (chip >> 7)
+    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+                (static_cast<int32_t>(chip_I) >> 7);
+    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+                (static_cast<int32_t>(chip_Q) >> 7);
+    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+    // CFO 보정 (DC 제거 후)
+    cfo_.Apply(chip_I, chip_Q);
     if (phase_ == RxPhase::RF_SETTLING) {
-        (void)rx_I;
-        (void)rx_Q;
+        (void)chip_I;
+        (void)chip_Q;
         const uint32_t nz =
             static_cast<uint32_t>(rf_settle_chips_remaining_ > 0);
         rf_settle_chips_remaining_ -= static_cast<int>(nz);
@@ -2101,8 +2162,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     }
     if (phase_ == RxPhase::WAIT_SYNC) {
         if (pre_phase_ == 0) {
-            p0_buf128_I_[p0_chip_count_] = rx_I;
-            p0_buf128_Q_[p0_chip_count_] = rx_Q;
+            p0_buf128_I_[p0_chip_count_] = chip_I;
+            p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
             if (p0_chip_count_ < 192)
                 return;
@@ -2111,8 +2172,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         }
         // ── Phase 1: carry + Walsh-63/0 dual dot ──
         if (p1_tail_collect_rem_ > 0) {
-            p0_carry_I_[p1_tail_idx_] = rx_I;
-            p0_carry_Q_[p1_tail_idx_] = rx_Q;
+            p0_carry_I_[p1_tail_idx_] = chip_I;
+            p0_carry_Q_[p1_tail_idx_] = chip_Q;
             ++p1_tail_idx_;
             if (p1_tail_idx_ < p1_tail_collect_rem_)
                 return;
@@ -2136,8 +2197,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (buf_idx_ == 64) carry_only_full = true;
         }
         if (!carry_only_full) {
-            buf_I_[buf_idx_] = rx_I;
-            buf_Q_[buf_idx_] = rx_Q;
+            buf_I_[buf_idx_] = chip_I;
+            buf_Q_[buf_idx_] = chip_Q;
             ++buf_idx_;
             p1_rx_in_buf = true;
             if (buf_idx_ < 64) return;
@@ -2148,6 +2209,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
             soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
         }
+        if (ajc_enabled_ && pre_phase_ != 0)
+            ajc_.Process(orig_I_, orig_Q_, 64);
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I = 0, dot0_Q = 0;
         for (int j = 0; j < 64; ++j) {
@@ -2177,7 +2240,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
             buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
             if (carry_only_full && !p1_rx_in_buf) {
-                p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+                p0_buf128_I_[0] = chip_I; p0_buf128_Q_[0] = chip_Q;
                 p0_chip_count_ = 1;
             }
             return;
@@ -2194,20 +2257,27 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         const int8_t sym = static_cast<int8_t>(best_m);
         const int tail_rem = p1_carry_prefix_;
         p1_carry_prefix_ = 0;
+#if defined(HTS_DIAG_PRINTF)
         std::printf("[P1-NC] sym=%d e63=%d e0=%d est=(%d,%d) n=%d carry_pend=%d\n",
                     static_cast<int>(sym), e63_sh, e0_sh,
                     est_I_, est_Q_, est_count_, p1_carry_pending_);
+#endif
         if (sym == static_cast<int8_t>(PRE_SYM1)) {
             p1_tail_collect_rem_ = 0; p1_tail_idx_ = 0;
             p1_carry_pending_ = 0; p0_carry_count_ = 0;
             update_derot_shift_from_est_();
             set_phase_(RxPhase::READ_HEADER);
+            // CW EMA 리셋: WAIT_SYNC 동안 학습된 프리앰블 잔상 제거
+            cw_ema_I_ = 0;
+            cw_ema_Q_ = 0;
             hdr_count_ = 0; hdr_fail_ = 0;
             wait_sync_head_ = 0; wait_sync_count_ = 0;
+#if defined(HTS_DIAG_PRINTF)
             std::printf("[P1→HDR] est=(%d,%d) n=%d\n",
                         est_I_, est_Q_, est_count_);
+#endif
             if (carry_only_full && !p1_rx_in_buf) {
-                buf_I_[0] = rx_I; buf_Q_[0] = rx_Q; buf_idx_ = 1;
+                buf_I_[0] = chip_I; buf_Q_[0] = chip_Q; buf_idx_ = 1;
             } else {
                 buf_idx_ = 0;
             }
@@ -2217,7 +2287,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (tail_rem > 0) {
                 p1_tail_collect_rem_ = tail_rem; p1_tail_idx_ = 0;
                 if (carry_only_full) {
-                    p0_carry_I_[0] = rx_I; p0_carry_Q_[0] = rx_Q;
+                    p0_carry_I_[0] = chip_I; p0_carry_Q_[0] = chip_Q;
                     p1_tail_idx_ = 1;
                     if (p1_tail_idx_ >= p1_tail_collect_rem_) {
                         p0_carry_count_ = tail_rem; p1_carry_pending_ = 1;
@@ -2235,15 +2305,15 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         p1_tail_idx_ = 0; p1_carry_prefix_ = 0;
         buf_idx_ = 0; wait_sync_head_ = 0; wait_sync_count_ = 0;
         if (carry_only_full && !p1_rx_in_buf) {
-            p0_buf128_I_[0] = rx_I; p0_buf128_Q_[0] = rx_Q;
+            p0_buf128_I_[0] = chip_I; p0_buf128_Q_[0] = chip_Q;
             p0_chip_count_ = 1;
         }
         return;
     }
     if (buf_idx_ >= 64)
         return;
-    buf_I_[buf_idx_] = rx_I;
-    buf_Q_[buf_idx_] = rx_Q;
+    buf_I_[buf_idx_] = chip_I;
+    buf_Q_[buf_idx_] = chip_Q;
     buf_idx_++;
     if (phase_ == RxPhase::READ_HEADER) {
         if (buf_idx_ == 64) {
@@ -2254,32 +2324,176 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
                 soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
             }
-            SymDecResult rh = walsh_dec_full_(orig_I_, orig_Q_, 64, false);
-            int8_t sym = rh.sym;
-            if (sym >= 0 && sym < 64) {
-                // ── HDR Soft Decision: 확신도 검증 ──
-                // best_e < second_e × 2 → 신뢰 부족 → 이 블록 버리고 HDR 재수집
-                // J/S +12dB에서 Soft 통과 시 정확도 99.3% (무조건 수용 시 84.7%)
-                if (rh.second_e > 0u &&
-                    rh.best_e < rh.second_e * 2u) {
-                    std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
-                                rh.best_e, rh.second_e);
-                    hdr_count_ = 0;
-                    buf_idx_ = 0;
-                    return;
+            static int16_t s_hdr_blk0_I[64], s_hdr_blk0_Q[64];
+            if (hdr_count_ == 0) {
+                const SymDecResult rh =
+                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                if (rh.sym >= 0 && rh.sym < 64) {
+                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(rh.sym);
+                    std::memcpy(s_hdr_blk0_I, orig_I_, 64 * sizeof(int16_t));
+                    std::memcpy(s_hdr_blk0_Q, orig_Q_, 64 * sizeof(int16_t));
+                    hdr_count_++;
+                } else {
+                    hdr_fail_++;
+                    if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                        hdr_count_ = 0;
+                        hdr_fail_ = 0;
+                        buf_idx_ = 0;
+                        set_phase_(RxPhase::WAIT_SYNC);
+                    }
                 }
-                hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
-                hdr_count_++;
+            } else if (hdr_count_ == 1) {
+                // 6-bit 패리티 LUT (popcount&1 대체, ARM 1사이클)
+                static constexpr uint8_t k_par6[64] = {
+                    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+                    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+                    1, 0, 0, 1, 0, 1, 1, 0, 0, 1, 1, 0, 1, 0, 0, 1,
+                    0, 1, 1, 0, 1, 0, 0, 1, 1, 0, 0, 1, 0, 1, 1, 0,
+                };
+                static constexpr struct {
+                    uint8_t mb;
+                    uint16_t plen;
+                } k_hdr_defs[] = {
+                    {0u, static_cast<uint16_t>(FEC_HARQ::NSYM1)},
+                    {0u, static_cast<uint16_t>(FEC_HARQ::NSYM1)},
+                    {1u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {1u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {2u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {2u, static_cast<uint16_t>(FEC_HARQ::NSYM16)},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(4))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(4))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(5))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(5))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
+                    {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
+                };
+                int best_idx = -1;
+                int64_t best_corr = 0;
+                int64_t second_corr = 0;
+                for (int ti = 0; ti < 12; ++ti) {
+                    const uint8_t mb = k_hdr_defs[static_cast<size_t>(ti)].mb;
+                    const uint16_t pl = k_hdr_defs[static_cast<size_t>(ti)].plen;
+                    const uint16_t iq =
+                        (static_cast<unsigned>(ti) & 1u) != 0u
+                            ? static_cast<uint16_t>(HDR_IQ_BIT)
+                            : 0u;
+                    const uint16_t hdr_val =
+                        (static_cast<uint16_t>(mb) << 10u) | iq | pl;
+                    const uint8_t sym0 =
+                        static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
+                    const uint8_t sym1 =
+                        static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    int64_t corr = 0;
+                    for (int j = 0; j < 64; ++j) {
+                        const int32_t v =
+                            static_cast<int32_t>(s_hdr_blk0_I[j]) +
+                            static_cast<int32_t>(s_hdr_blk0_Q[j]);
+                        const int32_t sm = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(sym0 & j)]);
+                        corr += static_cast<int64_t>((v ^ sm) - sm);
+                    }
+                    for (int j = 0; j < 64; ++j) {
+                        const int32_t v = static_cast<int32_t>(orig_I_[j]) +
+                                          static_cast<int32_t>(orig_Q_[j]);
+                        const int32_t sm = -static_cast<int32_t>(
+                            k_par6[static_cast<uint8_t>(sym1 & j)]);
+                        corr += static_cast<int64_t>((v ^ sm) - sm);
+                    }
+                    const int64_t neg = corr >> 63;
+                    corr = (corr ^ neg) - neg;
+                    if (corr > best_corr) {
+                        second_corr = best_corr;
+                        best_corr = corr;
+                        best_idx = ti;
+                    } else if (corr > second_corr) {
+                        second_corr = corr;
+                    }
+                }
+                const bool tmpl_ok =
+                    (best_idx >= 0) &&
+                    ((second_corr == 0) ||
+                     ((best_corr << 2) >
+                      ((second_corr << 2) + second_corr)));
+                if (tmpl_ok) {
+                    const uint8_t mb =
+                        k_hdr_defs[static_cast<size_t>(best_idx)].mb;
+                    const uint16_t pl =
+                        k_hdr_defs[static_cast<size_t>(best_idx)].plen;
+                    const uint16_t iq =
+                        (static_cast<unsigned>(best_idx) & 1u) != 0u
+                            ? static_cast<uint16_t>(HDR_IQ_BIT)
+                            : 0u;
+                    const uint16_t hdr_val =
+                        (static_cast<uint16_t>(mb) << 10u) | iq | pl;
+                    hdr_syms_[0] =
+                        static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
+                    hdr_syms_[1] = static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    hdr_count_ = 2;
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf("[HDR-TMPL] matched idx=%d hdr=0x%03X\n",
+                                best_idx, static_cast<unsigned>(hdr_val));
+#endif
+                } else {
+                    SymDecResult rh =
+                        walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                    int8_t sym = rh.sym;
+                    if (sym >= 0 && sym < 64) {
+                        if (rh.second_e > 0u &&
+                            rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
+                            std::printf("[HDR-SOFT] unreliable, reset\n");
+#endif
+                            hdr_count_ = 0;
+                            buf_idx_ = 0;
+                            return;
+                        }
+                        hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                        hdr_count_++;
+                    } else {
+                        hdr_fail_++;
+                        if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                            std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                            hdr_count_ = 0;
+                            hdr_fail_ = 0;
+                            buf_idx_ = 0;
+                            set_phase_(RxPhase::WAIT_SYNC);
+                        }
+                    }
+                }
             } else {
-                hdr_fail_++;
-                if (hdr_fail_ >= HDR_FAIL_MAX) {
-                    // full_reset 대신 Phase 1 복귀
-                    std::printf("[HDR-FAIL] max fail, back to P1\n");
-                    hdr_count_ = 0;
-                    hdr_fail_ = 0;
-                    buf_idx_ = 0;
-                    set_phase_(RxPhase::WAIT_SYNC);
-                    return;
+                SymDecResult rh =
+                    walsh_dec_full_(orig_I_, orig_Q_, 64, false);
+                int8_t sym = rh.sym;
+                if (sym >= 0 && sym < 64) {
+                    if (rh.second_e > 0u &&
+                        rh.best_e < rh.second_e * 2u) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-SOFT] unreliable e=%u/%u, skip\n",
+                                    rh.best_e, rh.second_e);
+#endif
+                        hdr_count_ = 0;
+                        buf_idx_ = 0;
+                        return;
+                    }
+                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                    hdr_count_++;
+                } else {
+                    hdr_fail_++;
+                    if (hdr_fail_ >= HDR_FAIL_MAX) {
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf("[HDR-FAIL] max fail, back to P1\n");
+#endif
+                        hdr_count_ = 0;
+                        hdr_fail_ = 0;
+                        buf_idx_ = 0;
+                        set_phase_(RxPhase::WAIT_SYNC);
+                        return;
+                    }
                 }
             }
             if (hdr_count_ >= HDR_SYMS) {
@@ -2340,7 +2554,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 } else {
                     // HDR parse 실패: P0 재시작 대신 Phase 1로 복귀
                     // est/derot 유지 — 다음 프리앰블(HARQ 라운드)에서 재시도
+#if defined(HTS_DIAG_PRINTF)
                     std::printf("[HDR-RETRY] parse fail, back to P1\n");
+#endif
                     hdr_count_ = 0;
                     buf_idx_ = 0;
                     phase_ = RxPhase::WAIT_SYNC;
