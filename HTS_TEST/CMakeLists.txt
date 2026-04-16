@@ -112,6 +112,26 @@ else()
   target_compile_options(HTS_V400_SIC_PC_Test_Run PRIVATE -Wall -Wextra -O2)
 endif()
 
+# ---- 실행 파일: L3 실측 스펙트럼 (Build_Packet NRZ 기준선 PSD) ----
+add_executable(HTS_L3_Spectrum_Measured_Test
+  benchmark/HTS_L3_Spectrum_Measured_Test.cpp
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+)
+target_link_libraries(HTS_L3_Spectrum_Measured_Test PRIVATE hts_pc_layer2_tensor_fec)
+target_include_directories(HTS_L3_Spectrum_Measured_Test PRIVATE
+  "${HTS_LIM_CORE_DIR}"
+)
+target_compile_features(HTS_L3_Spectrum_Measured_Test PRIVATE cxx_std_20)
+target_compile_definitions(HTS_L3_Spectrum_Measured_Test PRIVATE
+  HTS_FEC_SIMULATE_M4_RAM_LAYOUT
+)
+if(MSVC)
+  target_compile_options(HTS_L3_Spectrum_Measured_Test PRIVATE /W3 /EHsc /permissive-)
+  target_compile_definitions(HTS_L3_Spectrum_Measured_Test PRIVATE _CRT_SECURE_NO_WARNINGS)
+else()
+  target_compile_options(HTS_L3_Spectrum_Measured_Test PRIVATE -Wall -Wextra -O2)
+endif()
+
 # ---- 실행 파일: RS + FEC_HARQ 순차 감사 (널·경계·상태 재초기화) ----
 add_executable(HTS_RS_FEC_Sequential_Audit_Run
   benchmark/HTS_RS_FEC_Sequential_Audit_PC_Test.cpp
