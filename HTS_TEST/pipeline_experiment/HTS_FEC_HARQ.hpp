@@ -267,9 +267,6 @@ namespace ProtectedEngine {
         /// @brief IR Erasure(포화 칩 마스킹) — 기본 OFF, OFF 시 Decode64/16_IR 기존과 동일
         static void Set_IR_Erasure_Enabled(bool enable) noexcept;
         [[nodiscard]] static bool Get_IR_Erasure_Enabled() noexcept;
-        /// @brief IR RX RS(15,8) 후처리 — CRC 실패 시에만 시도, TX 패리티 없으면 효과 제한적
-        static void Set_IR_Rs_Post_Enabled(bool enable) noexcept;
-        [[nodiscard]] static bool Get_IR_Rs_Post_Enabled() noexcept;
 
         /// @brief IR 전용 인코드 — Encode64_A와 동일 파이프라인, 인터리브 시드만 il^RV_SALT[rv&3]
         [[nodiscard]] static int Encode64_IR(const uint8_t* info, int len,

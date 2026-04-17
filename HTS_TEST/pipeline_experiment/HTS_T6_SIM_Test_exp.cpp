@@ -37,7 +37,6 @@ using ProtectedEngine::DecodedPacket;
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngine::HTS_V400_Dispatcher;
 using ProtectedEngine::PayloadMode;
-using ProtectedEngine::SoftClipPolicy;
 
 // ═══════════════════════════════════════════════════════════════
 //  상수
@@ -116,17 +115,28 @@ static uint32_t mk_seed(uint32_t base, int t) noexcept {
 // ═══════════════════════════════════════════════════════════════
 //  디스패처 공통 설정
 // ═══════════════════════════════════════════════════════════════
+// ── 모듈 토글 상태 (run_scenarios 에서 설정, setup 이 참조) ──
+static bool g_fec_erasure_on   = true; // FEC_HARQ erasure (기본 ON)
+
+// ── 진단 함수 (샌드박스 FEC_HARQ.cpp 에 정의) ──
+extern "C" void hts_fec_diag_reset() noexcept;
+extern "C" void hts_fec_diag_print(const char* tag) noexcept;
+
 static void setup(HTS_V400_Dispatcher& d, uint32_t seed) noexcept {
     d.Set_Seed(seed);
     d.Set_IR_Mode(true);
     d.Set_Preamble_Boost(kPreBoost);
     d.Set_Preamble_Reps(kPreReps);
-    d.Set_CW_Cancel(false);
-    d.Set_AJC_Enabled(false);
-    d.Set_SoftClip_Policy(SoftClipPolicy::NEVER);
+    // [REMOVED Step2] CW 소거 API 제거 — 단음파 사전 소거 경로 Dispatcher 에서 삭제됨
+    // [REMOVED Step3] per-dispatcher jam-engine enable API removed
+    // [REMOVED Step1] 클립 정책 API 제거 — I/Q 클립 경로 Dispatcher 에서 삭제됨
     d.Set_Packet_Callback(on_pkt);
     d.Update_Adaptive_BPS(1000);
     d.Set_Lab_IQ_Mode_Jam_Harness();
+
+    // FEC_HARQ flag (static 이라 인스턴스와 무관, setup 시 한 번 적용)
+    FEC_HARQ::Set_IR_Erasure_Enabled(g_fec_erasure_on);
+    // [REMOVED Step4] optional IR secondary-decode enable API removed
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -604,19 +614,20 @@ static void test_S10() {
     record("S10c", "LPI-ON",  ok_on,  N_LPI);
 }
 
-} // namespace
+// ── 다중 조합 실행: 각 조합마다 S1~S10 전체 돌리고 결과 기록 ──
+static void run_scenarios(const char* tag, bool fec_erasure = true) {
+    g_fec_erasure_on = fec_erasure;
+    g_n_results = 0; // 이전 결과 초기화
 
-// ═══════════════════════════════════════════════════════════════
-//  main
-// ═══════════════════════════════════════════════════════════════
-int main() {
+    // 진단: FEC 카운터 reset
+    hts_fec_diag_reset();
+
+    std::printf("\n\n");
     std::printf("╔═══════════════════════════════════════════════════╗\n");
-    std::printf("║  HTS T6-SIM V3: 무결 채널 시뮬레이션              ║\n");
-    std::printf("║  사전 보정 금지 | memcmp 강제 | 음수 SNR 필수     ║\n");
-    std::printf("║  FAIL = 엔진 실제 한계 (꼼수 제로)               ║\n");
+    std::printf("║  [조합: %-12s] ER=%d                            ║\n",
+                tag,
+                g_fec_erasure_on ? 1 : 0);
     std::printf("╚═══════════════════════════════════════════════════╝\n");
-
-    auto t_all = std::chrono::steady_clock::now();
 
     test_S1();
     test_S2();
@@ -629,45 +640,52 @@ int main() {
     test_S9();
     test_S10();
 
-    auto t_end = std::chrono::steady_clock::now();
-    double total_sec = std::chrono::duration<double>(t_end - t_all).count();
-
-    // ══ 종합 보고서 ══
-    std::printf("\n╔═══════════════════════════════════════════════════╗\n");
-    std::printf("║  종합 보고서                                       ║\n");
-    std::printf("╠═════════╤══════════════════╤═══════╤══════╤═══════╣\n");
-    std::printf("║ 시나리오│ 조건             │ Pass  │Total │ 판정  ║\n");
-    std::printf("╠═════════╪══════════════════╪═══════╪══════╪═══════╣\n");
-
+    // 조합별 요약 표
     int grand_pass = 0, grand_total = 0;
-    int cat_pass = 0, cat_total = 0;
     for (int i = 0; i < g_n_results; ++i) {
-        auto& r = g_results[i];
-        const char* tag = (r.pass == r.total) ? "PASS " :
-                          (r.pass == 0)       ? "FAIL " : "PART ";
-        std::printf("║ %-7s │ %-16s │ %5d │ %4d │ %s ║\n",
-                    r.name, r.param, r.pass, r.total, tag);
-        grand_pass += r.pass;
-        grand_total += r.total;
-        ++cat_total;
-        if (r.pass == r.total) ++cat_pass;
+        grand_pass += g_results[i].pass;
+        grand_total += g_results[i].total;
     }
+    const double pct = (grand_total > 0)
+                       ? 100.0 * static_cast<double>(grand_pass) /
+                             static_cast<double>(grand_total)
+                       : 0.0;
+    std::printf("\n  [%s] 합계: %d/%d (%.1f%%)\n",
+                tag, grand_pass, grand_total, pct);
 
-    std::printf("╠═════════╧══════════════════╧═══════╧══════╧═══════╣\n");
-    std::printf("║  정량 합계: %6d / %6d (%5.1f%%)                ║\n",
-                grand_pass, grand_total,
-                (grand_total > 0) ? 100.0 * grand_pass / grand_total : 0.0);
-    std::printf("║  범주 PASS: %2d / %2d                               ║\n",
-                cat_pass, cat_total);
-    std::printf("║  총 소요:   %.1fs                                  ║\n", total_sec);
+    // 진단: FEC 카운터 출력
+    hts_fec_diag_print(tag);
+}
+
+} // namespace
+
+// ═══════════════════════════════════════════════════════════════
+//  main
+// ═══════════════════════════════════════════════════════════════
+int main() {
+    std::printf("╔═══════════════════════════════════════════════════╗\n");
+    std::printf("║  HTS T6-SIM V9: Step4 IR RS Post 제거            ║\n");
+    std::printf("║  2 조합 × S1~S10 (FEC erasure 토글만)            ║\n");
     std::printf("╚═══════════════════════════════════════════════════╝\n");
 
-    // FAIL 시나리오 목록
+    auto t_all = std::chrono::steady_clock::now();
+
+    // BASELINE = 이전 T6 ALL_OFF+FEC_ON 과 동일 (96.5% 기대)
+    run_scenarios("BASELINE",     true);
+    run_scenarios("ERASURE_OFF", false);
+
+    auto t_end = std::chrono::steady_clock::now();
+    const double total_sec =
+        std::chrono::duration<double>(t_end - t_all).count();
+
+    // 마지막 조합 (ERASURE_OFF) 상세 FAIL 리스트
+    std::printf("\n╔═══════════════════════════════════════════════════╗\n");
+    std::printf("║  [ERASURE_OFF 상세: 손실 시나리오]               ║\n");
+    std::printf("╚═══════════════════════════════════════════════════╝\n");
     bool any_fail = false;
     for (int i = 0; i < g_n_results; ++i) {
         if (g_results[i].pass < g_results[i].total) {
             if (!any_fail) {
-                std::printf("\n  [엔진 한계 — 개선 필요 항목]\n");
                 any_fail = true;
             }
             std::printf("    %-8s %-16s %d/%d\n",
@@ -676,8 +694,9 @@ int main() {
         }
     }
     if (!any_fail) {
-        std::printf("\n  전 시나리오 PASS — 한계 미발견\n");
+        std::printf("    전 시나리오 PASS\n");
     }
+    std::printf("\n  총 소요:   %.1fs\n", total_sec);
 
     return 0;
 }
@@ -690,5 +709,5 @@ int main() {
 #include "../../HTS_LIM/HTS_Secure_Memory.cpp"
 #include "../../HTS_LIM/HTS_RS_GF16.cpp"
 #include "../../HTS_LIM/HTS_Polar_Codec.cpp"
-#include "../../HTS_LIM/HTS_AntiJam_Engine.cpp"
+// [REMOVED Step3] optional jam-engine .cpp TU link omitted (not built)
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"

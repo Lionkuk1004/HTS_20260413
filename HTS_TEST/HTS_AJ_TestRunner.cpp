@@ -21,7 +21,6 @@ using ProtectedEngine::DecodedPacket;
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngine::HTS_V400_Dispatcher;
 using ProtectedEngine::PayloadMode;
-using ProtectedEngine::SoftClipPolicy;
 
 static constexpr int16_t kAmp = 2000;
 static constexpr int kMaxFeeds = 32;
@@ -193,14 +192,11 @@ void Run_Single_Test(const AJ_TestCase& tc, uint32_t seed,
         disp.Set_Seed(ds);
         disp.Set_Preamble_Boost(1);
         disp.Set_IR_SIC_Enabled(false);
-        disp.Set_CW_Cancel(false);
-        disp.Set_AJC_Enabled(false);
-        disp.Set_SoftClip_Policy(SoftClipPolicy::NEVER);
         disp.Set_Packet_Callback(aj_on_pkt);
         disp.Set_Lab_IQ_Mode_Jam_Harness();
         disp.Set_Lab_BPS64(static_cast<int>(tc.bps));
         FEC_HARQ::Set_IR_Erasure_Enabled(tc.harq_on != 0u);
-        FEC_HARQ::Set_IR_Rs_Post_Enabled(tc.harq_on != 0u);
+        // [REMOVED Step4] IR RS 후처리 — FEC_HARQ 에서 NOP 제거됨
 
         uint8_t info[8] = {};
         for (int b = 0; b < 8; ++b) {

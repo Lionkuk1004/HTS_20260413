@@ -1,6 +1,6 @@
 // =============================================================================
 /// @file  HTS_V400_Dispatcher.hpp
-/// @brief V400 동적 모뎀 디스패처 + 3층 항재밍 엔진 통합
+/// @brief V400 동적 모뎀 디스패처 + FEC-HARQ 통합
 /// @target ARM Cortex-M4 (STM32F407, 168MHz, SRAM 192KB)
 ///
 // ─────────────────────────────────────────────────────────────────────────
@@ -9,7 +9,7 @@
 //
 //  [설계 목적]
 //  4종 페이로드(VIDEO_1, VIDEO_16, VOICE, DATA)를 자동 판별하여
-//  64칩/16칩/1칩 Walsh 변복조 + FEC-HARQ + 3층 항재밍을 수행합니다.
+//  64칩/16칩/1칩 Walsh 변복조 + FEC-HARQ를 수행합니다.
 //
 //  [TX 사용법]
 //   HTS_V400_Dispatcher disp;
@@ -41,10 +41,10 @@
 //   → ROP/글리치로 헤더 인증을 우회하는 공격 차단
 //
 //  [DATA 64칩 수신 파이프라인]
-//   ① cw_cancel_64_()  8칩 주기 CW 사전 소거
-//   ② ajc_.Process()   AJC 브로드밴드 간섭 제거
-//   ③ soft_clip_iq()   아웃라이어 소프트 클립
-//   ④ HARQ 즉시 누적 + walsh_dec_full_ → ajc_.Update_AJC
+//   ① [REMOVED Step2] cw_cancel_64_
+//   ② [REMOVED Step3] ajc_.Process()
+//   ③ [REMOVED Step1] soft_clip_iq
+//   ④ HARQ 즉시 누적 + walsh_dec_full_
 //
 //  [최종 메모리 배치]
 //   SRAM1+2 (128KB): harq_I_(58KB) + wb_(15KB) + orig_acc_(29KB) + etc
@@ -67,7 +67,6 @@
 #include <cstdint>
 #include <cstddef>
 #include "HTS_FEC_HARQ.hpp"
-#include "HTS_AntiJam_Engine.h"
 #include "HTS_CFO_Compensator.h"
 #include "HTS_TPC_Controller.h"
 #include "HTS_Preamble_AGC.h"
@@ -100,14 +99,6 @@ namespace ProtectedEngine {
         READ_HEADER = 1u,  ///< 헤더 심볼 수신 중
         READ_PAYLOAD = 2u,  ///< 페이로드 심볼 수신 중
         RF_SETTLING = 3u   ///< RF PLL 안정 구간 — 칩 송수신 Blanking(타이머는 Feed_Chip 경유)
-    };
-
-    /* BUG-FIX-RETX: HARQ 연속모드 soft_clip 정책 */
-    /* BUG-FIX-SC1: soft_clip 정책 플래그 추가 — 페이로드 절벽 방지 */
-    enum class SoftClipPolicy : uint8_t {
-        ALWAYS    = 0u,   // 전 구간 ON (기존 동작, 기본값)
-        SYNC_ONLY = 1u,   // 프리앰블/헤더만 ON, 페이로드 OFF (양산 권장)
-        NEVER     = 2u    // 전 구간 OFF (벤치 전용, 프리앰블/헤더도 OFF)
     };
 
     /// @brief 디코딩 완료 패킷 구조체
@@ -158,7 +149,7 @@ namespace ProtectedEngine {
 #define HTS_CCM_SECTION  /* PC: 섹션 속성 무시 */
 #endif
 
-    /// @brief V400 동적 모뎀 디스패처 + 3층 항재밍 엔진
+    /// @brief V400 동적 모뎀 디스패처 + FEC-HARQ
     class HTS_V400_Dispatcher {
     public:
         /// @brief 패킷 수신 완료 콜백 타입
@@ -168,10 +159,10 @@ namespace ProtectedEngine {
 
         /// @brief 디스패처 생성 (WAIT_SYNC 초기 상태)
         HTS_V400_Dispatcher() noexcept;
-        /// @brief 소멸자 — CCM·버퍼·시드·ajc_ 스토리지 개별 secureWipe (this 통째 wipe 없음)
+        /// @brief 소멸자 — CCM·버퍼·시드 개별 secureWipe (this 통째 wipe 없음)
         ~HTS_V400_Dispatcher() noexcept;
 
-        /// 상태 복제/이동 방지 (HARQ 누적 버퍼 + AJC 학습 상태)
+        /// 상태 복제/이동 방지 (HARQ 누적 버퍼)
         HTS_V400_Dispatcher(const HTS_V400_Dispatcher&) = delete;
         HTS_V400_Dispatcher& operator=(const HTS_V400_Dispatcher&) = delete;
 
@@ -205,13 +196,13 @@ namespace ProtectedEngine {
         /// @brief RX 칩 1개 주입 (ISR 또는 메인 루프에서 연속 호출)
         void Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept;
 
-        /// @brief 상태 머신 + AJC + HARQ 전체 초기화
+        /// @brief 상태 머신 + HARQ 전체 초기화
         void Reset() noexcept;
 
         /// @brief 현재 I/Q 모드 조회
         [[nodiscard]] IQ_Mode Get_IQ_Mode() const noexcept;
 
-        /// @brief AJC 노이즈 플로어 기반 적응형 BPS 갱신
+        /// @brief 노이즈 플로어 기반 적응형 BPS 갱신
         void Update_Adaptive_BPS(uint32_t nf) noexcept;
 
         /// @brief PC·시험 하네스: 64칩 DATA BPS(3~6) 직접 설정 (`bps_clamp_runtime`).
@@ -256,17 +247,6 @@ namespace ProtectedEngine {
         /// @note Chase/소프트 텐서 벤치의 `LTE_HARQ_Controller::HARQ_RTT_MS`(8ms)와 별도.
         ///       PC 벤치 `HTS_Fractal_Channel_Compare` 가 IR 경로 지연 proxy에 동기화.
         static constexpr double IR_HARQ_RTT_MS = 4.0;
-
-        // ── CW 소거기 ON/OFF (벤치마크 비교용, 양산 기본값 true) ──
-        void Set_CW_Cancel(bool enable) noexcept { cw_cancel_enabled_ = enable; }
-        [[nodiscard]] bool Get_CW_Cancel() const noexcept { return cw_cancel_enabled_; }
-
-        // ── AJC ON/OFF (벤치마크 전용, 양산 기본값 true) ──
-        void Set_AJC_Enabled(bool enable) noexcept { ajc_enabled_ = enable; }
-        [[nodiscard]] bool Get_AJC_Enabled() const noexcept { return ajc_enabled_; }
-
-        void Set_SoftClip_Policy(SoftClipPolicy p) noexcept { soft_clip_policy_ = p; }
-        SoftClipPolicy Get_SoftClip_Policy() const noexcept { return soft_clip_policy_; }
 
         /// @brief TX Holo LPI 후처리 (Build_Packet / Build_Retx 칩열에 스칼라 적용)
         /// @param lpi_seed 128비트 마스터 시드 (nullptr 이면 비활성화)
@@ -436,9 +416,6 @@ namespace ProtectedEngine {
         //
         FEC_HARQ::WorkBuf wb_{};
 
-        AntiJamEngine ajc_;             ///< 3층 항재밍 엔진
-        int ajc_last_nc_{ 0 };          ///< 마지막 AJC 칩 수 (리셋 판단)
-
         int cur_bps64_{ FEC_HARQ::BPS64_MAX };  ///< 현재 64칩 BPS (3~6)
         /// @brief 현재 BPS에 대응하는 심볼 수 반환
         int cur_nsym64_() const noexcept {
@@ -465,18 +442,9 @@ namespace ProtectedEngine {
         //  프리앰블+헤더: 항상 I=Q 고정 (블라인드 딜레마 해결)
         static constexpr uint16_t HDR_IQ_BIT = (1u << 9u);  ///< bit9 = IQ 모드
 
-        // ── 원본 심볼 누적 (AJC 결정지향 피드백용) ─────────────────
+        // ── 원본 심볼 누적 (TPC 피드백 + IR chip 저장용) ──
         //
-        //  [8비트 양자화 안전성 증명]
-        //   STM32F407 ADC = 12비트 유효. 하위 4~5비트 = 열잡음(σth ≈ ±16)
-        //   int16_t→int8_t: 상위 8비트 보존 (>> 8 시프트)
-        //   양자화 잡음 σq ≈ 0.5 LSB << σth → LMS 가중치 갱신 무영향
-        //   AJC Update_AJC 내부: Δw = μ·error·x_ref
-        //   x_ref 양자화 → Δw 오차 < 3% → 수렴점 동일
-        //
-        //   1바이트 = [I 상위 4비트][Q 상위 4비트]
-        //   절감: int8_t×230×64×2 = 29,440B → uint8_t×230×64 = 14,720B (−50%)
-        //   AJC LMS: σq(4bit) = 2048 << σth(4000~16000), 수렴 영향 무시
+        //  1바이트 = [I 상위 4비트][Q 상위 4비트] (on_sym_ 에서 orig_I_/Q_ 상위 4b)
         //
         union {
             struct {
@@ -487,14 +455,8 @@ namespace ProtectedEngine {
             } acc64;
         } orig_acc_;
 
-        int16_t orig_I_[64] = {};       ///< 원본 I (AJC 전, 현재 심볼)
-        int16_t orig_Q_[64] = {};       ///< 원본 Q (AJC 전, 현재 심볼)
-
-        bool cw_cancel_enabled_{ true };  ///< CW 소거기 활성화 (양산 기본 true)
-        int32_t cw_ema_I_ = 0;   ///< CW 진폭 IIR 평활 I (α=1/4 누적 상태)
-        int32_t cw_ema_Q_ = 0;   ///< CW 진폭 IIR 평활 Q (α=1/4 누적 상태)
-        SoftClipPolicy soft_clip_policy_ = SoftClipPolicy::ALWAYS;
-        bool ajc_enabled_{ true };        ///< AJC 활성화 (양산 기본 true)
+        int16_t orig_I_[64] = {};       ///< 원본 I (TPC 피드백 + IR chip 저장)
+        int16_t orig_Q_[64] = {};       ///< 원본 Q (TPC 피드백 + IR chip 저장)
 
         /// Holo LPI (HTS_Holo_LPI::SECURE_TRUE / SECURE_FALSE)
         uint32_t holo_lpi_en_{ 0xA5A5A5A5u };
@@ -556,8 +518,7 @@ namespace ProtectedEngine {
         int32_t dec_wI_[64] = {};       ///< Walsh 디코딩 워킹 버퍼 I
         int32_t dec_wQ_[64] = {};       ///< Walsh 디코딩 워킹 버퍼 Q
 
-        //  mags[64] + sorted[64] = 512B (soft_clip_iq, blackhole_ 공유)
-        //  시간적 분리: soft_clip_iq 완료 후 blackhole_ 호출
+        //  mags[64] + sorted[64] = 512B — blackhole_ 전용 (상수시간 분위 정렬)
         uint32_t scratch_mag_[64] = {};
         uint32_t scratch_sort_[64] = {};
 
@@ -594,9 +555,6 @@ namespace ProtectedEngine {
 
         /// @brief 블랙홀 처리 (아웃라이어 칩 소거)
         void blackhole_(int16_t* I, int16_t* Q, int nc) noexcept;
-
-        /// @brief CW Pre-Canceller (64칩 전용, 8칩 주기)
-        void cw_cancel_64_(int16_t* I, int16_t* Q) noexcept;
 
         /// Holo LPI RX 역스칼라 (Walsh·상관 전, `scalar_time_slot` = `rx_seq_` 또는 Retx용)
         void apply_holo_lpi_inverse_rx_chip_(int16_t& chip_I, int16_t& chip_Q,

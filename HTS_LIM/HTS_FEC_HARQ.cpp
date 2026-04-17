@@ -3,7 +3,6 @@
 // Target: STM32F407VGT6 (Cortex-M4F) / PC
 //
 #include "HTS_FEC_HARQ.hpp"
-#include "HTS_RS_GF16.h"
 #include "HTS_Secure_Memory.h"
 #include <array>
 #include <atomic>
@@ -77,35 +76,9 @@ alignas(64) static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fI{};
 alignas(64) static std::array<int32_t, k_fwht_buf_sz> g_fec_dec_fQ{};
 alignas(64) static std::array<int32_t, k_llr_buf_sz> g_fec_dec_llr{};
 static std::atomic<uint8_t> g_ir_erasure_en{1u};
-static std::atomic<uint8_t> g_ir_rs_post_en{1u};
 static inline int32_t fec_ir_fast_abs_i32(int32_t v) noexcept {
     const int32_t m = v >> 31;
     return (v ^ m) - m;
-}
-/// RS(15,8) 니블 매핑: rx[0..7]의 15니블 정정, rx[7] 하위 니블 보존
-static bool try_ir_rs_recover_rx8(uint8_t *rx_head8) noexcept {
-    if (!rx_head8) {
-        return false;
-    }
-    uint8_t sym15[15];
-    const uint8_t lo7 = static_cast<uint8_t>(rx_head8[7] & 0x0Fu);
-    for (int i = 0; i < 7; ++i) {
-        sym15[static_cast<std::size_t>(2 * i)] =
-            static_cast<uint8_t>(rx_head8[static_cast<std::size_t>(i)] >> 4);
-        sym15[static_cast<std::size_t>(2 * i + 1)] =
-            static_cast<uint8_t>(rx_head8[static_cast<std::size_t>(i)] & 0x0Fu);
-    }
-    sym15[14] = static_cast<uint8_t>(rx_head8[7] >> 4);
-    if (!HTS_RS_GF16_Decode15_8(sym15)) {
-        return false;
-    }
-    for (int i = 0; i < 7; ++i) {
-        rx_head8[static_cast<std::size_t>(i)] =
-            static_cast<uint8_t>((sym15[static_cast<std::size_t>(2 * i)] << 4) |
-                                 sym15[static_cast<std::size_t>(2 * i + 1)]);
-    }
-    rx_head8[7] = static_cast<uint8_t>((sym15[14] << 4) | lo7);
-    return true;
 }
 // LTO/DCE가 스택 평문 소거를 제거하지 못하도록 secureWipe 직후 컴파일러·동기화
 // 펜스
@@ -911,12 +884,6 @@ void FEC_HARQ::Set_IR_Erasure_Enabled(bool enable) noexcept {
 bool FEC_HARQ::Get_IR_Erasure_Enabled() noexcept {
     return g_ir_erasure_en.load(std::memory_order_relaxed) != 0u;
 }
-void FEC_HARQ::Set_IR_Rs_Post_Enabled(bool enable) noexcept {
-    g_ir_rs_post_en.store(enable ? 1u : 0u, std::memory_order_relaxed);
-}
-bool FEC_HARQ::Get_IR_Rs_Post_Enabled() noexcept {
-    return g_ir_rs_post_en.load(std::memory_order_relaxed) != 0u;
-}
 int FEC_HARQ::Encode64_IR(const uint8_t *info, int len, uint8_t *syms,
                           uint32_t il_seed, int bps, int rv,
                           WorkBuf &wb) noexcept {
@@ -1184,13 +1151,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         (static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO)]) << 8u) |
         static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO + 1)]);
     bool dec_ok = (calc == stored);
-    // RS 후처리: 희소 경로 (보안 무관, 분기 유지)
-    if (!dec_ok && g_ir_rs_post_en.load(std::memory_order_relaxed) != 0u) {
-        if (try_ir_rs_recover_rx8(rx.data())) {
-            calc = CRC16(rx.data(), MAX_INFO);
-            dec_ok = (calc == stored);
-        }
-    }
+    // [REMOVED Step4] IR RS 후처리 — T6 기준 NOP (rs_success=0)
     // TPE: 출력 복사 + SIC tentative (상수 시간)
     const uint32_t ok_mask = 0u - static_cast<uint32_t>(dec_ok);
     const uint32_t fail_mask = ~ok_mask;
@@ -1299,12 +1260,7 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         (static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO)]) << 8u) |
         static_cast<uint16_t>(rx[static_cast<std::size_t>(MAX_INFO + 1)]);
     bool dec_ok = (calc == stored);
-    if (!dec_ok && g_ir_rs_post_en.load(std::memory_order_relaxed) != 0u) {
-        if (try_ir_rs_recover_rx8(rx.data())) {
-            calc = CRC16(rx.data(), MAX_INFO);
-            dec_ok = (calc == stored);
-        }
-    }
+    // [REMOVED Step4] IR RS 후처리 — T6 기준 NOP (rs_success=0)
     // TPE: 출력 복사 (상수 시간)
     const uint32_t ok16_mask = 0u - static_cast<uint32_t>(dec_ok);
     for (int i = 0; i < MAX_INFO; ++i) {

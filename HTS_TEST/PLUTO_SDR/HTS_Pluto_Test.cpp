@@ -608,7 +608,7 @@ static bool test_T1(PlutoCtx &p) {
 static void test_T2(PlutoCtx &p) {
     std::printf("\n══ T2: 클린 루프백 ══\n");
     FEC_HARQ::Set_IR_Erasure_Enabled(false);
-    FEC_HARQ::Set_IR_Rs_Post_Enabled(true);
+    // [REMOVED Step4] IR RS 후처리 API 제거 — FEC_HARQ main 트리에서 NOP 확정
     // ── T2 DMA 프라이밍: 실 TX→RX 사이클로 파이프라인 활성화 ──
     // V17의 flush+sleep은 RX만 정리. TX DMA FSM 복구에는
     // buffer destroy→recreate→push 사이클이 필요하므로
