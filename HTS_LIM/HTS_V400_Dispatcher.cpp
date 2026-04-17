@@ -2111,21 +2111,24 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     int64_t sum_all = 0;
 
     for (int off = 0; off < 64; ++off) {
-        // ── T1-A: coherent 합산 (2블록 dot 진폭 합 → 제곱) ──
-        // 비간섭: e0+e1 → alias off=32와 동일 에너지
-        // 간섭: (d0+d1)² → sym63/sym0 경계에서 alias 분리 강화
-        int32_t sum_I = 0, sum_Q = 0;
+        // ── P0-FIX-001: non-coherent 2블록 에너지 합산 ──
+        // 블록 내부는 coherent 64칩 integrate (walsh63_dot_ 동일),
+        // 블록 간은 non-coherent |dot|² 합 — CFO 에 의한 블록 간
+        // 위상 회전에 불변. coherent 합(구버전) 은 블록 간 위상차
+        // Δθ≈π 에서 신호 소멸 문제가 있어 S5 (CFO) 시나리오 전멸.
+        // CFO=0 정상 경로에서는 peak 가 4·|dot|² → 2·|dot|² 로
+        // 절반이 되지만, peak/noise 비율은 동일하므로 검출 성능
+        // 손실 없음. CFO 추정 블록(하단)은 coherent 유지.
+        int64_t e_nc = 0;
         for (int blk = 0; blk < 2; ++blk) {
             const int base = off + (blk << 6);
             int32_t dot_I = 0, dot_Q = 0;
             walsh63_dot_(&p0_buf128_I_[base], &p0_buf128_Q_[base],
                          dot_I, dot_Q);
-            sum_I += dot_I;
-            sum_Q += dot_Q;
+            e_nc += static_cast<int64_t>(dot_I) * dot_I +
+                    static_cast<int64_t>(dot_Q) * dot_Q;
         }
-        const int32_t accum = static_cast<int32_t>(
-            (static_cast<int64_t>(sum_I) * sum_I +
-             static_cast<int64_t>(sum_Q) * sum_Q) >> 16);
+        const int32_t accum = static_cast<int32_t>(e_nc >> 16);
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
