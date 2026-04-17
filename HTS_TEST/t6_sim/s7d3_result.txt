@@ -1,0 +1,35 @@
+### DIAG-S7-STEP3 JSR=0 dB ###
+  phase_transitions: 0=0 1=20 2=20 3=0
+  try_decode_count   = 24
+  polar_enter_count  = 18
+  polar_ok_count     = 18
+### DIAG-S7-STEP3 JSR=5 dB ###
+  phase_transitions: 0=0 1=46 2=22 3=0
+  try_decode_count   = 36
+  polar_enter_count  = 9
+  polar_ok_count     = 9
+### DIAG-S7-STEP3 JSR=10 dB ###
+  phase_transitions: 0=0 1=96 2=28 3=0
+  try_decode_count   = 38
+  polar_enter_count  = 3
+  polar_ok_count     = 1
+### DIAG-S7-STEP3 JSR=15 dB ###
+  phase_transitions: 0=0 1=44 2=23 3=0
+  try_decode_count   = 40
+  polar_enter_count  = 3
+  polar_ok_count     = 0
+### DIAG-S7-STEP3 JSR=20 dB ###
+  phase_transitions: 0=0 1=41 2=24 3=0
+  try_decode_count   = 32
+  polar_enter_count  = 7
+  polar_ok_count     = 0
+### DIAG-S7-STEP3 JSR=25 dB ###
+  phase_transitions: 0=0 1=36 2=22 3=0
+  try_decode_count   = 26
+  polar_enter_count  = 5
+  polar_ok_count     = 0
+### DIAG-S7-STEP3 JSR=30 dB ###
+  phase_transitions: 0=0 1=264 2=19 3=0
+  try_decode_count   = 27
+  polar_enter_count  = 1
+  polar_ok_count     = 0

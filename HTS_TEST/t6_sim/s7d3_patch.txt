@@ -1,0 +1,120 @@
+﻿diff --git a/HTS_LIM/HTS_FEC_HARQ.cpp b/HTS_LIM/HTS_FEC_HARQ.cpp
+index e130b5d..31bbfdf 100644
+--- a/HTS_LIM/HTS_FEC_HARQ.cpp
++++ b/HTS_LIM/HTS_FEC_HARQ.cpp
+@@ -22,6 +22,14 @@
+ #include <intrin.h>
+ #endif
+ #endif
++
++// DIAG-S7-STEP3: 진단용 전역 카운터 (단일 TU에서 FEC.cpp가 Dispatcher.cpp보다
++// 먼저 include 되므로 여기에 정의 — V400_Dispatcher.cpp 는 extern 선언)
++uint32_t g_diag_s7_phase_transitions[8] = {};
++uint32_t g_diag_s7_try_decode_count = 0;
++uint32_t g_diag_s7_polar_enter_count = 0;
++uint32_t g_diag_s7_polar_ok_count = 0;
++
+ namespace ProtectedEngine {
+ #if defined(HTS_FEC_PROFILE)
+ namespace {
+@@ -1006,6 +1014,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
+ #if defined(HTS_FEC_POLAR_ENABLE)
+     (void)il_seed;
+     (void)rv;
++    ::g_diag_s7_polar_enter_count++;
+     // ── P0-FIX-004: Polar 경로 위상 독립화 ──
+     //  구(舊) s_chip_acc += (Ii + Qi) 는 chip 도메인 I+Q 합산.
+     //   채널 회전 θ 에서 Ii+Qi = 2·amp·cosθ
+@@ -1124,6 +1133,9 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
+     bool dec_ok =
+         HTS_Polar_Codec::Decode_SCL(polar_llr16, rx, &olen_p);
+     dec_ok = dec_ok && (olen_p == MAX_INFO);
++    if (dec_ok) {
++        ::g_diag_s7_polar_ok_count++;
++    }
+     const uint32_t t18_scl_end = HTS_DWT::Read();
+ 
+     const uint32_t ok_mask = 0u - static_cast<uint32_t>(dec_ok);
+diff --git a/HTS_LIM/HTS_V400_Dispatcher.cpp b/HTS_LIM/HTS_V400_Dispatcher.cpp
+index 6d19a1b..76efe9d 100644
+--- a/HTS_LIM/HTS_V400_Dispatcher.cpp
++++ b/HTS_LIM/HTS_V400_Dispatcher.cpp
+@@ -24,6 +24,13 @@ extern "C" void Mock_RF_Synth_Set_Channel(uint8_t channel) noexcept {
+     const unsigned ch = static_cast<unsigned>(channel) & 0x7Fu;
+     std::printf("[Mock_RF_Synth] ch=%u\n", ch);
+ }
++
++// DIAG-S7-STEP3: HTS_FEC_HARQ.cpp 에 정의됨 (단일 TU include 순서)
++extern uint32_t g_diag_s7_phase_transitions[8];
++extern uint32_t g_diag_s7_try_decode_count;
++extern uint32_t g_diag_s7_polar_enter_count;
++extern uint32_t g_diag_s7_polar_ok_count;
++
+ namespace ProtectedEngine {
+ // 파일 범위 스크래치: 단일 디스패처 실행 컨텍스트(반이중)·해당 경로 재진입 없음
+ // 가정. NSYM64 ≥ NSYM16 이므로 Encode 심볼 버퍼 겸용.
+@@ -1048,6 +1055,9 @@ void HTS_V400_Dispatcher::update_derot_shift_from_est_() noexcept {
+ //  CFI: key=(from<<2)|to, 16슬롯 LUT(RF_SETTLING 포함) + 클램프
+ // =====================================================================
+ uint32_t HTS_V400_Dispatcher::set_phase_(RxPhase target) noexcept {
++    const unsigned s7_pidx =
++        static_cast<unsigned>(static_cast<uint8_t>(target)) & 7u;
++    g_diag_s7_phase_transitions[s7_pidx]++;
+     const uint32_t f = static_cast<uint32_t>(phase_);
+     const uint32_t t = static_cast<uint32_t>(target);
+     const uint32_t key = (f << 2u) | t;
+@@ -1388,6 +1398,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
+         try_decode_();
+ }
+ void HTS_V400_Dispatcher::try_decode_() noexcept {
++    g_diag_s7_try_decode_count++;
+     // [BUG-FIX-IR5] wb_ 초기화: Encode 잔류 데이터가 Decode 경로를 오염시키는
+     // 것을 방지. 16칩(NSYM16=172)은 wb_ 사용 영역이 작아 영향 없으나,
+     // 64칩(NSYM64=172, BPS=4)은 전체 TOTAL_CODED(688) 슬롯을 사용하므로 필수.
+diff --git a/HTS_TEST/t6_sim/HTS_T6_SIM_Test.cpp b/HTS_TEST/t6_sim/HTS_T6_SIM_Test.cpp
+index 289b36d..18c5c13 100644
+--- a/HTS_TEST/t6_sim/HTS_T6_SIM_Test.cpp
++++ b/HTS_TEST/t6_sim/HTS_T6_SIM_Test.cpp
+@@ -39,6 +39,12 @@ using ProtectedEngine::HTS_V400_Dispatcher;
+ using ProtectedEngine::PayloadMode;
+ using ProtectedEngine::SoftClipPolicy;
+ 
++// DIAG-S7-STEP3: HTS_FEC_HARQ.cpp 에 정의 (단일 TU)
++extern uint32_t g_diag_s7_phase_transitions[8];
++extern uint32_t g_diag_s7_try_decode_count;
++extern uint32_t g_diag_s7_polar_enter_count;
++extern uint32_t g_diag_s7_polar_ok_count;
++
+ // ═══════════════════════════════════════════════════════════════
+ //  상수
+ // ═══════════════════════════════════════════════════════════════
+@@ -462,6 +468,12 @@ static void test_S7() {
+     std::mt19937 rng(0x70000000u);
+     const double jsrs[] = {0, 5, 10, 15, 20, 25, 30};
+     for (double jsr : jsrs) {
++        for (int i = 0; i < 8; ++i) {
++            g_diag_s7_phase_transitions[i] = 0;
++        }
++        g_diag_s7_try_decode_count = 0;
++        g_diag_s7_polar_enter_count = 0;
++        g_diag_s7_polar_ok_count = 0;
+         int ok = 0;
+         for (int t = 0; t < kTrials; ++t) {
+             const uint32_t ds = mk_seed(0x700000u, t);
+@@ -478,6 +490,16 @@ static void test_S7() {
+         std::snprintf(param, sizeof(param), "%.0fdB", jsr);
+         row(label, ok, kTrials);
+         record("S7", param, ok, kTrials);
++        const int jsr_db = static_cast<int>(std::lround(jsr));
++        std::printf("### DIAG-S7-STEP3 JSR=%d dB ###\n", jsr_db);
++        std::printf("  phase_transitions: 0=%u 1=%u 2=%u 3=%u\n",
++                    g_diag_s7_phase_transitions[0],
++                    g_diag_s7_phase_transitions[1],
++                    g_diag_s7_phase_transitions[2],
++                    g_diag_s7_phase_transitions[3]);
++        std::printf("  try_decode_count   = %u\n", g_diag_s7_try_decode_count);
++        std::printf("  polar_enter_count  = %u\n", g_diag_s7_polar_enter_count);
++        std::printf("  polar_ok_count     = %u\n", g_diag_s7_polar_ok_count);
+     }
+ }
+ 

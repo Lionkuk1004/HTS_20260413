@@ -1,0 +1,39 @@
+commit 4689e3ca535af96820969ed23253edb010e0515c
+Author: 영준 임 <lionkuk1004@gmail,com>
+Date:   Fri Apr 17 15:18:34 2026 +0900
+
+    프리앰블 완성 나머지 오류 진행중
+
+HTS_TEST/t6_sim/HTS_T6_DIAG.exe
+HTS_TEST/t6_sim/HTS_T6_DIAG_CORRUPT.exe
+HTS_TEST/t6_sim/HTS_T6_DIAG_EXEC.exe
+HTS_TEST/t6_sim/HTS_T6_DIAG_FIXED.exe
+HTS_TEST/t6_sim/HTS_T6_DIAG_HARQ.exe
+HTS_TEST/t6_sim/HTS_T6_DIAG_PAYLOAD.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_baseline.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix001.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix002.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix003.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix004.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix004m.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix004r.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix005.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_pre002.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_pre003.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_pre004.exe
+HTS_TEST/t6_sim/HTS_T6_SIM_Test_s0.exe
+HTS_TEST/t6_sim/diag_corrupt.patch
+HTS_TEST/t6_sim/diag_corrupt.txt
+HTS_TEST/t6_sim/diag_exec.patch
+HTS_TEST/t6_sim/diag_exec_s1.txt
+HTS_TEST/t6_sim/diag_fixed_s1.patch
+HTS_TEST/t6_sim/diag_fixed_s1.txt
+HTS_TEST/t6_sim/diag_harq_s1.patch
+HTS_TEST/t6_sim/diag_harq_s1.txt
+HTS_TEST/t6_sim/diag_payload_s1.patch
+HTS_TEST/t6_sim/diag_payload_s1.txt
+HTS_TEST/t6_sim/diag_s2_stash.patch
+HTS_TEST/t6_sim/fix003_result.txt
+HTS_TEST/t6_sim/fix004m_result.txt
+HTS_TEST/t6_sim/fix004r_result.txt
+HTS_TEST/t6_sim/fix005_result.txt

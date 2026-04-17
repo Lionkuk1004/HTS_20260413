@@ -1,0 +1,40 @@
+commit 4689e3ca535af96820969ed23253edb010e0515c
+Author: 영준 임 <lionkuk1004@gmail,com>
+Date:   Fri Apr 17 15:18:34 2026 +0900
+
+    프리앰블 완성 나머지 오류 진행중
+
+ HTS_TEST/t6_sim/HTS_T6_DIAG.exe              | Bin 0 -> 120832 bytes
+ HTS_TEST/t6_sim/HTS_T6_DIAG_CORRUPT.exe      | Bin 0 -> 121856 bytes
+ HTS_TEST/t6_sim/HTS_T6_DIAG_EXEC.exe         | Bin 0 -> 120832 bytes
+ HTS_TEST/t6_sim/HTS_T6_DIAG_FIXED.exe        | Bin 0 -> 121344 bytes
+ HTS_TEST/t6_sim/HTS_T6_DIAG_HARQ.exe         | Bin 0 -> 120320 bytes
+ HTS_TEST/t6_sim/HTS_T6_DIAG_PAYLOAD.exe      | Bin 0 -> 120832 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_baseline.exe | Bin 0 -> 119296 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix001.exe   | Bin 0 -> 119296 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix002.exe   | Bin 0 -> 119808 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix003.exe   | Bin 0 -> 120320 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix004.exe   | Bin 0 -> 119808 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix004m.exe  | Bin 0 -> 119808 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix004r.exe  | Bin 0 -> 119808 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_fix005.exe   | Bin 0 -> 115712 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_pre002.exe   | Bin 0 -> 119296 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_pre003.exe   | Bin 0 -> 119808 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_pre004.exe   | Bin 0 -> 119808 bytes
+ HTS_TEST/t6_sim/HTS_T6_SIM_Test_s0.exe       | Bin 0 -> 118272 bytes
+ HTS_TEST/t6_sim/diag_corrupt.patch           | Bin 0 -> 10474 bytes
+ HTS_TEST/t6_sim/diag_corrupt.txt             |  21 +++
+ HTS_TEST/t6_sim/diag_exec.patch              | Bin 0 -> 6404 bytes
+ HTS_TEST/t6_sim/diag_exec_s1.txt             |  35 +++++
+ HTS_TEST/t6_sim/diag_fixed_s1.patch          | Bin 0 -> 7712 bytes
+ HTS_TEST/t6_sim/diag_fixed_s1.txt            |  82 ++++++++++
+ HTS_TEST/t6_sim/diag_harq_s1.patch           | Bin 0 -> 3964 bytes
+ HTS_TEST/t6_sim/diag_harq_s1.txt             |  22 +++
+ HTS_TEST/t6_sim/diag_payload_s1.patch        | Bin 0 -> 5762 bytes
+ HTS_TEST/t6_sim/diag_payload_s1.txt          |  82 ++++++++++
+ HTS_TEST/t6_sim/diag_s2_stash.patch          | Bin 0 -> 19836 bytes
+ HTS_TEST/t6_sim/fix003_result.txt            | 217 +++++++++++++++++++++++++++
+ HTS_TEST/t6_sim/fix004m_result.txt           | Bin 0 -> 22446 bytes
+ HTS_TEST/t6_sim/fix004r_result.txt           | 217 +++++++++++++++++++++++++++
+ HTS_TEST/t6_sim/fix005_result.txt            | Bin 0 -> 22446 bytes
+ 33 files changed, 676 insertions(+)
