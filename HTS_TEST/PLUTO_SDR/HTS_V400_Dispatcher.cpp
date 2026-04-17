@@ -667,7 +667,8 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       cw_cancel_enabled_(true), soft_clip_policy_(SoftClipPolicy::ALWAYS),
       ajc_enabled_(true), holo_lpi_en_(HTS_Holo_LPI::SECURE_FALSE),
       holo_lpi_seed_{}, holo_lpi_mix_q8_(128), holo_lpi_scalars_{},
-      dec_wI_{}, dec_wQ_{} {}
+      holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
+      holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{} {}
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
     // 손상. AntiJamEngine: 가상 함수 없음 → Reset 후 스토리지 secureWipe,
@@ -688,6 +689,9 @@ HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     SecureMemory::secureWipe(static_cast<void *>(scratch_sort_),
                              sizeof(scratch_sort_));
     holo_lpi_en_ = HTS_Holo_LPI::SECURE_FALSE;
+    holo_lpi_rx_slot_ = 0u;
+    holo_lpi_rx_chip_idx_ = 0u;
+    holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
     SecureMemory::secureWipe(static_cast<void *>(holo_lpi_seed_),
                              sizeof(holo_lpi_seed_));
     SecureMemory::secureWipe(static_cast<void *>(holo_lpi_scalars_),
@@ -715,15 +719,56 @@ void HTS_V400_Dispatcher::Enable_Holo_LPI(
     holo_lpi_seed_[1] = lpi_seed[1];
     holo_lpi_seed_[2] = lpi_seed[2];
     holo_lpi_seed_[3] = lpi_seed[3];
+    holo_lpi_rx_slot_ = 0u;
+    holo_lpi_rx_chip_idx_ = 0u;
+    holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
     holo_lpi_en_ = HTS_Holo_LPI::SECURE_TRUE;
 }
 
 void HTS_V400_Dispatcher::Disable_Holo_LPI() noexcept {
     holo_lpi_en_ = HTS_Holo_LPI::SECURE_FALSE;
+    holo_lpi_rx_slot_ = 0u;
+    holo_lpi_rx_chip_idx_ = 0u;
+    holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
     SecureMemory::secureWipe(static_cast<void *>(holo_lpi_seed_),
                              sizeof(holo_lpi_seed_));
     SecureMemory::secureWipe(static_cast<void *>(holo_lpi_scalars_),
                              sizeof(holo_lpi_scalars_));
+}
+
+void HTS_V400_Dispatcher::apply_holo_lpi_inverse_rx_chip_(
+    int16_t& chip_I, int16_t& chip_Q,
+    uint32_t scalar_time_slot) noexcept {
+    if (holo_lpi_en_ != HTS_Holo_LPI::SECURE_TRUE) {
+        return;
+    }
+    holo_lpi_rx_slot_ = scalar_time_slot;
+    if (holo_lpi_rx_scalars_seq_ != scalar_time_slot) {
+        if (HTS_Holo_LPI::Generate_Scalars(holo_lpi_seed_, scalar_time_slot,
+                                           holo_lpi_mix_q8_,
+                                           holo_lpi_scalars_) !=
+            HTS_Holo_LPI::SECURE_TRUE) {
+            return;
+        }
+        holo_lpi_rx_scalars_seq_ = scalar_time_slot;
+    }
+    const int16_t sc =
+        holo_lpi_scalars_[static_cast<std::size_t>(holo_lpi_rx_chip_idx_) &
+                           63u];
+    ++holo_lpi_rx_chip_idx_;
+    if (sc == 0) {
+        return;
+    }
+    const int64_t i64 =
+        (static_cast<int64_t>(chip_I) << 13) / static_cast<int64_t>(sc);
+    const int64_t q64 =
+        (static_cast<int64_t>(chip_Q) << 13) / static_cast<int64_t>(sc);
+    const int64_t hi = 32767;
+    const int64_t lo = -32768;
+    const int64_t ci = (i64 > hi) ? hi : ((i64 < lo) ? lo : i64);
+    const int64_t cq = (q64 > hi) ? hi : ((q64 < lo) ? lo : q64);
+    chip_I = static_cast<int16_t>(ci);
+    chip_Q = static_cast<int16_t>(cq);
 }
 void HTS_V400_Dispatcher::Set_Packet_Callback(PacketCB cb) noexcept {
     on_pkt_ = cb;
@@ -968,6 +1013,8 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     if (ir_mode_ && ir_state_ != nullptr) {
         FEC_HARQ::IR_Init(*ir_state_);
     }
+    holo_lpi_rx_chip_idx_ = 0u;
+    holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
 }
 void HTS_V400_Dispatcher::update_derot_shift_from_est_() noexcept {
     const int32_t mI = est_I_ >> 31;
@@ -2225,6 +2272,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     cfo_.Apply(chip_I, chip_Q);
     // 프리앰블 AGC (DC/CFO 후)
     pre_agc_.Apply(chip_I, chip_Q);
+    apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
     if (phase_ == RxPhase::RF_SETTLING) {
         (void)chip_I;
         (void)chip_Q;
@@ -2659,8 +2707,17 @@ void HTS_V400_Dispatcher::Feed_Retx_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         return;
     if (buf_idx_ >= 64)
         return;
-    buf_I_[buf_idx_] = rx_I;
-    buf_Q_[buf_idx_] = rx_Q;
+    if (buf_idx_ == 0) {
+        holo_lpi_rx_chip_idx_ = 0u;
+        holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
+    }
+    int16_t ti = rx_I;
+    int16_t tq = rx_Q;
+    const uint32_t retx_slot =
+        (rx_seq_ > 0u) ? (rx_seq_ - 1u) : 0u;
+    apply_holo_lpi_inverse_rx_chip_(ti, tq, retx_slot);
+    buf_I_[buf_idx_] = ti;
+    buf_Q_[buf_idx_] = tq;
     buf_idx_++;
     if (buf_idx_ >= pay_cps_)
         on_sym_();

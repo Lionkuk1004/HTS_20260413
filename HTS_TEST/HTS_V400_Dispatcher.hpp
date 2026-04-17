@@ -501,6 +501,12 @@ namespace ProtectedEngine {
         uint32_t holo_lpi_seed_[4]{};
         uint8_t holo_lpi_mix_q8_{ 128 };
         int16_t holo_lpi_scalars_[64]{};
+        /// RX Holo LPI: `Generate_Scalars` time_slot — `rx_seq_`와 패킷 단위 동기
+        uint32_t holo_lpi_rx_slot_{ 0 };
+        /// RX 패킷 내 칩 인덱스 (TX `Apply`와 동일, 64칩 주기 스칼라)
+        uint32_t holo_lpi_rx_chip_idx_{ 0 };
+        /// 마지막으로 생성한 RX 스칼라 time_slot (재생성 판별)
+        uint32_t holo_lpi_rx_scalars_seq_{ 0xFFFFFFFFu };
 
         /// @brief RF 측정값 (비소유 포인터, nullptr 허용)
         HTS_RF_Metrics* p_metrics_{ nullptr };
@@ -591,6 +597,10 @@ namespace ProtectedEngine {
 
         /// @brief CW Pre-Canceller (64칩 전용, 8칩 주기)
         void cw_cancel_64_(int16_t* I, int16_t* Q) noexcept;
+
+        /// Holo LPI RX 역스칼라 (Walsh·상관 전, `scalar_time_slot` = `rx_seq_` 또는 Retx용)
+        void apply_holo_lpi_inverse_rx_chip_(int16_t& chip_I, int16_t& chip_Q,
+                                             uint32_t scalar_time_slot) noexcept;
     };
 
     // ── SRAM budget static checks ─────────────────────────────

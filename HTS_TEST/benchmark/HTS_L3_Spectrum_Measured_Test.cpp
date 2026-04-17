@@ -174,62 +174,141 @@ static double aclr_dbc_worst(const double *psd_lin, int n2, int peak,
 //   margin = mask_limit - measured_peak_dBc (양수=PASS)
 // ────────────────────────────────────────────────────────────
 struct SEM_Result {
-    double margin_01bw;   // 0~1BW 영역 여유 (양수=통과)
+    double margin_01bw;   // 0~1BW 영역 여유 (양수=통과, 측정 불가 시 0)
     double margin_12bw;   // 1~2BW 영역 여유
     double margin_25bw;   // 2~5BW 영역 여유
+    bool   valid_01bw;    // FFT/OBW 윈도우와 겹침 — false면 측정 불가
+    bool   valid_12bw;
+    bool   valid_25bw;
     bool   pass;
 };
 
+static bool sem_slice_overlap(int lo, int hi, int n2, int *out_lo,
+                              int *out_hi) noexcept {
+    if (hi < 0 || lo >= n2) {
+        return false;
+    }
+    *out_lo = (lo < 0) ? 0 : lo;
+    *out_hi = (hi >= n2) ? (n2 - 1) : hi;
+    return *out_lo <= *out_hi;
+}
+
+static bool sem_peak_dbc_in(const double *psd_lin, int n2, double peak_power,
+                            int lo, int hi, double *out_dbc) noexcept {
+    int a = 0;
+    int b = 0;
+    if (!sem_slice_overlap(lo, hi, n2, &a, &b)) {
+        return false;
+    }
+    double mx = 0.0;
+    for (int i = a; i <= b; ++i) {
+        if (psd_lin[i] > mx) {
+            mx = psd_lin[i];
+        }
+    }
+    if (mx <= 1e-30) {
+        *out_dbc = -120.0;
+    } else {
+        *out_dbc = 10.0 * std::log10(mx / peak_power);
+    }
+    return true;
+}
+
 static SEM_Result compute_sem_corrected(const double *psd_lin, int n2,
                                          int peak_bin, int obw_bins_half) {
-    SEM_Result r = {0.0, 0.0, 0.0, false};
-    
-    // 주채널 피크 전력
+    SEM_Result r{};
+    r.valid_01bw = false;
+    r.valid_12bw = false;
+    r.valid_25bw = false;
+    r.pass = false;
+
     double peak_power = 0.0;
     for (int i = 0; i < n2; ++i) {
-        if (psd_lin[i] > peak_power) peak_power = psd_lin[i];
+        if (psd_lin[i] > peak_power) {
+            peak_power = psd_lin[i];
+        }
     }
-    if (peak_power <= 1e-30) return r;
-    
-    // 영역 경계 (주채널 에지 기준으로 OBW 단위 오프셋)
+    if (peak_power <= 1e-30) {
+        return r;
+    }
+
     const int edge_lo = peak_bin - obw_bins_half;
     const int edge_hi = peak_bin + obw_bins_half;
     const int bw = obw_bins_half * 2;
-    if (bw <= 0) return r;
-    
-    // 각 영역에서 피크 PSD 탐색
-    auto region_peak_dbc = [&](int lo, int hi) -> double {
-        if (lo < 0) lo = 0;
-        if (hi >= n2) hi = n2 - 1;
-        if (lo > hi) return -120.0;
-        double mx = 0.0;
-        for (int i = lo; i <= hi; ++i) {
-            if (psd_lin[i] > mx) mx = psd_lin[i];
-        }
-        if (mx <= 1e-30) return -120.0;
-        return 10.0 * std::log10(mx / peak_power);
-    };
-    
-    // 0~1BW: 주채널 에지에서 1 BW 떨어진 영역 (양쪽)
-    double dbc_01_lo = region_peak_dbc(edge_lo - bw, edge_lo - 1);
-    double dbc_01_hi = region_peak_dbc(edge_hi + 1, edge_hi + bw);
-    double dbc_01 = (dbc_01_lo > dbc_01_hi) ? dbc_01_lo : dbc_01_hi;
-    
-    // 1~2BW
-    double dbc_12_lo = region_peak_dbc(edge_lo - 2*bw, edge_lo - bw - 1);
-    double dbc_12_hi = region_peak_dbc(edge_hi + bw + 1, edge_hi + 2*bw);
-    double dbc_12 = (dbc_12_lo > dbc_12_hi) ? dbc_12_lo : dbc_12_hi;
-    
-    // 2~5BW
-    double dbc_25_lo = region_peak_dbc(edge_lo - 5*bw, edge_lo - 2*bw - 1);
-    double dbc_25_hi = region_peak_dbc(edge_hi + 2*bw + 1, edge_hi + 5*bw);
-    double dbc_25 = (dbc_25_lo > dbc_25_hi) ? dbc_25_lo : dbc_25_hi;
-    
-    // 마스크: margin = mask - measured (양수=PASS)
-    r.margin_01bw = -12.0 - dbc_01;   // mask -12 dBc
-    r.margin_12bw = -20.0 - dbc_12;   // mask -20 dBc
-    r.margin_25bw = -25.0 - dbc_25;   // mask -25 dBc
-    r.pass = (r.margin_01bw >= 0.0) && (r.margin_12bw >= 0.0) && (r.margin_25bw >= 0.0);
+    if (bw <= 0) {
+        return r;
+    }
+
+    // 0~1BW (양쪽 중 유효한 쪽만 사용)
+    double dbc_01_lo = 0.0;
+    double dbc_01_hi = 0.0;
+    const bool v01_lo =
+        sem_peak_dbc_in(psd_lin, n2, peak_power, edge_lo - bw, edge_lo - 1,
+                        &dbc_01_lo);
+    const bool v01_hi =
+        sem_peak_dbc_in(psd_lin, n2, peak_power, edge_hi + 1, edge_hi + bw,
+                        &dbc_01_hi);
+    r.valid_01bw = v01_lo || v01_hi;
+    double dbc_01 = -120.0;
+    if (v01_lo && v01_hi) {
+        dbc_01 = (dbc_01_lo > dbc_01_hi) ? dbc_01_lo : dbc_01_hi;
+    } else if (v01_lo) {
+        dbc_01 = dbc_01_lo;
+    } else if (v01_hi) {
+        dbc_01 = dbc_01_hi;
+    }
+
+    double dbc_12_lo = 0.0;
+    double dbc_12_hi = 0.0;
+    const bool v12_lo = sem_peak_dbc_in(
+        psd_lin, n2, peak_power, edge_lo - 2 * bw, edge_lo - bw - 1, &dbc_12_lo);
+    const bool v12_hi = sem_peak_dbc_in(
+        psd_lin, n2, peak_power, edge_hi + bw + 1, edge_hi + 2 * bw, &dbc_12_hi);
+    r.valid_12bw = v12_lo || v12_hi;
+    double dbc_12 = -120.0;
+    if (v12_lo && v12_hi) {
+        dbc_12 = (dbc_12_lo > dbc_12_hi) ? dbc_12_lo : dbc_12_hi;
+    } else if (v12_lo) {
+        dbc_12 = dbc_12_lo;
+    } else if (v12_hi) {
+        dbc_12 = dbc_12_hi;
+    }
+
+    double dbc_25_lo = 0.0;
+    double dbc_25_hi = 0.0;
+    const bool v25_lo = sem_peak_dbc_in(
+        psd_lin, n2, peak_power, edge_lo - 5 * bw, edge_lo - 2 * bw - 1,
+        &dbc_25_lo);
+    const bool v25_hi = sem_peak_dbc_in(
+        psd_lin, n2, peak_power, edge_hi + 2 * bw + 1, edge_hi + 5 * bw,
+        &dbc_25_hi);
+    r.valid_25bw = v25_lo || v25_hi;
+    double dbc_25 = -120.0;
+    if (v25_lo && v25_hi) {
+        dbc_25 = (dbc_25_lo > dbc_25_hi) ? dbc_25_lo : dbc_25_hi;
+    } else if (v25_lo) {
+        dbc_25 = dbc_25_lo;
+    } else if (v25_hi) {
+        dbc_25 = dbc_25_hi;
+    }
+
+    r.margin_01bw = r.valid_01bw ? (-12.0 - dbc_01) : 0.0;
+    r.margin_12bw = r.valid_12bw ? (-20.0 - dbc_12) : 0.0;
+    r.margin_25bw = r.valid_25bw ? (-25.0 - dbc_25) : 0.0;
+
+    r.pass = true;
+    if (r.valid_01bw) {
+        r.pass = r.pass && (r.margin_01bw >= 0.0);
+    }
+    if (r.valid_12bw) {
+        r.pass = r.pass && (r.margin_12bw >= 0.0);
+    }
+    if (r.valid_25bw) {
+        r.pass = r.pass && (r.margin_25bw >= 0.0);
+    }
+    if (!r.valid_01bw && !r.valid_12bw && !r.valid_25bw) {
+        r.pass = false;
+    }
     return r;
 }
 
@@ -391,13 +470,27 @@ static void test_L3M_spectrum_measured() {
     std::printf("      LTE 기준 -45 dBc 대비: NRZ %+.1f dB / Gauss %+.1f dB\n",
                 -45.0 - aclr_nrz, -45.0 - aclr_ga);
     
+    auto fmt_sem_cell = [](char *buf, std::size_t bufsz, bool valid,
+                           double margin) noexcept -> void {
+        if (!valid) {
+            std::snprintf(buf, bufsz, "N/A (범위외)");
+        } else {
+            std::snprintf(buf, bufsz, "%+.1f", margin);
+        }
+    };
+    char sn1[40], sn2[40], sn3[40], sg1[40], sg2[40], sg3[40];
+    fmt_sem_cell(sn1, sizeof(sn1), sem_nrz.valid_01bw, sem_nrz.margin_01bw);
+    fmt_sem_cell(sn2, sizeof(sn2), sem_nrz.valid_12bw, sem_nrz.margin_12bw);
+    fmt_sem_cell(sn3, sizeof(sn3), sem_nrz.valid_25bw, sem_nrz.margin_25bw);
+    fmt_sem_cell(sg1, sizeof(sg1), sem_ga.valid_01bw, sem_ga.margin_01bw);
+    fmt_sem_cell(sg2, sizeof(sg2), sem_ga.valid_12bw, sem_ga.margin_12bw);
+    fmt_sem_cell(sg3, sizeof(sg3), sem_ga.valid_25bw, sem_ga.margin_25bw);
+
     std::printf("  [3] SEM (3GPP TS 36.104)\n");
-    std::printf("      NRZ:  0~1BW %+.1f / 1~2BW %+.1f / 2~5BW %+.1f → %s\n",
-                sem_nrz.margin_01bw, sem_nrz.margin_12bw, sem_nrz.margin_25bw,
-                sem_nrz.pass ? "PASS" : "FAIL");
-    std::printf("      Gauss: 0~1BW %+.1f / 1~2BW %+.1f / 2~5BW %+.1f → %s\n",
-                sem_ga.margin_01bw, sem_ga.margin_12bw, sem_ga.margin_25bw,
-                sem_ga.pass ? "PASS" : "FAIL");
+    std::printf("      NRZ:  0~1BW %s / 1~2BW %s / 2~5BW %s → %s\n",
+                sn1, sn2, sn3, sem_nrz.pass ? "PASS" : "FAIL");
+    std::printf("      Gauss: 0~1BW %s / 1~2BW %s / 2~5BW %s → %s\n",
+                sg1, sg2, sg3, sem_ga.pass ? "PASS" : "FAIL");
     
     std::printf("  [4] EVM (3GPP TS 36.104, LS 게인 보정)\n");
     std::printf("      NRZ: %.2f%% / Gauss: %.2f%%\n", evm_nrz, evm_ga);
