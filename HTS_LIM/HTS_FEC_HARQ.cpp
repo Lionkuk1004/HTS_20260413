@@ -1006,22 +1006,28 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
 #if defined(HTS_FEC_POLAR_ENABLE)
     (void)il_seed;
     (void)rv;
-    // ── Polar 칩 누적 디코딩 경로 (CURSOR_POLAR_REVERT_BASELINE) ──
-    // 칩 도메인 coherent 누적(I+Q) → 단일 FWHT → Max-Log LLR → Polar
+    // ── P0-FIX-004: Polar 경로 위상 독립화 ──
+    // 구(舊): s_chip_acc += (Ii + Qi) 로 chip 도메인 I+Q 합산.
+    //         채널 회전 θ 에서 Ii+Qi = 2·amp·cosθ → θ=90°/270° 소멸,
+    //         θ=180° 부호 반전. S2 90°~270° 전멸의 지배 원인.
+    // 신(新): chip 도메인 누적을 제거하고, 매 라운드 심볼마다
+    //         I/Q 독립 FWHT → 에너지 Max-Log LLR → ir_state.llr_accum 에
+    //         직접 누적. Non-coherent M-ary orthogonal 검출의 정석.
+    //         #else (Conv) 경로와 동일한 라운드 간 LLR 누적 구조로 통일.
+    //         SRAM 추가 0 (s_chip_acc 미사용).
     // (위 심볼 루프의 wb.ru.all_llr는 Polar에서 미사용; Conv #else만 사용)
     // T18: DWT CYCCNT / TSC 구간 계측 (로직 불변)
 
-    static int32_t s_chip_acc[NSYM64 * C64];
     static int16_t polar_llr16[POLAR_N];
 
     const uint32_t t18_total_start = HTS_DWT::Read();
 
-    if (ir_state.rounds_done == 0) {
-        std::memset(static_cast<void *>(s_chip_acc), 0, sizeof(s_chip_acc));
-    }
+    int32_t polar_llr_coded[TOTAL_CODED] = {};
 
-    for (int s = 0; s < nsym; ++s) {
-        const int base = s * nc;
+    const uint32_t t18_fwht_start = HTS_DWT::Read();
+    for (int sym = 0; sym < nsym; ++sym) {
+        const int base = sym * nc;
+        // erasure 마스크 적용 + I/Q 분리 복사
         for (int c = 0; c < nc; ++c) {
             const int32_t Ii = static_cast<int32_t>(sym_I[base + c]);
             const int32_t Qi = static_cast<int32_t>(sym_Q[base + c]);
@@ -1031,47 +1037,58 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             const uint32_t allow_chip =
                 (1u - er_en) | static_cast<uint32_t>(mag <= kErasureMagTh);
             const int32_t mask = -static_cast<int32_t>(allow_chip);
-            s_chip_acc[base + c] += (Ii & mask) + (Qi & mask);
+            fI[static_cast<std::size_t>(c)] = Ii & mask;
+            fQ[static_cast<std::size_t>(c)] = Qi & mask;
         }
-    }
-    ++ir_state.rounds_done;
+        FWHT(fI.data(), nc);
+        FWHT(fQ.data(), nc);
 
-    int32_t polar_llr_coded[TOTAL_CODED] = {};
-
-    const uint32_t t18_fwht_start = HTS_DWT::Read();
-    for (int sym = 0; sym < nsym; ++sym) {
-        const int sym_base = sym * nc;
-        for (int c = 0; c < nc; ++c) {
-            g_fec_dec_fI[static_cast<std::size_t>(c)] =
-                s_chip_acc[sym_base + c];
-        }
-        FWHT(g_fec_dec_fI.data(), nc);
         const int valid = 1 << bps;
         for (int b = 0; b < bps; ++b) {
             const int sh_bit = bps - 1 - b;
-            int32_t pos_max = INT32_MIN;
-            int32_t neg_max = INT32_MIN;
+            // Max-Log bit LLR: max(E|bit=0) - max(E|bit=1)
+            //   E[m] = |fI[m]|² + |fQ[m]|²  (θ 불변)
+            int64_t pos_max = INT64_MIN;
+            int64_t neg_max = INT64_MIN;
             for (int m = 0; m < valid; ++m) {
-                const int32_t corr =
-                    g_fec_dec_fI[static_cast<std::size_t>(m)];
+                const int64_t fIm =
+                    static_cast<int64_t>(fI[static_cast<std::size_t>(m)]);
+                const int64_t fQm =
+                    static_cast<int64_t>(fQ[static_cast<std::size_t>(m)]);
+                const int64_t eI = fIm * fIm;
+                const int64_t eQ = fQm * fQm;
+                const int64_t e = eI + eQ;
                 const uint32_t is_one =
                     0u - ((static_cast<uint32_t>(m) >>
                            static_cast<uint32_t>(sh_bit)) &
                           1u);
                 const uint32_t is_zero = ~is_one;
-                if (is_zero != 0u && corr > pos_max) {
-                    pos_max = corr;
+                if (is_zero != 0u && e > pos_max) {
+                    pos_max = e;
                 }
-                if (is_one != 0u && corr > neg_max) {
-                    neg_max = corr;
+                if (is_one != 0u && e > neg_max) {
+                    neg_max = e;
                 }
             }
             const int bi = sym * bps + b;
+            // 스케일: 최대 E ≈ (amp·nc)² ≈ (1000·64)² = 4.1e9
+            // pos_max - neg_max 최대 ≈ 4.1e9, >>18 → ≈ 15600 → Polar
+            // 후단 fold/clamp 가 max_abs 기반 적응 시프트 하므로 이 단계
+            // 고정 시프트는 최종 결과 스케일에 크게 영향 안 줌.
+            // 기존 >>10 은 corr 도메인(~±128000 수준)용이라, 에너지 도메인
+            // 크기에 맞춰 >>18 로 이동.
             if (bi < TOTAL_CODED) {
-                polar_llr_coded[bi] = (pos_max - neg_max) >> 10;
+                const int64_t raw = pos_max - neg_max;
+                const int64_t v = raw >> 18;
+                const int64_t hi = static_cast<int64_t>(INT32_MAX);
+                const int64_t lo = static_cast<int64_t>(INT32_MIN);
+                const int64_t clamped =
+                    (v > hi) ? hi : ((v < lo) ? lo : v);
+                polar_llr_coded[bi] = static_cast<int32_t>(clamped);
             }
         }
     }
+    ++ir_state.rounds_done;
     const uint32_t t18_fwht_end = HTS_DWT::Read();
 
     std::memset(static_cast<void *>(ir_state.llr_accum), 0,
