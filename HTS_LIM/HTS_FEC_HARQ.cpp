@@ -1006,22 +1006,23 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
 #if defined(HTS_FEC_POLAR_ENABLE)
     (void)il_seed;
     (void)rv;
-    // ── Polar 칩 누적 디코딩 경로 (CURSOR_POLAR_REVERT_BASELINE) ──
-    // 칩 도메인 coherent 누적(I+Q) → 단일 FWHT → Max-Log LLR → Polar
-    // (위 심볼 루프의 wb.ru.all_llr는 Polar에서 미사용; Conv #else만 사용)
-    // T18: DWT CYCCNT / TSC 구간 계측 (로직 불변)
-
-    static int32_t s_chip_acc[NSYM64 * C64];
+    // ── P0-FIX-004: Polar 경로 위상 독립화 ──
+    //  구(舊) s_chip_acc += (Ii + Qi) 는 chip 도메인 I+Q 합산.
+    //   채널 회전 θ 에서 Ii+Qi = 2·amp·cosθ
+    //   → θ=90°/270° 소멸, θ=180° 부호 반전. S2 전멸 원인.
+    //  신(新) chip 도메인 누적 제거. 심볼별 I/Q 독립 FWHT →
+    //   에너지 Max-Log |fI|²+|fQ|² → polar_llr_coded.
+    //   라운드 간 누적은 후단 ir_state.llr_accum 에서 수행.
+    //   SRAM: s_chip_acc[NSYM64*C64] 제거로 44 KB 반환.
     static int16_t polar_llr16[POLAR_N];
 
     const uint32_t t18_total_start = HTS_DWT::Read();
 
-    if (ir_state.rounds_done == 0) {
-        std::memset(static_cast<void *>(s_chip_acc), 0, sizeof(s_chip_acc));
-    }
+    int32_t polar_llr_coded[TOTAL_CODED] = {};
 
-    for (int s = 0; s < nsym; ++s) {
-        const int base = s * nc;
+    const uint32_t t18_fwht_start = HTS_DWT::Read();
+    for (int sym = 0; sym < nsym; ++sym) {
+        const int base = sym * nc;
         for (int c = 0; c < nc; ++c) {
             const int32_t Ii = static_cast<int32_t>(sym_I[base + c]);
             const int32_t Qi = static_cast<int32_t>(sym_Q[base + c]);
@@ -1031,47 +1032,49 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             const uint32_t allow_chip =
                 (1u - er_en) | static_cast<uint32_t>(mag <= kErasureMagTh);
             const int32_t mask = -static_cast<int32_t>(allow_chip);
-            s_chip_acc[base + c] += (Ii & mask) + (Qi & mask);
-        }
-    }
-    ++ir_state.rounds_done;
-
-    int32_t polar_llr_coded[TOTAL_CODED] = {};
-
-    const uint32_t t18_fwht_start = HTS_DWT::Read();
-    for (int sym = 0; sym < nsym; ++sym) {
-        const int sym_base = sym * nc;
-        for (int c = 0; c < nc; ++c) {
-            g_fec_dec_fI[static_cast<std::size_t>(c)] =
-                s_chip_acc[sym_base + c];
+            g_fec_dec_fI[static_cast<std::size_t>(c)] = Ii & mask;
+            g_fec_dec_fQ[static_cast<std::size_t>(c)] = Qi & mask;
         }
         FWHT(g_fec_dec_fI.data(), nc);
+        FWHT(g_fec_dec_fQ.data(), nc);
         const int valid = 1 << bps;
         for (int b = 0; b < bps; ++b) {
             const int sh_bit = bps - 1 - b;
-            int32_t pos_max = INT32_MIN;
-            int32_t neg_max = INT32_MIN;
+            int64_t pos_max = INT64_MIN;
+            int64_t neg_max = INT64_MIN;
             for (int m = 0; m < valid; ++m) {
-                const int32_t corr =
-                    g_fec_dec_fI[static_cast<std::size_t>(m)];
+                const int64_t fi =
+                    static_cast<int64_t>(g_fec_dec_fI[
+                        static_cast<std::size_t>(m)]);
+                const int64_t fq =
+                    static_cast<int64_t>(g_fec_dec_fQ[
+                        static_cast<std::size_t>(m)]);
+                const int64_t e = fi * fi + fq * fq;
                 const uint32_t is_one =
                     0u - ((static_cast<uint32_t>(m) >>
                            static_cast<uint32_t>(sh_bit)) &
                           1u);
                 const uint32_t is_zero = ~is_one;
-                if (is_zero != 0u && corr > pos_max) {
-                    pos_max = corr;
+                if (is_zero != 0u && e > pos_max) {
+                    pos_max = e;
                 }
-                if (is_one != 0u && corr > neg_max) {
-                    neg_max = corr;
+                if (is_one != 0u && e > neg_max) {
+                    neg_max = e;
                 }
             }
             const int bi = sym * bps + b;
             if (bi < TOTAL_CODED) {
-                polar_llr_coded[bi] = (pos_max - neg_max) >> 10;
+                const int64_t raw = pos_max - neg_max;
+                const int64_t v = raw >> 18;
+                const int64_t hi = static_cast<int64_t>(INT32_MAX);
+                const int64_t lo = static_cast<int64_t>(INT32_MIN);
+                const int64_t clamped =
+                    (v > hi) ? hi : ((v < lo) ? lo : v);
+                polar_llr_coded[bi] = static_cast<int32_t>(clamped);
             }
         }
     }
+    ++ir_state.rounds_done;
     const uint32_t t18_fwht_end = HTS_DWT::Read();
 
     std::memset(static_cast<void *>(ir_state.llr_accum), 0,
