@@ -23,6 +23,19 @@ namespace {
 static constexpr const char *DOMAIN_WALSH_ROW_PERM = "HTS_WALSH_ROW_PERM";
 /// 세션 material 요구 바이트 수 (16 byte = 128bit 엔트로피)
 static constexpr size_t SESSION_MATERIAL_BYTES = 16u;
+
+/// Update_Key 파생 상수 — 매직 넘버 대신 명명 상수
+static constexpr uint32_t TX_SEQ_ROT_BITS = 13u;   // prime rotate, 32 의 약수 아님
+static constexpr uint32_t HARQ_ROUND_SHIFT = 3u;  // HARQ round 비트 분산 위치
+
+/// @brief 4 byte little-endian 배열 → uint32_t (endian-independent)
+/// @note  17 항목 준수 — memcpy 대신 bit-shift 사용
+static inline uint32_t pack_le32(const uint8_t *b) noexcept {
+    return static_cast<uint32_t>(b[0]) |
+           (static_cast<uint32_t>(b[1]) << 8u) |
+           (static_cast<uint32_t>(b[2]) << 16u) |
+           (static_cast<uint32_t>(b[3]) << 24u);
+}
 } // namespace
 // =====================================================================
 //  Impl — Pimpl 은닉
@@ -88,6 +101,11 @@ Walsh_Row_Permuter::~Walsh_Row_Permuter() noexcept {
     if (!initialized_.load(std::memory_order_acquire)) {
         return;
     }
+
+    // 캐시 mask 즉시 wipe (secure wipe 전 0 으로 재설정)
+    cached_mask_6bit_.store(0u, std::memory_order_release);
+    cached_mask_4bit_.store(0u, std::memory_order_release);
+
     Impl *p = reinterpret_cast<Impl *>(impl_buf_);
     p->~Impl();
     SecureMemory::secureWipe(static_cast<void *>(impl_buf_), sizeof(impl_buf_));
@@ -104,8 +122,8 @@ Walsh_Row_Permuter::~Walsh_Row_Permuter() noexcept {
 //   2) tx_seq / harq_round 로 마스크 계산 (Update_Key 재사용)
 //   3) CAS 로 initialized_ 설정 (compare_exchange_strong, acq_rel)
 // =====================================================================
-uint32_t Walsh_Row_Permuter::Initialize(uint32_t tx_seq,
-                                        uint8_t harq_round) noexcept {
+[[nodiscard]] uint32_t
+Walsh_Row_Permuter::Initialize(uint32_t tx_seq, uint8_t harq_round) noexcept {
     bool expected = false;
     if (!initialized_.compare_exchange_strong(expected, true,
                                               std::memory_order_acq_rel,
@@ -120,6 +138,9 @@ uint32_t Walsh_Row_Permuter::Initialize(uint32_t tx_seq,
     if (derived_len < SESSION_MATERIAL_BYTES) {
         p->~Impl();
         std::memset(impl_buf_, 0, sizeof(impl_buf_));
+        // 캐시 mask 도 0 유지 (fail-closed)
+        cached_mask_6bit_.store(0u, std::memory_order_release);
+        cached_mask_4bit_.store(0u, std::memory_order_release);
         initialized_.store(false, std::memory_order_release);
         return SECURE_FALSE;
     }
@@ -138,42 +159,59 @@ uint32_t Walsh_Row_Permuter::Initialize(uint32_t tx_seq,
 //  · 32bit 곱 0회 (XOR / SHIFT / OR 만)
 //  · XOR-fold 로 session material 엔트로피를 6bit/4bit 에 압축
 // =====================================================================
-uint32_t Walsh_Row_Permuter::Update_Key(uint32_t tx_seq,
-                                        uint8_t harq_round) noexcept {
-    Impl *p = reinterpret_cast<Impl *>(impl_buf_);
-    if (p == nullptr) {
+[[nodiscard]] uint32_t
+Walsh_Row_Permuter::Update_Key(uint32_t tx_seq, uint8_t harq_round) noexcept {
+    // 초기화 확인 — 재진입 안전
+    if (!initialized_.load(std::memory_order_acquire)) {
         return SECURE_FALSE;
     }
-    // session_mat_ 16 byte → 32bit word 4개
-    uint32_t s0 = 0u;
-    uint32_t s1 = 0u;
-    uint32_t s2 = 0u;
-    uint32_t s3 = 0u;
-    std::memcpy(&s0, &p->session_mat_[0], 4u);
-    std::memcpy(&s1, &p->session_mat_[4], 4u);
-    std::memcpy(&s2, &p->session_mat_[8], 4u);
-    std::memcpy(&s3, &p->session_mat_[12], 4u);
-    // tx_seq rotate 13 (MISRA: 명시 캐스팅 + 32bit 불변)
-    const uint32_t ts_rot13 = (tx_seq << 13u) | (tx_seq >> (32u - 13u));
-    const uint32_t hr_shift = static_cast<uint32_t>(harq_round) << 3u;
+    Impl *p = reinterpret_cast<Impl *>(impl_buf_);
+
+    // session_mat_ 16 byte → 32bit word 4개 (endian-independent)
+    const uint32_t s0 = pack_le32(&p->session_mat_[0]);
+    const uint32_t s1 = pack_le32(&p->session_mat_[4]);
+    const uint32_t s2 = pack_le32(&p->session_mat_[8]);
+    const uint32_t s3 = pack_le32(&p->session_mat_[12]);
+
+    // tx_seq rotate: 비트 분산 (prime, 32 의 약수 아님)
+    const uint32_t ts_rot =
+        (tx_seq << TX_SEQ_ROT_BITS) | (tx_seq >> (32u - TX_SEQ_ROT_BITS));
+    const uint32_t hr_shift =
+        static_cast<uint32_t>(harq_round) << HARQ_ROUND_SHIFT;
+
     // 믹싱: 4개 word 를 XOR 체인 + tx_seq/harq 삽입
-    uint32_t mix = s0 ^ s1 ^ s2 ^ s3 ^ ts_rot13 ^ hr_shift;
+    const uint32_t mix = s0 ^ s1 ^ s2 ^ s3 ^ ts_rot ^ hr_shift;
+
     // XOR-fold: 32bit → 6bit / 4bit 압축 (엔트로피 보존 + 편향 완화)
+    //   6bit fold: 32/6 ≈ 5 단계 (6, 12, 18, 24 shift)
     const uint32_t fold6 =
         mix ^ (mix >> 6u) ^ (mix >> 12u) ^ (mix >> 18u) ^ (mix >> 24u);
-    const uint32_t fold4 = mix ^ (mix >> 4u) ^ (mix >> 8u) ^ (mix >> 12u) ^
-                           (mix >> 16u) ^ (mix >> 20u) ^ (mix >> 24u) ^
-                           (mix >> 28u);
-    p->mask_6bit_ = static_cast<uint8_t>(fold6 & MASK_6BIT);
-    p->mask_4bit_ = static_cast<uint8_t>(fold4 & MASK_4BIT);
+    //   4bit fold: 32/4 = 8 단계 (4, 8, 12, 16, 20, 24, 28 shift)
+    const uint32_t fold4 =
+        mix ^ (mix >> 4u) ^ (mix >> 8u) ^ (mix >> 12u) ^ (mix >> 16u) ^
+        (mix >> 20u) ^ (mix >> 24u) ^ (mix >> 28u);
+
+    const uint8_t m6 = static_cast<uint8_t>(fold6 & MASK_6BIT);
+    const uint8_t m4 = static_cast<uint8_t>(fold4 & MASK_4BIT);
+
+    // Impl 내부 기록 (콜드 패스)
+    p->mask_6bit_ = m6;
+    p->mask_4bit_ = m4;
     p->tx_seq_cached_ = tx_seq;
     p->harq_round_cached_ = harq_round;
     p->update_count_++;
-    // 가시성: 다른 코어/ISR 이 mask 읽기 전에 반드시 커밋되어야 함
+
+    // 컴파일러/CPU 재배치 방어 (memory barrier)
 #if defined(__GNUC__) || defined(__clang__)
     __asm__ __volatile__("" ::: "memory");
 #endif
     std::atomic_thread_fence(std::memory_order_release);
+
+    // [성능 최적화] 캐시 mask 업데이트 (release store)
+    //   핫 루프 (Encode/Decode) 에서 relaxed load 가능하도록
+    cached_mask_6bit_.store(m6, std::memory_order_release);
+    cached_mask_4bit_.store(m4, std::memory_order_release);
+
     return SECURE_TRUE;
 }
 // =====================================================================
@@ -182,27 +220,27 @@ uint32_t Walsh_Row_Permuter::Update_Key(uint32_t tx_seq,
 //   encode_N(raw)   = raw ^ mask_N
 //   decode_N(enc)   = enc ^ mask_N   (XOR 자기 역원 → encode 와 동일 연산)
 //
-//   비초기화 상태에서 호출 시: mask=0 → permutation 미적용 (호환성 보장)
+//   비초기화 상태에서 호출 시: cached_mask_=0 (atomic 초기값) → 항등
 //   → 상위 레이어 실수로 Initialize 누락해도 raw sym 그대로 통과
 // =====================================================================
+// ── 핫 패스: Impl 경유 없이 atomic mask 직접 load (relaxed) ──
+//   · 비초기화 상태: cached_mask_ = 0 (atomic 초기값) → mask=0 항등
+//   · Initialize/Update_Key 에서 release store → TX/RX 시퀀스 동기 충분
+//   · relaxed load: ARM Cortex-M4 에서 일반 LDRB 와 동일 비용 (~2 cyc)
 uint8_t Walsh_Row_Permuter::Encode_6bit(uint8_t raw_sym6) const noexcept {
-    const Impl *p = get_impl();
-    const uint8_t m = (p != nullptr) ? p->mask_6bit_ : 0u;
+    const uint8_t m = cached_mask_6bit_.load(std::memory_order_relaxed);
     return static_cast<uint8_t>((raw_sym6 ^ m) & MASK_6BIT);
 }
 uint8_t Walsh_Row_Permuter::Decode_6bit(uint8_t enc_sym6) const noexcept {
-    const Impl *p = get_impl();
-    const uint8_t m = (p != nullptr) ? p->mask_6bit_ : 0u;
+    const uint8_t m = cached_mask_6bit_.load(std::memory_order_relaxed);
     return static_cast<uint8_t>((enc_sym6 ^ m) & MASK_6BIT);
 }
 uint8_t Walsh_Row_Permuter::Encode_4bit(uint8_t raw_sym4) const noexcept {
-    const Impl *p = get_impl();
-    const uint8_t m = (p != nullptr) ? p->mask_4bit_ : 0u;
+    const uint8_t m = cached_mask_4bit_.load(std::memory_order_relaxed);
     return static_cast<uint8_t>((raw_sym4 ^ m) & MASK_4BIT);
 }
 uint8_t Walsh_Row_Permuter::Decode_4bit(uint8_t enc_sym4) const noexcept {
-    const Impl *p = get_impl();
-    const uint8_t m = (p != nullptr) ? p->mask_4bit_ : 0u;
+    const uint8_t m = cached_mask_4bit_.load(std::memory_order_relaxed);
     return static_cast<uint8_t>((enc_sym4 ^ m) & MASK_4BIT);
 }
 uint32_t Walsh_Row_Permuter::Get_Update_Count() const noexcept {
