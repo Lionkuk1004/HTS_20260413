@@ -265,8 +265,8 @@ HTS_V400_Dispatcher::walsh_dec_dot_proj_full_(const int16_t *I, const int16_t *Q
     const int16_t *srcI = (p_ok != 0u) ? I : k_walsh_dummy_iq_;
     const int16_t *srcQ = (p_ok != 0u) ? Q : k_walsh_dummy_iq_;
     for (int i = 0; i < 64; ++i) {
-        dec_wI_[i] = static_cast<int32_t>(srcI[i]);
-        dec_wQ_[i] = static_cast<int32_t>(srcQ[i]);
+        dec_wI_[i] = srcI[i];
+        dec_wQ_[i] = srcQ[i];
     }
     fwht_raw(dec_wI_, 64);
     fwht_raw(dec_wQ_, 64);
@@ -276,46 +276,53 @@ HTS_V400_Dispatcher::walsh_dec_dot_proj_full_(const int16_t *I, const int16_t *Q
         const int valid = 1 << bps;
         search = (valid < 64) ? valid : 64;
     }
-    uint8_t best_m = 0u;
-    if (est_count_ > 0) {
-        int64_t best_score = INT64_MIN;
-        for (int m = 0; m < search; ++m) {
-            const int64_t score =
-                static_cast<int64_t>(dec_wI_[m]) *
-                    static_cast<int64_t>(est_I_) +
-                static_cast<int64_t>(dec_wQ_[m]) *
-                    static_cast<int64_t>(est_Q_);
-            if (score > best_score) {
-                best_score = score;
-                best_m = static_cast<uint8_t>(m);
-            }
-        }
-    } else {
-        int32_t best_e = 0;
-        for (int m = 0; m < search; ++m) {
-            const int64_t eI =
-                static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m];
-            const int64_t eQ =
-                static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m];
-            const int32_t e = static_cast<int32_t>((eI + eQ) >> 16);
-            if (e > best_e) {
-                best_e = e;
-                best_m = static_cast<uint8_t>(m);
-            }
-        }
+    // Non-coherent 전용: est_I_/est_Q_/est_count_ 기반 coherent 분기 없음
+    // (est_* 는 derot_shift 등 다른 경로 전용). CFO 시 projection 왜곡 방지.
+    // 피크 탐색은 walsh_dec_full_ 과 동일 — I²+Q² 에너지 + branchless + second_e.
+    int32_t best_c = INT32_MIN;
+    int32_t second_c = INT32_MIN;
+    uint8_t dec = 0xFFu;
+    uint8_t dec2 = 0xFFu;
+    for (int m = 0; m < search; ++m) {
+        const int64_t eI = static_cast<int64_t>(dec_wI_[m]) * dec_wI_[m];
+        const int64_t eQ = static_cast<int64_t>(dec_wQ_[m]) * dec_wQ_[m];
+        const int32_t c = static_cast<int32_t>((eI + eQ) >> 16);
+        const uint32_t m_gt_best = 0u - static_cast<uint32_t>(c > best_c);
+        const uint32_t m_gt_sec =
+            0u - ((~m_gt_best & 1u) & static_cast<uint32_t>(c > second_c));
+        const uint32_t m_none = ~(m_gt_best | m_gt_sec);
+        second_c =
+            static_cast<int32_t>((static_cast<uint32_t>(best_c) & m_gt_best) |
+                                 (static_cast<uint32_t>(c) & m_gt_sec) |
+                                 (static_cast<uint32_t>(second_c) & m_none));
+        dec2 = static_cast<uint8_t>((static_cast<uint32_t>(dec) & m_gt_best) |
+                                    (static_cast<uint32_t>(m) & m_gt_sec) |
+                                    (static_cast<uint32_t>(dec2) & m_none));
+        best_c =
+            static_cast<int32_t>((static_cast<uint32_t>(c) & m_gt_best) |
+                                 (static_cast<uint32_t>(best_c) & ~m_gt_best));
+        dec = static_cast<uint8_t>((static_cast<uint32_t>(m) & m_gt_best) |
+                                   (static_cast<uint32_t>(dec) & ~m_gt_best));
     }
     const int32_t mk = -static_cast<int32_t>(p_ok);
-    const int8_t sym_raw =
-        (p_ok == 0u) ? static_cast<int8_t>(-1) : static_cast<int8_t>(best_m);
-    const int8_t sym_out = static_cast<int8_t>(
-        (static_cast<int32_t>(sym_raw) & mk) |
-        (static_cast<int32_t>(-1) & ~mk));
-    const uint32_t bi = static_cast<uint32_t>(best_m) & 63u;
-    const int64_t eI = static_cast<int64_t>(dec_wI_[bi]) * dec_wI_[bi];
-    const int64_t eQ = static_cast<int64_t>(dec_wQ_[bi]) * dec_wQ_[bi];
-    uint32_t be = static_cast<uint32_t>((eI + eQ) >> 16);
+    const int8_t sym_raw = (best_c == INT32_MIN) ? static_cast<int8_t>(-1)
+                                                 : static_cast<int8_t>(dec);
+    const int8_t sym_out =
+        static_cast<int8_t>((static_cast<int32_t>(sym_raw) & mk) |
+                            (static_cast<int32_t>(-1) & ~mk));
+    const uint32_t bi = static_cast<uint32_t>(dec) & 63u;
+    const uint32_t si = static_cast<uint32_t>(dec2) & 63u;
+    const uint64_t be64 =
+        static_cast<uint64_t>(static_cast<int64_t>(dec_wI_[bi]) * dec_wI_[bi] +
+                              static_cast<int64_t>(dec_wQ_[bi]) * dec_wQ_[bi]);
+    const uint64_t se64 =
+        static_cast<uint64_t>(static_cast<int64_t>(dec_wI_[si]) * dec_wI_[si] +
+                              static_cast<int64_t>(dec_wQ_[si]) * dec_wQ_[si]);
+    uint32_t be = static_cast<uint32_t>(be64 >> 16u);
+    uint32_t se = static_cast<uint32_t>(se64 >> 16u);
     be &= static_cast<uint32_t>(mk);
-    return {sym_out, be, 0u};
+    se &= static_cast<uint32_t>(mk);
+    return {sym_out, be, se};
 }
 // ── I=Q 동일 모드 (재밍 방어) ──
 // ── [적응형 I/Q] I/Q 독립 디코딩 ──────────────────────────

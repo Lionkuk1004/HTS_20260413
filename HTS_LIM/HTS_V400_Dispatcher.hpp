@@ -551,6 +551,8 @@ namespace ProtectedEngine {
         /// false=프리앰블·헤더(0..63 Walsh 전체). BPS<6 시 동기 필수.
         SymDecResult walsh_dec_full_(const int16_t* I, const int16_t* Q, int n,
                                      bool cap_search_to_bps = true) noexcept;
+        /// @note 64-chip 전용. I²+Q² non-coherent 피크만 (walsh_dec_full_ 동일).
+        ///       est_* 기반 coherent 분기 없음 — CFO 안정성. 라이브 경로 미호출.
         SymDecResult walsh_dec_dot_proj_full_(const int16_t *I, const int16_t *Q,
                                          bool cap_search_to_bps) noexcept;
 
