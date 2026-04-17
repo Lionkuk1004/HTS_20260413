@@ -822,13 +822,14 @@ const HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() const noexcept {
 }
 void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
     DecodedPacket& pkt) noexcept {
-    if (pkt.data_len < 8)
-        return;
-    tpc_.Apply_Feedback(HTS_TPC_Controller::Extract_Feedback(pkt.data));
-    const int32_t nc_fb = static_cast<int32_t>(pay_cps_);
-    const uint8_t fb = HTS_TPC_Controller::Measure_RSSI_Feedback(
-        orig_I_, orig_Q_, nc_fb, tpc_.Get_Tx_Amp());
-    HTS_TPC_Controller::Embed_Feedback(pkt.data, fb);
+    // ── P0-FIX-005 Stage 0: TPC feedback 임시 격리 ──
+    //  구(舊): Embed_Feedback 이 pkt.data[7] 상위 2 bit 를 RSSI 로 덮어써
+    //   info payload 의 bit 56, 57 을 파괴 (DIAG-CORRUPT 실증).
+    //   Extract_Feedback 은 TX 가 사전 embed 하지 않은 payload 를 오독하여
+    //   잘못된 TPC state 로 갱신.
+    //  신(新): 함수 전체를 no-op 화. TPC 기능은 Stage 2 에서 헤더 기반으로
+    //   재구현 예정 (info payload 무결성 보장).
+    (void)pkt;
 }
 void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
     sic_expect_valid_ = false;
