@@ -14,5 +14,8 @@
     <ClCompile Include="HTS_T6_SIM_Test.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="HTS_Session_Derive_Stub.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

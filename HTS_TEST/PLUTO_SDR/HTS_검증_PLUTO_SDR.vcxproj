@@ -193,20 +193,20 @@
   <!-- PLUTO_SDR 폴더 내 복사본만 컴파일 — HTS_LIM/HTS_TEST 상위 트리 미참조 -->
   <ItemGroup>
     <ClCompile Include="HTS_Pluto_Test.cpp" />
-    <ClCompile Include="HTS_FEC_HARQ.cpp" />
-    <ClCompile Include="HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="..\t6_sim\HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Holo_LPI.cpp" />
-    <ClCompile Include="HTS_RS_GF16.cpp" />
-    <ClCompile Include="HTS_Secure_Memory.cpp" />
-    <ClCompile Include="HTS_AntiJam_Engine.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Secure_Memory.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HTS_FEC_HARQ.hpp" />
-    <ClInclude Include="HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="..\..\HTS_LIM\HTS_FEC_HARQ.hpp" />
+    <ClInclude Include="..\..\HTS_LIM\HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="..\..\HTS_LIM\HTS_Holo_LPI.h" />
-    <ClInclude Include="HTS_RS_GF16.h" />
-    <ClInclude Include="HTS_Secure_Memory.h" />
-    <ClInclude Include="HTS_AntiJam_Engine.h" />
+    <ClInclude Include="..\..\HTS_LIM\HTS_Secure_Memory.h" />
+    <ClInclude Include="..\..\HTS_LIM\HTS_Polar_Codec.h" />
     <ClInclude Include="HTS_RF_Metrics.h" />
     <ClInclude Include="HTS_BitOps.h" />
   </ItemGroup>

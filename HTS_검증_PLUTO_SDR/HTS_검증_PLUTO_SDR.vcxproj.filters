@@ -15,22 +15,25 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.cpp">
+    <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.cpp">
+    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.cpp">
+    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.cpp">
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp">
+    <ClCompile Include="..\HTS_TEST\t6_sim\HTS_Session_Derive_Stub.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.cpp">
+    <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp">
@@ -38,34 +41,31 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_BitOps.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.hpp">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RF_Metrics.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.hpp">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_DWT_Profiler.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_TPC_Controller.h">
+    <ClInclude Include="..\HTS_LIM\HTS_FEC_HARQ.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_LIM\HTS_Polar_Codec.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RF_Metrics.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_LIM\HTS_Secure_Memory.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_LIM\HTS_TPC_Controller.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_LIM\HTS_V400_Dispatcher.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="..\HTS_LIM\HTS_Holo_LPI.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

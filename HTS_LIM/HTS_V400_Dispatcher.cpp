@@ -1,8 +1,7 @@
 // =============================================================================
-// HTS_V400_Dispatcher.cpp — V400 동적 모뎀 디스패처 + 3층 항재밍 통합
+// HTS_V400_Dispatcher.cpp — V400 동적 모뎀 디스패처 + FEC-HARQ 통합
 //
 // [동작 메모]
-//  cw_cancel_64_: sin 상관 + IIR(α=1/4) → Seed_CW_Profile / 수동 차감
 //  try_decode_: Q채널 HARQ는 harq_Q_[0] (행 포인터)로 Decode_Core_Split에 전달
 //               (&harq_Q_[0][0] 금지 — 2차원 배열 타입과 혼동 시 HardFault)
 //
@@ -10,7 +9,6 @@
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h" // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
-#include <atomic>
 #include <climits>
 #include <cstdio>
 #include <cstring>
@@ -28,8 +26,6 @@ namespace ProtectedEngine {
 // 파일 범위 스크래치: 단일 디스패처 실행 컨텍스트(반이중)·해당 경로 재진입 없음
 // 가정. NSYM64 ≥ NSYM16 이므로 Encode 심볼 버퍼 겸용.
 alignas(64) static uint8_t g_v400_sym_scratch[FEC_HARQ::NSYM64];
-alignas(16) static int16_t g_v400_harq_fb_tmp_I[16];
-alignas(16) static int16_t g_v400_harq_fb_tmp_Q[16];
 static_assert(sizeof(g_v400_sym_scratch) >= FEC_HARQ::NSYM16,
               "sym scratch must cover NSYM16 encode");
 // ── HARQ CCM union: Chase Q 누적 ↔ IR 칩 버퍼 + IR_RxState (SRAM 추가 0) ─
@@ -62,10 +58,6 @@ alignas(64) static uint64_t g_sic_bits[FEC_HARQ::NSYM64];
 static_assert(sizeof(g_sic_bits) == FEC_HARQ::NSYM64 * 8u,
               "SIC bit-pack size mismatch");
 static_assert(FEC_HARQ::C64 == 64, "SIC bit-pack requires C64==64");
-// ── Q8 사인파 LUT (sin(2π×k/8)×256) ──
-// AntiJamEngine.cpp의 k_cw_lut8와 동일한 값 — 두 모듈 일관성 유지
-// 이름 분리: 단일 TU(amalgam) 링크 시 ProtectedEngine::k_cw_lut8 ODR 충돌 방지
-static constexpr int16_t k_cw_lut8_v400[8] = {0, 181, 256, 181, 0, -181, -256, -181};
 static constexpr uint32_t popc32(uint32_t x) noexcept {
     x = x - ((x >> 1u) & 0x55555555u);
     x = (x & 0x33333333u) + ((x >> 2u) & 0x33333333u);
@@ -193,7 +185,7 @@ static void fwht_raw(int32_t *d, int n) noexcept {
 //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
 alignas(64) static const int16_t k_walsh_dummy_iq_[64] = {};
 // ── Walsh 피크 탐색: I²+Q² 에너지 (위상 불변, RF 90° 회전에도 신호 소멸 없음) ──
-//  best_e/second_e: AJC 호환용 — 검출된 빈의 I²+Q² 그대로 산출
+//  best_e/second_e: 검출된 빈의 I²+Q² 그대로 산출
 HTS_V400_Dispatcher::SymDecResult
 HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
                                      bool cap_search_to_bps) noexcept {
@@ -250,7 +242,7 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
     const int8_t sym_out =
         static_cast<int8_t>((static_cast<int32_t>(sym_raw) & mk) |
                             (static_cast<int32_t>(-1) & ~mk));
-    // AJC 호환: 검출된 빈의 에너지 산출
+    // 검출된 빈의 에너지 산출
     const uint32_t bi = static_cast<uint32_t>(dec) & 63u;
     const uint32_t si = static_cast<uint32_t>(dec2) & 63u;
     const uint64_t be64 =
@@ -439,19 +431,18 @@ static void walsh_enc_split(uint8_t sym_I, uint8_t sym_Q, int n, int16_t amp,
         oQ[j] = static_cast<int16_t>(ampi * (1 - 2 * static_cast<int32_t>(pQ)));
     }
 }
-/// AntiJam_Engine::sort_u32_ct_adjacent_64 와 동일 — N=64, 2016 인접 교환(고정
-/// 트립).
-static constexpr int kSoftClipSortN = 64;
-static_assert(static_cast<std::size_t>(kSoftClipSortN) *
-                      static_cast<std::size_t>(kSoftClipSortN - 1) / 2u ==
+/// 인접 교환 정렬 — N=64, 고정 2016 인접 스왑(브랜치리스 트립).
+static constexpr int kMagSort64N = 64;
+static_assert(static_cast<std::size_t>(kMagSort64N) *
+                      static_cast<std::size_t>(kMagSort64N - 1) / 2u ==
                   2016u,
-              "soft-clip sort trip count");
+              "mag sort trip count");
 static void sort_u32_ct_adjacent_64_dispatch(uint32_t *a) noexcept {
     if (a == nullptr) {
         return;
     }
-    for (int pass = 0; pass < kSoftClipSortN - 1; ++pass) {
-        const int imax = kSoftClipSortN - 1 - pass;
+    for (int pass = 0; pass < kMagSort64N - 1; ++pass) {
+        const int imax = kMagSort64N - 1 - pass;
         for (int i = 0; i < imax; ++i) {
             const uint32_t x = a[i];
             const uint32_t y = a[i + 1];
@@ -467,18 +458,9 @@ static void fill_u32_pad_max_(uint32_t *work, const uint32_t *src,
     for (int i = 0; i < nc; ++i) {
         work[static_cast<std::size_t>(i)] = src[static_cast<std::size_t>(i)];
     }
-    for (int i = nc; i < kSoftClipSortN; ++i) {
+    for (int i = nc; i < kMagSort64N; ++i) {
         work[static_cast<std::size_t>(i)] = 0xFFFFFFFFu;
     }
-}
-static inline int32_t clamp_abs_branchless_i32_(int32_t v,
-                                                int32_t cap) noexcept {
-    const int32_t neg_cap = -cap;
-    const uint32_t under = static_cast<uint32_t>(v < neg_cap);
-    const uint32_t over = static_cast<uint32_t>(v > cap);
-    const int32_t ku = -static_cast<int32_t>(under);
-    const int32_t ko = -static_cast<int32_t>(over);
-    return (neg_cap & ku) | (cap & ko) | (v & ~(ku | ko));
 }
 static inline int16_t ssat16_dispatch_(int32_t v) noexcept {
 #if defined(__GNUC__) && defined(__ARM_ARCH) && (__ARM_ARCH >= 6)
@@ -492,57 +474,9 @@ static inline int16_t ssat16_dispatch_(int32_t v) noexcept {
     return static_cast<int16_t>((v & ~msk) | (repl & msk));
 #endif
 }
-// =====================================================================
-//  soft_clip_iq — 아웃라이어 소프트 클리핑
-//
-//  분위(clip)는 UDIV 없는 상수 시간 인접 정렬로 산출.
-//  초과 구간은 UDIV 비율 대신 L∞ 포화(±bl) + 비트마스크(고정 루프 비용).
-// =====================================================================
-static void soft_clip_iq(int16_t *I, int16_t *Q, int nc, uint32_t *mags,
-                         uint32_t *sorted) noexcept {
-    if (I == nullptr || Q == nullptr || mags == nullptr || sorted == nullptr) {
-        return;
-    }
-    if (nc <= 0 || nc > 64)
-        return;
-    for (int i = 0; i < nc; ++i) {
-        mags[i] = 0u;
-        sorted[i] = 0u;
-    }
-    for (int i = 0; i < nc; ++i) {
-        mags[i] = fast_abs(static_cast<int32_t>(I[i])) +
-                  fast_abs(static_cast<int32_t>(Q[i]));
-        sorted[i] = mags[i];
-    }
-    int q_idx = nc >> 2;
-    if (q_idx < 1)
-        q_idx = 1;
-    fill_u32_pad_max_(sorted, mags, nc);
-    sort_u32_ct_adjacent_64_dispatch(sorted);
-    uint32_t bl = sorted[static_cast<std::size_t>(q_idx - 1)];
-    if (bl < 1u)
-        bl = 1u;
-    const uint32_t clip = bl << 2u;
-    const uint32_t clip_active = static_cast<uint32_t>(clip >= 4u);
-    const uint32_t thresh = clip << 1u;
-    static_assert(static_cast<uint64_t>(65535u) * 4u * 256u < 0xFFFFFFFFULL,
-                  "clip domain");
-    uint32_t cap_u = bl;
-    const uint32_t cap_ov = 0u - static_cast<uint32_t>(cap_u > 32767u);
-    cap_u = (cap_u & ~cap_ov) | (32767u & cap_ov);
-    const int32_t cap_s = static_cast<int32_t>(cap_u);
-    for (int i = 0; i < nc; ++i) {
-        const uint32_t gt =
-            static_cast<uint32_t>(mags[i] > thresh) & clip_active;
-        const int32_t mk = -static_cast<int32_t>(gt);
-        const int32_t vi0 = static_cast<int32_t>(I[i]);
-        const int32_t vq0 = static_cast<int32_t>(Q[i]);
-        const int32_t vi1 = clamp_abs_branchless_i32_(vi0, cap_s);
-        const int32_t vq1 = clamp_abs_branchless_i32_(vq0, cap_s);
-        I[i] = static_cast<int16_t>((vi1 & mk) | (vi0 & ~mk));
-        Q[i] = static_cast<int16_t>((vq1 & mk) | (vq0 & ~mk));
-    }
-}
+// [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정 (T6 96.5% 유지).
+//  T6 진단 시 outlier 발생 비율 0.003%, abs_sum=0. 완전 제거.
+
 static constexpr uint32_t k_BH_NOISE_FLOOR = 50u; // baseline 하한 (무간섭 판별)
 static constexpr uint32_t k_BH_SATURATION =
     8000u; // baseline 상한 (ADC 포화 방어)
@@ -578,74 +512,9 @@ void HTS_V400_Dispatcher::blackhole_(int16_t *I, int16_t *Q, int nc) noexcept {
         Q[i] = static_cast<int16_t>(static_cast<int32_t>(Q[i]) & ~km);
     }
 }
-// =====================================================================
-//
-//
-//   → jprof_[]에 CW 파형을 직접 주입
-//   → AJC가 sym 판정 귀환 없이 첫 심볼부터 CW 제거 작동
-//   → CW 17~19dB 닭-달걀 문제 해소
-//   → ajc_enabled_ == false 시 시딩 생략 (벤치마크 분리 유지)
-//
-//  [처리 순서]
-//   1) sin 상관 → ja_I, ja_Q (corr >> 13)
-//   2.5) IIR α=1/4, smooth = ema >> 2 (Walsh 오염 심볼 간 상쇄)
-//   3) 노이즈 가드: |smooth_I|+|smooth_Q| vs TH
-//   4) AJC: Seed_CW_Profile — else: 수동 sin LUT 차감
-// =====================================================================
-void HTS_V400_Dispatcher::cw_cancel_64_(int16_t *I, int16_t *Q) noexcept {
-    if (!cw_cancel_enabled_)
-        return;
-    if (I == nullptr || Q == nullptr)
-        return;
+// [REMOVED Step2] cw_cancel_64_ — T6 에서 0.003% 효과, abs_sum=56 (~1 LSB).
+//  1.87M 호출 중 56회만 I[0] 변경. SNR 기여 측정 불가 수준. 경로 삭제.
 
-    // Step 1: sin 상관 (기존과 동일)
-    int32_t corr_I = 0, corr_Q = 0;
-    for (int i = 0; i < 64; ++i) {
-        const int32_t lut = static_cast<int32_t>(k_cw_lut8_v400[i & 7u]);
-        corr_I += static_cast<int32_t>(I[i]) * lut;
-        corr_Q += static_cast<int32_t>(Q[i]) * lut;
-    }
-    const int32_t ja_I = corr_I >> 13;
-    const int32_t ja_Q = corr_Q >> 13;
-    // Step 2.5: IIR 평활 (α=1/4, Walsh 오염 심볼 간 상쇄)
-    //  ema = ema - (ema >> 2) + sample, 평활 출력 = ema >> 2
-    //  오버플로: ja 최대 65534, ema 최대 65534×4 = 262136 < INT32_MAX ✓
-    cw_ema_I_ = cw_ema_I_ - (cw_ema_I_ >> 2) + ja_I;
-    cw_ema_Q_ = cw_ema_Q_ - (cw_ema_Q_ >> 2) + ja_Q;
-    const int32_t smooth_I = cw_ema_I_ >> 2;
-    const int32_t smooth_Q = cw_ema_Q_ >> 2;
-
-    // Step 3: 노이즈 가드 — 비트마스크 (조기 반환 제거)
-    static constexpr int32_t CW_CANCEL_NOISE_TH = 30;
-    const uint32_t ja_sum = fast_abs(smooth_I) + fast_abs(smooth_Q);
-    const int32_t guard_diff =
-        static_cast<int32_t>(ja_sum) - CW_CANCEL_NOISE_TH;
-    const int32_t active = ~(guard_diff >> 31);
-    const int32_t m_ja_I = smooth_I & active;
-    const int32_t m_ja_Q = smooth_Q & active;
-
-    // Step 4: AJC 시딩 또는 수동 차감
-    if (ajc_enabled_) {
-        ajc_.Seed_CW_Profile(m_ja_I, m_ja_Q);
-    } else {
-        for (int i = 0; i < 64; ++i) {
-            const int32_t lut = static_cast<int32_t>(k_cw_lut8_v400[i & 7u]);
-            int32_t new_I = static_cast<int32_t>(I[i]) - ((m_ja_I * lut) >> 8);
-            const int32_t hiI = (new_I - INT16_MAX) >> 31;
-            const int32_t loI = (new_I + INT16_MAX) >> 31;
-            new_I = (new_I & hiI) | (INT16_MAX & ~hiI);
-            new_I = (new_I & ~loI) | (static_cast<int32_t>(-INT16_MAX) & loI);
-            I[i] = static_cast<int16_t>(new_I);
-
-            int32_t new_Q = static_cast<int32_t>(Q[i]) - ((m_ja_Q * lut) >> 8);
-            const int32_t hiQ = (new_Q - INT16_MAX) >> 31;
-            const int32_t loQ = (new_Q + INT16_MAX) >> 31;
-            new_Q = (new_Q & hiQ) | (INT16_MAX & ~hiQ);
-            new_Q = (new_Q & ~loQ) | (static_cast<int32_t>(-INT16_MAX) & loQ);
-            Q[i] = static_cast<int16_t>(new_Q);
-        }
-    }
-}
 // =====================================================================
 //  생성자 / 소멸자
 // =====================================================================
@@ -664,18 +533,15 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       sic_expect_valid_(false), sic_walsh_amp_(300),
       wb_{} // wb 유니온 (반이중 TDM)
       ,
-      ajc_(), ajc_last_nc_(0), orig_acc_{}, orig_I_{}, orig_Q_{},
-      cw_cancel_enabled_(true), soft_clip_policy_(SoftClipPolicy::ALWAYS),
-      ajc_enabled_(true), holo_lpi_en_(HTS_Holo_LPI::SECURE_FALSE),
+      orig_acc_{}, orig_I_{}, orig_Q_{},
+      holo_lpi_en_(HTS_Holo_LPI::SECURE_FALSE),
       holo_lpi_seed_{}, holo_lpi_mix_q8_(128), holo_lpi_scalars_{},
       holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
       holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{} {}
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
-    // 손상. AntiJamEngine: 가상 함수 없음 → Reset 후 스토리지 secureWipe,
-    // 그다음 암시적 ~ (trivial). 순서: CCM → full_reset_(HARQ/work 버퍼) →
-    // 칩/워킹 스크래치 → 시퀀스/시드
-    //       → 콜백/메트릭 무효화 → ajc_.Reset → ajc_ 스토리지 파쇄
+    // 손상. 순서: CCM → full_reset_(HARQ/work 버퍼) → 칩/워킹 스크래치 →
+    // 시퀀스/시드 → 콜백/메트릭 무효화
     SecureMemory::secureWipe(static_cast<void *>(&g_harq_ccm_union),
                              sizeof(g_harq_ccm_union));
     SecureMemory::secureWipe(static_cast<void *>(g_sic_bits),
@@ -704,9 +570,6 @@ HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     on_pkt_ = nullptr;
     on_ctrl_ = nullptr;
     p_metrics_ = nullptr;
-    ajc_.Reset(16);
-    SecureMemory::secureWipe(static_cast<void *>(&ajc_), sizeof(ajc_));
-    ajc_last_nc_ = 0;
 }
 void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept { seed_ = s; }
 
@@ -963,8 +826,6 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     pre_phase_ = 0;
     first_c63_ = 0;
     m63_gap_ = 0;
-    cw_ema_I_ = 0;
-    cw_ema_Q_ = 0;
     dc_est_I_ = 0;
     dc_est_Q_ = 0;
     cfo_.Init();
@@ -1147,8 +1008,7 @@ bool HTS_V400_Dispatcher::FHSS_Is_Rf_Settling() const noexcept {
 }
 void HTS_V400_Dispatcher::Reset() noexcept {
     full_reset_();
-    ajc_.Reset(16);
-    ajc_last_nc_ = 0;
+    // [REMOVED Step3] ajc_.Reset(16), ajc_last_nc_ — AntiJam 엔진 제거
 }
 uint32_t HTS_V400_Dispatcher::parse_hdr_(PayloadMode &mode,
                                          int &plen) noexcept {
@@ -1211,16 +1071,39 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
            덮어쓰기. */
         std::memcpy(orig_I_, buf_I_, nc * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, nc * sizeof(int16_t));
-        if (cur_mode_ == PayloadMode::DATA) {
-            cw_cancel_64_(buf_I_, buf_Q_);
+        // [Walsh_Row_Permuter] TX: enc = raw ^ mask 후 walsh_enc(enc).
+        //  RX: chip[j] *= (−1)^{popc(mask∧j)} — Walsh-Hadamard 행 XOR 성질로
+        //  FEC(Feed*) 가 기대하는 raw 도메인 칩으로 복원 (mask=0 이면 항등).
+        if (nc == 16) {
+            const uint8_t m4 = walsh_permuter_.Encode_4bit(0u);
+            for (int c = 0; c < 16; ++c) {
+                const uint32_t pu =
+                    popc32(static_cast<uint32_t>(m4) &
+                           static_cast<uint32_t>(c)) &
+                    1u;
+                const int32_t sgn = 1 - 2 * static_cast<int32_t>(pu);
+                buf_I_[c] = static_cast<int16_t>(
+                    static_cast<int32_t>(buf_I_[c]) * sgn);
+                buf_Q_[c] = static_cast<int16_t>(
+                    static_cast<int32_t>(buf_Q_[c]) * sgn);
+            }
+        } else {
+            const uint8_t m6 = walsh_permuter_.Encode_6bit(0u);
+            for (int c = 0; c < 64; ++c) {
+                const uint32_t pu =
+                    popc32(static_cast<uint32_t>(m6) &
+                           static_cast<uint32_t>(c)) &
+                    1u;
+                const int32_t sgn = 1 - 2 * static_cast<int32_t>(pu);
+                buf_I_[c] = static_cast<int16_t>(
+                    static_cast<int32_t>(buf_I_[c]) * sgn);
+                buf_Q_[c] = static_cast<int16_t>(
+                    static_cast<int32_t>(buf_Q_[c]) * sgn);
+            }
         }
-        if (ajc_enabled_) {
-            ajc_.Process(buf_I_, buf_Q_, nc);
-        }
-        /* BUG-FIX-SC3: retx 경로 soft_clip 비활성화 — IR LLR 누적 품질 보존 */
-        if (!retx_ready_ && soft_clip_policy_ != SoftClipPolicy::NEVER) {
-            soft_clip_iq(buf_I_, buf_Q_, nc, scratch_mag_, scratch_sort_);
-        }
+        // [REMOVED Step2] cw_cancel_64_(buf_I_, buf_Q_) — NOP 확정
+        // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(...) — 학습 구조 불일치로 NOP
+        // [REMOVED Step1] soft_clip_iq — Gaussian noise 에 무효 확정
         if (nc == 16) {
             if (sym_idx_ < FEC_HARQ::NSYM16) {
                 if (ir_mode_) {
@@ -1355,33 +1238,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 }
             }
         }
-        // [적응형 I/Q] AJC 피드백: IQ 모드에 따라 디코딩 방식 분기
-        if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_ && nc == 64) {
-            // I/Q 독립: 각 채널 분리 FWHT → 2심볼 디코딩
-            SymDecResultSplit rs = walsh_dec_split_(buf_I_, buf_Q_, nc);
-            if (ajc_enabled_) {
-                // I/Q 독립: 채널별 Update_AJC (sym_Q=-1이면 내부에서 갱신 스킵
-                // 가능)
-                // ① I 채널 AJC 갱신
-                ajc_.Update_AJC(orig_I_, orig_Q_, rs.sym_I, rs.best_eI,
-                                rs.second_eI, nc);
-                // ② Q 채널 AJC 갱신
-                ajc_.Update_AJC(orig_I_, orig_Q_, rs.sym_Q, rs.best_eQ,
-                                rs.second_eQ, nc);
-            }
-        } else {
-            // I=Q 동일: projection 또는 결합 FWHT
-            if (est_count_ > 0 && nc == 64) {
-                SymDecResult r = walsh_dec_dot_proj_full_(buf_I_, buf_Q_, true);
-                (void)r;
-            } else {
-                SymDecResult r = walsh_dec_full_(buf_I_, buf_Q_, nc);
-                if (ajc_enabled_) {
-                    ajc_.Update_AJC(orig_I_, orig_Q_, r.sym, r.best_e, r.second_e,
-                                    nc);
-                }
-            }
-        }
+        // [REMOVED Step3] AJC walsh 피드백 블록 (Update_AJC × N) — 구조적 NOP
     }
     buf_idx_ = 0;
     if (pay_recv_ >= pay_total_)
@@ -1592,34 +1449,10 @@ void HTS_V400_Dispatcher::harq_feedback_seed_(const uint8_t *data, int data_len,
                                      sizeof(g_v400_sym_scratch));
             return;
         }
-        const int nsym =
-            (sym_idx_ < FEC_HARQ::NSYM16) ? sym_idx_ : FEC_HARQ::NSYM16;
-        int16_t *const tmp_I = g_v400_harq_fb_tmp_I;
-        int16_t *const tmp_Q = g_v400_harq_fb_tmp_Q;
-        for (int s = 0; s < nsym; ++s) {
-            if (ajc_enabled_) {
-                for (int c = 0; c < nc; ++c) {
-                    const uint8_t pk = orig_acc_.acc16.iq4[s][c];
-                    int32_t nI = static_cast<int32_t>((pk >> 4u) & 0x0Fu);
-                    nI -= ((nI & 0x8) << 1);
-                    tmp_I[c] = static_cast<int16_t>(nI << 12);
-                    int32_t nQ = static_cast<int32_t>(pk & 0x0Fu);
-                    nQ -= ((nQ & 0x8) << 1);
-                    tmp_Q[c] = static_cast<int16_t>(nQ << 12);
-                }
-                ajc_.Update_AJC(tmp_I, tmp_Q,
-                                static_cast<int8_t>(correct_syms[s]),
-                                0xFFFFFFFFu, 0u, nc, true);
-            }
-        }
-        SecureMemory::secureWipe(static_cast<void *>(tmp_I),
-                                 sizeof(g_v400_harq_fb_tmp_I));
-        SecureMemory::secureWipe(static_cast<void *>(tmp_Q),
-                                 sizeof(g_v400_harq_fb_tmp_Q));
+        // [REMOVED Step3] HARQ 피드백 루프의 AJC Update_AJC — AJC 제거
         SecureMemory::secureWipe(static_cast<void *>(correct_syms),
                                  sizeof(g_v400_sym_scratch));
     } else if (nc == 64) {
-        const int nsym64 = cur_nsym64_();
         uint8_t *const correct_syms = g_v400_sym_scratch;
         int enc_n = 0;
         if (ir_mode_) {
@@ -1637,23 +1470,7 @@ void HTS_V400_Dispatcher::harq_feedback_seed_(const uint8_t *data, int data_len,
                                      sizeof(g_v400_sym_scratch));
             return;
         }
-        const int nsym = (sym_idx_ < nsym64) ? sym_idx_ : nsym64;
-        for (int s = 0; s < nsym; ++s) {
-            if (ajc_enabled_) {
-                for (int c = 0; c < nc; ++c) {
-                    const uint8_t pk = orig_acc_.acc64.iq4[s][c];
-                    int32_t nI = static_cast<int32_t>((pk >> 4u) & 0x0Fu);
-                    nI -= ((nI & 0x8) << 1);
-                    orig_I_[c] = static_cast<int16_t>(nI << 12);
-                    int32_t nQ = static_cast<int32_t>(pk & 0x0Fu);
-                    nQ -= ((nQ & 0x8) << 1);
-                    orig_Q_[c] = static_cast<int16_t>(nQ << 12);
-                }
-                ajc_.Update_AJC(orig_I_, orig_Q_,
-                                static_cast<int8_t>(correct_syms[s]),
-                                0xFFFFFFFFu, 0u, nc, true);
-            }
-        }
+        // [REMOVED Step3] HARQ 피드백 루프의 AJC Update_AJC — AJC 제거
         SecureMemory::secureWipe(static_cast<void *>(correct_syms),
                                  sizeof(g_v400_sym_scratch));
     }
@@ -1712,6 +1529,12 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    // [Walsh_Row_Permuter] payload 스크램블 키 — TX tx_seq_·첫 라운드(ir_rv_=0 아래)
+    if (!walsh_permuter_.Is_Initialized()) {
+        (void)walsh_permuter_.Initialize(tx_seq_, 0u);
+    } else {
+        (void)walsh_permuter_.Update_Key(tx_seq_, 0u);
+    }
     // TPC는 외부에서 명시적으로 사용할 때만 적용
     // 기본: caller의 amp 파라미터 사용 (기존 호환)
     tx_amp_ = amp;
@@ -1848,8 +1671,10 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 
     const int n_send16 = FEC_HARQ::NSYM16 * inc * static_cast<int>(u16);
     for (int s = 0; s < n_send16; ++s) {
-        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp,
-                  bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
+        const uint8_t raw_sym4 = syms16[static_cast<std::size_t>(s)];
+        const uint8_t enc_sym4 = walsh_permuter_.Encode_4bit(raw_sym4);
+        walsh_enc(enc_sym4, 16, amp, bp_dst_i(oI, pos, okm),
+                  bp_dst_q(oQ, pos, okm));
         pos += 16 * inc;
     }
     SecureMemory::secureWipe(static_cast<void *>(syms16), sizeof(syms16));
@@ -1874,13 +1699,17 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
             static_cast<size_t>(s2u) & static_cast<size_t>(have2);
         const uint8_t sQ = static_cast<uint8_t>(
             static_cast<uint32_t>(syms64[idx2]) & (have2 & 0xFFu));
-        walsh_enc_split(sI, sQ, 64, amp, bp_dst_i(oI, pos, okm),
+        const uint8_t enc_sI = walsh_permuter_.Encode_6bit(sI);
+        const uint8_t enc_sQ = walsh_permuter_.Encode_6bit(sQ);
+        walsh_enc_split(enc_sI, enc_sQ, 64, amp, bp_dst_i(oI, pos, okm),
                         bp_dst_q(oQ, pos, okm));
         pos += 64 * inc;
     }
     for (int s = 0; s < n_sim; ++s) {
-        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp,
-                  bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
+        const uint8_t raw_sym6 = syms64[static_cast<std::size_t>(s)];
+        const uint8_t enc_sym6 = walsh_permuter_.Encode_6bit(raw_sym6);
+        walsh_enc(enc_sym6, 64, amp, bp_dst_i(oI, pos, okm),
+                  bp_dst_q(oQ, pos, okm));
         pos += 64 * inc;
     }
     SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));
@@ -1920,6 +1749,14 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
     /* Build_Packet가 tx_seq_++ 한 뒤이므로 Retx il은 직전 송신
        시퀀스(tx_seq_-1)와 수신 il(seed_ ^ rx_seq_*0xA5A5A5A5) 정합 */
     const uint32_t tx_seq_prev = (tx_seq_ > 0u) ? (tx_seq_ - 1u) : 0u;
+    // [Walsh_Row_Permuter] 재전송 — 직전 PDU tx_seq_prev + 현재 IR RV
+    if (!walsh_permuter_.Is_Initialized()) {
+        (void)walsh_permuter_.Initialize(
+            tx_seq_prev, static_cast<uint8_t>(ir_rv_ & 0xFF));
+    } else {
+        (void)walsh_permuter_.Update_Key(
+            tx_seq_prev, static_cast<uint8_t>(ir_rv_ & 0xFF));
+    }
     const uint32_t il = seed_ ^ (tx_seq_prev * 0xA5A5A5A5u);
     const uint32_t mi = static_cast<uint32_t>(mode);
     if (mi > 3u || mi == 0u) {
@@ -1999,8 +1836,9 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
                                      sizeof(syms64_pl));
             return 0;
         }
-        walsh_enc(syms16[static_cast<std::size_t>(s)], 16, amp,
-                  &oI[pos], &oQ[pos]);
+        const uint8_t raw_sym4 = syms16[static_cast<std::size_t>(s)];
+        const uint8_t enc_sym4 = walsh_permuter_.Encode_4bit(raw_sym4);
+        walsh_enc(enc_sym4, 16, amp, &oI[pos], &oQ[pos]);
         pos += 16;
     }
 
@@ -2039,7 +1877,9 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
             static_cast<size_t>(s2u) & static_cast<size_t>(have2);
         const uint8_t sQ = static_cast<uint8_t>(
             static_cast<uint32_t>(syms64[idx2]) & (have2 & 0xFFu));
-        walsh_enc_split(sI, sQ, 64, amp, &oI[pos], &oQ[pos]);
+        const uint8_t enc_sI = walsh_permuter_.Encode_6bit(sI);
+        const uint8_t enc_sQ = walsh_permuter_.Encode_6bit(sQ);
+        walsh_enc_split(enc_sI, enc_sQ, 64, amp, &oI[pos], &oQ[pos]);
         pos += 64;
     }
     for (int s = 0; s < n_sim; ++s) {
@@ -2059,8 +1899,9 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
                                      sizeof(syms64_pl));
             return 0;
         }
-        walsh_enc(syms64[static_cast<std::size_t>(s)], 64, amp,
-                  &oI[pos], &oQ[pos]);
+        const uint8_t raw_sym6 = syms64[static_cast<std::size_t>(s)];
+        const uint8_t enc_sym6 = walsh_permuter_.Encode_6bit(raw_sym6);
+        walsh_enc(enc_sym6, 64, amp, &oI[pos], &oQ[pos]);
         pos += 64;
     }
 
@@ -2335,11 +2176,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         buf_idx_ = 0;
         std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
-        if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
-            soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
-        }
-        if (ajc_enabled_ && pre_phase_ != 0)
-            ajc_.Process(orig_I_, orig_Q_, 64);
+        // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
+        // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I = 0, dot0_Q = 0;
         for (int j = 0; j < 64; ++j) {
@@ -2399,9 +2237,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p1_carry_pending_ = 0; p0_carry_count_ = 0;
             update_derot_shift_from_est_();
             set_phase_(RxPhase::READ_HEADER);
-            // CW EMA 리셋: WAIT_SYNC 동안 학습된 프리앰블 잔상 제거
-            cw_ema_I_ = 0;
-            cw_ema_Q_ = 0;
+            // [REMOVED Step2] CW EMA 상태 제거됨
             hdr_count_ = 0; hdr_fail_ = 0;
             wait_sync_head_ = 0; wait_sync_count_ = 0;
 #if defined(HTS_DIAG_PRINTF)
@@ -2451,11 +2287,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         if (buf_idx_ == 64) {
             std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
             std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
-            /* BUG-FIX-SC2: soft_clip 정책 분기 — ALWAYS=기존동작,
-             * SYNC_ONLY=페이로드OFF, NEVER=전체OFF */
-            if (soft_clip_policy_ != SoftClipPolicy::NEVER) {
-                soft_clip_iq(orig_I_, orig_Q_, 64, scratch_mag_, scratch_sort_);
-            }
+            // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
             static int16_t s_hdr_blk0_I[64], s_hdr_blk0_Q[64];
             if (hdr_count_ == 0) {
                 const SymDecResult rh =
@@ -2663,6 +2495,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     max_harq_ = FEC_HARQ::DATA_K; // 모든 모드에서 32
                     set_phase_(RxPhase::READ_PAYLOAD);
                     buf_idx_ = 0;
+                    // [Walsh_Row_Permuter] 헤더 완료 후 payload 직전 — TX Build_Packet
+                    // 의 tx_seq_(= rx_seq_ 미증가 시점) 및 첫 RV 라운드(0) 와 정합
+                    if (!walsh_permuter_.Is_Initialized()) {
+                        (void)walsh_permuter_.Initialize(rx_seq_, 0u);
+                    } else {
+                        (void)walsh_permuter_.Update_Key(rx_seq_, 0u);
+                    }
                     //  try_decode_ 내부에서 Init → Feed 이후라 데이터 파괴
                     //  READ_PAYLOAD 진입 시 첫 라운드만 Init
                     if (!harq_inited_) {
@@ -2699,10 +2538,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         }
                         harq_inited_ = true;
                     }
-                    if (pay_cps_ != ajc_last_nc_) {
-                        ajc_.Reset(pay_cps_);
-                        ajc_last_nc_ = pay_cps_;
-                    }
+                    // [REMOVED Step3] pay_cps_ 변경 시 ajc_.Reset — AJC 제거
                 } else {
                     // HDR parse 실패: P0 재시작 대신 Phase 1로 복귀
                     // est/derot 유지 — 다음 프리앰블(HARQ 라운드)에서 재시도
@@ -2735,6 +2571,12 @@ void HTS_V400_Dispatcher::Feed_Retx_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     if (buf_idx_ == 0) {
         holo_lpi_rx_chip_idx_ = 0u;
         holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
+        // [Walsh_Row_Permuter] HARQ 재전송 슬롯 — Build_Retx 의 (tx_seq_prev, ir_rv_)
+        // 와 동일 (tx_seq_prev == 미완료 PDU 에 대한 rx_seq_)
+        if (walsh_permuter_.Is_Initialized()) {
+            (void)walsh_permuter_.Update_Key(
+                rx_seq_, static_cast<uint8_t>(ir_rv_ & 0xFF));
+        }
     }
     int16_t ti = rx_I;
     int16_t tq = rx_Q;
@@ -2781,9 +2623,13 @@ void HTS_V400_Dispatcher::Inject_Payload_Phase(PayloadMode mode,
     harq_inited_ = true;
     retx_ready_ = false;
 
-    if (pay_cps_ != ajc_last_nc_) {
-        ajc_.Reset(pay_cps_);
-        ajc_last_nc_ = pay_cps_;
+    // [Walsh_Row_Permuter] 동기/헤더 우회 시험 경로 — 일반 RX 와 동일 키
+    if (!walsh_permuter_.Is_Initialized()) {
+        (void)walsh_permuter_.Initialize(rx_seq_, 0u);
+    } else {
+        (void)walsh_permuter_.Update_Key(rx_seq_, 0u);
     }
+
+    // [REMOVED Step3] pay_cps_ 변경 시 ajc_.Reset — AJC 제거
 }
 } // namespace ProtectedEngine

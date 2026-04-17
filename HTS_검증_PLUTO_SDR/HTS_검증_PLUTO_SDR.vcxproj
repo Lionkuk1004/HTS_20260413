@@ -136,26 +136,24 @@
     </PostBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.cpp" />
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp" />
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.cpp" />
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.cpp" />
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.cpp" />
-    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\HTS_TEST\t6_sim\HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.h" />
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_BitOps.h" />
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_DWT_Profiler.h" />
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_FEC_HARQ.hpp" />
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Polar_Codec.h" />
+    <ClInclude Include="..\HTS_LIM\HTS_FEC_HARQ.hpp" />
+    <ClInclude Include="..\HTS_LIM\HTS_Polar_Codec.h" />
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RF_Metrics.h" />
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.h" />
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.h" />
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_TPC_Controller.h" />
-    <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="..\HTS_LIM\HTS_Secure_Memory.h" />
+    <ClInclude Include="..\HTS_LIM\HTS_TPC_Controller.h" />
+    <ClInclude Include="..\HTS_LIM\HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="..\HTS_LIM\HTS_Holo_LPI.h" />
   </ItemGroup>
   <ItemGroup>

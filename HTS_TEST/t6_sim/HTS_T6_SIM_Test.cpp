@@ -37,7 +37,6 @@ using ProtectedEngine::DecodedPacket;
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngine::HTS_V400_Dispatcher;
 using ProtectedEngine::PayloadMode;
-using ProtectedEngine::SoftClipPolicy;
 
 // ═══════════════════════════════════════════════════════════════
 //  상수
@@ -121,9 +120,6 @@ static void setup(HTS_V400_Dispatcher& d, uint32_t seed) noexcept {
     d.Set_IR_Mode(true);
     d.Set_Preamble_Boost(kPreBoost);
     d.Set_Preamble_Reps(kPreReps);
-    d.Set_CW_Cancel(false);
-    d.Set_AJC_Enabled(false);
-    d.Set_SoftClip_Policy(SoftClipPolicy::NEVER);
     d.Set_Packet_Callback(on_pkt);
     d.Update_Adaptive_BPS(1000);
     d.Set_Lab_IQ_Mode_Jam_Harness();
@@ -684,9 +680,8 @@ int main() {
 
 // ── 소스 링크 (단일 TU 빌드) ──
 #include "../../HTS_LIM/HTS_Secure_Memory.cpp"
-#include "../../HTS_LIM/HTS_RS_GF16.cpp"
 #include "../../HTS_LIM/HTS_Polar_Codec.cpp"
-#include "../../HTS_LIM/HTS_AntiJam_Engine.cpp"
 #include "../../HTS_LIM/HTS_FEC_HARQ.cpp"
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
+#include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher.cpp"

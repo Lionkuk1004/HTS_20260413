@@ -32,11 +32,9 @@ set(HTS_LIM_CORE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/../HTS_LIM")
 # ---- 정적 라이브러리: HTS_3D_Tensor_FEC (PC Layer 2 단일 TU) ----
 add_library(hts_pc_layer2_tensor_fec STATIC
   "${HTS_LIM_CORE_DIR}/HTS_Channel_Physics.cpp"
-  "${HTS_LIM_CORE_DIR}/HTS_AntiJam_Engine.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Dynamic_Fractal_Mapper.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_3D_Tensor_FEC.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
-  "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Secure_Memory.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
 )
@@ -59,10 +57,12 @@ endif()
 add_executable(HTS_Calibration_Run
   calibration/HTS_Channel_Calibration.cpp
   calibration/HTS_Channel_Calibration_Test.cpp
+  "${CMAKE_CURRENT_SOURCE_DIR}/HTS_AntiJam_Engine.cpp"
 )
 target_link_libraries(HTS_Calibration_Run PRIVATE hts_pc_layer2_tensor_fec)
 target_include_directories(HTS_Calibration_Run PRIVATE
   "${CMAKE_CURRENT_SOURCE_DIR}/calibration"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
   "${HTS_LIM_CORE_DIR}"
 )
 target_compile_features(HTS_Calibration_Run PRIVATE cxx_std_20)
@@ -77,12 +77,14 @@ endif()
 add_executable(HTS_Fractal_Channel_Compare_Run
   benchmark/HTS_Fractal_Channel_Compare.cpp
   benchmark/HTS_Pipeline_V2_Compare.cpp
+  "${CMAKE_CURRENT_SOURCE_DIR}/HTS_RS_GF16.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Pipeline_V2_Dispatcher.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Adaptive_BPS_Controller.cpp"
 )
 target_link_libraries(HTS_Fractal_Channel_Compare_Run PRIVATE hts_pc_layer2_tensor_fec)
 target_include_directories(HTS_Fractal_Channel_Compare_Run PRIVATE
   "${HTS_LIM_CORE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
 )
 target_compile_features(HTS_Fractal_Channel_Compare_Run PRIVATE cxx_std_20)
 target_compile_definitions(HTS_Fractal_Channel_Compare_Run PRIVATE
@@ -96,6 +98,8 @@ endif()
 # ---- 실행 파일: V400 디스패처 IR-HARQ + SIC 루프백 (PC 스모크) ----
 add_executable(HTS_V400_SIC_PC_Test_Run
   benchmark/HTS_V400_SIC_PC_Test.cpp
+  "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
 )
 target_link_libraries(HTS_V400_SIC_PC_Test_Run PRIVATE hts_pc_layer2_tensor_fec)
@@ -116,6 +120,8 @@ endif()
 # ---- 실행 파일: L3 실측 스펙트럼 (Build_Packet NRZ 기준선 PSD) ----
 add_executable(HTS_L3_Spectrum_Measured_Test
   benchmark/HTS_L3_Spectrum_Measured_Test.cpp
+  "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
+  "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
 )
 target_link_libraries(HTS_L3_Spectrum_Measured_Test PRIVATE hts_pc_layer2_tensor_fec)
@@ -136,9 +142,13 @@ endif()
 # ---- 실행 파일: RS + FEC_HARQ 순차 감사 (널·경계·상태 재초기화) ----
 add_executable(HTS_RS_FEC_Sequential_Audit_Run
   benchmark/HTS_RS_FEC_Sequential_Audit_PC_Test.cpp
+  "${CMAKE_CURRENT_SOURCE_DIR}/HTS_RS_GF16.cpp"
 )
 target_link_libraries(HTS_RS_FEC_Sequential_Audit_Run PRIVATE hts_pc_layer2_tensor_fec)
-target_include_directories(HTS_RS_FEC_Sequential_Audit_Run PRIVATE "${HTS_LIM_CORE_DIR}")
+target_include_directories(HTS_RS_FEC_Sequential_Audit_Run PRIVATE
+  "${HTS_LIM_CORE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 target_compile_features(HTS_RS_FEC_Sequential_Audit_Run PRIVATE cxx_std_20)
 target_compile_definitions(HTS_RS_FEC_Sequential_Audit_Run PRIVATE
   HTS_FEC_SIMULATE_M4_RAM_LAYOUT
@@ -184,10 +194,14 @@ endif()
 # ---- 실행 파일: 핫패스 wall-clock 마이크로벤치 (Release 권장) ----
 add_executable(HTS_Microbench_Run
   benchmark/HTS_Microbench_Run.cpp
+  "${CMAKE_CURRENT_SOURCE_DIR}/HTS_AntiJam_Engine.cpp"
   "${HTS_LIM_CORE_DIR}/HTS_Adaptive_BPS_Controller.cpp"
 )
 target_link_libraries(HTS_Microbench_Run PRIVATE hts_pc_layer2_tensor_fec)
-target_include_directories(HTS_Microbench_Run PRIVATE "${HTS_LIM_CORE_DIR}")
+target_include_directories(HTS_Microbench_Run PRIVATE
+  "${HTS_LIM_CORE_DIR}"
+  "${CMAKE_CURRENT_SOURCE_DIR}"
+)
 target_compile_features(HTS_Microbench_Run PRIVATE cxx_std_20)
 if(MSVC)
   target_compile_options(HTS_Microbench_Run PRIVATE /W3 /EHsc /permissive-)
@@ -243,11 +257,14 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_Crc32Util.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Rx_Matched_Filter.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Dynamic_Config.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_AntiJam_Engine.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/HTS_AntiJam_Engine.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Holo_Tensor_4D.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Sparse_Recovery.cpp"
   )
-  target_include_directories(HTS_Layer6789_Sequential_Audit_Run PRIVATE "${HTS_LIM_CORE_DIR}")
+  target_include_directories(HTS_Layer6789_Sequential_Audit_Run PRIVATE
+    "${HTS_LIM_CORE_DIR}"
+    "${CMAKE_CURRENT_SOURCE_DIR}"
+  )
   target_compile_features(HTS_Layer6789_Sequential_Audit_Run PRIVATE cxx_std_20)
   target_compile_definitions(HTS_Layer6789_Sequential_Audit_Run PRIVATE
     HTS_ALLOW_HOST_BUILD=1
@@ -264,10 +281,11 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_Dynamic_Config.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Secure_Memory.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Polar_Codec.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_AntiJam_Engine.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Security_Pipeline.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Universal_API.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Gyro_Engine.cpp"
@@ -315,10 +333,11 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_Dynamic_Config.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Secure_Memory.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_FEC_HARQ.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_RS_GF16.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Polar_Codec.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
+    "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_AntiJam_Engine.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Security_Pipeline.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Universal_API.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Gyro_Engine.cpp"
