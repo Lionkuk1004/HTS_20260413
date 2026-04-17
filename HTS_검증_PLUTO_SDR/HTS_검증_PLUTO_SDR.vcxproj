@@ -77,7 +77,7 @@
       <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;$(ProjectDir)..\HTS_LIM;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -93,7 +93,7 @@
       <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;$(ProjectDir)..\HTS_LIM;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -107,7 +107,7 @@
       <PreprocessorDefinitions>_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;$(ProjectDir)..\HTS_LIM;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -123,7 +123,7 @@
       <PreprocessorDefinitions>NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;D:\libiio-0.25-gb6028fd-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir)..\HTS_TEST\PLUTO_SDR;$(ProjectDir)..\HTS_LIM;D:\libiio-0.25-gb6028fd-windows\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
@@ -143,6 +143,7 @@
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_RS_GF16.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.cpp" />
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_AntiJam_Engine.h" />
@@ -155,6 +156,7 @@
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_Secure_Memory.h" />
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_TPC_Controller.h" />
     <ClInclude Include="..\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="..\HTS_LIM\HTS_Holo_LPI.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\HTS_TEST\PLUTO_SDR\HTS_검증_PLUTO_SDR.vcxproj" />

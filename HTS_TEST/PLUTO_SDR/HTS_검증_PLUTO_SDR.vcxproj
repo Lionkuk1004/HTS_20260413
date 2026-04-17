@@ -104,7 +104,7 @@
       <PreprocessorDefinitions>$(LibIioCppDefines);_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;HTS_DIAG_PRINTF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\..\HTS_LIM;$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableSpecificWarnings>4334;4242;4244;4018;4101;4324;4702;4996</DisableSpecificWarnings>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
@@ -128,7 +128,7 @@
       <PreprocessorDefinitions>$(LibIioCppDefines);NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;HTS_DIAG_PRINTF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\..\HTS_LIM;$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <DisableSpecificWarnings>4334;4242;4244;4018;4101;4324;4702;4996</DisableSpecificWarnings>
@@ -151,7 +151,7 @@
       <PreprocessorDefinitions>$(LibIioCppDefines);WIN32;_DEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;HTS_DIAG_PRINTF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\..\HTS_LIM;$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreadedDebug</RuntimeLibrary>
       <DisableSpecificWarnings>4334;4242;4244;4018;4101;4324;4702;4996</DisableSpecificWarnings>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
@@ -175,7 +175,7 @@
       <PreprocessorDefinitions>$(LibIioCppDefines);WIN32;NDEBUG;_CONSOLE;HTS_ALLOW_HOST_BUILD;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_FEC_POLAR_DISABLE;HTS_DIAG_PRINTF;%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
       <LanguageStandard>stdcpp20</LanguageStandard>
-      <AdditionalIncludeDirectories>$(ProjectDir);$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\..\HTS_LIM;$(LibIioRoot)\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <RuntimeLibrary>MultiThreaded</RuntimeLibrary>
       <DisableSpecificWarnings>4334;4242;4244;4018;4101;4324;4702;4996</DisableSpecificWarnings>
       <AdditionalOptions>/FS %(AdditionalOptions)</AdditionalOptions>
@@ -195,6 +195,7 @@
     <ClCompile Include="HTS_Pluto_Test.cpp" />
     <ClCompile Include="HTS_FEC_HARQ.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Holo_LPI.cpp" />
     <ClCompile Include="HTS_RS_GF16.cpp" />
     <ClCompile Include="HTS_Secure_Memory.cpp" />
     <ClCompile Include="HTS_AntiJam_Engine.cpp" />
@@ -202,6 +203,7 @@
   <ItemGroup>
     <ClInclude Include="HTS_FEC_HARQ.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="..\..\HTS_LIM\HTS_Holo_LPI.h" />
     <ClInclude Include="HTS_RS_GF16.h" />
     <ClInclude Include="HTS_Secure_Memory.h" />
     <ClInclude Include="HTS_AntiJam_Engine.h" />
