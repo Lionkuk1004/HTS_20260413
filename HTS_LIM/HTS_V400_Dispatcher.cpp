@@ -2501,9 +2501,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
                     {3u, static_cast<uint16_t>(FEC_HARQ::nsym_for_bps(6))},
                 };
+                // ── P0-FIX-002: 위상 독립 템플릿 매칭 ──
+                // 기존: v = I[j] + Q[j] projection 후 부호 변조 누적.
+                //   채널 회전 θ에서 |corr| ∝ |cosθ − sinθ| + |cosθ + sinθ|
+                //   → θ=90°/270° 에서 corr_sum 소멸, S2 전멸의 주 원인.
+                // 수정: I 채널 상관 cI, Q 채널 상관 cQ 를 각각 구하고
+                //   에너지 e = cI² + cQ² 로 비교. 블록 0, 블록 1 의
+                //   에너지 합을 템플릿 점수로 사용 — θ 불변.
+                //   CRC 없는 헤더이므로 separation gate 는 에너지 도메인
+                //   3 dB (best > second × 2) 로 엄격화.
                 int best_idx = -1;
-                int64_t best_corr = 0;
-                int64_t second_corr = 0;
+                int64_t best_e = 0;
+                int64_t second_e = 0;
                 for (int ti = 0; ti < 12; ++ti) {
                     const uint8_t mb = k_hdr_defs[static_cast<size_t>(ti)].mb;
                     const uint16_t pl = k_hdr_defs[static_cast<size_t>(ti)].plen;
@@ -2517,37 +2526,48 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
                     const uint8_t sym1 =
                         static_cast<uint8_t>(hdr_val & 0x3Fu);
-                    int64_t corr = 0;
+                    // 블록 0 (s_hdr_blk0_I/Q) — I 채널 / Q 채널 각각 상관
+                    int64_t cI0 = 0;
+                    int64_t cQ0 = 0;
                     for (int j = 0; j < 64; ++j) {
-                        const int32_t v =
-                            static_cast<int32_t>(s_hdr_blk0_I[j]) +
-                            static_cast<int32_t>(s_hdr_blk0_Q[j]);
                         const int32_t sm = -static_cast<int32_t>(
                             k_par6[static_cast<uint8_t>(sym0 & j)]);
-                        corr += static_cast<int64_t>((v ^ sm) - sm);
+                        const int32_t vI =
+                            static_cast<int32_t>(s_hdr_blk0_I[j]);
+                        const int32_t vQ =
+                            static_cast<int32_t>(s_hdr_blk0_Q[j]);
+                        cI0 += static_cast<int64_t>((vI ^ sm) - sm);
+                        cQ0 += static_cast<int64_t>((vQ ^ sm) - sm);
                     }
+                    // 블록 1 (orig_I_/orig_Q_)
+                    int64_t cI1 = 0;
+                    int64_t cQ1 = 0;
                     for (int j = 0; j < 64; ++j) {
-                        const int32_t v = static_cast<int32_t>(orig_I_[j]) +
-                                          static_cast<int32_t>(orig_Q_[j]);
                         const int32_t sm = -static_cast<int32_t>(
                             k_par6[static_cast<uint8_t>(sym1 & j)]);
-                        corr += static_cast<int64_t>((v ^ sm) - sm);
+                        const int32_t vI = static_cast<int32_t>(orig_I_[j]);
+                        const int32_t vQ = static_cast<int32_t>(orig_Q_[j]);
+                        cI1 += static_cast<int64_t>((vI ^ sm) - sm);
+                        cQ1 += static_cast<int64_t>((vQ ^ sm) - sm);
                     }
-                    const int64_t neg = corr >> 63;
-                    corr = (corr ^ neg) - neg;
-                    if (corr > best_corr) {
-                        second_corr = best_corr;
-                        best_corr = corr;
+                    // 에너지 도메인 (Q16 스케일 다운 — overflow 방어)
+                    const int64_t e0 =
+                        ((cI0 * cI0) + (cQ0 * cQ0)) >> 16;
+                    const int64_t e1 =
+                        ((cI1 * cI1) + (cQ1 * cQ1)) >> 16;
+                    const int64_t e = e0 + e1;
+                    if (e > best_e) {
+                        second_e = best_e;
+                        best_e = e;
                         best_idx = ti;
-                    } else if (corr > second_corr) {
-                        second_corr = corr;
+                    } else if (e > second_e) {
+                        second_e = e;
                     }
                 }
+                // 에너지 도메인 separation: best > second × 2 (3 dB)
                 const bool tmpl_ok =
                     (best_idx >= 0) &&
-                    ((second_corr == 0) ||
-                     ((best_corr << 2) >
-                      ((second_corr << 2) + second_corr)));
+                    ((second_e == 0) || (best_e > (second_e << 1)));
                 if (tmpl_ok) {
                     const uint8_t mb =
                         k_hdr_defs[static_cast<size_t>(best_idx)].mb;
