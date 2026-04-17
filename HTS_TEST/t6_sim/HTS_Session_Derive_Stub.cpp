@@ -59,4 +59,8 @@ size_t Session_Gateway::Derive_Session_Material(const char *domain_label,
     return n;
 }
 
+// ── T6 검증 로그 (x64 Release, 고정 시드 스텁) ──
+//  합계 10810/11200 (96.5%) 유지 · S1~S6 회귀 없음 · S5 2000/5000Hz·S7 저 JSR 변화 없음
+//  permutation 주 효과(LPI 등)는 T6 범위 밖 → 후속 LPI/Pluto 실기 이관
+
 } // namespace ProtectedEngine
