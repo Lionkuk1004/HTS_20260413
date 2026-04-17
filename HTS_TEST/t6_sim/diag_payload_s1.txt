@@ -1,0 +1,82 @@
+﻿### DIAG-HARQ S1 BEGIN ###
+### DIAG-PAYLOAD S1 trial= 0 harq_k=1 verdict=OK ###
+  TX  = AE 4D 4B BD 4C BE 3D 8D
+  RX  = AE 4D 4B BD 4C BE 3D 8D
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial= 1 harq_k=1 verdict=MEMCMP ###
+  TX  = FA 38 41 86 AC 9A 16 C3
+  RX  = FA 38 41 86 AC 9A 16 43
+  XOR = 00 00 00 00 00 00 00 80
+### DIAG-PAYLOAD S1 trial= 2 harq_k=1 verdict=MEMCMP ###
+  TX  = 9E 2B 6B D3 8F DE 4C 47
+  RX  = 9E 2B 6B D3 8F DE 4C 87
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 3 harq_k=1 verdict=MEMCMP ###
+  TX  = E4 C9 3A ED 9D 0C F8 C6
+  RX  = E4 C9 3A ED 9D 0C F8 86
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-PAYLOAD S1 trial= 4 harq_k=1 verdict=OK ###
+  TX  = 8E 28 61 3C 60 B2 7C BD
+  RX  = 8E 28 61 3C 60 B2 7C BD
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial= 5 harq_k=1 verdict=MEMCMP ###
+  TX  = 08 83 6A 5C B0 9B 1B 7F
+  RX  = 08 83 6A 5C B0 9B 1B BF
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 6 harq_k=1 verdict=OK ###
+  TX  = C5 9A 63 D2 C9 22 4F 9B
+  RX  = C5 9A 63 D2 C9 22 4F 9B
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial= 7 harq_k=1 verdict=MEMCMP ###
+  TX  = F4 97 EA C7 22 55 00 1B
+  RX  = F4 97 EA C7 22 55 00 9B
+  XOR = 00 00 00 00 00 00 00 80
+### DIAG-PAYLOAD S1 trial= 8 harq_k=1 verdict=MEMCMP ###
+  TX  = E9 7E 4D EB BD 33 25 4D
+  RX  = E9 7E 4D EB BD 33 25 8D
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 9 harq_k=1 verdict=OK ###
+  TX  = 62 F9 E3 02 71 E2 40 A3
+  RX  = 62 F9 E3 02 71 E2 40 A3
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=10 harq_k=1 verdict=MEMCMP ###
+  TX  = 9A 0A E7 93 A2 CA 5A 7B
+  RX  = 9A 0A E7 93 A2 CA 5A BB
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=11 harq_k=1 verdict=OK ###
+  TX  = 0B 45 AF A6 04 82 7C BD
+  RX  = 0B 45 AF A6 04 82 7C BD
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=12 harq_k=1 verdict=MEMCMP ###
+  TX  = 49 71 BF A7 AA 7F 39 14
+  RX  = 49 71 BF A7 AA 7F 39 94
+  XOR = 00 00 00 00 00 00 00 80
+### DIAG-PAYLOAD S1 trial=13 harq_k=1 verdict=OK ###
+  TX  = 25 77 C2 76 88 C2 B2 97
+  RX  = 25 77 C2 76 88 C2 B2 97
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=14 harq_k=1 verdict=MEMCMP ###
+  TX  = BD 60 B7 BE 64 B1 AD 78
+  RX  = BD 60 B7 BE 64 B1 AD B8
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=15 harq_k=1 verdict=MEMCMP ###
+  TX  = 04 F2 79 BE A5 21 83 7B
+  RX  = 04 F2 79 BE A5 21 83 BB
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=16 harq_k=1 verdict=MEMCMP ###
+  TX  = D3 EF 4A 82 A6 FC 6C 0E
+  RX  = D3 EF 4A 82 A6 FC 6C 8E
+  XOR = 00 00 00 00 00 00 00 80
+### DIAG-PAYLOAD S1 trial=17 harq_k=1 verdict=MEMCMP ###
+  TX  = C4 2A 38 23 69 1E 52 0B
+  RX  = C4 2A 38 23 69 1E 52 8B
+  XOR = 00 00 00 00 00 00 00 80
+### DIAG-PAYLOAD S1 trial=18 harq_k=1 verdict=MEMCMP ###
+  TX  = 92 9A 0C CD 37 F4 26 57
+  RX  = 92 9A 0C CD 37 F4 26 97
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=19 harq_k=1 verdict=MEMCMP ###
+  TX  = 6F 0A D3 FC A7 D6 CE DF
+  RX  = 6F 0A D3 FC A7 D6 CE 9F
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-HARQ S1 END ###

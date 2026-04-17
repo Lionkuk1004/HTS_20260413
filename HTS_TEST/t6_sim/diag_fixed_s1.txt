@@ -1,0 +1,82 @@
+﻿### DIAG-HARQ S1 BEGIN ###
+### DIAG-PAYLOAD S1 trial= 0 harq_k=1 verdict=MEMCMP ###
+  TX  = 00 00 00 00 00 00 00 00
+  RX  = 00 00 00 00 00 00 00 C0
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 1 harq_k=1 verdict=MEMCMP ###
+  TX  = 00 00 00 00 00 00 00 00
+  RX  = 00 00 00 00 00 00 00 C0
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 2 harq_k=1 verdict=MEMCMP ###
+  TX  = 00 00 00 00 00 00 00 00
+  RX  = 00 00 00 00 00 00 00 C0
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 3 harq_k=1 verdict=MEMCMP ###
+  TX  = 00 00 00 00 00 00 00 00
+  RX  = 00 00 00 00 00 00 00 C0
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 4 harq_k=1 verdict=MEMCMP ###
+  TX  = 00 00 00 00 00 00 00 00
+  RX  = 00 00 00 00 00 00 00 C0
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial= 5 harq_k=1 verdict=MEMCMP ###
+  TX  = FF FF FF FF FF FF FF FF
+  RX  = FF FF FF FF FF FF FF BF
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-PAYLOAD S1 trial= 6 harq_k=1 verdict=MEMCMP ###
+  TX  = FF FF FF FF FF FF FF FF
+  RX  = FF FF FF FF FF FF FF BF
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-PAYLOAD S1 trial= 7 harq_k=1 verdict=MEMCMP ###
+  TX  = FF FF FF FF FF FF FF FF
+  RX  = FF FF FF FF FF FF FF BF
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-PAYLOAD S1 trial= 8 harq_k=1 verdict=MEMCMP ###
+  TX  = FF FF FF FF FF FF FF FF
+  RX  = FF FF FF FF FF FF FF BF
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-PAYLOAD S1 trial= 9 harq_k=1 verdict=MEMCMP ###
+  TX  = FF FF FF FF FF FF FF FF
+  RX  = FF FF FF FF FF FF FF BF
+  XOR = 00 00 00 00 00 00 00 40
+### DIAG-PAYLOAD S1 trial=10 harq_k=1 verdict=OK ###
+  TX  = AA AA AA AA AA AA AA AA
+  RX  = AA AA AA AA AA AA AA AA
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=11 harq_k=1 verdict=OK ###
+  TX  = AA AA AA AA AA AA AA AA
+  RX  = AA AA AA AA AA AA AA AA
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=12 harq_k=1 verdict=OK ###
+  TX  = AA AA AA AA AA AA AA AA
+  RX  = AA AA AA AA AA AA AA AA
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=13 harq_k=1 verdict=OK ###
+  TX  = AA AA AA AA AA AA AA AA
+  RX  = AA AA AA AA AA AA AA AA
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=14 harq_k=1 verdict=OK ###
+  TX  = AA AA AA AA AA AA AA AA
+  RX  = AA AA AA AA AA AA AA AA
+  XOR = 00 00 00 00 00 00 00 00
+### DIAG-PAYLOAD S1 trial=15 harq_k=1 verdict=MEMCMP ###
+  TX  = 55 55 55 55 55 55 55 55
+  RX  = 55 55 55 55 55 55 55 95
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=16 harq_k=1 verdict=MEMCMP ###
+  TX  = 55 55 55 55 55 55 55 55
+  RX  = 55 55 55 55 55 55 55 95
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=17 harq_k=1 verdict=MEMCMP ###
+  TX  = 55 55 55 55 55 55 55 55
+  RX  = 55 55 55 55 55 55 55 95
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=18 harq_k=1 verdict=MEMCMP ###
+  TX  = 55 55 55 55 55 55 55 55
+  RX  = 55 55 55 55 55 55 55 95
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-PAYLOAD S1 trial=19 harq_k=1 verdict=MEMCMP ###
+  TX  = 55 55 55 55 55 55 55 55
+  RX  = 55 55 55 55 55 55 55 95
+  XOR = 00 00 00 00 00 00 00 C0
+### DIAG-HARQ S1 END ###
