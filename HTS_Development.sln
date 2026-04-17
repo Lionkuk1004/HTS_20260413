@@ -2,6 +2,8 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.0.31903.59
 MinimumVisualStudioVersion = 10.0.40219.1
+Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HTS_T6_SIM_Test", "HTS_TEST\t6_sim\HTS_T6_SIM_Test.vcxproj", "{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}"
+EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HTS_LIM", "HTS_LIM\HTS_LIM.vcxproj", "{9BD2F8C7-315E-4373-83D5-3357F259718E}"
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "HTS_검증_KCMVP", "HTS_TEST\HTS_검증_KCMVP.vcxproj", "{A1B2C3D4-E5F6-7890-ABCD-EF1234567890}"
@@ -20,6 +22,14 @@ Global
 		Release|Win32 = Release|Win32
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Debug|x64.ActiveCfg = Debug|x64
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Debug|x64.Build.0 = Debug|x64
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Release|x64.ActiveCfg = Release|x64
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Release|x64.Build.0 = Release|x64
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Debug|Win32.ActiveCfg = Debug|Win32
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Debug|Win32.Build.0 = Debug|Win32
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Release|Win32.ActiveCfg = Release|Win32
+		{1A2B3C4D-5E6F-7890-ABCD-EF123456789A}.Release|Win32.Build.0 = Release|Win32
 		{9BD2F8C7-315E-4373-83D5-3357F259718E}.Debug|x64.ActiveCfg = Debug|x64
 		{9BD2F8C7-315E-4373-83D5-3357F259718E}.Debug|x64.Build.0 = Debug|x64
 		{9BD2F8C7-315E-4373-83D5-3357F259718E}.Release|x64.ActiveCfg = Release|x64

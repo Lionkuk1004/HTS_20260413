@@ -64,7 +64,8 @@ static_assert(sizeof(g_sic_bits) == FEC_HARQ::NSYM64 * 8u,
 static_assert(FEC_HARQ::C64 == 64, "SIC bit-pack requires C64==64");
 // ── Q8 사인파 LUT (sin(2π×k/8)×256) ──
 // AntiJamEngine.cpp의 k_cw_lut8와 동일한 값 — 두 모듈 일관성 유지
-static constexpr int16_t k_cw_lut8[8] = {0, 181, 256, 181, 0, -181, -256, -181};
+// 이름 분리: 단일 TU(amalgam) 링크 시 ProtectedEngine::k_cw_lut8 ODR 충돌 방지
+static constexpr int16_t k_cw_lut8_v400[8] = {0, 181, 256, 181, 0, -181, -256, -181};
 static constexpr uint32_t popc32(uint32_t x) noexcept {
     x = x - ((x >> 1u) & 0x55555555u);
     x = (x & 0x33333333u) + ((x >> 2u) & 0x33333333u);
@@ -600,7 +601,7 @@ void HTS_V400_Dispatcher::cw_cancel_64_(int16_t *I, int16_t *Q) noexcept {
     // Step 1: sin 상관 (기존과 동일)
     int32_t corr_I = 0, corr_Q = 0;
     for (int i = 0; i < 64; ++i) {
-        const int32_t lut = static_cast<int32_t>(k_cw_lut8[i & 7u]);
+        const int32_t lut = static_cast<int32_t>(k_cw_lut8_v400[i & 7u]);
         corr_I += static_cast<int32_t>(I[i]) * lut;
         corr_Q += static_cast<int32_t>(Q[i]) * lut;
     }
@@ -628,7 +629,7 @@ void HTS_V400_Dispatcher::cw_cancel_64_(int16_t *I, int16_t *Q) noexcept {
         ajc_.Seed_CW_Profile(m_ja_I, m_ja_Q);
     } else {
         for (int i = 0; i < 64; ++i) {
-            const int32_t lut = static_cast<int32_t>(k_cw_lut8[i & 7u]);
+            const int32_t lut = static_cast<int32_t>(k_cw_lut8_v400[i & 7u]);
             int32_t new_I = static_cast<int32_t>(I[i]) - ((m_ja_I * lut) >> 8);
             const int32_t hiI = (new_I - INT16_MAX) >> 31;
             const int32_t loI = (new_I + INT16_MAX) >> 31;
