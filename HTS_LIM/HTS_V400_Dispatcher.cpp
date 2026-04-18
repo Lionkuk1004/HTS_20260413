@@ -120,6 +120,22 @@ static inline void fwht_64_complex_inplace_(int32_t* __restrict T_I,
     }
 }
 
+/// @brief 64-bin 에너지 배열 argmax — Fix A3 Walsh-row excision
+static inline void find_argmax_64(const int64_t* __restrict e,
+                                  int* __restrict out_bin,
+                                  int64_t* __restrict out_e) noexcept {
+    int best_bin = 0;
+    int64_t best_e = e[0];
+    for (int m = 1; m < 64; ++m) {
+        if (e[m] > best_e) {
+            best_e = e[m];
+            best_bin = m;
+        }
+    }
+    *out_bin = best_bin;
+    *out_e = best_e;
+}
+
 /// @brief 8-point FWHT (복소 I/Q, in-place, 3 stage)
 static inline void fwht_8_complex_inplace_(int32_t* T_I,
                                             int32_t* T_Q) noexcept {
@@ -660,7 +676,21 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       holo_lpi_en_(HTS_Holo_LPI::SECURE_FALSE),
       holo_lpi_seed_{}, holo_lpi_mix_q8_(128), holo_lpi_scalars_{},
       holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
-      holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{} {}
+      holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{}
+{
+#if defined(HTS_DIAG_PRINTF)
+    // PROMPT 38: AntiJamEngine 본문은 Step3 제거 — 플래그·대체 경로만 실측
+    std::printf(
+        "[AJC-STATE] anti_jam_engine_present=0 reason=removed_step3 "
+        "notch_path=n/a iq_mode=%d ir_mode=%d lpi_on=%d "
+        "p_metrics_bound=%d nf_q16_hi=-1(tx_ctor) tx_amp=%d\n",
+        static_cast<int>(iq_mode_),
+        ir_mode_ ? 1 : 0,
+        (holo_lpi_en_ == HTS_Holo_LPI::SECURE_TRUE) ? 1 : 0,
+        (p_metrics_ != nullptr) ? 1 : 0,
+        static_cast<int>(tx_amp_));
+#endif
+}
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
     // 손상. 순서: CCM → full_reset_(HARQ/work 버퍼) → 칩/워킹 스크래치 →
@@ -2427,7 +2457,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     !defined(HTS_TARGET_AMI)
             {
                 static int s_p0_fwht_dump_idx = 0;
-                if (off == 0 && s_p0_fwht_dump_idx < 5) {
+                // PROMPT 39: 전역 한도가 S8 이전에 고갈되지 않도록 상향 (DIAG 전용)
+                if (off == 0 && s_p0_fwht_dump_idx < 5000) {
                     ++s_p0_fwht_dump_idx;
                     auto print_top5 = [](const char *label, const int32_t *I,
                                          const int32_t *Q) noexcept {
@@ -2452,7 +2483,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                                 }
                             }
                         }
-                        std::printf("[P0-FWHT-TOP5] %s: ", label);
+                        std::printf("[P0-FWHT-RAW] %s: ", label);
                         for (int k = 0; k < 5; ++k) {
                             std::printf(
                                 "bin%d=%lld ", top_bin[k],
@@ -2463,6 +2494,51 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                     print_top5("block0", T0_I, T0_Q);
                     print_top5("block1", T1_I, T1_Q);
                     print_top5("block2", T2_I, T2_Q);
+                    {
+                        auto block_total_e = [](const int32_t *I,
+                                                const int32_t *Q) noexcept
+                            -> int64_t {
+                            int64_t s = 0;
+                            for (int m = 0; m < 64; ++m) {
+                                s += static_cast<int64_t>(I[m]) * I[m] +
+                                     static_cast<int64_t>(Q[m]) * Q[m];
+                            }
+                            return s;
+                        };
+                        auto row_energy = [](const int32_t *I, const int32_t *Q,
+                                             int r) noexcept -> int64_t {
+                            return static_cast<int64_t>(I[r]) * I[r] +
+                                   static_cast<int64_t>(Q[r]) * Q[r];
+                        };
+                        std::printf(
+                            "[P0-BLOCK-TOTAL] block=0 total_e=%lld\n",
+                            static_cast<long long>(
+                                block_total_e(T0_I, T0_Q)));
+                        std::printf(
+                            "[P0-BLOCK-TOTAL] block=1 total_e=%lld\n",
+                            static_cast<long long>(
+                                block_total_e(T1_I, T1_Q)));
+                        std::printf(
+                            "[P0-BLOCK-TOTAL] block=2 total_e=%lld\n",
+                            static_cast<long long>(
+                                block_total_e(T2_I, T2_Q)));
+                        for (int b = 0; b < 3; ++b) {
+                            const int32_t *Ib =
+                                (b == 0) ? T0_I : ((b == 1) ? T1_I : T2_I);
+                            const int32_t *Qb =
+                                (b == 0) ? T0_Q : ((b == 1) ? T1_Q : T2_Q);
+                            std::printf(
+                                "[P0-PINPOINT] block=%d e_bin0=%lld "
+                                "e_bin6=%lld e_bin63=%lld\n",
+                                b,
+                                static_cast<long long>(
+                                    row_energy(Ib, Qb, 0)),
+                                static_cast<long long>(
+                                    row_energy(Ib, Qb, 6)),
+                                static_cast<long long>(
+                                    row_energy(Ib, Qb, 63)));
+                        }
+                    }
                 }
             }
 #endif
@@ -2610,10 +2686,99 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 off, max_row, accum, seed_I_fwht, seed_Q_fwht);
 #endif
 #elif !defined(HTS_TARGET_AMI)
-            // Fix A1: block 0/1 zero buffer → argmax stays 63 fallback; trust
-            // block 2 (last 64 chips, latest preamble). 3-block consistent → r0
-            // (baseline). Mismatch → r2 (CFO-induced row).
-            best_dom_row = (r0 == r1 && r1 == r2) ? r0 : r2;
+            // Fix A1 (V28): 3-way 일치 시 r0, 아니면 r2.
+            // Fix A3 (V34): block-2 FWHT 에너지에서 coherent pair 순차 excision
+            // (bin63 하드코딩 없음). pair1=(top1,top2) → pair2=(top3,top4) 검사,
+            // 2-level jam이면 top5, 1-level이면 top3를 preamble 후보로 채택.
+            const bool full3blk_dom = ((off + 128 + 63) < 192);
+            int best_dom_pick = (r0 == r1 && r1 == r2) ? r0 : r2;
+            if (full3blk_dom) {
+                int64_t e_b2[64];
+                for (int m = 0; m < 64; ++m) {
+                    e_b2[m] = static_cast<int64_t>(T2_I[m]) * T2_I[m] +
+                              static_cast<int64_t>(T2_Q[m]) * T2_Q[m];
+                }
+                int t1_bin = 0;
+                int64_t t1_e = 0;
+                find_argmax_64(e_b2, &t1_bin, &t1_e);
+                int t2_bin = 0;
+                int64_t t2_e = 0;
+                int final_pick = best_dom_pick;
+                int a3_level = 0;
+                int t3_bin_dbg = -1;
+                int t4_bin_dbg = -1;
+                int t5_bin_dbg = -1;
+                int64_t t3_e_dbg = -1;
+                int64_t t4_e_dbg = -1;
+                int64_t t5_e_dbg = -1;
+                if (t1_e > 0) {
+                    const int64_t t1_saved = e_b2[t1_bin];
+                    e_b2[t1_bin] = 0;
+                    find_argmax_64(e_b2, &t2_bin, &t2_e);
+                    const bool pair1_coherent =
+                        (t2_e >= (t1_e - (t1_e >> 4))) &&
+                        (t1_bin != t2_bin);
+                    if (pair1_coherent) {
+                        const int64_t t2_saved = e_b2[t2_bin];
+                        e_b2[t2_bin] = 0;
+                        int t3_bin = 0;
+                        int64_t t3_e = 0;
+                        find_argmax_64(e_b2, &t3_bin, &t3_e);
+                        t3_bin_dbg = t3_bin;
+                        t3_e_dbg = t3_e;
+                        const int64_t t3_saved = e_b2[t3_bin];
+                        e_b2[t3_bin] = 0;
+                        int t4_bin = 0;
+                        int64_t t4_e = 0;
+                        find_argmax_64(e_b2, &t4_bin, &t4_e);
+                        t4_bin_dbg = t4_bin;
+                        t4_e_dbg = t4_e;
+                        const bool pair2_coherent =
+                            (t3_e > 0) &&
+                            (t4_e >= (t3_e - (t3_e >> 4))) &&
+                            (t3_bin != t4_bin);
+                        if (pair2_coherent) {
+                            e_b2[t4_bin] = 0;
+                            int t5_bin = 0;
+                            int64_t t5_e = 0;
+                            find_argmax_64(e_b2, &t5_bin, &t5_e);
+                            t5_bin_dbg = t5_bin;
+                            t5_e_dbg = t5_e;
+                            final_pick = t5_bin;
+                            a3_level = 2;
+                            e_b2[t3_bin] = t3_saved;
+                            e_b2[t2_bin] = t2_saved;
+                        } else {
+                            final_pick = t3_bin;
+                            a3_level = 1;
+                            e_b2[t3_bin] = t3_saved;
+                            e_b2[t2_bin] = t2_saved;
+                        }
+                    }
+                    e_b2[t1_bin] = t1_saved;
+                }
+                best_dom_pick = final_pick;
+#if defined(HTS_DIAG_PRINTF)
+                if (a3_level > 0) {
+                    static int s_fixa3_dump = 0;
+                    if (s_fixa3_dump < 50) {
+                        ++s_fixa3_dump;
+                        std::printf(
+                            "[FIXA3] off=%d r0=%d r1=%d r2=%d level=%d "
+                            "t1=(%d,%lld) t2=(%d,%lld) t3=(%d,%lld) t4=(%d,%lld) "
+                            "t5=(%d,%lld) pick=%d (A1=%d)\n",
+                            off, r0, r1, r2, a3_level, t1_bin,
+                            static_cast<long long>(t1_e), t2_bin,
+                            static_cast<long long>(t2_e), t3_bin_dbg,
+                            static_cast<long long>(t3_e_dbg), t4_bin_dbg,
+                            static_cast<long long>(t4_e_dbg), t5_bin_dbg,
+                            static_cast<long long>(t5_e_dbg), final_pick,
+                            (r0 == r1 && r1 == r2) ? r0 : r2);
+                    }
+                }
+#endif
+            }
+            best_dom_row = best_dom_pick;
 #if defined(HTS_DIAG_PRINTF)
             std::printf(
                 "[STAGE4-P0] off=%d r0=%d r1=%d r2=%d xor_legacy=%d accum=%d "
@@ -3339,6 +3504,27 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         std::printf("[P1-NC] sym=%d e63=%d e0=%d est=(%d,%d) n=%d carry_pend=%d\n",
                     static_cast<int>(sym), e63_sh, e0_sh,
                     est_I_, est_Q_, est_count_, p1_carry_pending_);
+        {
+            static int s_p1_gate_dump = 0;
+            if (s_p1_gate_dump < 50000) {
+                ++s_p1_gate_dump;
+                const int gate_e_ok =
+                    (max_e_sh >= k_P1_MIN_E) ? 1 : 0;
+                const int gate_ge_dom = (e63_64 >= e0_64) ? 1 : 0;
+                const int gate_sym_pre1 =
+                    (sym == static_cast<int8_t>(PRE_SYM1)) ? 1 : 0;
+                const int gate_sym_pre0 =
+                    (sym == static_cast<int8_t>(PRE_SYM0)) ? 1 : 0;
+                const int enter_hdr = gate_sym_pre1;
+                std::printf(
+                    "[P1-GATE] #%d n=%d e63_sh=%d e0_sh=%d max_e=%d "
+                    "k_P1_MIN_E=%d gate_e_ok=%d ge_dom=%d "
+                    "sym_pre1=%d sym_pre0=%d carry_pend=%d enter_hdr=%d\n",
+                    s_p1_gate_dump, est_count_, e63_sh, e0_sh, max_e_sh,
+                    k_P1_MIN_E, gate_e_ok, gate_ge_dom, gate_sym_pre1,
+                    gate_sym_pre0, p1_carry_pending_, enter_hdr);
+            }
+        }
 #endif
         if (sym == static_cast<int8_t>(PRE_SYM1)) {
             p1_tail_collect_rem_ = 0; p1_tail_idx_ = 0;
