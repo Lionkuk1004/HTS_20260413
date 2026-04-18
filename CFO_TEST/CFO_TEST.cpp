@@ -1,9 +1,17 @@
 // =====================================================================
-// CFO_TEST.cpp — HTS B-CDMA CFO Compensator 진단 프로그램
+// CFO_TEST.cpp — HTS B-CDMA CFO 알고리즘 정확도 검증 (FM 준수)
 // =====================================================================
-// 목적: S5 1000Hz 회귀의 실제 실패 지점 식별
-// 대상: HTS_CFO_Compensator + phase0_scan_ 로직 완전 재현
-// 빌드: VS x64 Release / C++17
+// 원칙:
+//   1. threshold amp × 38 고정 (변경 금지)
+//   2. 알고리즘이 threshold 를 넘는지만 평가
+//   3. 실환경 위협 시뮬 (multipath, jammer, impulse)
+//   4. False Positive 엄격 기준 (10000 trials)
+//   5. 알고리즘 자체 정확도 (chip error, phase error) 검증
+//
+// 목적:
+//   - 각 Apply 방식의 실제 정확도 측정 (threshold 무관)
+//   - 실환경 위협 하에서 견고성 평가
+//   - T6 점수 맞추기 아니라 진짜 성능 판단
 // =====================================================================
 #include <algorithm>
 #include <array>
@@ -14,19 +22,24 @@
 #include <cstring>
 #include <random>
 #include <vector>
+#ifndef M_PI
+#define M_PI 3.14159265358979323846
+#endif
 // =====================================================================
-// 상수
+// 상수 (HTS 코드와 동일)
 // =====================================================================
 static constexpr int32_t kQ14One = 16384;
-static constexpr int32_t kQ14Sq = kQ14One * kQ14One; // 2^28 = 268,435,456
-// HTS_V400_Dispatcher.cpp 의 k_w63 (Walsh row 63) 복사
+static constexpr int32_t kQ14Sq = kQ14One * kQ14One;
+// HTS threshold 고정값 — 건드리지 않음
+static constexpr int32_t K_THRESHOLD_FACTOR = 38; // amp × 38
+// Walsh row 63 (HTS_V400_Dispatcher.cpp 동일)
 static constexpr int8_t k_w63[64] = {
     +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1,
     -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
     -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
     +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1};
 // =====================================================================
-// 유틸: walsh63_dot_ (HTS_V400_Dispatcher.cpp 와 동일)
+// walsh63_dot_ (HTS 동일)
 // =====================================================================
 static void walsh63_dot(const int16_t *chip_I, const int16_t *chip_Q,
                         int32_t &dot_I, int32_t &dot_Q) noexcept {
@@ -46,7 +59,7 @@ static void walsh63_dot(const int16_t *chip_I, const int16_t *chip_Q,
     dot_Q = dQ;
 }
 // =====================================================================
-// integer_sqrt_q14 — 이진 탐색, 나눗셈 0회
+// integer_sqrt (이진 탐색, 나눗셈 0회)
 // =====================================================================
 static int32_t integer_sqrt_q14(int64_t x) noexcept {
     if (x <= 0)
@@ -54,46 +67,39 @@ static int32_t integer_sqrt_q14(int64_t x) noexcept {
     const int64_t q14_sq = static_cast<int64_t>(kQ14One) * kQ14One;
     if (x >= q14_sq)
         return kQ14One;
-    int32_t lo = 0;
-    int32_t hi = kQ14One;
+    int32_t lo = 0, hi = kQ14One;
     while (lo < hi) {
         const int32_t mid = (lo + hi + 1) >> 1;
         const int64_t mid_sq = static_cast<int64_t>(mid) * mid;
-        if (mid_sq <= x) {
+        if (mid_sq <= x)
             lo = mid;
-        } else {
+        else
             hi = mid - 1;
-        }
     }
     return lo;
 }
-// mag 가 kQ14One 을 초과 가능한 경우용 (복소 회전 drift)
 static int32_t integer_sqrt_mag(int64_t x) noexcept {
     if (x <= 0)
         return 0;
-    // 범위: 0 ~ 2 × kQ14Sq (두 개의 Q14² 합)
-    // 결과: 0 ~ sqrt(2) × kQ14One ≈ 23170
     constexpr int32_t MAX_MAG = 23171;
-    int32_t lo = 0;
-    int32_t hi = MAX_MAG;
+    int32_t lo = 0, hi = MAX_MAG;
     while (lo < hi) {
         const int32_t mid = (lo + hi + 1) >> 1;
         const int64_t mid_sq = static_cast<int64_t>(mid) * mid;
-        if (mid_sq <= x) {
+        if (mid_sq <= x)
             lo = mid;
-        } else {
+        else
             hi = mid - 1;
-        }
     }
     return lo;
 }
 // =====================================================================
-// CFO Compensator — 세 가지 버전
+// CFO Compensator (3가지 변형)
 // =====================================================================
 enum class CfoMode {
-    BUGGY,       // 현재 베이스라인: sin_acc += + 포화
-    V3_RENORM,   // v3: 복소 회전 + 128 chip 재정규화
-    COMPLEX_ONLY // v2: 복소 회전만 (재정규화 없음)
+    BUGGY,     // 현재 (소각도 + 포화) 베이스라인
+    V3_RENORM, // 복소 회전 + 128 chip 재정규화
+    CMPLX_ONLY // 복소 회전만 (재정규화 없음)
 };
 struct CfoCompensator {
     int32_t cos_acc;
@@ -114,11 +120,8 @@ struct CfoCompensator {
     }
     void estimate(int32_t d0I, int32_t d0Q, int32_t d1I, int32_t d1Q,
                   int block_chips) {
-        // HTS_CFO_Compensator.h 의 Estimate_From_Preamble 로직
-        const int64_t cos_delta =
-            static_cast<int64_t>(d0I) * d1I + static_cast<int64_t>(d0Q) * d1Q;
-        const int64_t sin_delta =
-            static_cast<int64_t>(d0Q) * d1I - static_cast<int64_t>(d0I) * d1Q;
+        const int64_t cos_delta = (int64_t)d0I * d1I + (int64_t)d0Q * d1Q;
+        const int64_t sin_delta = (int64_t)d0Q * d1I - (int64_t)d0I * d1Q;
         const int64_t ac = (cos_delta < 0) ? -cos_delta : cos_delta;
         const int64_t as = (sin_delta < 0) ? -sin_delta : sin_delta;
         const int64_t mag_approx =
@@ -127,25 +130,20 @@ struct CfoCompensator {
             active = false;
             return;
         }
-        const int64_t k14 = static_cast<int64_t>(kQ14One);
-        const int32_t sin_block =
-            static_cast<int32_t>((sin_delta * k14) / mag_approx);
-        if (block_chips == 64) {
+        const int64_t k14 = kQ14One;
+        const int32_t sin_block = (int32_t)((sin_delta * k14) / mag_approx);
+        if (block_chips == 64)
             sin_per_chip = sin_block >> 6;
-        } else if (block_chips == 16) {
+        else if (block_chips == 16)
             sin_per_chip = sin_block >> 4;
-        } else {
+        else
             sin_per_chip = sin_block / block_chips;
-        }
         if (mode == CfoMode::BUGGY) {
-            cos_per_chip = kQ14One; // 소각도 근사
+            cos_per_chip = kQ14One;
         } else {
-            // 정확 계산: sin² + cos² = Q14²
-            const int64_t sin_sq =
-                static_cast<int64_t>(sin_per_chip) * sin_per_chip;
+            const int64_t sin_sq = (int64_t)sin_per_chip * sin_per_chip;
             const int64_t q14_sq = k14 * k14;
-            const int64_t cos_sq = q14_sq - sin_sq;
-            cos_per_chip = integer_sqrt_q14(cos_sq);
+            cos_per_chip = integer_sqrt_q14(q14_sq - sin_sq);
         }
         cos_acc = kQ14One;
         sin_acc = 0;
@@ -155,9 +153,7 @@ struct CfoCompensator {
     void apply(int16_t &chipI, int16_t &chipQ) {
         if (!active)
             return;
-        const int32_t ci = static_cast<int32_t>(chipI);
-        const int32_t cq = static_cast<int32_t>(chipQ);
-        // chip 역회전 (공통)
+        const int32_t ci = chipI, cq = chipQ;
         int32_t ri = (ci * cos_acc + cq * sin_acc) >> 14;
         int32_t rq = (cq * cos_acc - ci * sin_acc) >> 14;
         if (ri > 32767)
@@ -168,43 +164,35 @@ struct CfoCompensator {
             rq = 32767;
         if (rq < -32768)
             rq = -32768;
-        chipI = static_cast<int16_t>(ri);
-        chipQ = static_cast<int16_t>(rq);
-        // 누적 위상 갱신 (모드별)
+        chipI = (int16_t)ri;
+        chipQ = (int16_t)rq;
         if (mode == CfoMode::BUGGY) {
-            // 기존: 선형 누적 + 포화
             sin_acc += sin_per_chip;
             if (sin_acc > kQ14One)
                 sin_acc = kQ14One;
             if (sin_acc < -kQ14One)
                 sin_acc = -kQ14One;
-            // cos_acc 변경 없음
         } else {
-            // 복소 페이저 곱셈
-            const int32_t next_cos = static_cast<int32_t>(
-                (static_cast<int64_t>(cos_acc) * cos_per_chip -
-                 static_cast<int64_t>(sin_acc) * sin_per_chip) >>
-                14);
-            const int32_t next_sin = static_cast<int32_t>(
-                (static_cast<int64_t>(cos_acc) * sin_per_chip +
-                 static_cast<int64_t>(sin_acc) * cos_per_chip) >>
-                14);
+            const int32_t next_cos =
+                (int32_t)(((int64_t)cos_acc * cos_per_chip -
+                           (int64_t)sin_acc * sin_per_chip) >>
+                          14);
+            const int32_t next_sin =
+                (int32_t)(((int64_t)cos_acc * sin_per_chip +
+                           (int64_t)sin_acc * cos_per_chip) >>
+                          14);
             cos_acc = next_cos;
             sin_acc = next_sin;
-            // v3: 128 chip 마다 재정규화
             if (mode == CfoMode::V3_RENORM) {
                 ++chip_counter;
                 if ((chip_counter & 0x7F) == 0) {
                     const int64_t mag_sq =
-                        static_cast<int64_t>(cos_acc) * cos_acc +
-                        static_cast<int64_t>(sin_acc) * sin_acc;
+                        (int64_t)cos_acc * cos_acc + (int64_t)sin_acc * sin_acc;
                     const int32_t cur_mag = integer_sqrt_mag(mag_sq);
                     if (cur_mag > 0) {
-                        const int32_t scale = kQ14Sq / cur_mag; // int32 UDIV
-                        cos_acc = static_cast<int32_t>(
-                            (static_cast<int64_t>(cos_acc) * scale) >> 14);
-                        sin_acc = static_cast<int32_t>(
-                            (static_cast<int64_t>(sin_acc) * scale) >> 14);
+                        const int32_t scale = kQ14Sq / cur_mag;
+                        cos_acc = (int32_t)(((int64_t)cos_acc * scale) >> 14);
+                        sin_acc = (int32_t)(((int64_t)sin_acc * scale) >> 14);
                     }
                 }
             }
@@ -212,27 +200,16 @@ struct CfoCompensator {
     }
 };
 // =====================================================================
-// phase0_scan 결과 구조체
+// phase0_scan — HTS 동일, threshold amp×38 고정 (절대 변경 금지)
 // =====================================================================
 struct ScanResult {
     bool pass;
-    bool off_ok;
-    bool r_avg_ok;
-    bool r_avg_high;
-    bool e63_ok;
-    bool sep_ok;
+    bool off_ok, r_avg_ok, e63_ok, sep_ok;
     int32_t best_off;
-    int32_t best_e63;
-    int32_t second_e63;
-    int32_t e63_min;
-    int32_t avg_others;
-    int64_t sum_others;
-    int32_t r_avg; // best / avg_others (정수)
-    int32_t r_sep; // best / second
+    int32_t best_e63, second_e63, e63_min;
 };
-// phase0_scan_ 로직 완전 재현
 static ScanResult phase0_scan(const int16_t *buf_I, const int16_t *buf_Q,
-                              int16_t tx_amp, int32_t k_factor = 38) {
+                              int16_t tx_amp) {
     ScanResult r{};
     int32_t best_e63 = 0, second_e63 = 0;
     int32_t best_off = -1;
@@ -241,435 +218,478 @@ static ScanResult phase0_scan(const int16_t *buf_I, const int16_t *buf_Q,
         int64_t e_nc = 0;
         for (int blk = 0; blk < 2; ++blk) {
             const int base = off + (blk << 6);
-            int32_t dot_I = 0, dot_Q = 0;
-            walsh63_dot(&buf_I[base], &buf_Q[base], dot_I, dot_Q);
-            e_nc += static_cast<int64_t>(dot_I) * dot_I +
-                    static_cast<int64_t>(dot_Q) * dot_Q;
+            int32_t dI = 0, dQ = 0;
+            walsh63_dot(&buf_I[base], &buf_Q[base], dI, dQ);
+            e_nc += (int64_t)dI * dI + (int64_t)dQ * dQ;
         }
-        const int32_t accum = static_cast<int32_t>(e_nc >> 16);
-        sum_all += static_cast<int64_t>(accum);
+        const int32_t accum = (int32_t)(e_nc >> 16);
+        sum_all += accum;
         if (accum > best_e63) {
             second_e63 = best_e63;
             best_e63 = accum;
             best_off = off;
-        } else if (accum > second_e63) {
+        } else if (accum > second_e63)
             second_e63 = accum;
-        }
     }
-    const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
-    // r_avg >= 5
-    const int64_t best_x63 =
-        (static_cast<int64_t>(best_e63) << 6) - static_cast<int64_t>(best_e63);
+    const int64_t sum_others = sum_all - best_e63;
+    const int64_t best_x63 = ((int64_t)best_e63 << 6) - best_e63;
     const int64_t so_x5 = (sum_others << 2) + sum_others;
     const bool r_avg_ok = (sum_others <= 0) || (best_x63 >= so_x5);
-    // r_avg >= 8
     const bool r_avg_high =
         (sum_others <= 0) || (best_x63 >= (sum_others << 3));
-    // sep_ok
-    const int64_t best_x4 = static_cast<int64_t>(best_e63) << 2;
-    const int64_t sec_x5 = (static_cast<int64_t>(second_e63) << 2) +
-                           static_cast<int64_t>(second_e63);
+    const int64_t best_x4 = (int64_t)best_e63 << 2;
+    const int64_t sec_x5 = ((int64_t)second_e63 << 2) + second_e63;
     const bool sep_ok =
         (!r_avg_high) || (second_e63 == 0) || (best_x4 > sec_x5);
-    // e63_min
     const int32_t avg_others =
-        (sum_others > 0) ? static_cast<int32_t>((sum_others * 1040LL) >> 16)
-                         : 0;
+        (sum_others > 0) ? (int32_t)((sum_others * 1040LL) >> 16) : 0;
     const int32_t adaptive_min =
-        (avg_others > 0)
-            ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
-                                   avg_others)
-            : 5000;
-    const int32_t amp32 = static_cast<int32_t>(tx_amp);
-    // k_factor × amp (38 기본)
-    const int32_t k_E63_ALIGN_MIN = amp32 * k_factor;
+        (avg_others > 0) ? (int32_t)(((int64_t)avg_others << 2) + avg_others)
+                         : 5000;
+    // FIXED: amp × 38 (절대 변경 금지)
+    const int32_t amp32 = tx_amp;
+    const int32_t k_E63_ALIGN_MIN = (amp32 << 5) + (amp32 << 2) + (amp32 << 1);
     const int32_t e63_min =
         (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
     r.best_e63 = best_e63;
     r.second_e63 = second_e63;
     r.best_off = best_off;
     r.e63_min = e63_min;
-    r.avg_others = avg_others;
-    r.sum_others = sum_others;
     r.off_ok = (best_off >= 0);
     r.r_avg_ok = r_avg_ok;
-    r.r_avg_high = r_avg_high;
     r.e63_ok = (best_e63 >= e63_min);
     r.sep_ok = sep_ok;
     r.pass = r.off_ok && r.r_avg_ok && r.e63_ok && r.sep_ok;
-    r.r_avg = (avg_others > 0) ? (best_e63 / avg_others) : 999;
-    r.r_sep = (second_e63 > 0) ? (best_e63 / second_e63) : 999;
     return r;
 }
 // =====================================================================
-// TX: 프리앰블 + CFO 시뮬레이션
+// 채널 모델 — 실환경 위협 포함
 // =====================================================================
-struct TxParams {
-    double cfo_hz;       // CFO
-    double chip_rate;    // 1 Mcps 기본
-    int16_t amp;         // TX amplitude
-    double snr_db;       // SNR
-    int preamble_offset; // 128 chip 버퍼 내 위치 (보통 32)
-    uint32_t seed;
+struct ChannelParams {
+    double cfo_hz = 0;
+    double snr_db = 20;
+    double chip_rate = 1e6;
+    bool multipath_enabled = false;
+    double path_delays[3] = {0.0, 0.5, 2.0};
+    double path_gains[3] = {1.0, 0.3, 0.15};
+    bool jammer_enabled = false;
+    int jammer_type = 0; // 0=CW, 1=pulse, 2=barrage
+    double jammer_power_db = 0;
+    bool impulse_enabled = false;
+    double impulse_prob = 0.01;
+    double impulse_magnitude = 5.0;
+    bool preamble = true;
 };
-static void generate_rx_buffer(const TxParams &tx, int16_t *buf_I,
-                               int16_t *buf_Q) {
-    std::mt19937 rng(tx.seed);
+static void generate_rx_with_channel(const ChannelParams &ch, int16_t tx_amp,
+                                     int preamble_offset, uint32_t seed,
+                                     int16_t *buf_I, int16_t *buf_Q) {
+    std::mt19937 rng(seed);
     std::normal_distribution<double> gauss(0.0, 1.0);
-    // 128 chip 버퍼 = preamble_offset 전후 noise, 프리앰블 구간 (64×2=128 chip)
-    // 단, phase0_scan 은 0~127 offset 스캔하므로 buf 는 128 chip + 여유 필요
-    // 원 코드는 p0_buf128_I_[192] 사용 → 안전하게 192 chip 가정
-    const double sig_pwr = static_cast<double>(tx.amp) * tx.amp;
-    const double noise_pwr = sig_pwr / std::pow(10.0, tx.snr_db / 10.0);
+    std::uniform_real_distribution<double> uni(0.0, 1.0);
+    double rI[192] = {}, rQ[192] = {};
+    // 1. AWGN
+    const double sig_pwr = (double)tx_amp * tx_amp;
+    const double noise_pwr = sig_pwr / std::pow(10.0, ch.snr_db / 10.0);
     const double noise_std = std::sqrt(noise_pwr / 2.0);
-    const double chip_dt = 1.0 / tx.chip_rate;
-    const double chip_phase = 2.0 * 3.141592653589793 * tx.cfo_hz * chip_dt;
-    // 전체 버퍼를 noise 로 채움
     for (int k = 0; k < 192; ++k) {
-        const double noise_I = gauss(rng) * noise_std;
-        const double noise_Q = gauss(rng) * noise_std;
-        buf_I[k] = static_cast<int16_t>(std::round(noise_I));
-        buf_Q[k] = static_cast<int16_t>(std::round(noise_Q));
+        rI[k] = gauss(rng) * noise_std;
+        rQ[k] = gauss(rng) * noise_std;
     }
-    // 프리앰블 2 블록 (Walsh row 63, ±amp)
-    for (int blk = 0; blk < 2; ++blk) {
-        const int base = tx.preamble_offset + blk * 64;
-        for (int k = 0; k < 64; ++k) {
-            const int idx = base + k;
-            if (idx >= 192)
-                continue;
-            // chip 간 연속 위상
-            const double phi = chip_phase * (blk * 64 + k);
-            const double sig_I = k_w63[k] * std::cos(phi) * tx.amp;
-            const double sig_Q = k_w63[k] * std::sin(phi) * tx.amp;
-            const int32_t mixed_I = static_cast<int32_t>(buf_I[idx]) +
-                                    static_cast<int32_t>(std::round(sig_I));
-            const int32_t mixed_Q = static_cast<int32_t>(buf_Q[idx]) +
-                                    static_cast<int32_t>(std::round(sig_Q));
-            buf_I[idx] = static_cast<int16_t>(
-                std::max(-32768, std::min(32767, mixed_I)));
-            buf_Q[idx] = static_cast<int16_t>(
-                std::max(-32768, std::min(32767, mixed_Q)));
+    // 2. 프리앰블 + multipath
+    if (ch.preamble) {
+        const double chip_dt = 1.0 / ch.chip_rate;
+        const double chip_phase = 2.0 * M_PI * ch.cfo_hz * chip_dt;
+        const int n_paths = ch.multipath_enabled ? 3 : 1;
+        for (int p = 0; p < n_paths; ++p) {
+            const double delay = ch.multipath_enabled ? ch.path_delays[p] : 0.0;
+            const double gain = ch.multipath_enabled ? ch.path_gains[p] : 1.0;
+            const int di = (int)std::floor(delay);
+            const double df = delay - di;
+            for (int blk = 0; blk < 2; ++blk) {
+                const int base = preamble_offset + blk * 64;
+                for (int k = 0; k < 64; ++k) {
+                    const int idx = base + k + di;
+                    if (idx >= 192 || idx < 0)
+                        continue;
+                    const double phi = chip_phase * (blk * 64 + k);
+                    const double sigI =
+                        k_w63[k] * std::cos(phi) * tx_amp * gain;
+                    const double sigQ =
+                        k_w63[k] * std::sin(phi) * tx_amp * gain;
+                    rI[idx] += sigI * (1 - df);
+                    rQ[idx] += sigQ * (1 - df);
+                    if (idx + 1 < 192) {
+                        rI[idx + 1] += sigI * df;
+                        rQ[idx + 1] += sigQ * df;
+                    }
+                }
+            }
         }
+    }
+    // 3. Jammer
+    if (ch.jammer_enabled) {
+        const double j_amp = tx_amp * std::pow(10.0, ch.jammer_power_db / 20.0);
+        const double chip_dt = 1.0 / ch.chip_rate;
+        if (ch.jammer_type == 0) {
+            const double jf = 3000.0;
+            for (int k = 0; k < 192; ++k) {
+                rI[k] += j_amp * std::cos(2 * M_PI * jf * k * chip_dt);
+                rQ[k] += j_amp * std::sin(2 * M_PI * jf * k * chip_dt);
+            }
+        } else if (ch.jammer_type == 1) {
+            for (int k = 0; k < 192; ++k) {
+                if (uni(rng) < 0.05) {
+                    rI[k] += j_amp * gauss(rng) * 3;
+                    rQ[k] += j_amp * gauss(rng) * 3;
+                }
+            }
+        } else {
+            for (int k = 0; k < 192; ++k) {
+                rI[k] += j_amp * gauss(rng);
+                rQ[k] += j_amp * gauss(rng);
+            }
+        }
+    }
+    // 4. Impulse
+    if (ch.impulse_enabled) {
+        for (int k = 0; k < 192; ++k) {
+            if (uni(rng) < ch.impulse_prob) {
+                rI[k] += gauss(rng) * tx_amp * ch.impulse_magnitude;
+                rQ[k] += gauss(rng) * tx_amp * ch.impulse_magnitude;
+            }
+        }
+    }
+    // 5. int16 quantize
+    for (int k = 0; k < 192; ++k) {
+        const int32_t vi = (int32_t)std::round(rI[k]);
+        const int32_t vq = (int32_t)std::round(rQ[k]);
+        buf_I[k] = (int16_t)std::max(-32768, std::min(32767, vi));
+        buf_Q[k] = (int16_t)std::max(-32768, std::min(32767, vq));
     }
 }
 // =====================================================================
-// RX: Estimate → Apply → Scan
+// RX + 정확도
 // =====================================================================
-struct RxResult {
-    ScanResult scan_before; // Apply 전 (Estimate 만 한 상태)
-    ScanResult scan_after;  // Apply 후
-    int32_t sin_per_chip;
-    int32_t cos_per_chip;
-    bool est_active;
-    int32_t d0I, d0Q, d1I, d1Q;
+struct RxAccuracy {
+    bool scan_passed;
+    int32_t best_e63;
+    int32_t e63_min;
+    double e63_margin;
+    double mag_drift_pct;
+    double phase_error_deg_at_128;
 };
-static RxResult rx_process(const int16_t *buf_I_orig, const int16_t *buf_Q_orig,
-                           int16_t tx_amp, CfoMode mode,
-                           int32_t k_factor = 38) {
-    RxResult r{};
-    // 1) 첫 번째 스캔 (Apply 없이 best_off 찾기)
-    r.scan_before = phase0_scan(buf_I_orig, buf_Q_orig, tx_amp, k_factor);
-    // 2) best_off 기준으로 d0, d1 추출
-    if (r.scan_before.best_off < 0) {
-        r.est_active = false;
-        return r;
+static RxAccuracy rx_process(const int16_t *buf_I, const int16_t *buf_Q,
+                             int16_t tx_amp, CfoMode mode, double true_cfo_hz) {
+    RxAccuracy acc{};
+    // 1. 프리앰블 탐색 (Apply 전)
+    ScanResult sc1 = phase0_scan(buf_I, buf_Q, tx_amp);
+    if (sc1.best_off < 0) {
+        acc.scan_passed = false;
+        return acc;
     }
-    int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
-    walsh63_dot(&buf_I_orig[r.scan_before.best_off],
-                &buf_Q_orig[r.scan_before.best_off], d0I, d0Q);
-    walsh63_dot(&buf_I_orig[r.scan_before.best_off + 64],
-                &buf_Q_orig[r.scan_before.best_off + 64], d1I, d1Q);
-    r.d0I = d0I;
-    r.d0Q = d0Q;
-    r.d1I = d1I;
-    r.d1Q = d1Q;
-    // 3) CFO Estimate
+    // 2. Estimate
+    int32_t d0I, d0Q, d1I, d1Q;
+    walsh63_dot(&buf_I[sc1.best_off], &buf_Q[sc1.best_off], d0I, d0Q);
+    walsh63_dot(&buf_I[sc1.best_off + 64], &buf_Q[sc1.best_off + 64], d1I, d1Q);
     CfoCompensator cfo;
     cfo.init(mode);
     cfo.estimate(d0I, d0Q, d1I, d1Q, 64);
-    r.sin_per_chip = cfo.sin_per_chip;
-    r.cos_per_chip = cfo.cos_per_chip;
-    r.est_active = cfo.active;
-    if (!cfo.active) {
-        r.scan_after = r.scan_before;
-        return r;
-    }
-    // 4) Apply (128 chip 버퍼 전체에)
-    int16_t buf_I[192], buf_Q[192];
-    std::memcpy(buf_I, buf_I_orig, sizeof(buf_I));
-    std::memcpy(buf_Q, buf_Q_orig, sizeof(buf_Q));
-    for (int k = 0; k < 128; ++k) {
-        cfo.apply(buf_I[k], buf_Q[k]);
-    }
-    // 5) 두 번째 스캔 (Apply 후)
-    r.scan_after = phase0_scan(buf_I, buf_Q, tx_amp, k_factor);
-    return r;
+    // 3. Apply to full buffer
+    int16_t bI[192], bQ[192];
+    std::memcpy(bI, buf_I, sizeof(bI));
+    std::memcpy(bQ, buf_Q, sizeof(bQ));
+    for (int k = 0; k < 128; ++k)
+        cfo.apply(bI[k], bQ[k]);
+    // 4. Scan 후 (Apply 적용 후 성능)
+    ScanResult sc2 = phase0_scan(bI, bQ, tx_amp);
+    acc.scan_passed = sc2.pass;
+    acc.best_e63 = sc2.best_e63;
+    acc.e63_min = sc2.e63_min;
+    acc.e63_margin = sc2.e63_min > 0 ? (double)sc2.best_e63 / sc2.e63_min : 0;
+    // 5. 단위원 drift
+    const double cos_f = (double)cfo.cos_acc / kQ14One;
+    const double sin_f = (double)cfo.sin_acc / kQ14One;
+    const double mag = std::sqrt(cos_f * cos_f + sin_f * sin_f);
+    acc.mag_drift_pct = (mag - 1.0) * 100;
+    // 6. phase error @ chip 128
+    const double chip_dt = 1e-6;
+    const double true_phase_128 =
+        std::fmod(2 * M_PI * true_cfo_hz * chip_dt * 128, 2 * M_PI);
+    double true_mod = true_phase_128;
+    if (true_mod > M_PI)
+        true_mod -= 2 * M_PI;
+    const double est_phase = std::atan2(sin_f, cos_f);
+    double diff = est_phase - true_mod;
+    while (diff > M_PI)
+        diff -= 2 * M_PI;
+    while (diff < -M_PI)
+        diff += 2 * M_PI;
+    acc.phase_error_deg_at_128 = std::abs(diff) * 180 / M_PI;
+    return acc;
 }
 // =====================================================================
-// Monte Carlo 실행 + 요약
+// 집계
 // =====================================================================
-struct Summary {
-    int n_trials;
-    int pass_count;
-    int fail_off_ok;
-    int fail_r_avg_ok;
-    int fail_e63_ok;
-    int fail_sep_ok;
-    double mean_best_e63;
-    double mean_second_e63;
-    double mean_e63_min;
-    double mean_r_sep;
+struct Stats {
+    int n;
+    int pass;
+    double mean_margin;
+    double mean_phase_err;
+    double mean_mag_drift;
 };
-static Summary run_monte_carlo(double cfo_hz, int16_t tx_amp, double snr_db,
-                               int n_trials, CfoMode mode,
-                               int32_t k_factor = 38, bool verbose = false) {
-    Summary s{};
-    s.n_trials = n_trials;
-    double sum_best = 0, sum_second = 0, sum_emin = 0, sum_rsep = 0;
+static Stats run_scenario(const ChannelParams &ch, int16_t tx_amp, CfoMode mode,
+                          int n_trials) {
+    Stats s{};
+    s.n = n_trials;
+    double sm = 0, sp = 0, sd = 0;
+    int cnt_acc = 0;
     for (int t = 0; t < n_trials; ++t) {
-        TxParams tx;
-        tx.cfo_hz = cfo_hz;
-        tx.chip_rate = 1e6;
-        tx.amp = tx_amp;
-        tx.snr_db = snr_db;
-        tx.preamble_offset = 32;
-        tx.seed = static_cast<uint32_t>(t * 7919u + 42u);
-        int16_t buf_I[192], buf_Q[192];
-        generate_rx_buffer(tx, buf_I, buf_Q);
-        RxResult r = rx_process(buf_I, buf_Q, tx_amp, mode, k_factor);
-        const ScanResult &sc = r.scan_after;
-        if (sc.pass) {
-            ++s.pass_count;
-        } else {
-            if (!sc.off_ok)
-                ++s.fail_off_ok;
-            if (!sc.r_avg_ok)
-                ++s.fail_r_avg_ok;
-            if (!sc.e63_ok)
-                ++s.fail_e63_ok;
-            if (!sc.sep_ok)
-                ++s.fail_sep_ok;
-        }
-        sum_best += sc.best_e63;
-        sum_second += sc.second_e63;
-        sum_emin += sc.e63_min;
-        sum_rsep += sc.r_sep;
-        if (verbose && t < 5) {
-            std::printf(
-                "  trial %2d: pass=%d | off_ok=%d r_avg=%d e63=%d sep=%d | "
-                "best=%d second=%d emin=%d r_sep=%d | "
-                "sin_per=%d cos_per=%d\n",
-                t, sc.pass ? 1 : 0, sc.off_ok ? 1 : 0, sc.r_avg_ok ? 1 : 0,
-                sc.e63_ok ? 1 : 0, sc.sep_ok ? 1 : 0, sc.best_e63,
-                sc.second_e63, sc.e63_min, sc.r_sep, r.sin_per_chip,
-                r.cos_per_chip);
+        int16_t bI[192], bQ[192];
+        generate_rx_with_channel(ch, tx_amp, 32, (uint32_t)(t * 7919u + 42u),
+                                 bI, bQ);
+        RxAccuracy acc = rx_process(bI, bQ, tx_amp, mode, ch.cfo_hz);
+        if (acc.scan_passed)
+            ++s.pass;
+        if (acc.e63_min > 0) {
+            sm += acc.e63_margin;
+            sp += acc.phase_error_deg_at_128;
+            sd += acc.mag_drift_pct;
+            ++cnt_acc;
         }
     }
-    s.mean_best_e63 = sum_best / n_trials;
-    s.mean_second_e63 = sum_second / n_trials;
-    s.mean_e63_min = sum_emin / n_trials;
-    s.mean_r_sep = sum_rsep / n_trials;
+    if (cnt_acc > 0) {
+        s.mean_margin = sm / cnt_acc;
+        s.mean_phase_err = sp / cnt_acc;
+        s.mean_mag_drift = sd / cnt_acc;
+    }
     return s;
 }
-// =====================================================================
-// 출력 유틸
-// =====================================================================
 static const char *mode_name(CfoMode m) {
     switch (m) {
     case CfoMode::BUGGY:
-        return "BUGGY  (baseline)";
+        return "BUGGY";
     case CfoMode::V3_RENORM:
-        return "V3     (complex+renorm)";
-    case CfoMode::COMPLEX_ONLY:
-        return "CMPLX  (complex only)";
+        return "V3   ";
+    case CfoMode::CMPLX_ONLY:
+        return "CMPLX";
     }
     return "?";
 }
-static void print_summary_row(const Summary &s, CfoMode mode) {
-    std::printf("  %-22s: pass %2d/%d | fail: off=%d r_avg=%d e63=%d sep=%d | "
-                "mean_best=%8.0f mean_sec=%8.0f mean_emin=%6.0f r_sep~%.0f\n",
-                mode_name(mode), s.pass_count, s.n_trials, s.fail_off_ok,
-                s.fail_r_avg_ok, s.fail_e63_ok, s.fail_sep_ok, s.mean_best_e63,
-                s.mean_second_e63, s.mean_e63_min, s.mean_r_sep);
-}
 // =====================================================================
-// 메인 — 시나리오별 테스트
+// 메인
 // =====================================================================
-int main(int argc, char *argv[]) {
+int main() {
     std::printf(
         "============================================================\n");
-    std::printf("HTS CFO Compensator 진단 프로그램\n");
+    std::printf("HTS CFO 알고리즘 정확도 검증 (FM 준수)\n");
+    std::printf("  원칙 1: threshold amp×38 고정 (변경 금지)\n");
+    std::printf("  원칙 2: 알고리즘이 threshold 를 넘어야 함\n");
+    std::printf("  원칙 3: FP 엄격 기준 (10000 trials)\n");
+    std::printf("  원칙 4: 실환경 위협 포함 (multipath, jammer, impulse)\n");
     std::printf(
         "============================================================\n\n");
-    const int N_TRIALS = 30;
     const int16_t TX_AMP = 1000;
+    const int N_TRIALS = 100;
     const double SNR = 20.0;
-    // -----------------------------------------------------------------
-    // Part 1: 1000 Hz 집중 분석 (verbose)
-    // -----------------------------------------------------------------
-    std::printf("[Part 1] CFO 1000 Hz 집중 분석 (trial 5개 상세)\n");
-    std::printf("  tx_amp=%d, snr=%.0f dB, trials=%d\n", TX_AMP, SNR, N_TRIALS);
-    std::printf("  k_factor=38 (기존 threshold)\n\n");
-    for (CfoMode m :
-         {CfoMode::BUGGY, CfoMode::V3_RENORM, CfoMode::COMPLEX_ONLY}) {
-        std::printf("[mode = %s]\n", mode_name(m));
-        Summary s = run_monte_carlo(1000.0, TX_AMP, SNR, N_TRIALS, m, 38, true);
-        print_summary_row(s, m);
+    // =================================================================
+    // Part 1: 알고리즘 정확도 (threshold 무관)
+    // =================================================================
+    std::printf("[Part 1] 알고리즘 자체 정확도 (Clean AWGN, SNR=20)\n");
+    std::printf("  threshold 무관 지표: phase error, mag drift, pass rate\n\n");
+    std::printf("  %-8s | %-6s | %-12s %-12s %-10s %-10s\n", "CFO(Hz)", "mode",
+                "phase_err", "mag_drift", "margin", "pass");
+    std::printf("  %s\n", std::string(80, '-').c_str());
+    for (double cfo : {0.0, 1000.0, 2000.0, 5000.0, 10000.0, 20000.0}) {
+        ChannelParams ch{};
+        ch.cfo_hz = cfo;
+        ch.snr_db = SNR;
+        for (CfoMode m : {CfoMode::BUGGY, CfoMode::V3_RENORM}) {
+            Stats s = run_scenario(ch, TX_AMP, m, N_TRIALS);
+            std::printf("  %-8.0f | %-6s | %10.2f° %+10.3f%% %9.2fx %3d/%d\n",
+                        cfo, mode_name(m), s.mean_phase_err, s.mean_mag_drift,
+                        s.mean_margin, s.pass, s.n);
+        }
         std::printf("\n");
     }
-    // -----------------------------------------------------------------
-    // Part 2: CFO Sweep (여러 CFO에서 BUGGY vs V3 비교)
-    // -----------------------------------------------------------------
+    // =================================================================
+    // Part 2: False Positive 엄격 검증
+    // =================================================================
     std::printf(
         "============================================================\n");
-    std::printf("[Part 2] CFO Sweep — BUGGY vs V3 비교\n");
+    std::printf("[Part 2] False Positive 엄격 검증 (threshold 고정)\n");
     std::printf(
         "============================================================\n\n");
-    const double cfo_list[] = {0,    100,   500,   1000,  2000,
-                               5000, 10000, 25000, 50000, 100000};
-    std::printf("  %-10s | %-22s | %-22s\n", "CFO(Hz)",
-                mode_name(CfoMode::BUGGY), mode_name(CfoMode::V3_RENORM));
+    std::printf("  10000 trials × 여러 환경 (실환경 위협 포함)\n");
+    std::printf("  FP > 0 이면 threshold 검증 실패\n\n");
+    std::printf("  %-25s | %-6s %-6s %-6s %-6s %-6s\n", "환경", "SNR=5",
+                "SNR=10", "SNR=15", "SNR=20", "SNR=25");
     std::printf("  %s\n", std::string(80, '-').c_str());
-    for (double cfo : cfo_list) {
-        std::printf("  %-10.0f | ", cfo);
-        Summary sB =
-            run_monte_carlo(cfo, TX_AMP, SNR, N_TRIALS, CfoMode::BUGGY, 38);
-        std::printf("pass %2d/%d (sep=%d)      | ", sB.pass_count, sB.n_trials,
-                    sB.fail_sep_ok);
-        Summary sV =
-            run_monte_carlo(cfo, TX_AMP, SNR, N_TRIALS, CfoMode::V3_RENORM, 38);
-        std::printf("pass %2d/%d (sep=%d)\n", sV.pass_count, sV.n_trials,
-                    sV.fail_sep_ok);
-    }
-    // -----------------------------------------------------------------
-    // Part 3: threshold k_factor 변화 — BUGGY vs V3
-    // -----------------------------------------------------------------
-    std::printf(
-        "\n============================================================\n");
-    std::printf("[Part 3] k_factor 변화 — BUGGY vs V3 비교\n");
-    std::printf(
-        "============================================================\n\n");
-    std::printf("  BUGGY 모드 (현재 베이스라인):\n");
-    std::printf("  %-10s | %s\n", "CFO(Hz)",
-                "k=38  k=34  k=32  k=30  k=28  k=26  k=22  k=18");
-    std::printf("  %s\n", std::string(80, '-').c_str());
-    for (double cfo :
-         {0.0, 1000.0, 2000.0, 5000.0, 10000.0, 15000.0, 25000.0}) {
-        std::printf("  %-10.0f | ", cfo);
-        for (int k_factor : {38, 34, 32, 30, 28, 26, 22, 18}) {
-            Summary s = run_monte_carlo(cfo, TX_AMP, SNR, N_TRIALS,
-                                        CfoMode::BUGGY, k_factor);
-            std::printf("%3d/%d ", s.pass_count, s.n_trials);
-        }
-        std::printf("\n");
-    }
-    std::printf("\n  V3 모드 (복소 회전 + 재정규화):\n");
-    std::printf("  %-10s | %s\n", "CFO(Hz)",
-                "k=38  k=34  k=32  k=30  k=28  k=26  k=22  k=18");
-    std::printf("  %s\n", std::string(80, '-').c_str());
-    for (double cfo :
-         {0.0, 1000.0, 2000.0, 5000.0, 10000.0, 15000.0, 25000.0}) {
-        std::printf("  %-10.0f | ", cfo);
-        for (int k_factor : {38, 34, 32, 30, 28, 26, 22, 18}) {
-            Summary s = run_monte_carlo(cfo, TX_AMP, SNR, N_TRIALS,
-                                        CfoMode::V3_RENORM, k_factor);
-            std::printf("%3d/%d ", s.pass_count, s.n_trials);
-        }
-        std::printf("\n");
-    }
-    // false positive 체크 (프리앰블 없이)
-    std::printf("\n  False Positive 체크 (프리앰블 없음, noise 만):\n");
-    std::printf("  %-10s | %s\n", "SNR(dB)",
-                "k=38  k=34  k=32  k=30  k=28  k=26  k=22  k=18");
-    std::printf("  %s\n", std::string(80, '-').c_str());
-    for (double snr : {10.0, 15.0, 20.0, 25.0}) {
-        std::printf("  %-10.0f | ", snr);
-        for (int k_factor : {38, 34, 32, 30, 28, 26, 22, 18}) {
+    const int FP_TRIALS = 10000;
+    struct FpScen {
+        const char *name;
+        bool mp, jm, imp;
+        int jt;
+        double jd;
+    };
+    FpScen scens[] = {
+        {"AWGN only", false, false, false, 0, 0},
+        {"Multipath", true, false, false, 0, 0},
+        {"CW jammer -10dB", false, true, false, 0, -10},
+        {"Pulse jammer 0dB", false, true, false, 1, 0},
+        {"Barrage jammer -5dB", false, true, false, 2, -5},
+        {"Impulse noise", false, false, true, 0, 0},
+        {"MP + CW -10dB", true, true, false, 0, -10},
+    };
+    for (const auto &sc : scens) {
+        std::printf("  %-25s | ", sc.name);
+        for (double snr : {5.0, 10.0, 15.0, 20.0, 25.0}) {
+            ChannelParams ch{};
+            ch.preamble = false; // 프리앰블 없음!
+            ch.snr_db = snr;
+            ch.multipath_enabled = sc.mp;
+            ch.jammer_enabled = sc.jm;
+            ch.jammer_type = sc.jt;
+            ch.jammer_power_db = sc.jd;
+            ch.impulse_enabled = sc.imp;
             int fp = 0;
-            for (int t = 0; t < 50; ++t) {
-                TxParams tx;
-                tx.cfo_hz = 0;
-                tx.chip_rate = 1e6;
-                tx.amp = TX_AMP;
-                tx.snr_db = snr;
-                tx.preamble_offset = 0; // 프리앰블 없음
-                tx.seed = static_cast<uint32_t>(t * 7919u + 999u);
-                int16_t buf_I[192], buf_Q[192];
-                // 프리앰블 없는 buffer (noise only)
-                std::mt19937 rng(tx.seed);
-                std::normal_distribution<double> gauss(0.0, 1.0);
-                const double sig_pwr = static_cast<double>(tx.amp) * tx.amp;
-                const double noise_pwr = sig_pwr / std::pow(10.0, snr / 10.0);
-                const double noise_std = std::sqrt(noise_pwr / 2.0);
-                for (int k = 0; k < 192; ++k) {
-                    buf_I[k] = static_cast<int16_t>(
-                        std::round(gauss(rng) * noise_std));
-                    buf_Q[k] = static_cast<int16_t>(
-                        std::round(gauss(rng) * noise_std));
-                }
-                ScanResult sc = phase0_scan(buf_I, buf_Q, TX_AMP, k_factor);
-                if (sc.pass)
+            for (int t = 0; t < FP_TRIALS; ++t) {
+                int16_t bI[192], bQ[192];
+                generate_rx_with_channel(ch, TX_AMP, 32,
+                                         (uint32_t)(t * 7919u + 999u), bI, bQ);
+                ScanResult s = phase0_scan(bI, bQ, TX_AMP);
+                if (s.pass)
                     ++fp;
             }
-            std::printf("%3d/%d ", fp, 50);
+            std::printf("%4d   ", fp);
         }
         std::printf("\n");
     }
-    // -----------------------------------------------------------------
-    // Part 4: 1000 Hz 의 정확한 실패 원인 분류
-    // -----------------------------------------------------------------
+    // =================================================================
+    // Part 3: 실환경 위협 하 성능 (프리앰블 있음, threshold 고정)
+    // =================================================================
     std::printf(
         "\n============================================================\n");
-    std::printf("[Part 4] 1000 Hz V3 모드 실패 원인 분류 (30 trials)\n");
+    std::printf(
+        "[Part 3] 실환경 위협 하 알고리즘 성능 (threshold amp×38 고정)\n");
     std::printf(
         "============================================================\n\n");
-    Summary s1000 =
-        run_monte_carlo(1000.0, TX_AMP, SNR, 30, CfoMode::V3_RENORM, 38, false);
-    std::printf("  총 %d trials 중 pass %d, fail %d\n", s1000.n_trials,
-                s1000.pass_count, s1000.n_trials - s1000.pass_count);
-    std::printf("  실패 게이트:\n");
-    std::printf("    off_ok=0:   %d trials\n", s1000.fail_off_ok);
-    std::printf("    r_avg_ok=0: %d trials\n", s1000.fail_r_avg_ok);
-    std::printf("    e63_ok=0:   %d trials\n", s1000.fail_e63_ok);
-    std::printf("    sep_ok=0:   %d trials  ← 시뮬 주 원인?\n",
-                s1000.fail_sep_ok);
-    std::printf("  평균값:\n");
-    std::printf("    best_e63:   %.0f\n", s1000.mean_best_e63);
-    std::printf("    second_e63: %.0f\n", s1000.mean_second_e63);
-    std::printf("    e63_min:    %.0f\n", s1000.mean_e63_min);
-    std::printf("    r_sep:      %.0f (1.25 미만이면 sep_ok 탈락)\n",
-                s1000.mean_r_sep);
-    // -----------------------------------------------------------------
-    // Part 5: 실운용 타겟 CFO (재난망/AMI/군사용)
-    // -----------------------------------------------------------------
-    std::printf(
-        "\n============================================================\n");
-    std::printf("[Part 5] 실운용 타겟 CFO 성능\n");
-    std::printf(
-        "============================================================\n\n");
-    struct TargetCase {
+    struct Threat {
         const char *name;
-        double cfo;
+        bool mp, jm, imp;
+        int jt;
+        double jd;
+        double snr;
     };
-    const TargetCase targets[] = {
-        {"KT 재난망 정적", 1000},    {"AMI 스마트미터", 10000},
-        {"NIS 시설간", 5000},        {"IoT 산업용", 24000},
-        {"WiFi/BLE 표준", 48000},    {"군용 전술 (저속)", 20000},
-        {"군용 전술 (고속)", 50000}, {"항공/함정", 100000},
+    Threat threats[] = {
+        {"Clean SNR=20", false, false, false, 0, 0, 20},
+        {"Clean SNR=15", false, false, false, 0, 0, 15},
+        {"Clean SNR=10", false, false, false, 0, 0, 10},
+        {"Multipath SNR=20", true, false, false, 0, 0, 20},
+        {"CW jammer -10dB", false, true, false, 0, -10, 20},
+        {"Pulse jammer", false, true, false, 1, 0, 20},
+        {"Impulse noise", false, false, true, 0, 0, 20},
+        {"MP + CW worst", true, true, false, 0, -10, 15},
     };
-    std::printf("  %-25s %-10s | %-22s | %-22s\n", "타겟", "CFO(Hz)",
-                mode_name(CfoMode::BUGGY), mode_name(CfoMode::V3_RENORM));
-    std::printf("  %s\n", std::string(90, '-').c_str());
-    for (const auto &tc : targets) {
-        std::printf("  %-25s %-10.0f | ", tc.name, tc.cfo);
-        Summary sB =
-            run_monte_carlo(tc.cfo, TX_AMP, SNR, N_TRIALS, CfoMode::BUGGY, 38);
-        Summary sV = run_monte_carlo(tc.cfo, TX_AMP, SNR, N_TRIALS,
-                                     CfoMode::V3_RENORM, 38);
-        std::printf("pass %2d/%d               | pass %2d/%d\n", sB.pass_count,
-                    sB.n_trials, sV.pass_count, sV.n_trials);
+    std::printf("  %-20s | %-10s | %-8s %-8s | %-8s %-8s\n", "Threat",
+                "CFO(Hz)", "BUGGY", "margin", "V3", "margin");
+    std::printf("  %s\n", std::string(80, '-').c_str());
+    for (const auto &th : threats) {
+        for (double cfo : {0.0, 1000.0, 5000.0, 10000.0}) {
+            ChannelParams ch{};
+            ch.cfo_hz = cfo;
+            ch.snr_db = th.snr;
+            ch.multipath_enabled = th.mp;
+            ch.jammer_enabled = th.jm;
+            ch.jammer_type = th.jt;
+            ch.jammer_power_db = th.jd;
+            ch.impulse_enabled = th.imp;
+            Stats sB = run_scenario(ch, TX_AMP, CfoMode::BUGGY, N_TRIALS);
+            Stats sV = run_scenario(ch, TX_AMP, CfoMode::V3_RENORM, N_TRIALS);
+            std::printf(
+                "  %-20s | %-10.0f | %3d/%d   %5.2fx | %3d/%d   %5.2fx\n",
+                th.name, cfo, sB.pass, sB.n, sB.mean_margin, sV.pass, sV.n,
+                sV.mean_margin);
+        }
+        std::printf("\n");
     }
-    std::printf("\n완료.\n");
+    // =================================================================
+    // Part 4: 장기 chip 누적 정확도 (drift)
+    // =================================================================
+    std::printf(
+        "============================================================\n");
+    std::printf("[Part 4] 장기 chip 누적 drift (알고리즘 본질 비교)\n");
+    std::printf(
+        "============================================================\n\n");
+    for (double cfo : {1000.0, 5000.0}) {
+        std::printf("  [CFO %.0f Hz]\n", cfo);
+        std::printf("  %-10s | %-20s | %-20s\n", "chip", "BUGGY phase/mag",
+                    "V3 phase/mag");
+        for (int n : {64, 200, 500, 1000, 2000, 5000, 10000}) {
+            const double chip_dt = 1e-6;
+            const double chip_phase = 2 * M_PI * cfo * chip_dt;
+            const int32_t sin_per = (int32_t)(std::sin(chip_phase) * kQ14One);
+            // BUGGY
+            CfoCompensator b;
+            b.init(CfoMode::BUGGY);
+            b.sin_per_chip = sin_per;
+            b.cos_per_chip = kQ14One;
+            b.cos_acc = kQ14One;
+            b.sin_acc = 0;
+            b.active = true;
+            // V3
+            CfoCompensator v;
+            v.init(CfoMode::V3_RENORM);
+            v.sin_per_chip = sin_per;
+            int64_t sq = (int64_t)sin_per * sin_per;
+            v.cos_per_chip = integer_sqrt_q14(kQ14Sq - sq);
+            v.cos_acc = kQ14One;
+            v.sin_acc = 0;
+            v.chip_counter = 0;
+            v.active = true;
+            int16_t dI = 100, dQ = 0;
+            for (int k = 0; k < n; ++k) {
+                int16_t bI2 = 100, bQ2 = 0;
+                b.apply(bI2, bQ2);
+                int16_t vI = 100, vQ = 0;
+                v.apply(vI, vQ);
+            }
+            auto compute = [&](int32_t cos_a, int32_t sin_a) {
+                const double cf = (double)cos_a / kQ14One;
+                const double sf = (double)sin_a / kQ14One;
+                const double mag = std::sqrt(cf * cf + sf * sf);
+                const double est = std::atan2(sf, cf);
+                const double tru = std::fmod(chip_phase * n, 2 * M_PI);
+                double tm = tru;
+                if (tm > M_PI)
+                    tm -= 2 * M_PI;
+                double d = est - tm;
+                while (d > M_PI)
+                    d -= 2 * M_PI;
+                while (d < -M_PI)
+                    d += 2 * M_PI;
+                return std::make_pair(d * 180 / M_PI, (mag - 1) * 100);
+            };
+            auto bstat = compute(b.cos_acc, b.sin_acc);
+            auto vstat = compute(v.cos_acc, v.sin_acc);
+            std::printf("  %-10d | %+7.2f° / %+6.2f%%  | %+7.2f° / %+6.3f%%\n",
+                        n, bstat.first, bstat.second, vstat.first,
+                        vstat.second);
+        }
+        std::printf("\n");
+    }
+    std::printf(
+        "============================================================\n");
+    std::printf("[결론]\n");
+    std::printf(
+        "============================================================\n");
+    std::printf("  threshold amp×38 고정 하에서 각 알고리즘의 순수 성능.\n");
+    std::printf("  알고리즘이 threshold 를 못 넘으면 알고리즘 부족.\n");
+    std::printf("  threshold 낮추는 것 = 안전 마진 붕괴 = 절대 금지.\n");
+    std::printf("\n");
+    std::printf("  판단 기준:\n");
+    std::printf("  - 같은 threshold 하에서 pass rate 더 높은 것이 우수\n");
+    std::printf("  - margin 이 더 큰 것이 안전 마진 확보\n");
+    std::printf("  - phase error 작은 것이 정확\n");
+    std::printf("  - mag drift 0 에 가까운 것이 안정\n");
     return 0;
 }

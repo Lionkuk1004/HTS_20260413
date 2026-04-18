@@ -322,6 +322,12 @@ namespace ProtectedEngine {
         bool    psal_pending_ = false;
         int     psal_off_     = 0;
         int32_t psal_e63_     = 0;
+        /// HTS_PHASE0_WALSH_BANK: P0 FWHT max row (기본 63, 비-WBANK 경로 무시)
+        uint8_t dominant_row_ = 63u;
+        /// Stage 6A: P0 확정 행 기준 CFO-Walsh row permutation (63 ⊕ dom)
+        [[nodiscard]] uint8_t current_walsh_shift_() const noexcept {
+            return static_cast<uint8_t>(dominant_row_ ^ 63u);
+        }
         int32_t est_I_     = 0;
         int32_t est_Q_     = 0;
         int     est_count_ = 0;

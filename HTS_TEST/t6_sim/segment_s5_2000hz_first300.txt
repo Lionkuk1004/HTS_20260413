@@ -1,0 +1,300 @@
+﻿[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=31 xor_legacy=0 accum=40478
+[P0-SCAN] off=0 e63=40478 avg_o=1659 r_avg=24 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=25119 e0=0 est=(-37722,14943) n=3 carry_pend=0
+[P1-NC] sym=63 e63=25116 e0=0 est=(-2167,34484) n=4 carry_pend=0
+[P1-NC] sym=63 e63=25117 e0=0 est=(-9771,-5369) n=5 carry_pend=0
+[P1-NC] sym=63 e63=25120 e0=0 est=(-35630,25898) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=16019 est=(-35630,25898) n=6 carry_pend=0
+[P1→HDR] est=(-35630,25898) n=6
+[HDR-SHIFT] raw_sym=18 shift=0 corrected=18 dom=63
+[HDR-SHIFT] raw_sym=12 shift=0 corrected=12 dom=63
+[HDR-RETRY] parse fail, back to P1
+[STAGE4-P0] off=0 r0=54 r1=50 r2=55 xor_legacy=4 accum=40516
+[STAGE4-P0] off=56 r0=58 r1=63 r2=63 xor_legacy=5 accum=42820
+[P0-SCAN] off=56 e63=42820 avg_o=6277 r_avg=6 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=58 off=56 (seed=walsh63 non-coh)
+[P0-SEED] dot=(53141,5500) est=(53141,5500) n=2
+[P0-ALIGNED] off=56 carry=8
+[P1-NC] sym=63 e63=42808 e0=7 est=(23723,-38546) n=3 carry_pend=0
+[P1-NC] sym=63 e63=2670 e0=0 est=(23919,-25317) n=4 carry_pend=0
+[STAGE4-P0] off=0 r0=50 r1=52 r2=62 xor_legacy=6 accum=36
+[STAGE4-P0] off=1 r0=51 r1=52 r2=52 xor_legacy=7 accum=2519
+[STAGE4-P0] off=3 r0=51 r1=56 r2=56 xor_legacy=11 accum=15196
+[STAGE4-P0] off=5 r0=59 r1=56 r2=56 xor_legacy=3 accum=23447
+[STAGE4-P0] off=11 r0=59 r1=56 r2=56 xor_legacy=3 accum=23500
+[P0-SCAN] off=11 e63=23500 avg_o=4989 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=62 r1=53 r2=54 xor_legacy=11 accum=236
+[STAGE4-P0] off=1 r0=63 r1=53 r2=53 xor_legacy=10 accum=23733
+[STAGE4-P0] off=6 r0=52 r1=63 r2=63 xor_legacy=11 accum=30446
+[STAGE4-P0] off=10 r0=52 r1=63 r2=63 xor_legacy=11 accum=30655
+[P0-SCAN] off=10 e63=30655 avg_o=6947 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=54 r1=58 r2=63 xor_legacy=12 accum=35480
+[P0-SCAN] off=0 e63=35480 avg_o=6441 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=49 r2=50 xor_legacy=14 accum=40482
+[STAGE4-P0] off=16 r0=63 r1=49 r2=49 xor_legacy=14 accum=42754
+[P0-SCAN] off=16 e63=42754 avg_o=6247 r_avg=6 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=16 (seed=walsh63 non-coh)
+[P0-SEED] dot=(48627,20596) est=(48627,20596) n=2
+[P0-ALIGNED] off=16 carry=48
+[STAGE4-P0] off=0 r0=59 r1=52 r2=60 xor_legacy=15 accum=585
+[STAGE4-P0] off=1 r0=58 r1=52 r2=52 xor_legacy=14 accum=1452
+[STAGE4-P0] off=2 r0=59 r1=54 r2=54 xor_legacy=13 accum=3618
+[STAGE4-P0] off=4 r0=63 r1=52 r2=52 xor_legacy=11 accum=12765
+[STAGE4-P0] off=16 r0=27 r1=36 r2=36 xor_legacy=63 accum=61542
+[P0-SCAN] off=16 e63=61542 avg_o=3877 r_avg=15 r_sep=4 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=27 off=16 (seed=walsh63 non-coh)
+[P0-SEED] dot=(-4214,1595) est=(-4214,1595) n=2
+[P0-ALIGNED] off=16 carry=48
+[P1-NC] sym=0 e63=0 e0=3073 est=(-4214,1595) n=2 carry_pend=0
+[P1→HDR] est=(-4214,1595) n=2
+[HDR-SHIFT] raw_sym=21 shift=36 corrected=49 dom=27
+[HDR-SHIFT] raw_sym=48 shift=36 corrected=20 dom=27
+[HDR-RETRY] parse fail, back to P1
+[STAGE4-P0] off=0 r0=29 r1=20 r2=24 xor_legacy=9 accum=101
+[STAGE4-P0] off=1 r0=29 r1=24 r2=24 xor_legacy=5 accum=4081
+[STAGE4-P0] off=2 r0=31 r1=54 r2=54 xor_legacy=41 accum=10313
+[P0-SCAN] off=2 e63=10313 avg_o=3014 r_avg=3 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=24 r1=17 r2=22 xor_legacy=9 accum=44
+[STAGE4-P0] off=1 r0=24 r1=17 r2=17 xor_legacy=9 accum=3676
+[STAGE4-P0] off=2 r0=24 r1=17 r2=17 xor_legacy=9 accum=4134
+[STAGE4-P0] off=6 r0=48 r1=25 r2=25 xor_legacy=41 accum=4285
+[STAGE4-P0] off=7 r0=57 r1=57 r2=57 xor_legacy=0 accum=8882
+[STAGE4-P0] off=9 r0=16 r1=57 r2=57 xor_legacy=41 accum=11516
+[STAGE4-P0] off=25 r0=57 r1=63 r2=63 xor_legacy=6 accum=13839
+[STAGE4-P0] off=39 r0=57 r1=63 r2=63 xor_legacy=6 accum=29318
+[P0-SCAN] off=39 e63=29318 avg_o=4379 r_avg=6 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=22 r1=25 r2=21 xor_legacy=15 accum=188
+[STAGE4-P0] off=1 r0=25 r1=25 r2=25 xor_legacy=0 accum=3718
+[STAGE4-P0] off=5 r0=49 r1=17 r2=17 xor_legacy=32 accum=5266
+[STAGE4-P0] off=6 r0=49 r1=63 r2=63 xor_legacy=14 accum=20870
+[STAGE4-P0] off=22 r0=49 r1=63 r2=63 xor_legacy=14 accum=22228
+[STAGE4-P0] off=26 r0=33 r1=63 r2=63 xor_legacy=30 accum=23194
+[STAGE4-P0] off=38 r0=49 r1=63 r2=63 xor_legacy=14 accum=37111
+[P0-SCAN] off=38 e63=37111 avg_o=6279 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=21 r1=28 r2=49 xor_legacy=9 accum=103
+[STAGE4-P0] off=1 r0=21 r1=49 r2=49 xor_legacy=36 accum=1982
+[STAGE4-P0] off=2 r0=23 r1=30 r2=30 xor_legacy=9 accum=4995
+[STAGE4-P0] off=3 r0=52 r1=29 r2=29 xor_legacy=41 accum=10598
+[STAGE4-P0] off=6 r0=54 r1=54 r2=54 xor_legacy=0 accum=13086
+[STAGE4-P0] off=22 r0=38 r1=25 r2=25 xor_legacy=63 accum=35220
+[P0-SCAN] off=22 e63=35220 avg_o=3669 r_avg=9 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=49 r1=17 r2=30 xor_legacy=32 accum=104
+[STAGE4-P0] off=1 r0=49 r1=17 r2=17 xor_legacy=32 accum=6915
+[STAGE4-P0] off=15 r0=49 r1=49 r2=49 xor_legacy=0 accum=13436
+[STAGE4-P0] off=31 r0=49 r1=63 r2=63 xor_legacy=14 accum=22525
+[P0-SCAN] off=31 e63=22525 avg_o=4363 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=30 r1=29 r2=22 xor_legacy=3 accum=226
+[STAGE4-P0] off=1 r0=31 r1=29 r2=29 xor_legacy=2 accum=3889
+[STAGE4-P0] off=2 r0=28 r1=31 r2=31 xor_legacy=3 accum=18574
+[STAGE4-P0] off=14 r0=31 r1=20 r2=20 xor_legacy=11 accum=18960
+[STAGE4-P0] off=30 r0=63 r1=52 r2=52 xor_legacy=11 accum=24574
+[STAGE4-P0] off=39 r0=53 r1=63 r2=63 xor_legacy=10 accum=29202
+[P0-SCAN] off=39 e63=29202 avg_o=6431 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=22 r1=28 r2=22 xor_legacy=10 accum=126
+[STAGE4-P0] off=1 r0=23 r1=28 r2=28 xor_legacy=11 accum=8270
+[STAGE4-P0] off=7 r0=52 r1=20 r2=20 xor_legacy=32 accum=15250
+[STAGE4-P0] off=9 r0=20 r1=52 r2=52 xor_legacy=32 accum=15401
+[STAGE4-P0] off=39 r0=52 r1=63 r2=63 xor_legacy=11 accum=26250
+[STAGE4-P0] off=41 r0=52 r1=63 r2=63 xor_legacy=11 accum=26458
+[P0-SCAN] off=41 e63=26458 avg_o=3695 r_avg=7 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=22 r1=21 r2=20 xor_legacy=3 accum=186
+[STAGE4-P0] off=1 r0=21 r1=21 r2=21 xor_legacy=0 accum=4596
+[STAGE4-P0] off=5 r0=62 r1=63 r2=63 xor_legacy=1 accum=9233
+[STAGE4-P0] off=6 r0=28 r1=31 r2=31 xor_legacy=3 accum=21449
+[STAGE4-P0] off=38 r0=63 r1=62 r2=62 xor_legacy=1 accum=30702
+[P0-SCAN] off=38 e63=30702 avg_o=6076 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=20 r1=17 r2=24 xor_legacy=5 accum=62
+[STAGE4-P0] off=1 r0=17 r1=17 r2=17 xor_legacy=0 accum=3443
+[STAGE4-P0] off=2 r0=22 r1=17 r2=17 xor_legacy=7 accum=4082
+[STAGE4-P0] off=5 r0=29 r1=16 r2=16 xor_legacy=13 accum=4960
+[STAGE4-P0] off=11 r0=25 r1=57 r2=57 xor_legacy=32 accum=5909
+[STAGE4-P0] off=38 r0=57 r1=48 r2=48 xor_legacy=9 accum=6066
+[STAGE4-P0] off=46 r0=49 r1=56 r2=56 xor_legacy=9 accum=6775
+[STAGE4-P0] off=62 r0=17 r1=24 r2=24 xor_legacy=9 accum=11149
+[P0-SCAN] off=62 e63=11149 avg_o=2152 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=24 r1=29 r2=25 xor_legacy=5 accum=222
+[STAGE4-P0] off=1 r0=24 r1=29 r2=29 xor_legacy=5 accum=2445
+[STAGE4-P0] off=2 r0=24 r1=31 r2=31 xor_legacy=7 accum=14717
+[STAGE4-P0] off=14 r0=31 r1=63 r2=63 xor_legacy=32 accum=26805
+[STAGE4-P0] off=30 r0=63 r1=57 r2=57 xor_legacy=6 accum=31150
+[STAGE4-P0] off=46 r0=63 r1=57 r2=57 xor_legacy=6 accum=34942
+[P0-SCAN] off=46 e63=34942 avg_o=5557 r_avg=6 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=25 r1=21 r2=22 xor_legacy=12 accum=202
+[STAGE4-P0] off=1 r0=25 r1=23 r2=23 xor_legacy=14 accum=4981
+[STAGE4-P0] off=2 r0=25 r1=23 r2=23 xor_legacy=14 accum=5940
+[STAGE4-P0] off=5 r0=17 r1=60 r2=60 xor_legacy=45 accum=7319
+[STAGE4-P0] off=6 r0=63 r1=31 r2=31 xor_legacy=32 accum=30683
+[STAGE4-P0] off=38 r0=63 r1=60 r2=60 xor_legacy=3 accum=34324
+[P0-SCAN] off=38 e63=34324 avg_o=7226 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=22 r1=28 r2=29 xor_legacy=10 accum=186
+[STAGE4-P0] off=1 r0=23 r1=28 r2=28 xor_legacy=11 accum=15129
+[STAGE4-P0] off=30 r0=30 r1=63 r2=63 xor_legacy=33 accum=23349
+[STAGE4-P0] off=34 r0=62 r1=63 r2=63 xor_legacy=1 accum=23510
+[STAGE4-P0] off=46 r0=62 r1=63 r2=63 xor_legacy=1 accum=28183
+[P0-SCAN] off=46 e63=28183 avg_o=4990 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=29 r1=17 r2=55 xor_legacy=12 accum=55759
+[STAGE4-P0] off=40 r0=57 r1=63 r2=63 xor_legacy=6 accum=62374
+[STAGE4-P0] off=56 r0=25 r1=63 r2=63 xor_legacy=38 accum=69265
+[P0-SCAN] off=56 e63=69265 avg_o=8593 r_avg=8 r_sep=1 emin=42965 sep=0
+[STAGE4-P0] off=0 r0=55 r1=23 r2=16 xor_legacy=32 accum=65792
+[STAGE4-P0] off=8 r0=63 r1=63 r2=63 xor_legacy=0 accum=84248
+[P0-SCAN] off=8 e63=84248 avg_o=10167 r_avg=8 r_sep=1 emin=50835 sep=0
+[STAGE4-P0] off=0 r0=16 r1=22 r2=28 xor_legacy=6 accum=283
+[STAGE4-P0] off=1 r0=16 r1=23 r2=23 xor_legacy=7 accum=9071
+[STAGE4-P0] off=7 r0=24 r1=52 r2=52 xor_legacy=44 accum=16972
+[STAGE4-P0] off=9 r0=56 r1=20 r2=20 xor_legacy=44 accum=19728
+[STAGE4-P0] off=39 r0=63 r1=52 r2=52 xor_legacy=11 accum=26251
+[STAGE4-P0] off=41 r0=63 r1=52 r2=52 xor_legacy=11 accum=26455
+[P0-SCAN] off=41 e63=26455 avg_o=3968 r_avg=6 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=28 r1=19 r2=17 xor_legacy=15 accum=15829
+[STAGE4-P0] off=4 r0=52 r1=61 r2=61 xor_legacy=9 accum=16879
+[STAGE4-P0] off=36 r0=63 r1=61 r2=61 xor_legacy=2 accum=24475
+[STAGE4-P0] off=44 r0=63 r1=61 r2=61 xor_legacy=2 accum=24698
+[P0-SCAN] off=44 e63=24698 avg_o=5220 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=17 r1=23 r2=20 xor_legacy=6 accum=40480
+[STAGE4-P0] off=8 r0=31 r1=31 r2=31 xor_legacy=0 accum=43554
+[STAGE4-P0] off=40 r0=63 r1=60 r2=60 xor_legacy=3 accum=62373
+[P0-SCAN] off=40 e63=62373 avg_o=8984 r_avg=6 r_sep=1 emin=44920 sep=1
+[STAGE4-P0] lock dominant_row=63 off=40 (seed=walsh63 non-coh)
+[P0-SEED] dot=(43883,-46592) est=(43883,-46592) n=2
+[P0-ALIGNED] off=40 carry=24
+[STAGE4-P0] off=0 r0=50 r1=50 r2=49 xor_legacy=0 accum=3
+[STAGE4-P0] off=1 r0=51 r1=51 r2=51 xor_legacy=0 accum=3172
+[STAGE4-P0] off=3 r0=51 r1=51 r2=51 xor_legacy=0 accum=17884
+[STAGE4-P0] off=5 r0=59 r1=59 r2=59 xor_legacy=0 accum=18136
+[P0-SCAN] off=5 e63=18136 avg_o=4408 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=49 r1=55 r2=53 xor_legacy=6 accum=40641
+[STAGE4-P0] off=8 r0=57 r1=63 r2=63 xor_legacy=6 accum=44919
+[STAGE4-P0] off=56 r0=63 r1=61 r2=61 xor_legacy=2 accum=45073
+[P0-SCAN] off=56 e63=45073 avg_o=9388 r_avg=4 r_sep=1 emin=46940 sep=1
+[STAGE4-P0] off=0 r0=53 r1=58 r2=54 xor_legacy=15 accum=201
+[STAGE4-P0] off=1 r0=53 r1=59 r2=59 xor_legacy=14 accum=3185
+[STAGE4-P0] off=2 r0=55 r1=58 r2=58 xor_legacy=13 accum=4051
+[STAGE4-P0] off=3 r0=55 r1=59 r2=59 xor_legacy=12 accum=11704
+[STAGE4-P0] off=5 r0=53 r1=51 r2=51 xor_legacy=6 accum=16586
+[STAGE4-P0] off=6 r0=63 r1=50 r2=50 xor_legacy=13 accum=23490
+[STAGE4-P0] off=61 r0=59 r1=59 r2=59 xor_legacy=0 accum=23567
+[P0-SCAN] off=61 e63=23567 avg_o=6383 r_avg=3 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=54 r1=53 r2=49 xor_legacy=3 accum=203
+[STAGE4-P0] off=1 r0=55 r1=53 r2=53 xor_legacy=2 accum=4300
+[STAGE4-P0] off=2 r0=52 r1=55 r2=55 xor_legacy=3 accum=4927
+[STAGE4-P0] off=3 r0=53 r1=57 r2=57 xor_legacy=12 accum=6293
+[STAGE4-P0] off=5 r0=55 r1=57 r2=57 xor_legacy=14 accum=7428
+[STAGE4-P0] off=6 r0=60 r1=63 r2=63 xor_legacy=3 accum=28244
+[STAGE4-P0] off=54 r0=63 r1=57 r2=57 xor_legacy=6 accum=31170
+[P0-SCAN] off=54 e63=31170 avg_o=5477 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=49 r1=59 r2=62 xor_legacy=10 accum=705
+[STAGE4-P0] off=1 r0=49 r1=58 r2=58 xor_legacy=11 accum=2186
+[STAGE4-P0] off=2 r0=49 r1=59 r2=59 xor_legacy=10 accum=10873
+[STAGE4-P0] off=4 r0=49 r1=63 r2=63 xor_legacy=14 accum=24531
+[STAGE4-P0] off=63 r0=58 r1=63 r2=63 xor_legacy=5 accum=26046
+[P0-SCAN] off=63 e63=26046 avg_o=5974 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=62 r1=61 r2=51 xor_legacy=3 accum=846
+[STAGE4-P0] off=1 r0=63 r1=61 r2=61 xor_legacy=2 accum=33558
+[STAGE4-P0] off=2 r0=60 r1=63 r2=63 xor_legacy=3 accum=34304
+[STAGE4-P0] off=49 r0=45 r1=18 r2=18 xor_legacy=63 accum=41247
+[P0-SCAN] off=49 e63=41247 avg_o=8001 r_avg=5 r_sep=1 emin=40005 sep=1
+[STAGE4-P0] lock dominant_row=45 off=49 (seed=walsh63 non-coh)
+[P0-SEED] dot=(-9336,9225) est=(-9336,9225) n=2
+[P0-ALIGNED] off=49 carry=15
+[P1-NC] sym=0 e63=116 e0=7436 est=(-9336,9225) n=2 carry_pend=0
+[P1→HDR] est=(-9336,9225) n=2
+[HDR-SHIFT] raw_sym=16 shift=18 corrected=2 dom=45
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=31 shift=18 corrected=13 dom=45
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=47 shift=18 corrected=61 dom=45
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=59 shift=18 corrected=41 dom=45
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=16 shift=18 corrected=2 dom=45
+[HDR-SHIFT] raw_sym=48 shift=18 corrected=34 dom=45
+[HDR-RETRY] parse fail, back to P1
+[P1-NC] sym=63 e63=1046 e0=335 est=(-14765,2969) n=3 carry_pend=0
+[P1-NC] sym=63 e63=4607 e0=321 est=(-11714,-14138) n=4 carry_pend=0
+[P1-NC] sym=63 e63=2169 e0=1603 est=(-4871,-23904) n=5 carry_pend=0
+[P1-NC] sym=0 e63=1092 e0=1576 est=(-4871,-23904) n=5 carry_pend=0
+[P1→HDR] est=(-4871,-23904) n=5
+[HDR-SHIFT] raw_sym=57 shift=18 corrected=43 dom=45
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=18 shift=18 corrected=0 dom=45
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=19 shift=18 corrected=1 dom=45
+[HDR-SHIFT] raw_sym=51 shift=18 corrected=33 dom=45
+[HDR-RETRY] parse fail, back to P1
+[P1-NC] sym=63 e63=2618 e0=431 est=(-16535,-29866) n=6 carry_pend=0
+[P1-NC] sym=63 e63=2218 e0=329 est=(-25888,-37478) n=7 carry_pend=0
+[P1-NC] sym=63 e63=1211 e0=362 est=(-17383,-40131) n=8 carry_pend=0
+[P1-NC] sym=63 e63=1764 e0=369 est=(-6694,-41315) n=9 carry_pend=0
+[P1-NC] sym=63 e63=1206 e0=375 est=(-5597,-32491) n=10 carry_pend=0
+[P1-NC] sym=63 e63=2123 e0=424 est=(-1078,-21593) n=11 carry_pend=0
+[SILENT] total=10 last_e=289
+[STAGE4-P0] off=0 r0=54 r1=29 r2=17 xor_legacy=43 accum=14261
+[STAGE4-P0] off=1 r0=37 r1=63 r2=63 xor_legacy=26 accum=23789
+[STAGE4-P0] off=7 r0=63 r1=53 r2=53 xor_legacy=10 accum=45087
+[P0-SCAN] off=7 e63=45087 avg_o=11049 r_avg=4 r_sep=1 emin=55245 sep=1
+[STAGE4-P0] off=0 r0=17 r1=32 r2=59 xor_legacy=49 accum=5478
+[STAGE4-P0] off=1 r0=17 r1=32 r2=32 xor_legacy=49 accum=11021
+[P0-SCAN] off=1 e63=11021 avg_o=2139 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=59 r1=18 r2=57 xor_legacy=41 accum=4312
+[STAGE4-P0] off=3 r0=50 r1=63 r2=63 xor_legacy=13 accum=12910
+[STAGE4-P0] off=10 r0=51 r1=58 r2=58 xor_legacy=9 accum=15205
+[STAGE4-P0] off=20 r0=51 r1=58 r2=58 xor_legacy=9 accum=16361
+[P0-SCAN] off=20 e63=16361 avg_o=5130 r_avg=3 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=57 r1=61 r2=47 xor_legacy=4 accum=20461
+[STAGE4-P0] off=13 r0=57 r1=63 r2=63 xor_legacy=6 accum=31525
+[STAGE4-P0] off=17 r0=57 r1=63 r2=63 xor_legacy=6 accum=35030
+[P0-SCAN] off=17 e63=35030 avg_o=5402 r_avg=6 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=47 r1=45 r2=24 xor_legacy=2 accum=25452
+[STAGE4-P0] off=13 r0=60 r1=63 r2=63 xor_legacy=3 accum=30654
+[STAGE4-P0] off=14 r0=63 r1=61 r2=61 xor_legacy=2 accum=33473
+[STAGE4-P0] off=16 r0=63 r1=61 r2=61 xor_legacy=2 accum=33558
+[P0-SCAN] off=16 e63=33558 avg_o=6914 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=24 r1=25 r2=27 xor_legacy=1 accum=5478
+[STAGE4-P0] off=9 r0=48 r1=49 r2=49 xor_legacy=1 accum=6931
+[STAGE4-P0] off=50 r0=25 r1=59 r2=59 xor_legacy=34 accum=8255
+[P0-SCAN] off=50 e63=8255 avg_o=2539 r_avg=3 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=27 r1=18 r2=44 xor_legacy=9 accum=8102
+[STAGE4-P0] off=3 r0=50 r1=63 r2=63 xor_legacy=13 accum=12950
+[STAGE4-P0] off=10 r0=51 r1=58 r2=58 xor_legacy=9 accum=15376
+[STAGE4-P0] off=12 r0=59 r1=50 r2=50 xor_legacy=9 accum=16848
+[STAGE4-P0] off=20 r0=51 r1=50 r2=50 xor_legacy=1 accum=17170
+[P0-SCAN] off=20 e63=17170 avg_o=5518 r_avg=3 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=44 r1=26 r2=19 xor_legacy=54 accum=9277
+[STAGE4-P0] off=11 r0=56 r1=63 r2=63 xor_legacy=7 accum=24583
+[P0-SCAN] off=11 e63=24583 avg_o=5489 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=19 r1=56 r2=56 xor_legacy=43 accum=4221
+[STAGE4-P0] off=2 r0=35 r1=56 r2=56 xor_legacy=27 accum=5174
+[STAGE4-P0] off=4 r0=27 r1=48 r2=48 xor_legacy=43 accum=11176
+[STAGE4-P0] off=26 r0=27 r1=48 r2=48 xor_legacy=43 accum=11301
+[P0-SCAN] off=26 e63=11301 avg_o=2239 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=56 r1=27 r2=18 xor_legacy=35 accum=4242
+[STAGE4-P0] off=2 r0=56 r1=27 r2=27 xor_legacy=35 accum=6635
+[STAGE4-P0] off=10 r0=48 r1=51 r2=51 xor_legacy=3 accum=13770
+[STAGE4-P0] off=12 r0=56 r1=59 r2=59 xor_legacy=3 accum=16193
+[STAGE4-P0] off=20 r0=48 r1=51 r2=51 xor_legacy=3 accum=17960
+[P0-SCAN] off=20 e63=17960 avg_o=3508 r_avg=5 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=18 r1=16 r2=57 xor_legacy=2 accum=4039
+[STAGE4-P0] off=3 r0=63 r1=32 r2=32 xor_legacy=31 accum=13499
+[STAGE4-P0] off=11 r0=51 r1=48 r2=48 xor_legacy=3 accum=13801
+[P0-SCAN] off=11 e63=13801 avg_o=3058 r_avg=4 r_sep=1 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=57 r1=33 r2=47 xor_legacy=24 accum=15428
+[STAGE4-P0] off=63 r0=33 r1=30 r2=30 xor_legacy=63 accum=64389
+[P0-SCAN] off=63 e63=64389 avg_o=2573 r_avg=25 r_sep=4 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=33 off=63 (seed=walsh63 non-coh)
+[P0-SEED] dot=(-1477,15) est=(-1477,15) n=2
+[P0-ALIGNED] off=63 carry=1
+[P1-NC] sym=0 e63=28 e0=7145 est=(-1477,15) n=2 carry_pend=0
+[P1→HDR] est=(-1477,15) n=2
+[HDR-SHIFT] raw_sym=20 shift=30 corrected=10 dom=33
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=54 shift=30 corrected=40 dom=33
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=22 shift=30 corrected=8 dom=33
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=23 shift=30 corrected=9 dom=33
+[HDR-SOFT] unreliable, reset

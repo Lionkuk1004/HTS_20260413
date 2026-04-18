@@ -1,0 +1,300 @@
+﻿[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6
+[HDR-SHIFT] raw_sym=50 shift=0 corrected=50 dom=63
+[HDR-SHIFT] raw_sym=44 shift=0 corrected=44 dom=63
+[PAYLOAD-SHIFT] walsh_shift=0 dom=63
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=63 xor_legacy=0 accum=58304
+[P0-SCAN] off=0 e63=58304 avg_o=3034 r_avg=19 r_sep=2 emin=38000 sep=1
+[STAGE4-P0] lock dominant_row=63 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(0,0) est=(0,0) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=87456 e0=0 est=(-15347,74135) n=3 carry_pend=0
+[P1-NC] sym=63 e63=87448 e0=0 est=(-75889,28685) n=4 carry_pend=0
+[P1-NC] sym=63 e63=87453 e0=0 est=(-8985,-6744) n=5 carry_pend=0
+[P1-NC] sym=63 e63=87457 e0=0 est=(-5415,68879) n=6 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=54362 est=(-5415,68879) n=6 carry_pend=0
+[P1→HDR] est=(-5415,68879) n=6

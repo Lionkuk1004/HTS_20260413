@@ -282,7 +282,8 @@ namespace ProtectedEngine {
             uint32_t il_seed, int rv,
             IR_RxState& ir_state,
             uint8_t* out, int* olen,
-            WorkBuf& wb) noexcept;
+            WorkBuf& wb,
+            uint8_t walsh_shift = 0u) noexcept;
 
         /// @brief 16칩 IR 인코드 — Encode16 과 동일 파이프라인, il^RV_SALT[rv&3]
         [[nodiscard]] static int Encode16_IR(const uint8_t* info, int len,
@@ -295,7 +296,8 @@ namespace ProtectedEngine {
             uint32_t il_seed, int rv,
             IR_RxState& ir_state,
             uint8_t* out, int* olen,
-            WorkBuf& wb) noexcept;
+            WorkBuf& wb,
+            uint8_t walsh_shift = 0u) noexcept;
 
         // ── TX ──
         [[nodiscard]] static int Encode16(const uint8_t* info, int len,

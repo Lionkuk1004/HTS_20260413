@@ -59,11 +59,21 @@ struct TrialLog {
     bool pass;
 };
 
+struct TrialMetrics {
+    bool pass;              // memcmp 완전 일치 (기존 feed_raw 동등)
+    bool crc_passed;        // success_mask == DECODE_MASK_OK
+    bool length_correct;    // data_len == 8
+    int  bit_errors;        // 64 bit 중 틀린 수 (0~64)
+    int  byte_errors;       // 8 byte 중 틀린 수 (0~8)
+};
+
 struct ScenarioResult {
-    char   name[64];
-    char   param[32];
-    int    pass;
-    int    total;
+    char       name[64];
+    char       param[32];
+    int        pass;             // bit-exact pass 수 (기존)
+    int        crc_only_pass;    // CRC+길이 OK, payload bit error 있는 trial 수
+    int        total;
+    long long  total_bit_errors; // 시나리오별 bit error 합
 };
 
 static constexpr int kMaxScenario = 128;
@@ -76,7 +86,22 @@ static void record(const char* name, const char* param, int pass, int total) {
     std::strncpy(r.name, name, 63);  r.name[63] = '\0';
     std::strncpy(r.param, param, 31); r.param[31] = '\0';
     r.pass = pass;
+    r.crc_only_pass = 0;
     r.total = total;
+    r.total_bit_errors = 0;
+}
+
+static void record_ext(const char* name, const char* param,
+                       int pass, int crc_only, int total,
+                       long long bit_errors) {
+    if (g_n_results >= kMaxScenario) return;
+    auto& r = g_results[g_n_results++];
+    std::strncpy(r.name, name, 63);  r.name[63] = '\0';
+    std::strncpy(r.param, param, 31); r.param[31] = '\0';
+    r.pass = pass;
+    r.crc_only_pass = crc_only;
+    r.total = total;
+    r.total_bit_errors = bit_errors;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -146,30 +171,68 @@ static TxPkt build_tx(uint32_t ds, int t) noexcept {
 }
 
 // ═══════════════════════════════════════════════════════════════
-//  RX 검증 (사전 보정 없이 직접 Feed)
+//  RX 검증 + BER (사전 보정 없이 직접 Feed)
 //  ★ channel_phase_correct 호출 없음 ★
 // ═══════════════════════════════════════════════════════════════
-static bool feed_raw(uint32_t ds, const int16_t* rxI, const int16_t* rxQ,
-                     int n, const uint8_t* expected, int pre_guard = kGuard) noexcept {
+static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
+                                 const int16_t* rxQ, int n,
+                                 const uint8_t* expected,
+                                 int pre_guard = kGuard) noexcept {
+    TrialMetrics m{};
+    m.pass = false;
+    m.crc_passed = false;
+    m.length_correct = false;
+    m.bit_errors = 64;
+    m.byte_errors = 8;
+
     g_last = DecodedPacket{};
     HTS_V400_Dispatcher rx;
     setup(rx, ds);
 
-    // 가드 → 패킷 → 가드 (사전 보정 없이 raw 주입)
     for (int i = 0; i < pre_guard; ++i) rx.Feed_Chip(0, 0);
     for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
     for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
 
-    // 3중 검증: mask + length + memcmp
-    if (g_last.success_mask != DecodedPacket::DECODE_MASK_OK) return false;
-    if (g_last.data_len != 8) return false;
-    return std::memcmp(g_last.data, expected, 8) == 0;
+    m.crc_passed = (g_last.success_mask == DecodedPacket::DECODE_MASK_OK);
+    m.length_correct = (g_last.data_len == 8);
+
+    if (m.crc_passed && m.length_correct) {
+        int bit_err = 0;
+        int byte_err = 0;
+        for (int b = 0; b < 8; ++b) {
+            uint8_t d = static_cast<uint8_t>(
+                static_cast<uint8_t>(g_last.data[b]) ^ expected[b]);
+            if (d != 0u) {
+                ++byte_err;
+                d = static_cast<uint8_t>(d - ((d >> 1) & 0x55u));
+                d = static_cast<uint8_t>((d & 0x33u) + ((d >> 2) & 0x33u));
+                d = static_cast<uint8_t>((d + (d >> 4)) & 0x0Fu);
+                bit_err += static_cast<int>(d);
+            }
+        }
+        m.bit_errors = bit_err;
+        m.byte_errors = byte_err;
+        m.pass = (bit_err == 0);
+    }
+    return m;
 }
 
-// LPI 버전
-static bool feed_raw_lpi(uint32_t ds, const int16_t* rxI, const int16_t* rxQ,
-                         int n, const uint8_t* expected,
-                         const uint32_t lpi_seed[4]) noexcept {
+static bool feed_raw(uint32_t ds, const int16_t* rxI, const int16_t* rxQ,
+                     int n, const uint8_t* expected, int pre_guard = kGuard) noexcept {
+    return feed_raw_ext(ds, rxI, rxQ, n, expected, pre_guard).pass;
+}
+
+static TrialMetrics feed_raw_lpi_ext(uint32_t ds, const int16_t* rxI,
+                                     const int16_t* rxQ, int n,
+                                     const uint8_t* expected,
+                                     const uint32_t lpi_seed[4]) noexcept {
+    TrialMetrics m{};
+    m.pass = false;
+    m.crc_passed = false;
+    m.length_correct = false;
+    m.bit_errors = 64;
+    m.byte_errors = 8;
+
     g_last = DecodedPacket{};
     HTS_V400_Dispatcher rx;
     setup(rx, ds);
@@ -180,9 +243,34 @@ static bool feed_raw_lpi(uint32_t ds, const int16_t* rxI, const int16_t* rxQ,
     for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
     rx.Disable_Holo_LPI();
 
-    if (g_last.success_mask != DecodedPacket::DECODE_MASK_OK) return false;
-    if (g_last.data_len != 8) return false;
-    return std::memcmp(g_last.data, expected, 8) == 0;
+    m.crc_passed = (g_last.success_mask == DecodedPacket::DECODE_MASK_OK);
+    m.length_correct = (g_last.data_len == 8);
+
+    if (m.crc_passed && m.length_correct) {
+        int bit_err = 0;
+        int byte_err = 0;
+        for (int b = 0; b < 8; ++b) {
+            uint8_t d = static_cast<uint8_t>(
+                static_cast<uint8_t>(g_last.data[b]) ^ expected[b]);
+            if (d != 0u) {
+                ++byte_err;
+                d = static_cast<uint8_t>(d - ((d >> 1) & 0x55u));
+                d = static_cast<uint8_t>((d & 0x33u) + ((d >> 2) & 0x33u));
+                d = static_cast<uint8_t>((d + (d >> 4)) & 0x0Fu);
+                bit_err += static_cast<int>(d);
+            }
+        }
+        m.bit_errors = bit_err;
+        m.byte_errors = byte_err;
+        m.pass = (bit_err == 0);
+    }
+    return m;
+}
+
+static bool feed_raw_lpi(uint32_t ds, const int16_t* rxI, const int16_t* rxQ,
+                         int n, const uint8_t* expected,
+                         const uint32_t lpi_seed[4]) noexcept {
+    return feed_raw_lpi_ext(ds, rxI, rxQ, n, expected, lpi_seed).pass;
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -292,30 +380,30 @@ static void row(const char* label, int pass, int total) {
 // ═══════════════════════════════════════════════════════════════
 static void test_S1() {
     hdr("S1", "완벽한 무결성 (클린 채널)");
-    int ok = 0, build_fail = 0, decode_fail = 0, memcmp_fail = 0;
+    int ok = 0, crc_only = 0, build_fail = 0;
+    long long total_bits = 0;
     for (int t = 0; t < kTrials; ++t) {
-        auto tx = build_tx(mk_seed(0x100000u, t), t);
-        if (tx.n <= 0) { ++build_fail; continue; }
-        
-        g_last = DecodedPacket{};
-        HTS_V400_Dispatcher rx;
-        setup(rx, mk_seed(0x100000u, t));
-        for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
-        for (int i = 0; i < tx.n; ++i)   rx.Feed_Chip(tx.I[i], tx.Q[i]);
-        for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
-        
-        if (g_last.success_mask != DecodedPacket::DECODE_MASK_OK) {
-            ++decode_fail;
-        } else if (g_last.data_len != 8 || std::memcmp(g_last.data, tx.info, 8) != 0) {
-            ++memcmp_fail;
-        } else {
-            ++ok;
+        const uint32_t ds = mk_seed(0x100000u, t);
+        auto tx = build_tx(ds, t);
+        if (tx.n <= 0) {
+            ++build_fail;
+            total_bits += 64;
+            continue;
         }
+
+        const TrialMetrics m = feed_raw_ext(ds, tx.I, tx.Q, tx.n, tx.info);
+        if (m.pass) {
+            ++ok;
+        } else if (m.crc_passed && m.length_correct) {
+            ++crc_only;
+        }
+        total_bits += m.bit_errors;
     }
     char diag[64];
-    std::snprintf(diag, sizeof(diag), "B%d/D%d/M%d/OK%d", build_fail, decode_fail, memcmp_fail, ok);
+    std::snprintf(diag, sizeof(diag), "B%d/OK%d/CRC+%d/BE%lld",
+                  build_fail, ok, crc_only, static_cast<long long>(total_bits));
     row("Clean channel", ok, kTrials);
-    record("S1", diag, ok, kTrials);
+    record_ext("S1", diag, ok, crc_only, kTrials, total_bits);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -325,23 +413,32 @@ static void test_S2() {
     hdr("S2", "위상 전수 조사 (블라인드 획득)");
     const int degs[] = {0, 45, 90, 135, 180, 225, 270, 315};
     for (int deg : degs) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x200000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
-            // ★ 채널에서 위상 회전만. RX 보정 없음 ★
             ch_rotate(rI, rQ, tx.n, deg);
-            if (feed_raw(ds, rI, rQ, tx.n, tx.info)) ++ok;
+            const TrialMetrics m = feed_raw_ext(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         char label[32], param[16];
         std::snprintf(label, sizeof(label), "Phase %3d deg", deg);
         std::snprintf(param, sizeof(param), "%ddeg", deg);
         row(label, ok, kTrials);
-        record("S2", param, ok, kTrials);
+        record_ext("S2", param, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -353,22 +450,32 @@ static void test_S3() {
     std::mt19937 rng(0x30000000u);
     const double snrs[] = {-30, -25, -20, -15, -10, -5, 0, 5, 10};
     for (double snr : snrs) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x300000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
             ch_awgn(rI, rQ, tx.n, snr, rng);
-            if (feed_raw(ds, rI, rQ, tx.n, tx.info)) ++ok;
+            const TrialMetrics m = feed_raw_ext(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         char label[32], param[16];
         std::snprintf(label, sizeof(label), "SNR %+6.0f dB", snr);
         std::snprintf(param, sizeof(param), "%.0fdB", snr);
         row(label, ok, kTrials);
-        record("S3", param, ok, kTrials);
+        record_ext("S3", param, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -379,18 +486,29 @@ static void test_S4() {
     hdr("S4", "비동기 타이밍 오프셋");
     const int offsets[] = {0, 1, 5, 17, 31, 63, 127};
     for (int off : offsets) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x400000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
-            if (feed_raw(ds, tx.I, tx.Q, tx.n, tx.info, kGuard + off)) ++ok;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
+            const TrialMetrics m =
+                feed_raw_ext(ds, tx.I, tx.Q, tx.n, tx.info, kGuard + off);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         char label[32], param[16];
         std::snprintf(label, sizeof(label), "Offset +%d chips", off);
         std::snprintf(param, sizeof(param), "+%d", off);
         row(label, ok, kTrials);
-        record("S4", param, ok, kTrials);
+        record_ext("S4", param, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -401,23 +519,32 @@ static void test_S5() {
     hdr("S5", "극한 CFO 추종 (블라인드)");
     const double cfos[] = {0, 50, 100, 200, 500, 1000, 2000, 5000};
     for (double cfo : cfos) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x500000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
-            // ★ CFO 적용만. RX 보정 없음 ★
             ch_cfo(rI, rQ, tx.n, cfo);
-            if (feed_raw(ds, rI, rQ, tx.n, tx.info)) ++ok;
+            const TrialMetrics m = feed_raw_ext(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         char label[32], param[16];
         std::snprintf(label, sizeof(label), "CFO %+6.0f Hz", cfo);
         std::snprintf(param, sizeof(param), "%.0fHz", cfo);
         row(label, ok, kTrials);
-        record("S5", param, ok, kTrials);
+        record_ext("S5", param, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -434,19 +561,29 @@ static void test_S6() {
         {10, 0.3, 32, 0.1,  "D=10/32 A=0.3/0.1"},
     };
     for (auto& mp : cases) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x600000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
             ch_multipath_3tap(rI, rQ, tx.n, mp.d1, mp.a1, mp.d2, mp.a2);
-            if (feed_raw(ds, rI, rQ, tx.n, tx.info)) ++ok;
+            const TrialMetrics m = feed_raw_ext(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         row(mp.label, ok, kTrials);
-        record("S6", mp.label, ok, kTrials);
+        record_ext("S6", mp.label, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -458,22 +595,32 @@ static void test_S7() {
     std::mt19937 rng(0x70000000u);
     const double jsrs[] = {0, 5, 10, 15, 20, 25, 30};
     for (double jsr : jsrs) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x700000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
             ch_barrage(rI, rQ, tx.n, jsr, rng);
-            if (feed_raw(ds, rI, rQ, tx.n, tx.info)) ++ok;
+            const TrialMetrics m = feed_raw_ext(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         char label[32], param[16];
         std::snprintf(label, sizeof(label), "JSR %+5.0f dB", jsr);
         std::snprintf(param, sizeof(param), "%.0fdB", jsr);
         row(label, ok, kTrials);
-        record("S7", param, ok, kTrials);
+        record_ext("S7", param, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -491,19 +638,29 @@ static void test_S8() {
         {20, 16.0, "JSR+20 P=16" },
     };
     for (auto& cw : cases) {
-        int ok = 0;
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
             const uint32_t ds = mk_seed(0x800000u, t);
             auto tx = build_tx(ds, t);
-            if (tx.n <= 0) continue;
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
             ch_cw(rI, rQ, tx.n, cw.jsr, cw.period);
-            if (feed_raw(ds, rI, rQ, tx.n, tx.info)) ++ok;
+            const TrialMetrics m = feed_raw_ext(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
         }
         row(cw.label, ok, kTrials);
-        record("S8", cw.label, ok, kTrials);
+        record_ext("S8", cw.label, ok, crc_only, kTrials, total_bits);
     }
 }
 
@@ -513,28 +670,36 @@ static void test_S8() {
 static void test_S9() {
     hdr("S9", "복합 스트레스 (135° + -15dB + CFO1500 + MP)");
     std::mt19937 rng(0x90000000u);
-    int ok = 0;
+    int ok = 0, crc_only = 0;
+    long long total_bits = 0;
     for (int t = 0; t < kTrials; ++t) {
         const uint32_t ds = mk_seed(0x900000u, t);
         auto tx = build_tx(ds, t);
-        if (tx.n <= 0) continue;
+        if (tx.n <= 0) {
+            total_bits += 64;
+            continue;
+        }
         int16_t rI[kMaxC], rQ[kMaxC];
         std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
         std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
 
-        // 모든 손상 동시 적용 (사전 보정 없음)
         ch_rotate(rI, rQ, tx.n, 135);
         ch_cfo(rI, rQ, tx.n, 1500.0);
         ch_multipath_3tap(rI, rQ, tx.n, 3, 0.2, 10, 0.1);
         ch_awgn(rI, rQ, tx.n, -15.0, rng);
 
-        // ★ 무보정 직접 주입 ★
-        // 타이밍 오프셋: 무작위 0~30칩
-        int timing_off = static_cast<int>(rng() % 31u);
-        if (feed_raw(ds, rI, rQ, tx.n, tx.info, kGuard + timing_off)) ++ok;
+        const int timing_off = static_cast<int>(rng() % 31u);
+        const TrialMetrics m =
+            feed_raw_ext(ds, rI, rQ, tx.n, tx.info, kGuard + timing_off);
+        if (m.pass) {
+            ++ok;
+        } else if (m.crc_passed && m.length_correct) {
+            ++crc_only;
+        }
+        total_bits += m.bit_errors;
     }
     row("Composite stress", ok, kTrials);
-    record("S9", "Full", ok, kTrials);
+    record_ext("S9", "Full", ok, crc_only, kTrials, total_bits);
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -545,13 +710,23 @@ static void test_S10() {
 
     // Part A: 클린 내구도 10000회
     static constexpr int N_ENDURE = 10000;
-    int ok_clean = 0;
+    int ok_clean = 0, crc_only = 0;
+    long long total_bits = 0;
     auto t0 = std::chrono::steady_clock::now();
     for (int t = 0; t < N_ENDURE; ++t) {
         const uint32_t ds = mk_seed(0xA00000u, t);
         auto tx = build_tx(ds, t);
-        if (tx.n > 0 && feed_raw(ds, tx.I, tx.Q, tx.n, tx.info))
+        if (tx.n <= 0) {
+            total_bits += 64;
+            continue;
+        }
+        const TrialMetrics m = feed_raw_ext(ds, tx.I, tx.Q, tx.n, tx.info);
+        if (m.pass) {
             ++ok_clean;
+        } else if (m.crc_passed && m.length_correct) {
+            ++crc_only;
+        }
+        total_bits += m.bit_errors;
     }
     auto t1 = std::chrono::steady_clock::now();
     double sec = std::chrono::duration<double>(t1 - t0).count();
@@ -559,7 +734,7 @@ static void test_S10() {
         char label[48];
         std::snprintf(label, sizeof(label), "Endurance %d (%.1fs)", N_ENDURE, sec);
         row(label, ok_clean, N_ENDURE);
-        record("S10a", "Endurance", ok_clean, N_ENDURE);
+        record_ext("S10a", "Endurance", ok_clean, crc_only, N_ENDURE, total_bits);
     }
 
     // Part B: Holo LPI ON/OFF 100회
@@ -629,34 +804,49 @@ int main() {
     double total_sec = std::chrono::duration<double>(t_end - t_all).count();
 
     // ══ 종합 보고서 ══
-    std::printf("\n╔═══════════════════════════════════════════════════╗\n");
-    std::printf("║  종합 보고서                                       ║\n");
-    std::printf("╠═════════╤══════════════════╤═══════╤══════╤═══════╣\n");
-    std::printf("║ 시나리오│ 조건             │ Pass  │Total │ 판정  ║\n");
-    std::printf("╠═════════╪══════════════════╪═══════╪══════╪═══════╣\n");
+    std::printf("\n╔═══════════════════════════════════════════════════════════════╗\n");
+    std::printf("║  종합 보고서 (Pass + CRC+payload BER)                         ║\n");
+    std::printf("╠═════════╤══════════════════╤═══════╤═══════╤════════╤═══════╣\n");
+    std::printf("║ 시나리오│ 조건             │ Pass  │ CRC+  │  BER   │ 판정  ║\n");
+    std::printf("╠═════════╪══════════════════╪═══════╪═══════╪════════╪═══════╣\n");
 
     int grand_pass = 0, grand_total = 0;
+    long long grand_bits = 0;
     int cat_pass = 0, cat_total = 0;
     for (int i = 0; i < g_n_results; ++i) {
         auto& r = g_results[i];
         const char* tag = (r.pass == r.total) ? "PASS " :
                           (r.pass == 0)       ? "FAIL " : "PART ";
-        std::printf("║ %-7s │ %-16s │ %5d │ %4d │ %s ║\n",
-                    r.name, r.param, r.pass, r.total, tag);
+        const double ber = (r.total > 0)
+            ? static_cast<double>(r.total_bit_errors) /
+              (static_cast<double>(r.total) * 64.0)
+            : 0.0;
+        std::printf("║ %-7s │ %-16s │ %5d │ %5d │ %6.4f │ %s ║\n",
+                    r.name, r.param, r.pass, r.crc_only_pass, ber, tag);
         grand_pass += r.pass;
         grand_total += r.total;
+        grand_bits += r.total_bit_errors;
         ++cat_total;
         if (r.pass == r.total) ++cat_pass;
     }
 
-    std::printf("╠═════════╧══════════════════╧═══════╧══════╧═══════╣\n");
-    std::printf("║  정량 합계: %6d / %6d (%5.1f%%)                ║\n",
+    std::printf("╠═════════╧══════════════════╧═══════╧═══════╧════════╧═══════╣\n");
+    const double grand_ber = (grand_total > 0)
+        ? static_cast<double>(grand_bits) /
+          (static_cast<double>(grand_total) * 64.0)
+        : 0.0;
+    std::printf("║  정량 합계: %6d / %6d (%5.1f%%) — 전체 BER: %7.5f        ║\n",
                 grand_pass, grand_total,
-                (grand_total > 0) ? 100.0 * grand_pass / grand_total : 0.0);
-    std::printf("║  범주 PASS: %2d / %2d                               ║\n",
+                (grand_total > 0) ? 100.0 * grand_pass / grand_total : 0.0,
+                grand_ber);
+    std::printf("║  범주 PASS: %2d / %2d                                           ║\n",
                 cat_pass, cat_total);
-    std::printf("║  총 소요:   %.1fs                                  ║\n", total_sec);
-    std::printf("╚═══════════════════════════════════════════════════╝\n");
+    std::printf("║  총 bit errors: %lld / %lld                                   ║\n",
+                static_cast<long long>(grand_bits),
+                static_cast<long long>(grand_total) * 64LL);
+    std::printf("║  총 소요:   %.1fs                                              ║\n",
+                total_sec);
+    std::printf("╚═══════════════════════════════════════════════════════════════╝\n");
 
     // FAIL 시나리오 목록
     bool any_fail = false;
@@ -666,9 +856,14 @@ int main() {
                 std::printf("\n  [엔진 한계 — 개선 필요 항목]\n");
                 any_fail = true;
             }
-            std::printf("    %-8s %-16s %d/%d\n",
+            const double fail_ber = (g_results[i].total > 0)
+                ? static_cast<double>(g_results[i].total_bit_errors) /
+                  (static_cast<double>(g_results[i].total) * 64.0)
+                : 0.0;
+            std::printf("    %-8s %-16s %3d/%3d  CRC+%3d  BER=%.4f\n",
                         g_results[i].name, g_results[i].param,
-                        g_results[i].pass, g_results[i].total);
+                        g_results[i].pass, g_results[i].total,
+                        g_results[i].crc_only_pass, fail_ber);
         }
     }
     if (!any_fail) {

@@ -1,0 +1,300 @@
+﻿[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=47 xor_legacy=0 accum=36235
+[P0-SCAN] off=0 e63=36235 avg_o=1762 r_avg=20 r_sep=1 emin=38000 sep=0
+[STAGE4-P0] off=0 r0=47 r1=47 r2=47 xor_legacy=0 accum=108708
+[P0-SCAN] off=0 e63=108708 avg_o=8471 r_avg=12 r_sep=1 emin=42355 sep=1
+[STAGE4-P0] lock dominant_row=47 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(2467,10260) est=(2467,10260) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=42121 e0=0 est=(-31642,50223) n=3 carry_pend=0
+[P1-NC] sym=63 e63=42123 e0=0 est=(19444,37943) n=4 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=41890 est=(19444,37943) n=4 carry_pend=0
+[P1→HDR] est=(19444,37943) n=4
+[HDR-SHIFT] raw_sym=34 shift=16 corrected=50 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=2 shift=16 corrected=18 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=2 shift=16 corrected=18 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=2 shift=16 corrected=18 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=3 shift=16 corrected=19 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=6 shift=16 corrected=22 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=2 shift=16 corrected=18 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=6 shift=16 corrected=22 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=3 shift=16 corrected=19 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-RETRY] parse fail, back to P1
+[P1-NC] sym=0 e63=0 e0=2554 est=(19444,37943) n=4 carry_pend=0
+[P1→HDR] est=(19444,37943) n=4
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=2 shift=16 corrected=18 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=7 shift=16 corrected=23 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=2 shift=16 corrected=18 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=3 shift=16 corrected=19 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=6 shift=16 corrected=22 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=6 shift=16 corrected=22 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=7 shift=16 corrected=23 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=6 shift=16 corrected=22 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=7 shift=16 corrected=23 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=8 shift=16 corrected=24 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-RETRY] parse fail, back to P1
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+[STAGE4-P0] off=0 r0=63 r1=63 r2=47 xor_legacy=0 accum=36235
+[P0-SCAN] off=0 e63=36235 avg_o=1762 r_avg=20 r_sep=1 emin=38000 sep=0
+[STAGE4-P0] off=0 r0=47 r1=47 r2=47 xor_legacy=0 accum=108708
+[P0-SCAN] off=0 e63=108708 avg_o=8471 r_avg=12 r_sep=1 emin=42355 sep=1
+[STAGE4-P0] lock dominant_row=47 off=0 (seed=walsh63 non-coh)
+[P0-SEED] dot=(2467,10260) est=(2467,10260) n=2
+[P0-ALIGNED] off=0 carry=64
+[P1-NC] sym=63 e63=42121 e0=0 est=(-31642,50223) n=3 carry_pend=0
+[P1-NC] sym=63 e63=42123 e0=0 est=(19444,37943) n=4 carry_pend=0
+[P1-NC] sym=0 e63=0 e0=41890 est=(19444,37943) n=4 carry_pend=0
+[P1→HDR] est=(19444,37943) n=4
+[HDR-SHIFT] raw_sym=34 shift=16 corrected=50 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=3 shift=16 corrected=19 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=7 shift=16 corrected=23 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=3 shift=16 corrected=19 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=6 shift=16 corrected=22 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=3 shift=16 corrected=19 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=12 shift=16 corrected=28 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=9 shift=16 corrected=25 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=7 shift=16 corrected=23 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=13 shift=16 corrected=29 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=11 shift=16 corrected=27 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=10 shift=16 corrected=26 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=0 shift=16 corrected=16 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=14 shift=16 corrected=30 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=15 shift=16 corrected=31 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=5 shift=16 corrected=21 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=4 shift=16 corrected=20 dom=47
+[HDR-SOFT] unreliable, reset
+[HDR-SHIFT] raw_sym=1 shift=16 corrected=17 dom=47
+[HDR-SOFT] unreliable, reset

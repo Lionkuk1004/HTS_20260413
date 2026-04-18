@@ -14,6 +14,25 @@
 #include <cstring>
 #include <cstdint>
 #include <cstddef>
+// ── AMI/PS-LTE Target Selector ─────────────────────────────
+// AMI 200 kcps 환경 (T6 하네스 기본): 32-chip Phase 0/1 coherent + non-coherent 합산
+// PS-LTE 1 Mcps 환경: 64-chip Phase 0/1 coherent (기존 유지)
+// 빌드 시 정확히 하나만 활성화. 둘 다 미정의 시 PS-LTE(기존 검증 경로) 기본.
+// AMI 32-chip 실험(T6 등): 컴파일에 /DHTS_TARGET_AMI 명시.
+#if !defined(HTS_TARGET_AMI) && !defined(HTS_TARGET_PSLTE)
+#  define HTS_TARGET_PSLTE
+#endif
+#if defined(HTS_TARGET_AMI) && defined(HTS_TARGET_PSLTE)
+#  error "HTS_TARGET_AMI 와 HTS_TARGET_PSLTE 는 동시 정의 불가"
+#endif
+// 2026-04-18: AMI 32-chip T6 붕괴(43/11200) — 원인 규명 전 컴파일 차단
+#if defined(HTS_TARGET_AMI)
+#  error "HTS_TARGET_AMI 32-chip 경로는 2026-04-18 T6 붕괴 (43/11200) 로 비활성. 원인 규명 전 빌드 금지."
+#endif
+// ── Walsh Bank Phase 0 Experimental Path ─────────────────
+// 정의 시: Phase 0 detection 을 FWHT Max Row 방식으로 전환
+// 정의 미정 시: 기존 경로 (baseline 10810 보존)
+// 실험 빌드: /DHTS_PHASE0_WALSH_BANK
 // [진단] Barrage30 등 PC 하네스 — ir_chip_I_[0]·harq_round_ 스냅샷 (기본
 // 0=비활성)
 extern "C" volatile int g_hts_ir_diag_chip0 = 0;
@@ -79,6 +98,103 @@ static constexpr int8_t k_w63[64] = {
     +1, -1, -1, +1, -1, +1, +1, -1,
     -1, +1, +1, -1, +1, -1, -1, +1
 };
+
+/// @brief Fast Walsh-Hadamard Transform 64-point (complex I/Q)
+/// @details radix-2 butterfly, in-place, 6 stages (Baseline Stage 2 + WBANK)
+/// @note Hadamard natural ordering (row idx = sequency)
+static inline void fwht_64_complex_inplace_(int32_t* __restrict T_I,
+                                            int32_t* __restrict T_Q) noexcept {
+    for (int stride = 1; stride < 64; stride <<= 1) {
+        for (int i = 0; i < 64; i += (stride << 1)) {
+            for (int j = 0; j < stride; ++j) {
+                const int a = i + j;
+                const int b = a + stride;
+                const int32_t tI = T_I[a];
+                const int32_t tQ = T_Q[a];
+                T_I[a] = tI + T_I[b];
+                T_Q[a] = tQ + T_Q[b];
+                T_I[b] = tI - T_I[b];
+                T_Q[b] = tQ - T_Q[b];
+            }
+        }
+    }
+}
+
+/// @brief 8-point FWHT (복소 I/Q, in-place, 3 stage)
+static inline void fwht_8_complex_inplace_(int32_t* T_I,
+                                            int32_t* T_Q) noexcept {
+    for (int stride = 1; stride < 8; stride <<= 1) {
+        for (int i = 0; i < 8; i += (stride << 1)) {
+            for (int j = 0; j < stride; ++j) {
+                const int a = i + j;
+                const int b = a + stride;
+                const int32_t tI = T_I[a];
+                const int32_t tQ = T_Q[a];
+                T_I[a] = tI + T_I[b];
+                T_Q[a] = tQ + T_Q[b];
+                T_I[b] = tI - T_I[b];
+                T_Q[b] = tQ - T_Q[b];
+            }
+        }
+    }
+}
+
+/// @brief 64-chip 블록의 8×8 non-coh 에너지 (각 8칩 FWHT row 7 누적)
+/// @note k_w63 자기유사: 8칩 H8[7] 패턴 반복 → CFO 짧은 구간에서 row 7 누적
+static inline int64_t energy_8x8_noncoh_row7_(const int16_t* chip_I,
+                                                const int16_t* chip_Q) noexcept {
+    int64_t e_row7 = 0;
+    for (int s = 0; s < 8; ++s) {
+        alignas(32) int32_t t_I[8];
+        alignas(32) int32_t t_Q[8];
+        for (int i = 0; i < 8; ++i) {
+            t_I[i] = static_cast<int32_t>(chip_I[s * 8 + i]);
+            t_Q[i] = static_cast<int32_t>(chip_Q[s * 8 + i]);
+        }
+        fwht_8_complex_inplace_(t_I, t_Q);
+        e_row7 += static_cast<int64_t>(t_I[7]) * t_I[7] +
+                  static_cast<int64_t>(t_Q[7]) * t_Q[7];
+    }
+    return e_row7;
+}
+
+/// @brief Sylvester natural: k_w63 ↔ FWHT row 63 (Stage 2 XOR 기준)
+static constexpr uint8_t k_W63_FWHT_ROW_NATURAL = 63u;
+
+#if defined(HTS_PHASE0_WALSH_BANK)
+/// @brief k_w63 의 FWHT dominant row (self-calibrated)
+/// @details 시작 시 full_reset_ 에서 1회 계산, 이후 read-only
+/// @note TX/RX 공통 k_w63 → 동일 row 자동 보장 (ordering 무관)
+static uint8_t k_W63_FWHT_ROW = 255u;  // 미초기화 sentinel
+
+/// @brief k_w0 의 FWHT dominant row (항상 0)
+/// @details k_w0 = all +1 → FWHT Sylvester/Walsh 모든 ordering 에서 row 0
+static constexpr uint8_t k_W0_FWHT_ROW [[maybe_unused]] = 0u;
+
+/// @brief k_w63 의 FWHT dominant row 계산 (1회)
+/// @return k_w63 의 FWHT 결과 max row index
+static uint8_t calc_kw63_fwht_row_() noexcept {
+    int32_t T_I[64];
+    int32_t T_Q[64];
+    for (int i = 0; i < 64; ++i) {
+        T_I[i] = static_cast<int32_t>(k_w63[static_cast<std::size_t>(i)]) * 1000;
+        T_Q[i] = 0;
+    }
+    fwht_64_complex_inplace_(T_I, T_Q);
+
+    int max_row = 0;
+    int64_t max_e = 0;
+    for (int r = 0; r < 64; ++r) {
+        const int64_t e = static_cast<int64_t>(T_I[r]) * T_I[r];
+        if (e > max_e) {
+            max_e = e;
+            max_row = r;
+        }
+    }
+    return static_cast<uint8_t>(max_row);
+}
+
+#endif  // HTS_PHASE0_WALSH_BANK
 
 /// Walsh-63 bin dot (ADD/SUB만) — Phase 0 스캔용
 static void walsh63_dot_(const int16_t *chip_I, const int16_t *chip_Q,
@@ -838,6 +954,15 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     cfo_.Init();
     tpc_.Init();
     pre_agc_.Init();
+#if defined(HTS_PHASE0_WALSH_BANK)
+    if (k_W63_FWHT_ROW == 255u) {
+        k_W63_FWHT_ROW = calc_kw63_fwht_row_();
+#if defined(HTS_DIAG_PRINTF)
+        std::printf("[DIAG-SELF-CAL] k_W63_FWHT_ROW = %u (Walsh ordering 무관)\n",
+                    static_cast<unsigned>(k_W63_FWHT_ROW));
+#endif
+    }
+#endif
     p0_chip_count_ = 0;
     p0_carry_count_ = 0;
     p1_carry_pending_ = 0;
@@ -847,6 +972,7 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     psal_pending_ = false;
     psal_off_ = 0;
     psal_e63_ = 0;
+    dominant_row_ = 63u;
     est_I_ = 0;
     est_Q_ = 0;
     est_count_ = 0;
@@ -926,6 +1052,17 @@ uint32_t HTS_V400_Dispatcher::set_phase_(RxPhase target) noexcept {
     const uint32_t legal_u = static_cast<uint32_t>(k_trans_legal[idx]);
     const uint32_t p = static_cast<uint32_t>(phase_);
     phase_ = static_cast<RxPhase>(t * legal_u + p * (1u - legal_u));
+#if defined(HTS_DIAG_PRINTF)
+    if (legal_u != 0u) {
+        static int s_phase_trans = 0;
+        ++s_phase_trans;
+        if (s_phase_trans <= 50) {
+            std::printf("[PHASE] old=%d new=%d count=%d\n",
+                        static_cast<int>(p), static_cast<int>(phase_),
+                        s_phase_trans);
+        }
+    }
+#endif
     if (legal_u == 0u) {
         full_reset_();
         return PHASE_TRANSFER_MASK_FAIL;
@@ -1256,6 +1393,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
     // 것을 방지. 16칩(NSYM16=172)은 wb_ 사용 영역이 작아 영향 없으나,
     // 64칩(NSYM64=172, BPS=4)은 전체 TOTAL_CODED(688) 슬롯을 사용하므로 필수.
     std::memset(&wb_, 0, sizeof(wb_));
+    const uint8_t walsh_shift_payload = current_walsh_shift_();
     DecodedPacket pkt = {};
     pkt.mode = cur_mode_;
     pkt.success_mask = DecodedPacket::DECODE_MASK_FAIL;
@@ -1290,14 +1428,25 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             ir_state_->rounds_done);
             }
 #endif
+            const bool ir16_ok = (ir_state_ != nullptr &&
+                                  ir_chip_I_ != nullptr &&
+                                  ir_chip_Q_ != nullptr);
             pkt.success_mask = static_cast<uint32_t>(
-                0u - static_cast<uint32_t>(
-                         (ir_state_ != nullptr && ir_chip_I_ != nullptr &&
-                          ir_chip_Q_ != nullptr &&
-                          FEC_HARQ::Decode16_IR(
-                              ir_chip_I_, ir_chip_Q_, FEC_HARQ::NSYM16,
-                              FEC_HARQ::C16, FEC_HARQ::BPS16, il, rv,
-                              *ir_state_, pkt.data, &pkt.data_len, wb_))));
+                0u -
+                static_cast<uint32_t>(
+                    ir16_ok &&
+                    FEC_HARQ::Decode16_IR(
+                        ir_chip_I_, ir_chip_Q_, FEC_HARQ::NSYM16,
+                        FEC_HARQ::C16, FEC_HARQ::BPS16, il, rv, *ir_state_,
+                        pkt.data, &pkt.data_len, wb_, walsh_shift_payload)));
+#if defined(HTS_DIAG_PRINTF)
+            if (ir16_ok) {
+                std::printf(
+                    "[PAYLOAD-SHIFT] walsh_shift=%u dom=%u\n",
+                    static_cast<unsigned>(walsh_shift_payload),
+                    static_cast<unsigned>(dominant_row_));
+            }
+#endif
             ir_rv_ = (ir_rv_ + 1) & 3;
             sic_expect_valid_ = false;
         } else {
@@ -1366,7 +1515,14 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                         0u -
                         static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
                             ir_chip_I_, ir_chip_Q_, nsym_ir, FEC_HARQ::C64, bps,
-                            il, rv, *ir_state_, pkt.data, &pkt.data_len, wb_)));
+                            il, rv, *ir_state_, pkt.data, &pkt.data_len, wb_,
+                            walsh_shift_payload)));
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf(
+                        "[PAYLOAD-SHIFT] walsh_shift=%u dom=%u\n",
+                        static_cast<unsigned>(walsh_shift_payload),
+                        static_cast<unsigned>(dominant_row_));
+#endif
                 }
                 ir_rv_ = (ir_rv_ + 1) & 3;
                 {
@@ -1958,31 +2114,514 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     int32_t best_e63 = 0, second_e63 = 0;
     int best_off = -1;
     int64_t sum_all = 0;
+    int best_dom_row = 63;
+    int32_t best_seed_I = 0;
+    int32_t best_seed_Q = 0;
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    static int s_stage4_scan_idx = 0;
+    ++s_stage4_scan_idx;
+    const bool diag_this_scan = (s_stage4_scan_idx <= 3);
+    int cons_pass_count = 0;
+    int best_cons_off = -1;
+    int best_cons_r0 = -1;
+    int best_cons_r1 = -1;
+    int best_cons_r2 = -1;
+    int64_t best_cons_e_sum = 0;
+    {
+        static int s_p0_buf_dump_idx = 0;
+        ++s_p0_buf_dump_idx;
+        if (s_p0_buf_dump_idx <= 3) {
+            std::printf(
+                "[BUF#%d] p0_buf128_I snapshot (at scan entry):\n",
+                s_p0_buf_dump_idx);
+            for (int blk = 0; blk < 3; ++blk) {
+                int nz = 0;
+                int abs_max = 0;
+                int abs_sum = 0;
+                for (int i = 0; i < 64; ++i) {
+                    const int v = static_cast<int>(p0_buf128_I_[blk * 64 + i]);
+                    const int a = (v >= 0) ? v : -v;
+                    if (a > 100) {
+                        ++nz;
+                    }
+                    if (a > abs_max) {
+                        abs_max = a;
+                    }
+                    abs_sum += a;
+                }
+                std::printf("  blk%d: nonzero=%d/64 abs_max=%d abs_avg=%d\n",
+                            blk, nz, abs_max, abs_sum / 64);
+            }
+            std::printf("  buf[0..15]_I:");
+            for (int i = 0; i < 16; ++i) {
+                std::printf(" %d", static_cast<int>(p0_buf128_I_[i]));
+            }
+            std::printf("\n");
+            std::printf("  buf[64..79]_I:");
+            for (int i = 0; i < 16; ++i) {
+                std::printf(" %d", static_cast<int>(p0_buf128_I_[64 + i]));
+            }
+            std::printf("\n");
+            std::printf("  buf[128..143]_I:");
+            for (int i = 0; i < 16; ++i) {
+                std::printf(" %d", static_cast<int>(p0_buf128_I_[128 + i]));
+            }
+            std::printf("\n");
+        }
+    }
+    if (s_stage4_scan_idx >= 3 && s_stage4_scan_idx <= 5) {
+        std::printf("[DEEP-BUF#%d] entire 192 chip I dump:\n",
+                    s_stage4_scan_idx);
+        for (int b = 0; b < 3; ++b) {
+            std::printf("  blk%d I: ", b);
+            for (int i = 0; i < 64; ++i) {
+                std::printf("%d ",
+                            static_cast<int>(p0_buf128_I_[b * 64 + i]));
+            }
+            std::printf("\n");
+        }
+        std::printf("[DEEP-BUF#%d] entire 192 chip Q dump:\n",
+                    s_stage4_scan_idx);
+        for (int b = 0; b < 3; ++b) {
+            std::printf("  blk%d Q: ", b);
+            for (int i = 0; i < 64; ++i) {
+                std::printf("%d ",
+                            static_cast<int>(p0_buf128_Q_[b * 64 + i]));
+            }
+            std::printf("\n");
+        }
+    }
+    if (s_stage4_scan_idx == 3) {
+        alignas(32) int32_t diag_T0_I[64];
+        alignas(32) int32_t diag_T0_Q[64];
+        alignas(32) int32_t diag_T1_I[64];
+        alignas(32) int32_t diag_T1_Q[64];
+        for (int i = 0; i < 64; ++i) {
+            diag_T0_I[i] = static_cast<int32_t>(p0_buf128_I_[i]);
+            diag_T0_Q[i] = static_cast<int32_t>(p0_buf128_Q_[i]);
+            diag_T1_I[i] = static_cast<int32_t>(p0_buf128_I_[i + 64]);
+            diag_T1_Q[i] = static_cast<int32_t>(p0_buf128_Q_[i + 64]);
+        }
+        fwht_64_complex_inplace_(diag_T0_I, diag_T0_Q);
+        fwht_64_complex_inplace_(diag_T1_I, diag_T1_Q);
+        std::printf(
+            "[DEEP-FWHT] off=0 block 0 FWHT energy (selected rows):\n");
+        {
+            const int rows[] = {0,  1,  15, 30, 31, 32,
+                                33, 47, 62, 63};
+            for (unsigned ri = 0; ri < sizeof(rows) / sizeof(rows[0]); ++ri) {
+                const int r = rows[ri];
+                const int64_t e =
+                    static_cast<int64_t>(diag_T0_I[r]) * diag_T0_I[r] +
+                    static_cast<int64_t>(diag_T0_Q[r]) * diag_T0_Q[r];
+                std::printf("  blk0 row%d energy=%lld\n", r,
+                            static_cast<long long>(e));
+            }
+        }
+        std::printf("[DEEP-FWHT] off=0 block 1 FWHT energy:\n");
+        {
+            const int rows[] = {0,  1,  15, 30, 31, 32,
+                                33, 47, 62, 63};
+            for (unsigned ri = 0; ri < sizeof(rows) / sizeof(rows[0]); ++ri) {
+                const int r = rows[ri];
+                const int64_t e =
+                    static_cast<int64_t>(diag_T1_I[r]) * diag_T1_I[r] +
+                    static_cast<int64_t>(diag_T1_Q[r]) * diag_T1_Q[r];
+                std::printf("  blk1 row%d energy=%lld\n", r,
+                            static_cast<long long>(e));
+            }
+        }
+        auto print_top3 = [](const int32_t* T_I, const int32_t* T_Q,
+                             const char* lbl) noexcept {
+            int idx[3] = {-1, -1, -1};
+            int64_t vals[3] = {0, 0, 0};
+            for (int r = 0; r < 64; ++r) {
+                const int64_t e =
+                    static_cast<int64_t>(T_I[r]) * T_I[r] +
+                    static_cast<int64_t>(T_Q[r]) * T_Q[r];
+                if (e > vals[0]) {
+                    vals[2] = vals[1];
+                    idx[2] = idx[1];
+                    vals[1] = vals[0];
+                    idx[1] = idx[0];
+                    vals[0] = e;
+                    idx[0] = r;
+                } else if (e > vals[1]) {
+                    vals[2] = vals[1];
+                    idx[2] = idx[1];
+                    vals[1] = e;
+                    idx[1] = r;
+                } else if (e > vals[2]) {
+                    vals[2] = e;
+                    idx[2] = r;
+                }
+            }
+            std::printf("  %s top3: row=[%d,%d,%d] e=[%lld,%lld,%lld]\n", lbl,
+                        idx[0], idx[1], idx[2],
+                        static_cast<long long>(vals[0]),
+                        static_cast<long long>(vals[1]),
+                        static_cast<long long>(vals[2]));
+        };
+        print_top3(diag_T0_I, diag_T0_Q, "blk0");
+        print_top3(diag_T1_I, diag_T1_Q, "blk1");
+    }
+#endif
+
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    {
+        static int s_p0_full_dump_idx = 0;
+        ++s_p0_full_dump_idx;
+        if (s_p0_full_dump_idx <= 5) {
+            std::printf("[P0-DUMP#%d] p0_buf128_I (192 chips):\n",
+                        s_p0_full_dump_idx);
+            for (int i = 0; i < 192; ++i) {
+                std::printf("%d%s", static_cast<int>(p0_buf128_I_[i]),
+                            (i % 16 == 15) ? "\n" : ",");
+            }
+            std::printf("[P0-DUMP#%d] p0_buf128_Q (192 chips):\n",
+                        s_p0_full_dump_idx);
+            for (int i = 0; i < 192; ++i) {
+                std::printf("%d%s", static_cast<int>(p0_buf128_Q_[i]),
+                            (i % 16 == 15) ? "\n" : ",");
+            }
+        }
+    }
+#endif
 
     for (int off = 0; off < 64; ++off) {
-        // ── P0-FIX-001: non-coherent 2블록 에너지 합산 ──
-        // 블록 내부는 coherent 64칩 integrate (walsh63_dot_ 동일),
-        // 블록 간은 non-coherent |dot|² 합 — CFO 에 의한 블록 간
-        // 위상 회전에 불변. coherent 합(구버전) 은 블록 간 위상차
-        // Δθ≈π 에서 신호 소멸 문제가 있어 S5 (CFO) 시나리오 전멸.
-        // CFO=0 정상 경로에서는 peak 가 4·|dot|² → 2·|dot|² 로
-        // 절반이 되지만, peak/noise 비율은 동일하므로 검출 성능
-        // 손실 없음. CFO 추정 블록(하단)은 coherent 유지.
+        int32_t accum = 0;
+        int max_row = 0;
+        int32_t seed_I_fwht = 0;
+        int32_t seed_Q_fwht = 0;
+        int stage4_b1_row = 0;
+#if defined(HTS_PHASE0_WALSH_BANK)
+        // ── Walsh Bank Phase 0 — Full FWHT + Max Row + per-block T 보존 ──
+        // 2-block FWHT 결과를 dominant row 에서 coherent 합산 → Phase 1 과
+        // 동일 Walsh 도메인 시드 (walsh63_dot_ 재계산 경로와 분리).
+        alignas(4) int32_t T_I[2][64];
+        alignas(4) int32_t T_Q[2][64];
+        int64_t row_e[64] = {0};
+        for (int blk = 0; blk < 2; ++blk) {
+            const int base = off + (blk << 6);
+            for (int i = 0; i < 64; ++i) {
+                T_I[blk][i] = static_cast<int32_t>(p0_buf128_I_[base + i]);
+                T_Q[blk][i] = static_cast<int32_t>(p0_buf128_Q_[base + i]);
+            }
+            fwht_64_complex_inplace_(T_I[blk], T_Q[blk]);
+            for (int r = 0; r < 64; ++r) {
+                const int64_t e_I =
+                    static_cast<int64_t>(T_I[blk][r]) * T_I[blk][r];
+                const int64_t e_Q =
+                    static_cast<int64_t>(T_Q[blk][r]) * T_Q[blk][r];
+                row_e[r] += (e_I + e_Q);
+            }
+        }
+        // Tie-break: row 63 (PRE_SYM0 / k_w63 FWHT) 동점 시 우선
+        int64_t row_max_e = row_e[63];
+        max_row = 63;
+        for (int r = 0; r < 64; ++r) {
+            if (r == 63) {
+                continue;
+            }
+            if (row_e[r] > row_max_e) {
+                row_max_e = row_e[r];
+                max_row = r;
+            }
+        }
+        accum = static_cast<int32_t>(row_max_e >> 16);
+        seed_I_fwht = T_I[0][max_row] + T_I[1][max_row];
+        seed_Q_fwht = T_Q[0][max_row] + T_Q[1][max_row];
+#else
+#if defined(HTS_TARGET_AMI)
+        // ── AMI: 32-chip × 2 non-coherent per block (기존) ──
         int64_t e_nc = 0;
         for (int blk = 0; blk < 2; ++blk) {
             const int base = off + (blk << 6);
-            int32_t dot_I = 0, dot_Q = 0;
-            walsh63_dot_(&p0_buf128_I_[base], &p0_buf128_Q_[base],
-                         dot_I, dot_Q);
-            e_nc += static_cast<int64_t>(dot_I) * dot_I +
-                    static_cast<int64_t>(dot_Q) * dot_Q;
+            for (int half = 0; half < 2; ++half) {
+                int32_t dI = 0, dQ = 0;
+                for (int j = 0; j < 32; ++j) {
+                    const int idx = base + (half << 5) + j;
+                    const int32_t sI =
+                        static_cast<int32_t>(p0_buf128_I_[idx]);
+                    const int32_t sQ =
+                        static_cast<int32_t>(p0_buf128_Q_[idx]);
+                    const int widx = (half << 5) + j;
+                    if (k_w63[static_cast<std::size_t>(widx)] > 0) {
+                        dI += sI;
+                        dQ += sQ;
+                    } else {
+                        dI -= sI;
+                        dQ -= sQ;
+                    }
+                }
+                e_nc += static_cast<int64_t>(dI) * dI +
+                        static_cast<int64_t>(dQ) * dQ;
+            }
         }
-        const int32_t accum = static_cast<int32_t>(e_nc >> 16);
+        accum = static_cast<int32_t>(e_nc >> 16);
+#else
+        // Stage 4b (PS-LTE): 3×64 FWHT 동일 row 일관성 (pre_reps_>1 시 PRE_SYM0 반복)
+        // p0_buf128_*_[192]: off+191<192 일 때만 3블록 안전 → off==0 만 4b 전체.
+        // 그 외 off 는 기존 2블록 XOR+fallback (슬라이드 OOB 방지).
+        alignas(32) int32_t T0_I[64];
+        alignas(32) int32_t T0_Q[64];
+        alignas(32) int32_t T1_I[64];
+        alignas(32) int32_t T1_Q[64];
+        alignas(32) int32_t T2_I[64];
+        alignas(32) int32_t T2_Q[64];
+        int r0 = 63;
+        int r1 = 63;
+        int r2 = 63;
+        int max_row0 = 63;
+        int max_row1 = 63;
+        for (int i = 0; i < 64; ++i) {
+            T0_I[i] = static_cast<int32_t>(p0_buf128_I_[off + i]);
+            T0_Q[i] = static_cast<int32_t>(p0_buf128_Q_[off + i]);
+        }
+        fwht_64_complex_inplace_(T0_I, T0_Q);
+        for (int i = 0; i < 64; ++i) {
+            T1_I[i] = static_cast<int32_t>(p0_buf128_I_[off + 64 + i]);
+            T1_Q[i] = static_cast<int32_t>(p0_buf128_Q_[off + 64 + i]);
+        }
+        fwht_64_complex_inplace_(T1_I, T1_Q);
+        int64_t max_e0 = static_cast<int64_t>(T0_I[63]) * T0_I[63] +
+                         static_cast<int64_t>(T0_Q[63]) * T0_Q[63];
+        max_row0 = 63;
+        for (int r = 0; r < 64; ++r) {
+            if (r == 63) {
+                continue;
+            }
+            const int64_t e = static_cast<int64_t>(T0_I[r]) * T0_I[r] +
+                              static_cast<int64_t>(T0_Q[r]) * T0_Q[r];
+            if (e > max_e0) {
+                max_e0 = e;
+                max_row0 = r;
+            }
+        }
+        int64_t max_e1 = static_cast<int64_t>(T1_I[63]) * T1_I[63] +
+                         static_cast<int64_t>(T1_Q[63]) * T1_Q[63];
+        max_row1 = 63;
+        for (int r = 0; r < 64; ++r) {
+            if (r == 63) {
+                continue;
+            }
+            const int64_t e = static_cast<int64_t>(T1_I[r]) * T1_I[r] +
+                              static_cast<int64_t>(T1_Q[r]) * T1_Q[r];
+            if (e > max_e1) {
+                max_e1 = e;
+                max_row1 = r;
+            }
+        }
+        r0 = max_row0;
+        r1 = max_row1;
+        int64_t max_e2 = 0;
+        if ((off + 128 + 63) < 192) {
+            for (int i = 0; i < 64; ++i) {
+                T2_I[i] = static_cast<int32_t>(p0_buf128_I_[off + 128 + i]);
+                T2_Q[i] = static_cast<int32_t>(p0_buf128_Q_[off + 128 + i]);
+            }
+            fwht_64_complex_inplace_(T2_I, T2_Q);
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+            {
+                static int s_p0_fwht_dump_idx = 0;
+                if (off == 0 && s_p0_fwht_dump_idx < 5) {
+                    ++s_p0_fwht_dump_idx;
+                    auto print_top5 = [](const char *label, const int32_t *I,
+                                         const int32_t *Q) noexcept {
+                        int64_t e[64];
+                        for (int m = 0; m < 64; ++m) {
+                            e[m] = static_cast<int64_t>(I[m]) * I[m] +
+                                   static_cast<int64_t>(Q[m]) * Q[m];
+                        }
+                        int top_bin[5] = {0, 0, 0, 0, 0};
+                        int64_t top_e[5] = {INT64_MIN, INT64_MIN, INT64_MIN,
+                                            INT64_MIN, INT64_MIN};
+                        for (int m = 0; m < 64; ++m) {
+                            for (int k = 0; k < 5; ++k) {
+                                if (e[m] > top_e[k]) {
+                                    for (int j = 4; j > k; --j) {
+                                        top_e[j] = top_e[j - 1];
+                                        top_bin[j] = top_bin[j - 1];
+                                    }
+                                    top_e[k] = e[m];
+                                    top_bin[k] = m;
+                                    break;
+                                }
+                            }
+                        }
+                        std::printf("[P0-FWHT-TOP5] %s: ", label);
+                        for (int k = 0; k < 5; ++k) {
+                            std::printf(
+                                "bin%d=%lld ", top_bin[k],
+                                static_cast<long long>(top_e[k]));
+                        }
+                        std::printf("\n");
+                    };
+                    print_top5("block0", T0_I, T0_Q);
+                    print_top5("block1", T1_I, T1_Q);
+                    print_top5("block2", T2_I, T2_Q);
+                }
+            }
+#endif
+            max_e2 = static_cast<int64_t>(T2_I[63]) * T2_I[63] +
+                     static_cast<int64_t>(T2_Q[63]) * T2_Q[63];
+            r2 = 63;
+            for (int r = 0; r < 64; ++r) {
+                if (r == 63) {
+                    continue;
+                }
+                const int64_t e = static_cast<int64_t>(T2_I[r]) * T2_I[r] +
+                                  static_cast<int64_t>(T2_Q[r]) * T2_Q[r];
+                if (e > max_e2) {
+                    max_e2 = e;
+                    r2 = r;
+                }
+            }
+            const bool cons_ok = (r0 == r1) && (r1 == r2);
+            int32_t accum_cohr = 0;
+            if (cons_ok) {
+                // 기존 2블록 (e0+e1)>>16 판정 스케일에 맞춤: 동일 E면 2E/65536 ≡
+                // (2/3)·(3E)/65536
+                const int64_t e_scaled =
+                    ((max_e0 + max_e1 + max_e2) * 2) / 3;
+                accum_cohr = static_cast<int32_t>(e_scaled >> 16);
+            } else {
+                const int64_t e63_0 =
+                    static_cast<int64_t>(T0_I[63]) * T0_I[63] +
+                    static_cast<int64_t>(T0_Q[63]) * T0_Q[63];
+                const int64_t e63_1 =
+                    static_cast<int64_t>(T1_I[63]) * T1_I[63] +
+                    static_cast<int64_t>(T1_Q[63]) * T1_Q[63];
+                const int64_t e63_2 =
+                    static_cast<int64_t>(T2_I[63]) * T2_I[63] +
+                    static_cast<int64_t>(T2_Q[63]) * T2_Q[63];
+                const int64_t e63_scaled = ((e63_0 + e63_1 + e63_2) * 2) / 3;
+                accum_cohr = static_cast<int32_t>(e63_scaled >> 16);
+            }
+            // Stage 5: 8×8 non-coh (row 7) — 고 CFO에서 coherent 대비 이득
+            const int64_t e8x8_0 =
+                energy_8x8_noncoh_row7_(&p0_buf128_I_[off],
+                                         &p0_buf128_Q_[off]);
+            const int64_t e8x8_1 =
+                energy_8x8_noncoh_row7_(&p0_buf128_I_[off + 64],
+                                         &p0_buf128_Q_[off + 64]);
+            const int64_t e8x8_2 =
+                energy_8x8_noncoh_row7_(&p0_buf128_I_[off + 128],
+                                         &p0_buf128_Q_[off + 128]);
+            const int64_t e8x8_sum = e8x8_0 + e8x8_1 + e8x8_2;
+            // >>14: 8×8 합을 64칩 coherent(3블록) 스케일에 근사 정합
+            const int32_t accum_8x8 =
+                static_cast<int32_t>(((e8x8_sum * 2) / 3) >> 14);
+            accum = (accum_8x8 > accum_cohr) ? accum_8x8 : accum_cohr;
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+            if (diag_this_scan) {
+                if (cons_ok) {
+                    ++cons_pass_count;
+                    const int64_t e_triple = max_e0 + max_e1 + max_e2;
+                    if (best_cons_off < 0 || e_triple > best_cons_e_sum) {
+                        best_cons_e_sum = e_triple;
+                        best_cons_off = off;
+                        best_cons_r0 = r0;
+                        best_cons_r1 = r1;
+                        best_cons_r2 = r2;
+                    }
+                }
+            }
+            {
+                static int s_stage5_diag = 0;
+                if (off == 0 && s_stage5_diag < 5) {
+                    ++s_stage5_diag;
+                    std::printf(
+                        "[STAGE5] off=0 cons=%d e_cohr=%d e_8x8_scaled=%d "
+                        "accum=%d\n",
+                        cons_ok ? 1 : 0, accum_cohr, accum_8x8, accum);
+                }
+            }
+#endif
+        } else {
+            // 2블록 레거시: XOR=63 (PRE_SYM0/1) + row63 fallback
+            int64_t max_e1b = static_cast<int64_t>(T1_I[0]) * T1_I[0] +
+                              static_cast<int64_t>(T1_Q[0]) * T1_Q[0];
+            max_row1 = 0;
+            for (int r = 0; r < 64; ++r) {
+                if (r == 0) {
+                    continue;
+                }
+                const int64_t e = static_cast<int64_t>(T1_I[r]) * T1_I[r] +
+                                  static_cast<int64_t>(T1_Q[r]) * T1_Q[r];
+                if (e > max_e1b) {
+                    max_e1b = e;
+                    max_row1 = r;
+                }
+            }
+            r1 = max_row1;
+            r2 = max_row1;
+            const bool xor_ok = ((max_row0 ^ max_row1) == 63);
+            if (xor_ok) {
+                const int64_t e_sum = max_e0 + max_e1b;
+                accum = static_cast<int32_t>(e_sum >> 16);
+            } else {
+                const int64_t e63_0 =
+                    static_cast<int64_t>(T0_I[63]) * T0_I[63] +
+                    static_cast<int64_t>(T0_Q[63]) * T0_Q[63];
+                const int64_t e63_1 =
+                    static_cast<int64_t>(T1_I[63]) * T1_I[63] +
+                    static_cast<int64_t>(T1_Q[63]) * T1_Q[63];
+                accum = static_cast<int32_t>((e63_0 + e63_1) >> 16);
+            }
+        }
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+        {
+            static int s_stage4b_diag_line = 0;
+            if ((off == 0 || off == 32 || off == 63) &&
+                s_stage4b_diag_line < 30) {
+                ++s_stage4b_diag_line;
+                const bool full3 = ((off + 128 + 63) < 192);
+                const int cons_show =
+                    full3 ? (((r0 == r1) && (r1 == r2)) ? 1 : 0) : -1;
+                std::printf(
+                    "[STAGE4B] off=%d full3=%d r0=%d r1=%d r2=%d cons=%d "
+                    "accum=%d\n",
+                    off, full3 ? 1 : 0, r0, r1, r2, cons_show, accum);
+            }
+        }
+#endif
+        max_row = max_row0;
+        stage4_b1_row = max_row1;
+#endif
+#endif
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
             best_e63 = accum;
             best_off = off;
+#if defined(HTS_PHASE0_WALSH_BANK)
+            best_dom_row = max_row;
+            best_seed_I = seed_I_fwht;
+            best_seed_Q = seed_Q_fwht;
+#if defined(HTS_DIAG_PRINTF)
+            std::printf(
+                "[P0-ROW-NEW] off=%d dom_row=%d max_e=%d seed=(%d,%d)\n",
+                off, max_row, accum, seed_I_fwht, seed_Q_fwht);
+#endif
+#elif !defined(HTS_TARGET_AMI)
+            // Fix A1: block 0/1 zero buffer → argmax stays 63 fallback; trust
+            // block 2 (last 64 chips, latest preamble). 3-block consistent → r0
+            // (baseline). Mismatch → r2 (CFO-induced row).
+            best_dom_row = (r0 == r1 && r1 == r2) ? r0 : r2;
+#if defined(HTS_DIAG_PRINTF)
+            std::printf(
+                "[STAGE4-P0] off=%d r0=%d r1=%d r2=%d xor_legacy=%d accum=%d "
+                "bdr=%d\n",
+                off, max_row, stage4_b1_row, r2,
+                (max_row ^ stage4_b1_row), accum, best_dom_row);
+#endif
+#endif
         } else if (accum > second_e63) {
             second_e63 = accum;
         }
@@ -2021,15 +2660,112 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             ? static_cast<int32_t>((static_cast<int64_t>(avg_others) << 2) +
                                     avg_others)
             : 5000;
-    // 적응형: amp × 38 (shift: (amp<<5)+(amp<<2)+(amp<<1) = amp×38)
+    // 적응형: AMI amp×19 / PS-LTE amp×38 (shift 조합)
     const int32_t amp32 = static_cast<int32_t>(tx_amp_);
+#if defined(HTS_TARGET_AMI)
+    // AMI 32-chip × 4 non-coherent: clean peak 약 1/2 → amp × 19
+    const int32_t k_E63_ALIGN_MIN =
+        (amp32 << 4) + (amp32 << 1) + amp32;  // amp × 19
+#else
+    // PS-LTE 64-chip × 2 non-coherent: 기존 amp × 38
     const int32_t k_E63_ALIGN_MIN =
         (amp32 << 5) + (amp32 << 2) + (amp32 << 1);  // amp × 38
+#endif
     const int32_t e63_min =
         (adaptive_min > k_E63_ALIGN_MIN) ? adaptive_min : k_E63_ALIGN_MIN;
 
     const bool pass = (best_off >= 0 && r_avg_ok &&
                        best_e63 >= e63_min && sep_ok);
+
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    if (diag_this_scan) {
+        std::printf(
+            "[STAGE4-SCAN#%d] cons_pass=%d best_cons_off=%d r0=%d r1=%d r2=%d "
+            "best_cons_esum>>16=%lld final_best_off=%d best_e63=%d second_e63=%d\n",
+            s_stage4_scan_idx, cons_pass_count, best_cons_off, best_cons_r0,
+            best_cons_r1, best_cons_r2,
+            static_cast<long long>(
+                (best_cons_e_sum > 0) ? (best_cons_e_sum >> 16) : 0LL),
+            best_off, static_cast<int>(best_e63),
+            static_cast<int>(second_e63));
+        std::printf(
+            "[STAGE4-JUDGE#%d] best_off=%d best_e63=%d e63_min=%d "
+            "r_avg_ok=%d sep_ok=%d pass=%d sum_others=%lld\n",
+            s_stage4_scan_idx, best_off, static_cast<int>(best_e63), e63_min,
+            r_avg_ok ? 1 : 0, sep_ok ? 1 : 0, pass ? 1 : 0,
+            static_cast<long long>(sum_others));
+    }
+#endif
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+    // ─── DIAG-SCAN-STAT: scan pass/fail 누적 (로직 무변경) ───
+    {
+        static int s_scan_total = 0;
+        static int s_scan_pass = 0;
+        static int s_scan_fail = 0;
+        ++s_scan_total;
+        if (pass) {
+            ++s_scan_pass;
+        } else {
+            ++s_scan_fail;
+        }
+        if (s_scan_total > 0 && (s_scan_total % 20) == 0) {
+            const int ratio_pct = (s_scan_pass * 100) / s_scan_total;
+            std::printf(
+                "[DIAG-SCAN-STAT] total=%d pass=%d fail=%d pass_ratio=%d%%\n",
+                s_scan_total, s_scan_pass, s_scan_fail, ratio_pct);
+        }
+    }
+#endif
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+    // ─── DIAG-SCAN-FULL: pass 확정 후에만 (빈 버퍼 소모 방지), 최대 2회 ───
+    {
+        static int s_scan_full_count = 0;
+        if (pass && s_scan_full_count < 2) {
+            ++s_scan_full_count;
+            std::printf("[DIAG-SCAN-FULL] dump#%d — all off scan result\n",
+                        s_scan_full_count);
+            for (int off = 0; off < 64; ++off) {
+                alignas(4) int32_t T_I[2][64];
+                alignas(4) int32_t T_Q[2][64];
+                int64_t row_e[64] = {0};
+                for (int blk = 0; blk < 2; ++blk) {
+                    const int base = off + (blk << 6);
+                    for (int i = 0; i < 64; ++i) {
+                        T_I[blk][i] = static_cast<int32_t>(
+                            p0_buf128_I_[base + i]);
+                        T_Q[blk][i] = static_cast<int32_t>(
+                            p0_buf128_Q_[base + i]);
+                    }
+                    fwht_64_complex_inplace_(T_I[blk], T_Q[blk]);
+                    for (int r = 0; r < 64; ++r) {
+                        row_e[r] +=
+                            static_cast<int64_t>(T_I[blk][r]) * T_I[blk][r] +
+                            static_cast<int64_t>(T_Q[blk][r]) * T_Q[blk][r];
+                    }
+                }
+                int64_t max_e = row_e[0];
+                int max_r = 0;
+                for (int r = 1; r < 64; ++r) {
+                    if (row_e[r] > max_e) {
+                        max_e = row_e[r];
+                        max_r = r;
+                    }
+                }
+                const int64_t e63 = row_e[63];
+                if ((off & 3) == 0) {
+                    std::printf(
+                        "  off=%2d row_max=%2d e_max=%10lld e63=%10lld\n",
+                        off, max_r,
+                        static_cast<long long>(max_e >> 16),
+                        static_cast<long long>(e63 >> 16));
+                }
+            }
+        }
+    }
+#endif
 
 #if defined(HTS_DIAG_PRINTF)
     {
@@ -2050,8 +2786,90 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
 #endif
 
     if (pass) {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+        // ─── DIAG-BUF: buf128 실측 dump (Phase 0 detect 직전, 로직 무변경) ───
+        {
+            static int s_buf_dump_count = 0;
+            if (s_buf_dump_count < 3) {
+                ++s_buf_dump_count;
+                std::printf(
+                    "[DIAG-BUF] dump#%d best_off=%d best_dom_row=%d best_e63=%d\n",
+                    s_buf_dump_count, best_off, best_dom_row, best_e63);
+                std::printf("[DIAG-BUF] buf[0..15]_I:");
+                for (int i = 0; i < 16; ++i) {
+                    std::printf(" %d", static_cast<int>(p0_buf128_I_[i]));
+                }
+                std::printf("\n");
+                std::printf("[DIAG-BUF] buf[0..15]_Q:");
+                for (int i = 0; i < 16; ++i) {
+                    std::printf(" %d", static_cast<int>(p0_buf128_Q_[i]));
+                }
+                std::printf("\n");
+                std::printf("[DIAG-BUF] buf[16..31]_I:");
+                for (int i = 16; i < 32; ++i) {
+                    std::printf(" %d", static_cast<int>(p0_buf128_I_[i]));
+                }
+                std::printf("\n");
+                if (best_off >= 0) {
+                    std::printf("[DIAG-BUF] buf[off+0..+15]_I (off=%d):",
+                                best_off);
+                    for (int i = 0; i < 16; ++i) {
+                        std::printf(" %d",
+                                    static_cast<int>(
+                                        p0_buf128_I_[best_off + i]));
+                    }
+                    std::printf("\n");
+                    std::printf("[DIAG-BUF] buf[off+0..+15]_Q:");
+                    for (int i = 0; i < 16; ++i) {
+                        std::printf(" %d",
+                                    static_cast<int>(
+                                        p0_buf128_Q_[best_off + i]));
+                    }
+                    std::printf("\n");
+                    std::printf("[DIAG-BUF] buf[off+64..+79]_I:");
+                    for (int i = 0; i < 16; ++i) {
+                        std::printf(" %d",
+                                    static_cast<int>(
+                                        p0_buf128_I_[best_off + 64 + i]));
+                    }
+                    std::printf("\n");
+                    std::printf(
+                        "[DIAG-BUF] buf[off+128..+143]_I (header?, <192):");
+                    for (int i = 0; i < 16; ++i) {
+                        const int idx = best_off + 128 + i;
+                        if (idx >= 192) {
+                            std::printf(" NA");
+                        } else {
+                            std::printf(" %d",
+                                        static_cast<int>(p0_buf128_I_[idx]));
+                        }
+                    }
+                    std::printf("\n");
+                }
+                std::printf(
+                    "[DIAG-BUF] k_w63[0..15] expected (assume amp=1000):");
+                for (int i = 0; i < 16; ++i) {
+                    std::printf(" %d",
+                                static_cast<int>(k_w63[static_cast<std::size_t>(
+                                    i)]) * 1000);
+                }
+                std::printf("\n");
+            }
+        }
+#endif
+        dominant_row_ = static_cast<uint8_t>(best_dom_row);
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+        std::printf(
+            "[STAGE4-P0] lock dominant_row=%u off=%d (seed=walsh63 non-coh)\n",
+            static_cast<unsigned>(dominant_row_), best_off);
+#endif
         {
             int32_t seed_dot_I = 0, seed_dot_Q = 0;
+#if defined(HTS_PHASE0_WALSH_BANK)
+            seed_dot_I = best_seed_I;
+            seed_dot_Q = best_seed_Q;
+#elif defined(HTS_TARGET_AMI)
             for (int blk = 0; blk < 2; ++blk) {
                 int32_t di = 0, dq = 0;
                 walsh63_dot_(&p0_buf128_I_[best_off + (blk << 6)],
@@ -2060,21 +2878,24 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 seed_dot_I += di;
                 seed_dot_Q += dq;
             }
+#else
+            // Stage 4: 스캔은 XOR=63 지문만; 시드는 블록별 walsh63 non-coherent 합
+            for (int blk = 0; blk < 2; ++blk) {
+                int32_t di = 0, dq = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off + (blk << 6)],
+                             &p0_buf128_Q_[best_off + (blk << 6)],
+                             di, dq);
+                seed_dot_I += di;
+                seed_dot_Q += dq;
+            }
+#endif
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
             // B-2: est seed 확정 직후 mag/recip 즉시 계산
             //   이후 on_sym_ 심볼당 정규화 derotation 사용
             update_derot_shift_from_est_();
-            // CFO 추정: 연속 2블록 위상차
-            {
-                int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
-                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
-                             d0I, d0Q);
-                walsh63_dot_(&p0_buf128_I_[best_off + 64],
-                             &p0_buf128_Q_[best_off + 64], d1I, d1Q);
-                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
-            }
+            // CFO 는 Walsh 도메인에서 처리 예정 — MCE 철거 (Stage 1)
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
                 int32_t mag_sum = 0;
@@ -2094,6 +2915,11 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                         seed_dot_I, seed_dot_Q, est_I_, est_Q_,
                         est_count_);
 #endif
+#if defined(HTS_PHASE0_WALSH_BANK) && defined(HTS_DIAG_PRINTF)
+            std::printf("[P0-WBANK] commit_off=%d dominant_row=%u seed=(%d,%d)\n",
+                        best_off, static_cast<unsigned>(dominant_row_),
+                        seed_dot_I, seed_dot_Q);
+#endif
         }
 #if defined(HTS_DIAG_PRINTF)
         std::printf("[P0-ALIGNED] off=%d carry=%d\n",
@@ -2103,6 +2929,22 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         psal_e63_ = best_e63;
         psal_commit_align_();
     } else {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+        {
+            static int s_shift_count = 0;
+            ++s_shift_count;
+            if (s_shift_count <= 3) {
+                std::printf(
+                    "[DIAG-SHIFT] count=%d before_shift buf[128..143]_I:",
+                    s_shift_count);
+                for (int i = 0; i < 16; ++i) {
+                    std::printf(" %d",
+                                static_cast<int>(p0_buf128_I_[128 + i]));
+                }
+                std::printf("\n");
+            }
+        }
+#endif
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -2111,6 +2953,37 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 }
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    static int s_lab_feed_chip_idx = 0;
+    ++s_lab_feed_chip_idx;
+    if (s_lab_feed_chip_idx <= 300) {
+        std::printf("[HARNESS] chip#%d rx_I=%d rx_Q=%d\n",
+                    s_lab_feed_chip_idx, static_cast<int>(rx_I),
+                    static_cast<int>(rx_Q));
+    }
+#endif
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+    {
+        static int s_feed_call_count = 0;
+        static int s_last_logged_count = -1;
+        ++s_feed_call_count;
+        if (s_feed_call_count < 500 &&
+            (s_feed_call_count - s_last_logged_count) >= 50) {
+            s_last_logged_count = s_feed_call_count;
+            std::printf(
+                "[DIAG-FEED] call#%d phase=%d pre_phase=%d p0_count=%d "
+                "carry_pend=%d buf_idx=%d rx_I=%d rx_Q=%d\n",
+                s_feed_call_count,
+                static_cast<int>(phase_),
+                pre_phase_,
+                p0_chip_count_,
+                p1_carry_pending_,
+                buf_idx_,
+                static_cast<int>(rx_I), static_cast<int>(rx_Q));
+        }
+    }
+#endif
     int16_t chip_I = rx_I;
     int16_t chip_Q = rx_Q;
     // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
@@ -2121,9 +2994,19 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
-    // CFO 보정 (DC 제거 후)
-    cfo_.Apply(chip_I, chip_Q);
-    // 프리앰블 AGC (DC/CFO 후)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
+        (s_lab_feed_chip_idx % 16) == 0) {
+        std::printf(
+            "[DC-AGC] chip#%d rx_I=%d after_DC=%d dc_est_I=%d dc_est_Q=%d\n",
+            s_lab_feed_chip_idx, static_cast<int>(rx_I),
+            static_cast<int>(chip_I), static_cast<int>(dc_est_I_),
+            static_cast<int>(dc_est_Q_));
+    }
+#endif
+    // CFO 는 Walsh 도메인에서 처리 예정 (시간도메인 Apply 철거, Stage 1)
+    // 프리앰블 AGC
     pre_agc_.Apply(chip_I, chip_Q);
     apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
     if (phase_ == RxPhase::RF_SETTLING) {
@@ -2144,6 +3027,36 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             ++p0_chip_count_;
             if (p0_chip_count_ < 192)
                 return;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+            {
+                static int s_fullbuf_count = 0;
+                ++s_fullbuf_count;
+                if (s_fullbuf_count <= 5) {
+                    std::printf(
+                        "[DIAG-FULLBUF] #%d (192 chip reached, about to scan)\n",
+                        s_fullbuf_count);
+                    for (int b = 0; b < 3; ++b) {
+                        int nz = 0;
+                        int mag_max = 0;
+                        for (int i = 0; i < 64; ++i) {
+                            const int mag =
+                                (p0_buf128_I_[b * 64 + i] > 0)
+                                    ? static_cast<int>(p0_buf128_I_[b * 64 + i])
+                                    : -static_cast<int>(
+                                          p0_buf128_I_[b * 64 + i]);
+                            if (mag > 100) {
+                                ++nz;
+                            }
+                            if (mag > mag_max) {
+                                mag_max = mag;
+                            }
+                        }
+                        std::printf("  blk%d: nonzero=%d/64 mag_max=%d\n", b,
+                                    nz, mag_max);
+                    }
+                }
+            }
+#endif
             phase0_scan_();
             return;
         }
@@ -2185,28 +3098,213 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
+#if defined(HTS_PHASE0_WALSH_BANK)
+        // ── Walsh Bank Phase 1: FWHT + dominant_row 매칭 ──
         int32_t dot63_I = 0, dot63_Q = 0;
-        int32_t dot0_I = 0, dot0_Q = 0;
+        int32_t dot0_I  = 0, dot0_Q  = 0;
+        alignas(4) int32_t T_I[64];
+        alignas(4) int32_t T_Q[64];
         for (int j = 0; j < 64; ++j) {
-            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
-            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
-            dot0_I += cI;
-            dot0_Q += cQ;
-            if (k_w63[static_cast<std::size_t>(j)] > 0) {
-                dot63_I += cI; dot63_Q += cQ;
-            } else {
-                dot63_I -= cI; dot63_Q -= cQ;
+            T_I[j] = static_cast<int32_t>(orig_I_[j]);
+            T_Q[j] = static_cast<int32_t>(orig_Q_[j]);
+        }
+        fwht_64_complex_inplace_(T_I, T_Q);
+        {
+            const int dr = static_cast<int>(dominant_row_);
+            dot63_I = T_I[dr];
+            dot63_Q = T_Q[dr];
+        }
+        {
+            const uint8_t sym1_row_u = static_cast<uint8_t>(
+                static_cast<unsigned>(dominant_row_) ^
+                static_cast<unsigned>(k_W63_FWHT_ROW));
+            const int sym1_row = static_cast<int>(sym1_row_u);
+            dot0_I = T_I[sym1_row];
+            dot0_Q = T_Q[sym1_row];
+#if defined(HTS_DIAG_PRINTF)
+            static bool s_p1_map_logged = false;
+            if (!s_p1_map_logged) {
+                std::printf("[DIAG-P1-MAP] dominant_row=%u k_W63_ROW=%u sym1_row=%u\n",
+                            static_cast<unsigned>(dominant_row_),
+                            static_cast<unsigned>(k_W63_FWHT_ROW),
+                            static_cast<unsigned>(sym1_row_u));
+                s_p1_map_logged = true;
             }
+#endif
         }
         const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I
                              + static_cast<int64_t>(dot63_Q) * dot63_Q;
         const int64_t e0_64  = static_cast<int64_t>(dot0_I) * dot0_I
                              + static_cast<int64_t>(dot0_Q) * dot0_Q;
+#elif defined(HTS_TARGET_AMI)
+        // ── AMI: 32-chip × 2 non-coherent ──
+        int32_t dot63a_I = 0, dot63a_Q = 0;
+        int32_t dot63b_I = 0, dot63b_Q = 0;
+        int32_t dot0a_I  = 0, dot0a_Q  = 0;
+        int32_t dot0b_I  = 0, dot0b_Q  = 0;
+        for (int j = 0; j < 32; ++j) {
+            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
+            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
+            dot0a_I += cI;
+            dot0a_Q += cQ;
+            if (k_w63[static_cast<std::size_t>(j)] > 0) {
+                dot63a_I += cI;
+                dot63a_Q += cQ;
+            } else {
+                dot63a_I -= cI;
+                dot63a_Q -= cQ;
+            }
+        }
+        for (int j = 32; j < 64; ++j) {
+            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
+            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
+            dot0b_I += cI;
+            dot0b_Q += cQ;
+            if (k_w63[static_cast<std::size_t>(j)] > 0) {
+                dot63b_I += cI;
+                dot63b_Q += cQ;
+            } else {
+                dot63b_I -= cI;
+                dot63b_Q -= cQ;
+            }
+        }
+        const int64_t e63_64 =
+            static_cast<int64_t>(dot63a_I) * dot63a_I
+          + static_cast<int64_t>(dot63a_Q) * dot63a_Q
+          + static_cast<int64_t>(dot63b_I) * dot63b_I
+          + static_cast<int64_t>(dot63b_Q) * dot63b_Q;
+        const int64_t e0_64 =
+            static_cast<int64_t>(dot0a_I) * dot0a_I
+          + static_cast<int64_t>(dot0a_Q) * dot0a_Q
+          + static_cast<int64_t>(dot0b_I) * dot0b_I
+          + static_cast<int64_t>(dot0b_Q) * dot0b_Q;
+        // est 누적용 단일 dot (두 half 합, CFO phase cancel 영향 있음)
+        const int32_t dot63_I = dot63a_I + dot63b_I;
+        const int32_t dot63_Q = dot63a_Q + dot63b_Q;
+#else
+        // ── Stage 2 (PS-LTE): Walsh-domain 매칭 (FWHT + dominant_row) ──
+        int32_t dot63_I = 0, dot63_Q = 0;
+        int32_t dot0_I  = 0, dot0_Q  = 0;
+        alignas(4) int32_t T_I[64];
+        alignas(4) int32_t T_Q[64];
+        for (int j = 0; j < 64; ++j) {
+            T_I[j] = static_cast<int32_t>(orig_I_[j]);
+            T_Q[j] = static_cast<int32_t>(orig_Q_[j]);
+        }
+        fwht_64_complex_inplace_(T_I, T_Q);
+        {
+            // P0 fingerprint only — 블록마다 argmax 하면 XOR 기하 붕괴(PRE_SYM1 미검출)
+            const int dom = static_cast<int>(dominant_row_);
+            const int sym1_row =
+                dom ^ static_cast<int>(k_W63_FWHT_ROW_NATURAL);
+            dot63_I = T_I[dom];
+            dot63_Q = T_Q[dom];
+            dot0_I  = T_I[sym1_row];
+            dot0_Q  = T_Q[sym1_row];
+        }
+        const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I
+                             + static_cast<int64_t>(dot63_Q) * dot63_Q;
+        const int64_t e0_64  = static_cast<int64_t>(dot0_I) * dot0_I
+                             + static_cast<int64_t>(dot0_Q) * dot0_Q;
+#endif
         const int32_t e63_sh = static_cast<int32_t>(e63_64 >> 16);
         const int32_t e0_sh  = static_cast<int32_t>(e0_64 >> 16);
-        static constexpr int32_t k_P1_MIN_E = 1000;
+#if defined(HTS_PHASE0_WALSH_BANK)
+        static constexpr int32_t k_P1_MIN_E = 1000;  // FWHT row — PS-LTE 동일 하한
+#elif defined(HTS_TARGET_AMI)
+        static constexpr int32_t k_P1_MIN_E = 500;   // 32-chip × 2 non-coherent (peak 1/2)
+#else
+        static constexpr int32_t k_P1_MIN_E = 1000;  // 64-chip coherent (기존)
+#endif
         const int32_t max_e_sh = (e63_sh >= e0_sh) ? e63_sh : e0_sh;
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
+        {
+            static int s_p1_e_count = 0;
+            ++s_p1_e_count;
+            if (s_p1_e_count <= 500) {
+                std::printf(
+                    "[P1-E] call#%d e63_sh=%d e0_sh=%d max_e=%d k_P1_MIN=%d "
+                    "pass=%s dom=%u\n",
+                    s_p1_e_count, e63_sh, e0_sh, max_e_sh, k_P1_MIN_E,
+                    (max_e_sh >= k_P1_MIN_E) ? "YES" : "NO",
+                    static_cast<unsigned>(dominant_row_));
+            }
+        }
+#endif
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+        // ─── DIAG-P1: Phase 1 FWHT / silent reset 경계 (로직 무변경) ───
+        {
+            static int s_p1_dump_count = 0;
+            if (s_p1_dump_count < 3) {
+                ++s_p1_dump_count;
+                const uint8_t sym1_row_u = static_cast<uint8_t>(
+                    static_cast<unsigned>(dominant_row_) ^
+                    static_cast<unsigned>(k_W63_FWHT_ROW));
+                std::printf(
+                    "[DIAG-P1-DUMP] dump#%d dom_row=%u k_W63_ROW=%u "
+                    "sym1_row=%u e63_sh=%d e0_sh=%d max_e_sh=%d "
+                    "k_P1_MIN_E=%d pass=%d\n",
+                    s_p1_dump_count,
+                    static_cast<unsigned>(dominant_row_),
+                    static_cast<unsigned>(k_W63_FWHT_ROW),
+                    static_cast<unsigned>(sym1_row_u),
+                    e63_sh, e0_sh, max_e_sh, k_P1_MIN_E,
+                    static_cast<int>(max_e_sh >= k_P1_MIN_E));
+                int64_t e_all[64];
+                for (int r = 0; r < 64; ++r) {
+                    e_all[r] = static_cast<int64_t>(T_I[r]) * T_I[r] +
+                             static_cast<int64_t>(T_Q[r]) * T_Q[r];
+                }
+                std::printf("[DIAG-P1-TOP5]");
+                for (int k = 0; k < 5; ++k) {
+                    int best_r = 0;
+                    int64_t best_ev = INT64_MIN;
+                    for (int r = 0; r < 64; ++r) {
+                        if (e_all[r] > best_ev) {
+                            best_ev = e_all[r];
+                            best_r = r;
+                        }
+                    }
+                    std::printf(" row%d=%lld", best_r,
+                                static_cast<long long>(best_ev >> 16));
+                    e_all[best_r] = INT64_MIN;
+                }
+                std::printf("\n");
+                std::printf("[DIAG-P1-IN] orig[0..15]_I:");
+                for (int i = 0; i < 16; ++i) {
+                    std::printf(" %d", static_cast<int>(orig_I_[i]));
+                }
+                std::printf("\n");
+                std::printf("[DIAG-P1-IN] carry_prefix=%d\n",
+                            p1_carry_prefix_);
+            }
+        }
+#endif
         if (max_e_sh < k_P1_MIN_E) {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+            {
+                static int s_silent_reset_count = 0;
+                ++s_silent_reset_count;
+                if ((s_silent_reset_count % 5) == 0) {
+                    std::printf(
+                        "[DIAG-SILENT-RESET] count=%d (dom_row=%u "
+                        "carry_prefix=%d)\n",
+                        s_silent_reset_count,
+                        static_cast<unsigned>(dominant_row_),
+                        p1_carry_prefix_);
+                }
+            }
+#endif
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
+            {
+                static int s_silent_count = 0;
+                ++s_silent_count;
+                if ((s_silent_count % 10) == 0) {
+                    std::printf("[SILENT] total=%d last_e=%d\n", s_silent_count,
+                                max_e_sh);
+                }
+            }
+#endif
             pre_phase_ = 0;
             psal_pending_ = false; psal_off_ = 0; psal_e63_ = 0;
             p0_chip_count_ = 0; p0_carry_count_ = 0;
@@ -2222,6 +3320,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         uint8_t best_m = 0u;
         if (e63_64 >= e0_64) {
             best_m = PRE_SYM0;
+            if (first_c63_ == 0) {
+                first_c63_ = e63_sh;
+            }
             est_I_ += dot63_I;
             est_Q_ += dot63_Q;
             ++est_count_;
@@ -2300,7 +3401,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 const SymDecResult rh =
                     walsh_dec_full_(orig_I_, orig_Q_, 64, false);
                 if (rh.sym >= 0 && rh.sym < 64) {
-                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(rh.sym);
+                    const uint8_t walsh_shift = current_walsh_shift_();
+                    const uint8_t corrected_sym = static_cast<uint8_t>(
+                        (static_cast<unsigned>(rh.sym) & 63u) ^ walsh_shift);
+                    hdr_syms_[hdr_count_] = corrected_sym;
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf(
+                        "[HDR-SHIFT] raw_sym=%d shift=%u corrected=%u dom=%u\n",
+                        static_cast<int>(rh.sym),
+                        static_cast<unsigned>(walsh_shift),
+                        static_cast<unsigned>(corrected_sym),
+                        static_cast<unsigned>(dominant_row_));
+#endif
                     std::memcpy(s_hdr_blk0_I, orig_I_, 64 * sizeof(int16_t));
                     std::memcpy(s_hdr_blk0_Q, orig_Q_, 64 * sizeof(int16_t));
                     hdr_count_++;
@@ -2353,6 +3465,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 int best_idx = -1;
                 int64_t best_e = 0;
                 int64_t second_e = 0;
+                // Stage 6A+: CFO 시 RX chip 열이 k_w_{sym XOR shift} 형태로 보임
+                const uint8_t walsh_shift = current_walsh_shift_();
                 for (int ti = 0; ti < 12; ++ti) {
                     const uint8_t mb = k_hdr_defs[static_cast<size_t>(ti)].mb;
                     const uint16_t pl = k_hdr_defs[static_cast<size_t>(ti)].plen;
@@ -2366,12 +3480,16 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         static_cast<uint8_t>((hdr_val >> 6u) & 0x3Fu);
                     const uint8_t sym1 =
                         static_cast<uint8_t>(hdr_val & 0x3Fu);
+                    const uint8_t sym0_shifted =
+                        static_cast<uint8_t>(sym0 ^ walsh_shift);
+                    const uint8_t sym1_shifted =
+                        static_cast<uint8_t>(sym1 ^ walsh_shift);
                     // 블록 0 (s_hdr_blk0_I/Q) — I 채널 / Q 채널 각각 상관
                     int64_t cI0 = 0;
                     int64_t cQ0 = 0;
                     for (int j = 0; j < 64; ++j) {
                         const int32_t sm = -static_cast<int32_t>(
-                            k_par6[static_cast<uint8_t>(sym0 & j)]);
+                            k_par6[static_cast<uint8_t>(sym0_shifted & j)]);
                         const int32_t vI =
                             static_cast<int32_t>(s_hdr_blk0_I[j]);
                         const int32_t vQ =
@@ -2384,7 +3502,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     int64_t cQ1 = 0;
                     for (int j = 0; j < 64; ++j) {
                         const int32_t sm = -static_cast<int32_t>(
-                            k_par6[static_cast<uint8_t>(sym1 & j)]);
+                            k_par6[static_cast<uint8_t>(sym1_shifted & j)]);
                         const int32_t vI = static_cast<int32_t>(orig_I_[j]);
                         const int32_t vQ = static_cast<int32_t>(orig_Q_[j]);
                         cI1 += static_cast<int64_t>((vI ^ sm) - sm);
@@ -2404,10 +3522,24 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         second_e = e;
                     }
                 }
-                // 에너지 도메인 separation: best > second × 2 (3 dB)
+                // Fix B: ratio 2.0x -> 1.5x (best >= second + second/2).
+                // V29b: linear floor best_e > first_c63_ (same >>16 scale as
+                // e63_sh). Squared floor (first_c63_^2) vs template best_e was
+                // mismatched and suppressed [HDR-TMPL] globally (V29 sim).
+                const int64_t fc63 =
+                    static_cast<int64_t>(first_c63_);
+                const int64_t second_64 =
+                    static_cast<int64_t>(second_e);
+                const int64_t best_64 =
+                    static_cast<int64_t>(best_e);
+                const int64_t best_ge_15x =
+                    best_64 >= (second_64 + (second_64 >> 1));
+                const uint32_t floor_ok_u =
+                    static_cast<uint32_t>((fc63 <= 0) | (best_64 > fc63));
                 const bool tmpl_ok =
                     (best_idx >= 0) &&
-                    ((second_e == 0) || (best_e > (second_e << 1)));
+                    ((second_e == 0) ||
+                     (best_ge_15x && (floor_ok_u != 0u)));
                 if (tmpl_ok) {
                     const uint8_t mb =
                         k_hdr_defs[static_cast<size_t>(best_idx)].mb;
@@ -2424,8 +3556,11 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     hdr_syms_[1] = static_cast<uint8_t>(hdr_val & 0x3Fu);
                     hdr_count_ = 2;
 #if defined(HTS_DIAG_PRINTF)
-                    std::printf("[HDR-TMPL] matched idx=%d hdr=0x%03X\n",
-                                best_idx, static_cast<unsigned>(hdr_val));
+                    std::printf(
+                        "[HDR-TMPL] matched idx=%d hdr=0x%03X shift=%u dom=%u\n",
+                        best_idx, static_cast<unsigned>(hdr_val),
+                        static_cast<unsigned>(walsh_shift),
+                        static_cast<unsigned>(dominant_row_));
 #endif
                 } else {
                     SymDecResult rh =
@@ -2441,7 +3576,17 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                             buf_idx_ = 0;
                             return;
                         }
-                        hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                        const uint8_t sym_cor = static_cast<uint8_t>(
+                            (static_cast<unsigned>(sym) & 63u) ^ walsh_shift);
+                        hdr_syms_[hdr_count_] = sym_cor;
+#if defined(HTS_DIAG_PRINTF)
+                        std::printf(
+                            "[HDR-SHIFT] raw_sym=%d shift=%u corrected=%u dom=%u\n",
+                            static_cast<int>(sym),
+                            static_cast<unsigned>(walsh_shift),
+                            static_cast<unsigned>(sym_cor),
+                            static_cast<unsigned>(dominant_row_));
+#endif
                         hdr_count_++;
                     } else {
                         hdr_fail_++;
@@ -2471,7 +3616,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                         buf_idx_ = 0;
                         return;
                     }
-                    hdr_syms_[hdr_count_] = static_cast<uint8_t>(sym);
+                    const uint8_t walsh_shift = current_walsh_shift_();
+                    const uint8_t sym_cor = static_cast<uint8_t>(
+                        (static_cast<unsigned>(sym) & 63u) ^ walsh_shift);
+                    hdr_syms_[hdr_count_] = sym_cor;
+#if defined(HTS_DIAG_PRINTF)
+                    std::printf(
+                        "[HDR-SHIFT] raw_sym=%d shift=%u corrected=%u dom=%u\n",
+                        static_cast<int>(sym),
+                        static_cast<unsigned>(walsh_shift),
+                        static_cast<unsigned>(sym_cor),
+                        static_cast<unsigned>(dominant_row_));
+#endif
                     hdr_count_++;
                 } else {
                     hdr_fail_++;

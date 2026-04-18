@@ -9,6 +9,12 @@
 #include <climits>
 #include <cstdint>
 #include <cstring>
+#if defined(HTS_DIAG_PRINTF)
+#include <cstdio>
+#ifndef HTS_FEC_IR_FWHT_DUMP_MAX
+#define HTS_FEC_IR_FWHT_DUMP_MAX 3
+#endif
+#endif
 #if defined(HTS_FEC_POLAR_ENABLE)
 #include "HTS_DWT_Profiler.h"
 #endif
@@ -80,6 +86,75 @@ static inline int32_t fec_ir_fast_abs_i32(int32_t v) noexcept {
     const int32_t m = v >> 31;
     return (v ^ m) - m;
 }
+// Stage 6B: RX FWHT bin m 는 TX bin (m XOR shift) 에너지 — LLR 전 역치환
+namespace {
+static inline void fec_ir_fwht_bin_unshift(int32_t* fI, int32_t* fQ, int nc,
+                                           uint8_t walsh_shift) noexcept {
+    if (walsh_shift == 0u || fI == nullptr || fQ == nullptr || nc <= 0) {
+        return;
+    }
+    const uint32_t ncm1 = static_cast<uint32_t>(nc - 1);
+    const uint32_t sh =
+        static_cast<uint32_t>(walsh_shift) & ncm1;
+    if (sh == 0u) {
+        return;
+    }
+    alignas(32) int32_t tmp_i[64];
+    alignas(32) int32_t tmp_q[64];
+    for (int m = 0; m < nc; ++m) {
+        const std::size_t idx = static_cast<std::size_t>(
+            static_cast<uint32_t>(m) ^ sh);
+        const std::size_t sm = static_cast<std::size_t>(m);
+        tmp_i[idx] = fI[sm];
+        tmp_q[idx] = fQ[sm];
+    }
+    for (int m = 0; m < nc; ++m) {
+        const std::size_t sm = static_cast<std::size_t>(m);
+        fI[sm] = tmp_i[m];
+        fQ[sm] = tmp_q[m];
+    }
+}
+#if defined(HTS_DIAG_PRINTF)
+// Decode64_IR conv path: top-5 FWHT bin energy (I²+Q²) for Stage 6B dump.
+static void fec_ir_diag_fwht_top5_print(const char *tag, int call_idx,
+                                        uint32_t wshift, const int32_t *fI,
+                                        const int32_t *fQ, int nc,
+                                        int show_walsh_in_tag) noexcept {
+    if (show_walsh_in_tag != 0) {
+        std::printf("[%s] call=%d walsh_shift=%u: ", tag, call_idx, wshift);
+    } else {
+        std::printf("[%s] call=%d: ", tag, call_idx);
+    }
+    int64_t e_tmp[64];
+    const int ncl = (nc < 64) ? nc : 64;
+    for (int m = 0; m < ncl; ++m) {
+        e_tmp[m] = static_cast<int64_t>(fI[static_cast<std::size_t>(m)]) *
+                       fI[static_cast<std::size_t>(m)] +
+                   static_cast<int64_t>(fQ[static_cast<std::size_t>(m)]) *
+                       fQ[static_cast<std::size_t>(m)];
+    }
+    int tb[5] = {0, 0, 0, 0, 0};
+    int64_t te[5] = {0, 0, 0, 0, 0};
+    for (int m = 0; m < ncl; ++m) {
+        for (int k = 0; k < 5; ++k) {
+            if (e_tmp[m] > te[k]) {
+                for (int j = 4; j > k; --j) {
+                    te[j] = te[j - 1];
+                    tb[j] = tb[j - 1];
+                }
+                te[k] = e_tmp[m];
+                tb[k] = m;
+                break;
+            }
+        }
+    }
+    for (int k = 0; k < 5; ++k) {
+        std::printf("bin%d=%lld ", tb[k], static_cast<long long>(te[k]));
+    }
+    std::printf("\n");
+}
+#endif
+} // namespace
 // LTO/DCE가 스택 평문 소거를 제거하지 못하도록 secureWipe 직후 컴파일러·동기화
 // 펜스
 static inline void fec_fence_after_stack_wipe() noexcept {
@@ -905,7 +980,7 @@ int FEC_HARQ::Encode64_IR(const uint8_t *info, int len, uint8_t *syms,
 bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                            int nc, int bps, uint32_t il_seed, int rv,
                            IR_RxState &ir_state, uint8_t *out, int *olen,
-                           WorkBuf &wb) noexcept {
+                           WorkBuf &wb, uint8_t walsh_shift) noexcept {
     if (!out || !olen)
         return false;
     if (ir_state.ok) {
@@ -944,6 +1019,9 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     llr.fill(static_cast<int32_t>(0));
     const uint32_t er_en =
         static_cast<uint32_t>(g_ir_erasure_en.load(std::memory_order_relaxed));
+#if defined(HTS_DIAG_PRINTF)
+    static int s_fec_ir_fwht_dump_calls = 0;
+#endif
     for (int sym = 0; sym < nsym; ++sym) {
         const int base = sym * nc;
         for (int c = 0; c < nc; ++c) {
@@ -960,7 +1038,36 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         FWHT(fI.data(), nc);
         FWHT(fQ.data(), nc);
+        int fec_ir_do_fwht_dump = 0;
+#if defined(HTS_DIAG_PRINTF)
+        if (sym == 0 && walsh_shift != 0u &&
+            s_fec_ir_fwht_dump_calls < HTS_FEC_IR_FWHT_DUMP_MAX) {
+            fec_ir_do_fwht_dump = 1;
+            ++s_fec_ir_fwht_dump_calls;
+            fec_ir_diag_fwht_top5_print(
+                "FEC-FWHT-BEFORE", s_fec_ir_fwht_dump_calls,
+                static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 1);
+        }
+#endif
+        fec_ir_fwht_bin_unshift(fI.data(), fQ.data(), nc, walsh_shift);
+#if defined(HTS_DIAG_PRINTF)
+        if (fec_ir_do_fwht_dump != 0) {
+            fec_ir_diag_fwht_top5_print(
+                "FEC-FWHT-AFTER", s_fec_ir_fwht_dump_calls,
+                static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 0);
+        }
+#endif
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
+#if defined(HTS_DIAG_PRINTF)
+        if (fec_ir_do_fwht_dump != 0) {
+            std::printf("[FEC-LLR] call=%d: ", s_fec_ir_fwht_dump_calls);
+            for (int b = 0; b < bps && b < 6; ++b) {
+                std::printf("b%d=%d ", b,
+                            static_cast<int>(llr[static_cast<std::size_t>(b)]));
+            }
+            std::printf("\n");
+        }
+#endif
         for (int b = 0; b < bps; ++b) {
             const int bi = sym * bps + b;
             const uint32_t in_range =
@@ -1004,6 +1111,8 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         FWHT(g_fec_dec_fI.data(), nc);
         FWHT(g_fec_dec_fQ.data(), nc);
+        fec_ir_fwht_bin_unshift(g_fec_dec_fI.data(), g_fec_dec_fQ.data(), nc,
+                                walsh_shift);
         const int valid = 1 << bps;
         for (int b = 0; b < bps; ++b) {
             const int sh_bit = bps - 1 - b;
@@ -1178,7 +1287,7 @@ int FEC_HARQ::Encode16_IR(const uint8_t *info, int len, uint8_t *syms,
 bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                            int nc, int bps, uint32_t il_seed, int rv,
                            IR_RxState &ir_state, uint8_t *out, int *olen,
-                           WorkBuf &wb) noexcept {
+                           WorkBuf &wb, uint8_t walsh_shift) noexcept {
     if (!out || !olen)
         return false;
     if (ir_state.ok) {
@@ -1203,6 +1312,9 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     llr.fill(static_cast<int32_t>(0));
     const uint32_t er_en =
         static_cast<uint32_t>(g_ir_erasure_en.load(std::memory_order_relaxed));
+#if defined(HTS_DIAG_PRINTF)
+    static int s_fec_ir16_fwht_dump_calls = 0;
+#endif
     for (int sym = 0; sym < nsym; ++sym) {
         const int base = sym * nc;
         for (int c = 0; c < nc; ++c) {
@@ -1219,7 +1331,36 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         FWHT(fI.data(), nc);
         FWHT(fQ.data(), nc);
+        int fec_ir16_do_fwht_dump = 0;
+#if defined(HTS_DIAG_PRINTF)
+        if (sym == 0 && walsh_shift != 0u &&
+            s_fec_ir16_fwht_dump_calls < HTS_FEC_IR_FWHT_DUMP_MAX) {
+            fec_ir16_do_fwht_dump = 1;
+            ++s_fec_ir16_fwht_dump_calls;
+            fec_ir_diag_fwht_top5_print(
+                "FEC16-FWHT-BEFORE", s_fec_ir16_fwht_dump_calls,
+                static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 1);
+        }
+#endif
+        fec_ir_fwht_bin_unshift(fI.data(), fQ.data(), nc, walsh_shift);
+#if defined(HTS_DIAG_PRINTF)
+        if (fec_ir16_do_fwht_dump != 0) {
+            fec_ir_diag_fwht_top5_print(
+                "FEC16-FWHT-AFTER", s_fec_ir16_fwht_dump_calls,
+                static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 0);
+        }
+#endif
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
+#if defined(HTS_DIAG_PRINTF)
+        if (fec_ir16_do_fwht_dump != 0) {
+            std::printf("[FEC16-LLR] call=%d: ", s_fec_ir16_fwht_dump_calls);
+            for (int b = 0; b < bps && b < 6; ++b) {
+                std::printf("b%d=%d ", b,
+                            static_cast<int>(llr[static_cast<std::size_t>(b)]));
+            }
+            std::printf("\n");
+        }
+#endif
         for (int b = 0; b < bps; ++b) {
             const int bi = sym * bps + b;
             const uint32_t in_range =
