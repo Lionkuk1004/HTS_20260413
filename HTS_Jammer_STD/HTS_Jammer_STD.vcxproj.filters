@@ -9,22 +9,93 @@
       <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
       <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
     </Filter>
-    <Filter Include="리소스 파일">
-      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
-      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    <Filter Include="메인트리_복사본">
+      <UniqueIdentifier>{a1b2c3d4-e5f6-7890-abcd-ef1234567890}</UniqueIdentifier>
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_Jammer_STD.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="HTS_Jammer_STD_UnitTest.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-  </ItemGroup>
-  <ItemGroup>
+    <ClInclude Include="HTS_Clopper_Pearson.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Jammer_STD.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_MC_Runner.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_BitOps.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_CFO_Compensator.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_DWT_Profiler.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_FEC_HARQ.hpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Holo_LPI.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Polar_Codec.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Preamble_AGC.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_RF_Metrics.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Secure_Memory.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Session_Gateway.hpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_TPC_Controller.h">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_V400_Dispatcher.hpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Walsh_Row_Converter.hpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Walsh_Row_Permuter.hpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="HTS_Harq_Matrix_Main.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Jammer_STD.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Session_Derive_Stub.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_FEC_HARQ.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Holo_LPI.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Polar_Codec.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Secure_Memory.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Walsh_Row_Converter.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Walsh_Row_Permuter.cpp">
+      <Filter>메인트리_복사본</Filter>
+    </ClCompile>
   </ItemGroup>
 </Project>

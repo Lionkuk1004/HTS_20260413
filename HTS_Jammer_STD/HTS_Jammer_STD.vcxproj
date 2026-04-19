@@ -70,17 +70,22 @@
     <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
+  <PropertyGroup>
+    <JammerHostDefines>HTS_ALLOW_HOST_BUILD;_CRT_SECURE_NO_WARNINGS;NOMINMAX;_USE_MATH_DEFINES;HTS_FEC_SIMULATE_M4_RAM_LAYOUT;HTS_TARGET_PSLTE</JammerHostDefines>
+  </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;_DEBUG;_CONSOLE;$(JammerHostDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>/STACK:16000000 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
@@ -89,26 +94,30 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>WIN32;NDEBUG;_CONSOLE;$(JammerHostDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>/STACK:16000000 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
     <ClCompile>
       <WarningLevel>Level3</WarningLevel>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>_DEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>_DEBUG;_CONSOLE;$(JammerHostDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>/STACK:16000000 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -117,25 +126,47 @@
       <FunctionLevelLinking>true</FunctionLevelLinking>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <SDLCheck>true</SDLCheck>
-      <PreprocessorDefinitions>NDEBUG;_CONSOLE;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <PreprocessorDefinitions>NDEBUG;_CONSOLE;$(JammerHostDefines);%(PreprocessorDefinitions)</PreprocessorDefinitions>
       <ConformanceMode>true</ConformanceMode>
-      <LanguageStandard>stdcpp20</LanguageStandard>
+      <LanguageStandard>stdcpp17</LanguageStandard>
+      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
     </ClCompile>
     <Link>
       <SubSystem>Console</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
+      <AdditionalOptions>/STACK:16000000 %(AdditionalOptions)</AdditionalOptions>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="HTS_Jammer_STD.cpp">
-      <ExcludedFromBuild>false</ExcludedFromBuild>
-    </ClCompile>
-    <ClCompile Include="HTS_Jammer_STD_UnitTest.cpp">
-      <ExcludedFromBuild>false</ExcludedFromBuild>
-    </ClCompile>
+    <ClInclude Include="HTS_BitOps.h" />
+    <ClInclude Include="HTS_CFO_Compensator.h" />
+    <ClInclude Include="HTS_Clopper_Pearson.hpp" />
+    <ClInclude Include="HTS_DWT_Profiler.h" />
+    <ClInclude Include="HTS_FEC_HARQ.hpp" />
+    <ClInclude Include="HTS_Holo_LPI.h" />
+    <ClInclude Include="HTS_Jammer_STD.hpp" />
+    <ClInclude Include="HTS_MC_Runner.hpp" />
+    <ClInclude Include="HTS_Polar_Codec.h" />
+    <ClInclude Include="HTS_Preamble_AGC.h" />
+    <ClInclude Include="HTS_RF_Metrics.h" />
+    <ClInclude Include="HTS_Secure_Memory.h" />
+    <ClInclude Include="HTS_Session_Gateway.hpp" />
+    <ClInclude Include="HTS_TPC_Controller.h" />
+    <ClInclude Include="HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="HTS_Walsh_Row_Converter.hpp" />
+    <ClInclude Include="HTS_Walsh_Row_Permuter.hpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="HTS_Jammer_STD.hpp" />
+    <ClCompile Include="HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="HTS_Harq_Matrix_Main.cpp" />
+    <ClCompile Include="HTS_Holo_LPI.cpp" />
+    <ClCompile Include="HTS_Jammer_STD.cpp" />
+    <ClCompile Include="HTS_Polar_Codec.cpp" />
+    <ClCompile Include="HTS_Secure_Memory.cpp" />
+    <ClCompile Include="HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Converter.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Permuter.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
