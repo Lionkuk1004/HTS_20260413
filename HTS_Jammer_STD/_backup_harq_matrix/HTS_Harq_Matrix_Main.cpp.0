@@ -4,7 +4,7 @@
 /// @target PC 시뮬 (HTS_Jammer_STD 프로젝트, Win32/x64)
 ///
 /// [매트릭스]
-///   fec_path × mode × channel × intensity × N_MC(10) = 총 ~2,600 trials
+///   fec_path × mode × channel × intensity × N_MC(50) = 총 ~13,000 trials
 ///
 /// [출력]
 ///   HARQ_Matrix_Results.csv  (260 행, BOM 포함 UTF-8)
@@ -19,7 +19,6 @@
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
-#include <cstring>
 #include <string>
 #include <vector>
 // ── 매트릭스 정의 ─────────────────────────────────────────────
@@ -62,119 +61,12 @@ uint64_t Derive_Cell_Seed(uint64_t base, bool use_ir, bool is_voice, int ch_idx,
     s = s ^ (s >> 31);
     return s;
 }
-
-// ── Markdown 리포트 생성 (fec_path × mode 별 4개 섹션) ──────
-inline void Generate_Markdown_Report(const char *csv_path, bool smoke) {
-    const char *md_path =
-        smoke ? "HARQ_Matrix_Smoke.md" : "HARQ_Matrix_Results.md";
-    std::FILE *fin = std::fopen(csv_path, "rb");
-    if (fin == nullptr)
-        return;
-    std::FILE *fmd = std::fopen(md_path, "wb");
-    if (fmd == nullptr) {
-        std::fclose(fin);
-        return;
-    }
-
-    std::fprintf(fmd, "# Phase 6 HARQ Matrix Report\n\n");
-    std::fprintf(fmd, "- 소스 CSV: `%s`\n", csv_path);
-    std::fprintf(fmd, "- 각 cell: 10 Monte Carlo trial\n");
-    std::fprintf(fmd, "- CI: Clopper-Pearson 95%% (SPEC_002 §11)\n");
-    std::fprintf(fmd, "- 동기·헤더 100%% 성공 가정 (재밍은 페이로드만)\n\n");
-
-    unsigned char bomchk[3];
-    if (std::fread(bomchk, 1, 3, fin) == 3u &&
-        bomchk[0] == 0xEFu && bomchk[1] == 0xBBu && bomchk[2] == 0xBFu) {
-        // BOM skip 완료
-    } else {
-        std::rewind(fin);
-    }
-
-    char hdr[1024];
-    if (std::fgets(hdr, static_cast<int>(sizeof hdr), fin) == nullptr) {
-        std::fclose(fin);
-        std::fclose(fmd);
-        return;
-    }
-
-    std::string sec[4];
-    static const char *const sec_title[4] = {
-        "## Chase × DATA\n\n", "## Chase × VOICE\n\n", "## IR-HARQ × DATA\n\n",
-        "## IR-HARQ × VOICE\n\n"};
-    static const char *const tbl_head =
-        "| channel | intensity | crc | CI_95% | BER | avg_harq | max_harq | "
-        "sat | pre_sync | hdr_ok | decode |\n"
-        "|---|---:|:---:|:---:|---:|---:|---:|---:|:---:|:---:|:---:|\n";
-
-    char line[2048];
-    while (std::fgets(line, static_cast<int>(sizeof line), fin) != nullptr) {
-        char fec[32]{};
-        char mode[16]{};
-        char channel[48]{};
-        char unit[32]{};
-        double intensity = 0.0;
-        int crc_ok = 0;
-        int total = 0;
-        double crc_rate = 0.0;
-        double ci_lo = 0.0;
-        double ci_hi = 0.0;
-        double ber = 0.0;
-        int total_harq = 0;
-        double avg_harq = 0.0;
-        int max_harq = 0;
-        double sat = 0.0;
-        int pre_sync = 0;
-        int hdr_ok = 0;
-        int decode_called = 0;
-        unsigned long long base_seed = 0u;
-
-        const int n = std::sscanf(
-            line,
-            "%31[^,],%15[^,],%47[^,],%31[^,],%lf,%d,%d,%lf,%lf,%lf,%lf,%d,%lf,%"
-            "d,%lf,%d,%d,%d,0x%llx",
-            fec, mode, channel, unit, &intensity, &crc_ok, &total, &crc_rate,
-            &ci_lo, &ci_hi, &ber, &total_harq, &avg_harq, &max_harq, &sat,
-            &pre_sync, &hdr_ok, &decode_called, &base_seed);
-        if (n != 19)
-            continue;
-
-        const bool is_ir = (std::strcmp(fec, "ir_harq") == 0);
-        const bool is_voice = (std::strcmp(mode, "VOICE") == 0);
-        const int idx = (is_ir ? 2 : 0) + (is_voice ? 1 : 0);
-
-        if (sec[idx].empty())
-            sec[idx] = tbl_head;
-
-        char buf[640];
-        std::snprintf(buf, sizeof(buf),
-                      "| %s | %.2f | %d/%d | %.2f-%.2f | %.3f | %.2f | %d | "
-                      "%.3f | %d/%d | %d/%d | %d/%d |\n",
-                      channel, intensity, crc_ok, total, ci_lo, ci_hi, ber,
-                      avg_harq, max_harq, sat, pre_sync, total, hdr_ok, total,
-                      decode_called, total);
-        sec[idx] += buf;
-    }
-
-    for (int i = 0; i < 4; ++i) {
-        std::fputs(sec_title[i], fmd);
-        if (sec[i].empty()) {
-            std::fputs("*(데이터 없음)*\n\n", fmd);
-        } else {
-            std::fputs(sec[i].c_str(), fmd);
-            std::fputs("\n", fmd);
-        }
-    }
-
-    std::fclose(fin);
-    std::fclose(fmd);
-    std::printf("MD : %s\n", md_path);
-}
 } // anonymous namespace
 // ── main ──────────────────────────────────────────────────────
 int main(int argc, char **argv) {
     // ── 파라미터 ──────────────────────────────────────────────
     constexpr uint64_t BASE_SEED = 0xDEADBEEFCAFEBABEull;
-    constexpr int N_MC = 10; // 50 → 10 (2026-04-19 사용자 지시)
+    constexpr int N_MC = 50;
     constexpr int MAX_HARQ_ROUNDS = 8;
     // 빠른 시험용: argv[1] == "--smoke" 면 N_MC=5 로 축소
     int n_mc = N_MC;
@@ -201,9 +93,7 @@ int main(int argc, char **argv) {
                  "fec_path,mode,channel,intensity_unit,intensity,"
                  "crc_ok,total,crc_rate,crc_ci_low,crc_ci_high,"
                  "ber,total_harq_rounds,avg_harq_per_block,max_harq_rounds,"
-                 "saturation_rate,"
-                 "pre_sync,hdr_ok,decode_called,"
-                 "base_seed\n");
+                 "saturation_rate,base_seed\n");
     std::fflush(fout);
     // ── 매트릭스 순회 ─────────────────────────────────────────
     const auto matrix = Build_Channel_Matrix();
@@ -214,21 +104,10 @@ int main(int argc, char **argv) {
     int cell_idx = 0;
     const auto t_start = std::chrono::steady_clock::now();
     std::printf("=== Phase 6 HARQ Matrix ===\n");
-    std::printf("N_MC=%d, MAX_HARQ_ROUNDS=%d, total_cells=%d, total_trials=%d\n",
-                n_mc, MAX_HARQ_ROUNDS, total_cells, n_mc * total_cells);
-    std::printf("CSV: %s\n\n", csv_path);
-
-    const char *const SEP =
-        "+------+---------+-------+-----------------+---------+-------+"
-        "-------------+-------+-----------+--------+"
-        "-------+-------+-------+----------+\n";
-    std::printf("%s", SEP);
-    std::printf("| %-4s | %-7s | %-5s | %-15s | %-7s | %-5s | %-11s | "
-                "%-5s | %-9s | %-6s | "
-                "%-5s | %-5s | %-5s | %-8s |\n",
-                "No.", "fec", "mode", "channel", "intens", "crc", "CI_95",
-                "BER", "avg_harq", "sat", "pre", "hdr", "dec", "time_ms");
-    std::printf("%s", SEP);
+    std::printf("N_MC=%d, MAX_HARQ_ROUNDS=%d, total_cells=%d\n", n_mc,
+                MAX_HARQ_ROUNDS, total_cells);
+    std::printf("Expected total trials: %d\n", n_mc * total_cells);
+    std::printf("Output: %s\n\n", csv_path);
     std::fflush(stdout);
     for (int f = 0; f < 2; ++f) { // fec_path: chase(0) / ir_harq(1)
         const bool use_ir = (f == 1);
@@ -253,9 +132,7 @@ int main(int argc, char **argv) {
                                  "%s,%s,%s,%s,%.2f,"
                                  "%d,%d,%.6f,%.6f,%.6f,"
                                  "%.6f,%d,%.4f,%d,"
-                                 "%.6f,"
-                                 "%d,%d,%d,"
-                                 "0x%016llx\n",
+                                 "%.6f,0x%016llx\n",
                                  FecName(use_ir), ModeName(is_voice),
                                  HTS_Jammer_STD::Channel_Name(cs.type),
                                  HTS_Jammer_STD::Channel_Unit(cs.type),
@@ -263,31 +140,19 @@ int main(int argc, char **argv) {
                                  r.ci_low, r.ci_high, r.ber,
                                  r.total_harq_rounds, r.avg_harq_per_block,
                                  r.max_harq_rounds, r.saturation_rate,
-                                 r.pre_sync_count, r.hdr_ok_count,
-                                 r.decode_called_count,
                                  static_cast<unsigned long long>(r.base_seed));
                     std::fflush(fout);
-                    char crc_str[16];
-                    std::snprintf(crc_str, sizeof(crc_str), "%2d/%2d",
-                                  r.crc_ok_count, r.total);
-                    char ci_str[24];
-                    std::snprintf(ci_str, sizeof(ci_str), "%.2f-%.2f", r.ci_low,
-                                  r.ci_high);
-                    char pre_str[8], hdr_str[8], dec_str[8];
-                    std::snprintf(pre_str, sizeof(pre_str), "%2d/%2d",
-                                  r.pre_sync_count, r.total);
-                    std::snprintf(hdr_str, sizeof(hdr_str), "%2d/%2d",
-                                  r.hdr_ok_count, r.total);
-                    std::snprintf(dec_str, sizeof(dec_str), "%2d/%2d",
-                                  r.decode_called_count, r.total);
-                    std::printf("| %4d | %-7s | %-5s | %-15s | %7.2f | %-5s | "
-                                "%-11s | %5.3f | %9.2f | %6.3f | "
-                                "%-5s | %-5s | %-5s | %8.0f |\n",
-                                cell_idx, FecName(use_ir), ModeName(is_voice),
+                    // 진행 로그
+                    std::printf("[%4d/%4d] %-7s %-5s %-16s %7.2f | "
+                                "crc=%2d/%2d (%5.1f%%) CI[%.2f,%.2f] "
+                                "ber=%.4f avg_harq=%.2f sat=%.4f  %.0f ms\n",
+                                cell_idx, total_cells, FecName(use_ir),
+                                ModeName(is_voice),
                                 HTS_Jammer_STD::Channel_Name(cs.type),
-                                intensity, crc_str, ci_str, r.ber,
+                                intensity, r.crc_ok_count, r.total,
+                                r.crc_rate * 100.0, r.ci_low, r.ci_high, r.ber,
                                 r.avg_harq_per_block, r.saturation_rate,
-                                pre_str, hdr_str, dec_str, elapsed_ms);
+                                elapsed_ms);
                     std::fflush(stdout);
                 }
                 ++ch_idx;
@@ -297,16 +162,11 @@ int main(int argc, char **argv) {
     const auto t_end = std::chrono::steady_clock::now();
     const double total_sec =
         std::chrono::duration<double>(t_end - t_start).count();
-    std::printf("%s", SEP);
     std::fclose(fout);
-
     std::printf("\n=== DONE ===\n");
     std::printf("Total cells: %d\n", cell_idx);
     std::printf("Total trials: %d\n", cell_idx * n_mc);
     std::printf("Elapsed: %.1f sec (%.2f min)\n", total_sec, total_sec / 60.0);
     std::printf("CSV: %s\n", csv_path);
-
-    Generate_Markdown_Report(csv_path, smoke);
-
     return 0;
 }

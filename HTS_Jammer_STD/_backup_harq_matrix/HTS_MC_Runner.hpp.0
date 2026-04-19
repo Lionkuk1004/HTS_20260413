@@ -31,8 +31,8 @@
 namespace HTS_MC_Runner {
 // ── 결과 구조체 ───────────────────────────────────────────────
 struct CellResult {
-    int crc_ok_count;          ///< N_MC 중 CRC 성공 수
-    int total;                 ///< N_MC
+    int crc_ok_count;          ///< 50회 중 CRC 성공 수
+    int total;                 ///< N_MC (=50)
     double crc_rate;           ///< 성공률 (0.0~1.0)
     double ci_low;             ///< Clopper-Pearson 95% 하한
     double ci_high;            ///< Clopper-Pearson 95% 상한
@@ -42,10 +42,6 @@ struct CellResult {
     int max_harq_rounds;       ///< 최대 라운드 (관측)
     double saturation_rate;    ///< int16 포화율 (페이로드 구간 평균)
     uint64_t base_seed;        ///< 재현성 로그
-    // ── v3: CFO·프리앰블 동기 집계 ─────────────────────
-    int pre_sync_count;      ///< N_MC 중 프리앰블 동기 성공 수
-    int hdr_ok_count;        ///< N_MC 중 헤더 파싱 성공 수
-    int decode_called_count; ///< N_MC 중 try_decode_ 도달 수
 };
 // ── Trial 단위 결과 (내부) ────────────────────────────────────
 struct TrialOutcome {
@@ -53,11 +49,6 @@ struct TrialOutcome {
     int harq_k;
     int bit_errors;          ///< 최대 64 (8 bytes)
     double saturation_ratio; ///< 0.0~1.0
-    // ── v3: CFO·프리앰블 동기 관찰 ─────────────────────
-    bool pre_sync;        ///< WAIT_SYNC 탈출
-    bool hdr_ok;          ///< READ_PAYLOAD 진입
-    bool decode_called;   ///< try_decode_() 호출됨
-    int max_phase_value;  ///< 관측 최대 phase (0~3, RxPhase)
 };
 // ── 콜백 전역 (단일 스레드 실행 가정) ─────────────────────────
 namespace cb_detail {
@@ -163,10 +154,6 @@ inline TrialOutcome Run_Single_Trial(bool use_ir, bool is_voice,
     out.harq_k = 0;
     out.bit_errors = 64;
     out.saturation_ratio = 0.0;
-    out.pre_sync = false;
-    out.hdr_ok = false;
-    out.decode_called = false;
-    out.max_phase_value = 0;
     // ── 난수 분리 (signal / jam / noise 독립) ────────────────
     std::mt19937 rng_sig(static_cast<uint32_t>(trial_seed));
     std::mt19937 rng_jam(static_cast<uint32_t>(trial_seed ^ 0xBEEFCAFEull));
@@ -247,54 +234,23 @@ inline TrialOutcome Run_Single_Trial(bool use_ir, bool is_voice,
         sat_accum += Measure_Saturation(chipI.data() + pay_start,
                                         chipQ.data() + pay_start, pay_chips);
         ++sat_rounds;
-        // RX 주입 + phase 관측 (매 칩마다 Get_Phase, 라운드 내 최댓값)
+        // RX 주입
         ctx.received = false;
-        int phase_max_this_round = 0;
         if (round == 0) {
             for (int c = 0; c < nchips; ++c) {
                 p_rx->Feed_Chip(chipI[c], chipQ[c]);
-                const int ph = static_cast<int>(p_rx->Get_Phase());
-                if (ph < 3) {
-                    if (ph > phase_max_this_round)
-                        phase_max_this_round = ph;
-                } else {
-                    if (phase_max_this_round < 2)
-                        phase_max_this_round = 2;
-                }
             }
         } else {
             for (int c = 0; c < nchips; ++c) {
                 p_rx->Feed_Retx_Chip(chipI[c], chipQ[c]);
-                const int ph = static_cast<int>(p_rx->Get_Phase());
-                if (ph < 3) {
-                    if (ph > phase_max_this_round)
-                        phase_max_this_round = ph;
-                } else {
-                    if (phase_max_this_round < 2)
-                        phase_max_this_round = 2;
-                }
             }
         }
-        if (phase_max_this_round > out.max_phase_value)
-            out.max_phase_value = phase_max_this_round;
-
-        if (ctx.received)
-            out.decode_called = true;
+        // 콜백 수신 확인 (성공/실패 여부)
         if (ctx.received && ctx.crc_ok) {
             break; // CRC 성공
         }
+        // CRC 실패: 다음 라운드 진행
     }
-
-    // ── 동기 단계 판정 ────────────────────────────────────────
-    out.pre_sync = (out.max_phase_value >= 1);
-    out.hdr_ok = (out.max_phase_value >= 2);
-    if (out.decode_called) {
-        out.hdr_ok = true;
-        out.pre_sync = true;
-    }
-    if (out.hdr_ok)
-        out.pre_sync = true;
-
     // ── 결과 집계 ─────────────────────────────────────────────
     out.crc_ok = ctx.crc_ok;
     out.harq_k = ctx.received ? ctx.harq_k : max_harq_rounds;
@@ -318,9 +274,6 @@ inline CellResult Run_Cell(bool use_ir, bool is_voice,
     int max_observed_harq = 0;
     long long total_bit_errors = 0;
     double sat_accum = 0.0;
-    int pre_sync_cnt = 0;
-    int hdr_ok_cnt = 0;
-    int decode_called_cnt = 0;
     for (int t = 0; t < N_MC; ++t) {
         uint64_t trial_seed = base_seed + static_cast<uint64_t>(t) *
                                               0x100000001B3ull; // FNV prime
@@ -333,12 +286,6 @@ inline CellResult Run_Cell(bool use_ir, bool is_voice,
         sat_accum += o.saturation_ratio;
         if (o.harq_k > max_observed_harq)
             max_observed_harq = o.harq_k;
-        if (o.pre_sync)
-            ++pre_sync_cnt;
-        if (o.hdr_ok)
-            ++hdr_ok_cnt;
-        if (o.decode_called)
-            ++decode_called_cnt;
     }
     r.crc_ok_count = ok_cnt;
     r.crc_rate = static_cast<double>(ok_cnt) / static_cast<double>(N_MC);
@@ -354,9 +301,6 @@ inline CellResult Run_Cell(bool use_ir, bool is_voice,
     auto ci = HTS_Clopper_Pearson::Compute(ok_cnt, N_MC, 0.05);
     r.ci_low = ci.p_lower;
     r.ci_high = ci.p_upper;
-    r.pre_sync_count = pre_sync_cnt;
-    r.hdr_ok_count = hdr_ok_cnt;
-    r.decode_called_count = decode_called_cnt;
     return r;
 }
 } // namespace HTS_MC_Runner
