@@ -4,7 +4,12 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <cstdio>
 #include <vector>
+
+#if defined(HTS_PHASE3_NOISE_DIAG)
+static int g_ch_j1_diag_counter = 0;
+#endif
 
 namespace {
 
@@ -76,6 +81,32 @@ void ch_j1_awgn(std::int16_t* rI, std::int16_t* rQ, int n_chips, double snr_db,
     if (n_chips <= 0 || signal_power < 0.0) {
         return;
     }
+#if defined(HTS_PHASE3_NOISE_DIAG)
+    double P_sig_measured = 0.0;
+    double P_noise_target = 0.0;
+    double sigma_target = 0.0;
+    if (g_ch_j1_diag_counter < 30) {
+        double sum_sig_sq_pre = 0.0;
+        for (int i = 0; i < n_chips; ++i) {
+            const double iv = static_cast<double>(rI[i]);
+            const double qv = static_cast<double>(rQ[i]);
+            sum_sig_sq_pre += iv * iv + qv * qv;
+        }
+        P_sig_measured = sum_sig_sq_pre / static_cast<double>(n_chips);
+        if (P_sig_measured > 0.0) {
+            P_noise_target = P_sig_measured / std::pow(10.0, snr_db / 10.0);
+            sigma_target = std::sqrt(P_noise_target / 2.0);
+        }
+        if (g_ch_j1_diag_counter < 5) {
+            std::printf("[DIAG-2-TX-PRE] trial=%d snr=%.1f samples: ", g_ch_j1_diag_counter,
+                        static_cast<double>(snr_db));
+            for (int k = 0; k < 10 && k < n_chips; ++k) {
+                std::printf("(%d,%d) ", static_cast<int>(rI[k]), static_cast<int>(rQ[k]));
+            }
+            std::printf("\n");
+        }
+    }
+#endif
     // σ²_total = P_s / 10^(SNR/10); n_I,n_Q ~ N(0, σ²/2) ⇒ Var_I+Var_Q = σ²
     const double sigma2 = signal_power / std::pow(10.0, snr_db / 10.0);
     const double sigma_branch = std::sqrt(0.5 * sigma2);
@@ -83,6 +114,38 @@ void ch_j1_awgn(std::int16_t* rI, std::int16_t* rQ, int n_chips, double snr_db,
     for (int n = 0; n < n_chips; ++n) {
         add_iq(rI, rQ, n, nd(rng), nd(rng), sat);
     }
+#if defined(HTS_PHASE3_NOISE_DIAG)
+    if (g_ch_j1_diag_counter < 30) {
+        double sum_rx_sq = 0.0;
+        for (int i = 0; i < n_chips; ++i) {
+            const double iv = static_cast<double>(rI[i]);
+            const double qv = static_cast<double>(rQ[i]);
+            sum_rx_sq += iv * iv + qv * qv;
+        }
+        const double P_rx = sum_rx_sq / static_cast<double>(n_chips);
+        double P_noise_actual = P_rx - P_sig_measured;
+        if (P_noise_actual < 0.0) {
+            P_noise_actual = 0.0;
+        }
+        const double snr_actual_db = (P_noise_actual > 1e-9)
+            ? (10.0 * std::log10((P_sig_measured + 1e-30) / (P_noise_actual + 1e-30)))
+            : 999.0;
+        std::printf("[DIAG-1-CH_J1] cnt=%d snr_req=%.2f "
+                    "P_sig=%.2f P_noise_target=%.2f sigma_target=%.3f "
+                    "P_rx=%.2f P_noise_actual=%.2f snr_actual=%.2f\n",
+                    g_ch_j1_diag_counter, static_cast<double>(snr_db), P_sig_measured,
+                    P_noise_target, sigma_target, P_rx, P_noise_actual, snr_actual_db);
+        if (g_ch_j1_diag_counter < 5) {
+            std::printf("[DIAG-2-RX-POST] trial=%d snr=%.1f samples: ", g_ch_j1_diag_counter,
+                        static_cast<double>(snr_db));
+            for (int k = 0; k < 10 && k < n_chips; ++k) {
+                std::printf("(%d,%d) ", static_cast<int>(rI[k]), static_cast<int>(rQ[k]));
+            }
+            std::printf("\n");
+        }
+        ++g_ch_j1_diag_counter;
+    }
+#endif
 }
 
 void ch_j2_cw(std::int16_t* rI, std::int16_t* rQ, int n_chips, double jsr_db,

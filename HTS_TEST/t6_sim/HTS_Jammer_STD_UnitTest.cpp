@@ -1,5 +1,10 @@
 // HTS_Jammer_STD_UnitTest.cpp — Phase 1 단위 시험 (SPEC / Math_Defense v1.1)
+// Phase 3 (PROMPT 49 v3.0): /DHTS_ENABLE_PHASE3_MIL + 단일 TU 링크 블록 하단 참고
 #include "HTS_Jammer_STD.hpp"
+
+#if defined(HTS_ENABLE_PHASE3_MIL)
+#include "HTS_Phase3_MIL.hpp"
+#endif
 
 #include <algorithm>
 #include <cmath>
@@ -8,7 +13,8 @@
 #include <cstdlib>
 #include <vector>
 
-namespace {
+// 단일 TU(Phase3)에서 HTS_Jammer_STD.cpp 와 무명 네임스페이스 병합 충돌 방지
+namespace Jammer_UT {
 
 constexpr double kPi = 3.14159265358979323846;
 constexpr double kChipRateHz = 200000.0;
@@ -442,9 +448,7 @@ void test_derive_seed() {
     expect_true("derive_seed trial sensitivity", a != b);
 }
 
-} // namespace
-
-int main() {
+void run_phase1_jammer_unit_tests() {
     std::printf("=== HTS_Jammer_STD Phase1 unit tests (v1.1) ===\n");
     test_derive_seed();
     test_j1();
@@ -453,6 +457,29 @@ int main() {
     test_j3_pulse();
     test_j5_power();
     test_j6_swept();
-    std::printf("=== done failures=%d ===\n", g_fail);
-    return (g_fail > 0) ? 1 : 0;
+    std::printf("=== Phase1 done failures=%d ===\n", g_fail);
 }
+
+} // namespace Jammer_UT
+
+int main() {
+    Jammer_UT::run_phase1_jammer_unit_tests();
+#if defined(HTS_ENABLE_PHASE3_MIL)
+    Phase3_MIL::run_phase3_limit_finding();
+#endif
+    return (Jammer_UT::g_fail > 0) ? 1 : 0;
+}
+
+// ── Phase 3 단일 TU 링크 (기본 빌드에서는 컴파일 제외: vcxproj 2-file Phase1 유지) ──
+#if defined(HTS_ENABLE_PHASE3_MIL) && defined(HTS_LINK_JAMMER_STD_IN_UNITTEST)
+#include "HTS_Jammer_STD.cpp"
+#include "../../HTS_LIM/HTS_Secure_Memory.cpp"
+#include "../../HTS_LIM/HTS_Polar_Codec.cpp"
+#include "../../HTS_LIM/HTS_FEC_HARQ.cpp"
+#include "../../HTS_LIM/HTS_Holo_LPI.cpp"
+#include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
+#include "HTS_Session_Derive_Stub.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher.cpp"
+#include "HTS_BER_PER_Measure.cpp"
+#endif
+

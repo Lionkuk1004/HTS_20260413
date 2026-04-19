@@ -4,11 +4,15 @@
 //
 #include "HTS_FEC_HARQ.hpp"
 #include "HTS_Secure_Memory.h"
+#include "HTS_Walsh_Row_Converter.hpp"
 #include <array>
 #include <atomic>
 #include <climits>
 #include <cstdint>
 #include <cstring>
+#if defined(HTS_ALLOW_HOST_BUILD)
+#include <cstdio>
+#endif
 #if defined(HTS_DIAG_PRINTF)
 #include <cstdio>
 #ifndef HTS_FEC_IR_FWHT_DUMP_MAX
@@ -17,6 +21,21 @@
 #endif
 #if defined(HTS_FEC_POLAR_ENABLE)
 #include "HTS_DWT_Profiler.h"
+#endif
+#if defined(HTS_LLR_DIAG)
+#include "HTS_LLR_Diag.hpp"
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+#include "HTS_Row_Consistency_Diag.hpp"
+#endif
+#if defined(HTS_CW_DETECT_DIAG) || defined(HTS_CW_DETECT_DIAG_V2)
+#include "HTS_CW_Detect_Diag.hpp"
+#endif
+#if defined(HTS_CW_EXCISION_V1)
+#include "HTS_CW_Excision.hpp"
+#endif
+#if defined(HTS_CW_LLR_WEIGHT_V1)
+#include "HTS_CW_LLR_Weight.hpp"
 #endif
 #if defined(_MSC_VER)
 #include <intrin.h>
@@ -114,6 +133,62 @@ static inline void fec_ir_fwht_bin_unshift(int32_t* fI, int32_t* fQ, int nc,
         fQ[sm] = tmp_q[m];
     }
 }
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+static inline bool fec_row_consistency_allowed(int top_r, int nc,
+                                               int bps) noexcept {
+    const int nsym = 1 << bps;
+    if (top_r < 0 || top_r >= 64 || nc <= 0 || nsym <= 0) {
+        return true;
+    }
+    if (nsym >= nc) {
+        return true;
+    }
+    if ((nc % nsym) != 0) {
+        return true;
+    }
+    const int step = nc / nsym;
+    if (step <= 1) {
+        return true;
+    }
+    return (top_r % step) == 0;
+}
+static void fec_row_consistency_record_from_fwht(const int32_t *fi,
+                                                  const int32_t *fq, int nc,
+                                                  int bps) noexcept {
+    if (fi == nullptr || fq == nullptr || nc <= 0) {
+        return;
+    }
+    int top1_r = 0;
+    int top2_r = 0;
+    int64_t top1_e = INT64_MIN;
+    int64_t top2_e = INT64_MIN;
+    const int n = (nc < 64) ? nc : 64;
+    for (int r = 0; r < n; ++r) {
+        const int64_t vfi =
+            static_cast<int64_t>(fi[static_cast<std::size_t>(r)]);
+        const int64_t vfq =
+            static_cast<int64_t>(fq[static_cast<std::size_t>(r)]);
+        const int64_t e = vfi * vfi + vfq * vfq;
+        if (e > top1_e) {
+            top2_e = top1_e;
+            top2_r = top1_r;
+            top1_e = e;
+            top1_r = r;
+        } else if (e > top2_e) {
+            top2_e = e;
+            top2_r = r;
+        }
+    }
+    if (top1_e == INT64_MIN) {
+        top1_e = 0;
+    }
+    if (top2_e == INT64_MIN) {
+        top2_e = 0;
+    }
+    const bool ok = fec_row_consistency_allowed(top1_r, nc, bps);
+    RowConsistencyDiag::record_symbol(top1_r, top2_r, top1_e, top2_e, ok);
+}
+#endif
 #if defined(HTS_DIAG_PRINTF)
 // Decode64_IR conv path: top-5 FWHT bin energy (I²+Q²) for Stage 6B dump.
 static void fec_ir_diag_fwht_top5_print(const char *tag, int call_idx,
@@ -390,6 +465,29 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
     const int32_t ns_lt =
         static_cast<int32_t>(0u - static_cast<uint32_t>(nsym < nc));
     const int valid = (nsym & ns_lt) | (nc & ~ns_lt);
+#if defined(HTS_CW_LLR_WEIGHT_V1)
+    const CWLLRWeight::DetectionResult det =
+        CWLLRWeight::detect_per_symbol(fI, fQ, nc, HTS_CW_W_TOP_K);
+    bool is_cw_row[64]{};
+    int wq8 = 256;
+    if (det.is_cw) {
+        const double wf = static_cast<double>(HTS_CW_W_FACTOR);
+        int q = static_cast<int>(wf * 256.0 + 0.5);
+        if (q < 0) {
+            q = 0;
+        }
+        if (q > 256) {
+            q = 256;
+        }
+        wq8 = q;
+        for (int i = 0; i < det.cw_row_count && i < 8; ++i) {
+            const int rr = det.cw_rows[i];
+            if (rr >= 0 && rr < 64) {
+                is_cw_row[static_cast<std::size_t>(rr)] = true;
+            }
+        }
+    }
+#endif
     int32_t raw[BPS64_MAX]{};
     for (int b = 0; b < bps; ++b) {
         const int sh_bit = bps - 1 - b;
@@ -398,7 +496,15 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
         int32_t pos_max = INT32_MIN;
         int32_t neg_max = INT32_MIN;
         for (int m = 0; m < valid; ++m) {
-            const int32_t corr = fI[m] + fQ[m];
+            int32_t corr = fI[static_cast<std::size_t>(m)] + fQ[static_cast<std::size_t>(m)];
+#if defined(HTS_CW_LLR_WEIGHT_V1)
+            if (det.is_cw && m >= 0 && m < 64 &&
+                is_cw_row[static_cast<std::size_t>(m)]) {
+                const std::int64_t sc =
+                    (static_cast<std::int64_t>(corr) * static_cast<std::int64_t>(wq8)) >> 8;
+                corr = static_cast<int32_t>(sc);
+            }
+#endif
             const uint32_t is_one = 0u - ((static_cast<uint32_t>(m) >>
                                            static_cast<uint32_t>(sh_bit)) &
                                           1u);
@@ -415,7 +521,15 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
         int32_t pos_sum = 0;
         int32_t neg_sum = 0;
         for (int m = 0; m < valid; ++m) {
-            const int32_t corr = fI[m] + fQ[m];
+            int32_t corr = fI[static_cast<std::size_t>(m)] + fQ[static_cast<std::size_t>(m)];
+#if defined(HTS_CW_LLR_WEIGHT_V1)
+            if (det.is_cw && m >= 0 && m < 64 &&
+                is_cw_row[static_cast<std::size_t>(m)]) {
+                const std::int64_t sc =
+                    (static_cast<std::int64_t>(corr) * static_cast<std::int64_t>(wq8)) >> 8;
+                corr = static_cast<int32_t>(sc);
+            }
+#endif
             const uint32_t is_one = 0u - ((static_cast<uint32_t>(m) >>
                                            static_cast<uint32_t>(sh_bit)) &
                                           1u);
@@ -438,6 +552,16 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
         llr[b] = raw[b] >> 12;
 #endif
     }
+#if defined(HTS_LLR_DIAG)
+    {
+        static constexpr int32_t kBinLlrClampLim = 500000;
+        for (int b = 0; b < bps; ++b) {
+            LLRDiag::record_llr(LLRDiag::ObservePoint::BIN_TO_LLR,
+                                 llr[static_cast<std::size_t>(b)],
+                                 kBinLlrClampLim);
+        }
+    }
+#endif
 }
 // ── Xorshift PRNG ──
 static uint32_t xs(uint32_t s) noexcept {
@@ -1013,6 +1137,37 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         *olen = 0;
         return false;
     }
+#if defined(HTS_ALLOW_HOST_BUILD)
+    static int s_decode64_ir_entry_cap = 0;
+    if (s_decode64_ir_entry_cap < 3) {
+        std::fprintf(stderr, "[Decode64_IR entry] nsym=%d nc=%d bps=%d\n", nsym,
+                     nc, bps);
+        ++s_decode64_ir_entry_cap;
+    }
+#endif
+    const int16_t *use_I = sym_I;
+    const int16_t *use_Q = sym_Q;
+#if HTS_WRC_METHOD != 0 || defined(HTS_ALLOW_HOST_BUILD)
+    static constexpr int k_wrc_ir_max_chips = NSYM64 * C64;
+    static int16_t g_wrc_sym_i[static_cast<std::size_t>(k_wrc_ir_max_chips)];
+    static int16_t g_wrc_sym_q[static_cast<std::size_t>(k_wrc_ir_max_chips)];
+    const int total_chips = nsym * nc;
+    if (total_chips < 1 || total_chips > k_wrc_ir_max_chips) {
+        *olen = 0;
+        return false;
+    }
+    for (int i = 0; i < total_chips; ++i) {
+        const std::size_t si = static_cast<std::size_t>(i);
+        g_wrc_sym_i[si] = sym_I[i];
+        g_wrc_sym_q[si] = sym_Q[i];
+    }
+    for (int s = 0; s < nsym; ++s) {
+        WRC::clean_chips(g_wrc_sym_i + s * nc, nc);
+        WRC::clean_chips(g_wrc_sym_q + s * nc, nc);
+    }
+    use_I = g_wrc_sym_i;
+    use_Q = g_wrc_sym_q;
+#endif
     std::array<int32_t, k_fwht_buf_sz> &fI = g_fec_dec_fI;
     std::array<int32_t, k_fwht_buf_sz> &fQ = g_fec_dec_fQ;
     std::array<int32_t, k_llr_buf_sz> &llr = g_fec_dec_llr;
@@ -1025,8 +1180,8 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     for (int sym = 0; sym < nsym; ++sym) {
         const int base = sym * nc;
         for (int c = 0; c < nc; ++c) {
-            const int32_t Ii = static_cast<int32_t>(sym_I[base + c]);
-            const int32_t Qi = static_cast<int32_t>(sym_Q[base + c]);
+            const int32_t Ii = static_cast<int32_t>(use_I[base + c]);
+            const int32_t Qi = static_cast<int32_t>(use_Q[base + c]);
             static constexpr int32_t kErasureMagTh = 20000;
             const int32_t mag =
                 fec_ir_fast_abs_i32(Ii) + fec_ir_fast_abs_i32(Qi);
@@ -1055,6 +1210,55 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             fec_ir_diag_fwht_top5_print(
                 "FEC-FWHT-AFTER", s_fec_ir_fwht_dump_calls,
                 static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 0);
+        }
+#endif
+#if defined(HTS_LLR_DIAG)
+        {
+            int64_t esum = 0;
+            int64_t e63 = 0;
+            for (int m = 0; m < nc; ++m) {
+                const int64_t fi =
+                    static_cast<int64_t>(fI[static_cast<std::size_t>(m)]);
+                const int64_t fq =
+                    static_cast<int64_t>(fQ[static_cast<std::size_t>(m)]);
+                const int64_t e = fi * fi + fq * fq;
+                esum += e;
+                if (m == 63) {
+                    e63 = e;
+                }
+            }
+            const int64_t denom =
+                (esum / static_cast<int64_t>(nc > 0 ? nc : 1)) + 1;
+            // per-million × (row63 / mean_energy) — 1000배 스케일은 평균 ≫ e63 일 때 0으로 뭉개짐
+            int64_t ratio64 = (e63 * 1000000LL + denom / 2) / denom;
+            if (e63 > 0 && ratio64 == 0) {
+                ratio64 = 1;
+            }
+            if (ratio64 > static_cast<int64_t>(2147483647)) {
+                ratio64 = static_cast<int64_t>(2147483647);
+            }
+            if (ratio64 < static_cast<int64_t>(-2147483647)) {
+                ratio64 = static_cast<int64_t>(-2147483647);
+            }
+            LLRDiag::record_llr(
+                LLRDiag::ObservePoint::FWHT_OUT, static_cast<int32_t>(ratio64),
+                static_cast<int32_t>(2147483647));
+        }
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+        fec_row_consistency_record_from_fwht(fI.data(), fQ.data(), nc, bps);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+        CWDetectDiag::record_symbol_v2_from_fwht(fI.data(), fQ.data(), nc);
+#elif defined(HTS_CW_DETECT_DIAG)
+        CWDetectDiag::record_symbol_from_fwht(fI.data(), fQ.data(), nc);
+#endif
+#if defined(HTS_CW_EXCISION_V1)
+        {
+            static const ProtectedEngine::CWExcision::Options k_cw_ex_opts =
+                ProtectedEngine::CWExcision::default_build_options();
+            (void)ProtectedEngine::CWExcision::detect_and_excise(
+                fI.data(), fQ.data(), nc, k_cw_ex_opts);
         }
 #endif
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
@@ -1098,8 +1302,8 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     for (int sym = 0; sym < nsym; ++sym) {
         const int base = sym * nc;
         for (int c = 0; c < nc; ++c) {
-            const int32_t Ii = static_cast<int32_t>(sym_I[base + c]);
-            const int32_t Qi = static_cast<int32_t>(sym_Q[base + c]);
+            const int32_t Ii = static_cast<int32_t>(use_I[base + c]);
+            const int32_t Qi = static_cast<int32_t>(use_Q[base + c]);
             static constexpr int32_t kErasureMagTh = 20000;
             const int32_t mag =
                 fec_ir_fast_abs_i32(Ii) + fec_ir_fast_abs_i32(Qi);
@@ -1113,6 +1317,23 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         FWHT(g_fec_dec_fQ.data(), nc);
         fec_ir_fwht_bin_unshift(g_fec_dec_fI.data(), g_fec_dec_fQ.data(), nc,
                                 walsh_shift);
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+        fec_row_consistency_record_from_fwht(g_fec_dec_fI.data(),
+                                               g_fec_dec_fQ.data(), nc, bps);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+        CWDetectDiag::record_symbol_v2_from_fwht(g_fec_dec_fI.data(), g_fec_dec_fQ.data(), nc);
+#elif defined(HTS_CW_DETECT_DIAG)
+        CWDetectDiag::record_symbol_from_fwht(g_fec_dec_fI.data(), g_fec_dec_fQ.data(), nc);
+#endif
+#if defined(HTS_CW_EXCISION_V1)
+        {
+            static const ProtectedEngine::CWExcision::Options k_cw_ex_opts =
+                ProtectedEngine::CWExcision::default_build_options();
+            (void)ProtectedEngine::CWExcision::detect_and_excise(
+                g_fec_dec_fI.data(), g_fec_dec_fQ.data(), nc, k_cw_ex_opts);
+        }
+#endif
         const int valid = 1 << bps;
         for (int b = 0; b < bps; ++b) {
             const int sh_bit = bps - 1 - b;
@@ -1193,6 +1414,17 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         polar_llr16[static_cast<std::size_t>(i)] =
             static_cast<int16_t>(clamped);
     }
+#if defined(HTS_LLR_DIAG)
+    {
+        static constexpr int32_t kPolarLlrClampLim = 32767;
+        for (int i = 0; i < POLAR_N; ++i) {
+            const int32_t v =
+                static_cast<int32_t>(polar_llr16[static_cast<std::size_t>(i)]);
+            LLRDiag::record_llr(LLRDiag::ObservePoint::IR_ACCUM, v,
+                                kPolarLlrClampLim);
+        }
+    }
+#endif
     const uint32_t t18_fold_end = HTS_DWT::Read();
 
     uint8_t rx[static_cast<std::size_t>(MAX_INFO)] = {};
@@ -1236,6 +1468,16 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         slot =
             tpe_sat_add_llr(slot, wb.ru.all_llr[static_cast<std::size_t>(i)]);
     }
+#if defined(HTS_LLR_DIAG)
+    {
+        static constexpr int32_t kIrAccumClampLim = 500000;
+        for (int i = 0; i < TOTAL_CODED; ++i) {
+            const int32_t v = ir_state.llr_accum[static_cast<std::size_t>(i)];
+            LLRDiag::record_llr(LLRDiag::ObservePoint::IR_ACCUM, v,
+                                kIrAccumClampLim);
+        }
+    }
+#endif
     ++ir_state.rounds_done;
     for (int i = 0; i < CONV_OUT; ++i) {
         int32_t acc = ir_state.llr_accum[static_cast<std::size_t>(i)];
@@ -1350,6 +1592,22 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 0);
         }
 #endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+        fec_row_consistency_record_from_fwht(fI.data(), fQ.data(), nc, bps);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+        CWDetectDiag::record_symbol_v2_from_fwht(fI.data(), fQ.data(), nc);
+#elif defined(HTS_CW_DETECT_DIAG)
+        CWDetectDiag::record_symbol_from_fwht(fI.data(), fQ.data(), nc);
+#endif
+#if defined(HTS_CW_EXCISION_V1)
+        {
+            static const ProtectedEngine::CWExcision::Options k_cw_ex_opts =
+                ProtectedEngine::CWExcision::default_build_options();
+            (void)ProtectedEngine::CWExcision::detect_and_excise(
+                fI.data(), fQ.data(), nc, k_cw_ex_opts);
+        }
+#endif
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
 #if defined(HTS_DIAG_PRINTF)
         if (fec_ir16_do_fwht_dump != 0) {
@@ -1416,3 +1674,10 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     return dec_ok;
 }
 } // namespace ProtectedEngine
+
+#if defined(HTS_CW_EXCISION_V1)
+#include "HTS_CW_Excision.cpp"
+#endif
+#if defined(HTS_CW_LLR_WEIGHT_V1)
+#include "HTS_CW_LLR_Weight.cpp"
+#endif

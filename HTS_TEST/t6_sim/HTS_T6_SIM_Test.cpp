@@ -24,6 +24,28 @@
 #endif
 
 #include "HTS_V400_Dispatcher.hpp"
+#include "HTS_Walsh_Row_Converter.hpp"
+#if defined(HTS_HARQ_DIAG)
+#include "HTS_HARQ_Diag.hpp"
+#endif
+#if defined(HTS_AMP_DIAG)
+#include "HTS_Amp_Diag.hpp"
+#endif
+#if defined(HTS_SYNC_DIAG)
+#include "HTS_Sync_Diag.hpp"
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+#include "HTS_Walsh_Row_Diag.hpp"
+#endif
+#if defined(HTS_LLR_DIAG)
+#include "HTS_LLR_Diag.hpp"
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+#include "HTS_Row_Consistency_Diag.hpp"
+#endif
+#if defined(HTS_CW_DETECT_DIAG) || defined(HTS_CW_DETECT_DIAG_V2)
+#include "HTS_CW_Detect_Diag.hpp"
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -214,6 +236,11 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
         m.byte_errors = byte_err;
         m.pass = (bit_err == 0);
     }
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::mark_packet_boundary_v2();
+#elif defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::mark_packet_boundary();
+#endif
     return m;
 }
 
@@ -379,6 +406,27 @@ static void row(const char* label, int pass, int total) {
 //  S1: 완벽한 무결성 (클린 채널)
 // ═══════════════════════════════════════════════════════════════
 static void test_S1() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
     hdr("S1", "완벽한 무결성 (클린 채널)");
     int ok = 0, crc_only = 0, build_fail = 0;
     long long total_bits = 0;
@@ -404,12 +452,51 @@ static void test_S1() {
                   build_fail, ok, crc_only, static_cast<long long>(total_bits));
     row("Clean channel", ok, kTrials);
     record_ext("S1", diag, ok, crc_only, kTrials, total_bits);
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S1");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S1");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S1");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S1");
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::print_stats("S1");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S1");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S2: 위상 전수 조사 (사전 보정 금지)
 // ═══════════════════════════════════════════════════════════════
 static void test_S2() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
     hdr("S2", "위상 전수 조사 (블라인드 획득)");
     const int degs[] = {0, 45, 90, 135, 180, 225, 270, 315};
     for (int deg : degs) {
@@ -440,12 +527,48 @@ static void test_S2() {
         row(label, ok, kTrials);
         record_ext("S2", param, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S2");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S2");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S2");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S2");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S2");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S3: 심해 SNR 워터폴 (-30 ~ -10 dB)
 // ═══════════════════════════════════════════════════════════════
 static void test_S3() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::LowSnr);
+#endif
     hdr("S3", "심해 SNR 워터폴 (-30 ~ +10 dB)");
     std::mt19937 rng(0x30000000u);
     const double snrs[] = {-30, -25, -20, -15, -10, -5, 0, 5, 10};
@@ -477,12 +600,51 @@ static void test_S3() {
         row(label, ok, kTrials);
         record_ext("S3", param, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S3");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S3");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S3");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S3");
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::print_stats("S3");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S3");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S4: 비동기 타이밍 오프셋 (양수/음수)
 // ═══════════════════════════════════════════════════════════════
 static void test_S4() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
     hdr("S4", "비동기 타이밍 오프셋");
     const int offsets[] = {0, 1, 5, 17, 31, 63, 127};
     for (int off : offsets) {
@@ -510,12 +672,48 @@ static void test_S4() {
         row(label, ok, kTrials);
         record_ext("S4", param, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S4");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S4");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S4");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S4");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S4");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S5: 극한 CFO 추종 (Hz 기반, 사전 보정 금지)
 // ═══════════════════════════════════════════════════════════════
 static void test_S5() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
     hdr("S5", "극한 CFO 추종 (블라인드)");
     const double cfos[] = {0, 50, 100, 200, 500, 1000, 2000, 5000};
     for (double cfo : cfos) {
@@ -546,12 +744,48 @@ static void test_S5() {
         row(label, ok, kTrials);
         record_ext("S5", param, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S5");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S5");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S5");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S5");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S5");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S6: 다중 경로 (3-tap)
 // ═══════════════════════════════════════════════════════════════
 static void test_S6() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
     hdr("S6", "다중 경로 (3-tap ISI)");
     struct MpCase { int d1; double a1; int d2; double a2; const char* label; };
     const MpCase cases[] = {
@@ -585,12 +819,48 @@ static void test_S6() {
         row(mp.label, ok, kTrials);
         record_ext("S6", mp.label, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S6");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S6");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S6");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S6");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S6");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S7: 바라지 재밍 (JSR +10 ~ +30 dB)
 // ═══════════════════════════════════════════════════════════════
 static void test_S7() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Barrage);
+#endif
     hdr("S7", "바라지 재밍 (JSR +10 ~ +30 dB)");
     std::mt19937 rng(0x70000000u);
     const double jsrs[] = {0, 5, 10, 15, 20, 25, 30};
@@ -622,12 +892,51 @@ static void test_S7() {
         row(label, ok, kTrials);
         record_ext("S7", param, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S7");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S7");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S7");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S7");
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::print_stats("S7");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S7");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S8: CW 톤 재밍
 // ═══════════════════════════════════════════════════════════════
 static void test_S8() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(false);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Cw);
+#endif
     hdr("S8", "CW 톤 재밍");
     struct CwCase { double jsr; double period; const char* label; };
     const CwCase cases[] = {
@@ -662,12 +971,51 @@ static void test_S8() {
         row(cw.label, ok, kTrials);
         record_ext("S8", cw.label, ok, crc_only, kTrials, total_bits);
     }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S8");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S8");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S8");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S8");
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::print_stats("S8");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S8");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S9: 복합 스트레스 (타이밍 + 위상 + AWGN + CFO 동시)
 // ═══════════════════════════════════════════════════════════════
 static void test_S9() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(false);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Mixed);
+#endif
     hdr("S9", "복합 스트레스 (135° + -15dB + CFO1500 + MP)");
     std::mt19937 rng(0x90000000u);
     int ok = 0, crc_only = 0;
@@ -700,12 +1048,51 @@ static void test_S9() {
     }
     row("Composite stress", ok, kTrials);
     record_ext("S9", "Full", ok, crc_only, kTrials, total_bits);
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S9");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S9");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S9");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S9");
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::print_stats("S9");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S9");
+#endif
 }
 
 // ═══════════════════════════════════════════════════════════════
 //  S10: 내구도 + Holo LPI (10000회 → 메모리 릭 검증)
 // ═══════════════════════════════════════════════════════════════
 static void test_S10() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
     hdr("S10", "내구도 10000회 + LPI 정합");
 
     // Part A: 클린 내구도 10000회
@@ -773,6 +1160,21 @@ static void test_S10() {
     row("LPI ON",  ok_on,  N_LPI);
     record("S10b", "LPI-OFF", ok_off, N_LPI);
     record("S10c", "LPI-ON",  ok_on,  N_LPI);
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S10");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S10");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S10");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S10");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S10");
+#endif
 }
 
 } // namespace
@@ -781,6 +1183,17 @@ static void test_S10() {
 //  main
 // ═══════════════════════════════════════════════════════════════
 int main() {
+    ProtectedEngine::WRC::reset_diag();
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_joint_label_accum();
+#endif
+#if defined(HTS_HARQ_DIAG)
+    ProtectedEngine::HARQ_Diag::reset_retry_stats();
+#endif
+#if defined(HTS_AMP_DIAG)
+    ProtectedEngine::AmpDiag::reset_amp_stats();
+#endif
+
     std::printf("╔═══════════════════════════════════════════════════╗\n");
     std::printf("║  HTS T6-SIM V3: 무결 채널 시뮬레이션              ║\n");
     std::printf("║  사전 보정 금지 | memcmp 강제 | 음수 SNR 필수     ║\n");
@@ -799,6 +1212,10 @@ int main() {
     test_S8();
     test_S9();
     test_S10();
+
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_joint_by_label_summary();
+#endif
 
     auto t_end = std::chrono::steady_clock::now();
     double total_sec = std::chrono::duration<double>(t_end - t_all).count();
@@ -870,6 +1287,14 @@ int main() {
         std::printf("\n  전 시나리오 PASS — 한계 미발견\n");
     }
 
+    ProtectedEngine::WRC::print_diag();
+#if defined(HTS_HARQ_DIAG)
+    ProtectedEngine::HARQ_Diag::print_retry_stats();
+#endif
+#if defined(HTS_AMP_DIAG)
+    ProtectedEngine::AmpDiag::print_amp_stats();
+#endif
+
     return 0;
 }
 
@@ -880,3 +1305,9 @@ int main() {
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
 #include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher.cpp"
+#if defined(HTS_HARQ_DIAG)
+#include "../../HTS_LIM/HTS_HARQ_Diag.cpp"
+#endif
+#if defined(HTS_AMP_DIAG)
+#include "../../HTS_LIM/HTS_Amp_Diag.cpp"
+#endif

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang='ko'><head>
+<meta charset='UTF-8'>
+<title>HTS Phase 3 S1_CLIFF Report</title>
+<style>
+  body { font-family: 'Malgun Gothic', '맑은 고딕', Arial; margin: 20px; }
+  h1 { color: #1a5490; border-bottom: 3px solid #1a5490; padding-bottom: 8px; }
+  h2 { color: #2c6fa8; margin-top: 24px; }
+  table { border-collapse: collapse; margin: 12px 0; }
+  th { background: #d0e4f5; padding: 8px 12px; border: 1px solid #888; }
+  td { padding: 6px 12px; border: 1px solid #aaa; text-align: right; }
+  .param { background: #f0f8ff; font-weight: bold; }
+  .ok { color: #0a7f2e; font-weight: bold; }
+  .warn { color: #c04000; font-weight: bold; }
+  .fail { color: #b00020; font-weight: bold; }
+  .summary { background: #f5f5f0; padding: 12px; border-left: 4px solid #1a5490; margin: 12px 0; }
+  svg { background: white; border: 1px solid #ccc; margin: 12px 0; }
+</style>
+</head><body>
+<h1>HTS Phase 3 시나리오 S1_CLIFF 리포트</h1>
+<div class='summary'>
+<b>측정 포인트 수:</b> 10<br>
+<b>총 측정 bit 수:</b> 640000<br>
+<b>전체 자가 검증 신뢰도:</b> <span class='ok'>100%</span><br>
+</div>
+<h2>Cliff 분석</h2>
+<table>
+<tr><th>지표</th><th>값</th><th>의미</th></tr>
+<tr><td class='param'>Link >= 95%</td><td>-4.0 dB</td><td>운용 한계</td></tr>
+<tr><td class='param'>Link >= 50%</td><td>-8.0 dB</td><td>방어 한계</td></tr>
+<tr><td class='param'>Link >= 10%</td><td>-10.0 dB</td><td>붕괴 임박</td></tr>
+<tr><td class='param'>Cliff 폭</td><td>6.0 dB</td><td>95% to 10% 구간</td></tr>
+<tr><td class='param'>BER 10^-3</td><td>-3.0 dB</td><td>MIL 운용 기준</td></tr>
+</table>
+<h2>Waterfall 곡선 (BER vs SNR)</h2>
+<svg width='700' height='400' viewBox='0 0 700 400'>
+<line x1='60' y1='340' x2='640' y2='340' stroke='black' stroke-width='2'/>
+<line x1='60' y1='60' x2='60' y2='340' stroke='black' stroke-width='2'/>
+<line x1='60' y1='200' x2='640' y2='200' stroke='red' stroke-width='1' stroke-dasharray='4,4'/>
+<text x='560' y='196' fill='red' font-size='12'>BER 1e-3</text>
+<circle cx='640' cy='155' r='5' fill='#0a7f2e'/>
+<circle cx='575' cy='127' r='5' fill='#0a7f2e'/>
+<line x1='640' y1='155' x2='575' y2='127' stroke='gray' stroke-width='1'/>
+<circle cx='511' cy='116' r='5' fill='#c08000'/>
+<line x1='575' y1='127' x2='511' y2='116' stroke='gray' stroke-width='1'/>
+<circle cx='446' cy='99' r='5' fill='#c08000'/>
+<line x1='511' y1='116' x2='446' y2='99' stroke='gray' stroke-width='1'/>
+<circle cx='382' cy='87' r='5' fill='#c08000'/>
+<line x1='446' y1='99' x2='382' y2='87' stroke='gray' stroke-width='1'/>
+<circle cx='317' cy='76' r='5' fill='#c08000'/>
+<line x1='382' y1='87' x2='317' y2='76' stroke='gray' stroke-width='1'/>
+<circle cx='253' cy='68' r='5' fill='#b00020'/>
+<line x1='317' y1='76' x2='253' y2='68' stroke='gray' stroke-width='1'/>
+<circle cx='188' cy='64' r='5' fill='#b00020'/>
+<line x1='253' y1='68' x2='188' y2='64' stroke='gray' stroke-width='1'/>
+<circle cx='124' cy='61' r='5' fill='#b00020'/>
+<line x1='188' y1='64' x2='124' y2='61' stroke='gray' stroke-width='1'/>
+<circle cx='60' cy='60' r='5' fill='#b00020'/>
+<line x1='124' y1='61' x2='60' y2='60' stroke='gray' stroke-width='1'/>
+<text x='640' y='356' text-anchor='middle' font-size='11'>-3.0</text>
+<text x='575' y='356' text-anchor='middle' font-size='11'>-4.0</text>
+<text x='511' y='356' text-anchor='middle' font-size='11'>-5.0</text>
+<text x='446' y='356' text-anchor='middle' font-size='11'>-6.0</text>
+<text x='382' y='356' text-anchor='middle' font-size='11'>-7.0</text>
+<text x='317' y='356' text-anchor='middle' font-size='11'>-8.0</text>
+<text x='253' y='356' text-anchor='middle' font-size='11'>-9.0</text>
+<text x='188' y='356' text-anchor='middle' font-size='11'>-10.0</text>
+<text x='124' y='356' text-anchor='middle' font-size='11'>-11.0</text>
+<text x='60' y='356' text-anchor='middle' font-size='11'>-12.0</text>
+<text x='350' y='390' text-anchor='middle' font-size='13'>SNR (dB)</text>
+<text x='20' y='200' font-size='13' transform='rotate(-90 20 200)'>BER (log)</text>
+</svg>
+<h2>포인트별 상세 측정값</h2>
+<table>
+<tr><th>SNR(dB)</th><th>Trials</th><th>Decode Fail</th><th>Errors</th><th>BER</th><th>CI Lo</th><th>CI Hi</th><th>Link Avail</th></tr>
+<tr><td class='param'>-3.0</td><td>1000</td><td>9</td><td>576</td><td>9.000e-03</td><td>8.283e-03</td><td>9.762e-03</td><td class='ok'>99.1%</td></tr>
+<tr><td class='param'>-4.0</td><td>1000</td><td>35</td><td>2240</td><td>3.500e-02</td><td>3.359e-02</td><td>3.645e-02</td><td class='ok'>96.5%</td></tr>
+<tr><td class='param'>-5.0</td><td>1000</td><td>61</td><td>3904</td><td>6.100e-02</td><td>5.916e-02</td><td>6.288e-02</td><td class='warn'>93.9%</td></tr>
+<tr><td class='param'>-6.0</td><td>1000</td><td>140</td><td>8960</td><td>1.400e-01</td><td>1.373e-01</td><td>1.427e-01</td><td class='warn'>86.0%</td></tr>
+<tr><td class='param'>-7.0</td><td>1000</td><td>262</td><td>16768</td><td>2.620e-01</td><td>2.586e-01</td><td>2.654e-01</td><td class='warn'>73.8%</td></tr>
+<tr><td class='param'>-8.0</td><td>1000</td><td>450</td><td>28800</td><td>4.500e-01</td><td>4.461e-01</td><td>4.539e-01</td><td class='warn'>55.0%</td></tr>
+<tr><td class='param'>-9.0</td><td>1000</td><td>660</td><td>42240</td><td>6.600e-01</td><td>6.563e-01</td><td>6.637e-01</td><td class='fail'>34.0%</td></tr>
+<tr><td class='param'>-10.0</td><td>1000</td><td>801</td><td>51264</td><td>8.010e-01</td><td>7.979e-01</td><td>8.041e-01</td><td class='fail'>19.9%</td></tr>
+<tr><td class='param'>-11.0</td><td>1000</td><td>919</td><td>58816</td><td>9.190e-01</td><td>9.169e-01</td><td>9.211e-01</td><td class='fail'>8.1%</td></tr>
+<tr><td class='param'>-12.0</td><td>1000</td><td>956</td><td>61184</td><td>9.560e-01</td><td>9.544e-01</td><td>9.576e-01</td><td class='fail'>4.4%</td></tr>
+</table>
+<h2>자가 검증 (Sanity Check)</h2>
+<table>
+<tr><th>검증 항목</th><th>결과</th></tr>
+<tr><td>Noise generation</td><td class='ok'>PASS</td></tr>
+<tr><td>BER aggregation</td><td class='ok'>PASS</td></tr>
+<tr><td>CI reasonableness</td><td class='ok'>PASS</td></tr>
+<tr><td>Link monotonic</td><td class='ok'>PASS</td></tr>
+</table>
+<hr>
+<p><small>HTS B-CDMA Phase 3 Report — S1_CLIFF</small></p>
+</body></html>

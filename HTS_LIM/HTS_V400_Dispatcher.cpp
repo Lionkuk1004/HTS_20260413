@@ -9,6 +9,18 @@
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h" // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
+#if defined(HTS_HARQ_DIAG)
+#include "HTS_HARQ_Diag.hpp"
+#endif
+#if defined(HTS_AMP_DIAG)
+#include "HTS_Amp_Diag.hpp"
+#endif
+#if defined(HTS_SYNC_DIAG)
+#include "HTS_Sync_Diag.hpp"
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+#include "HTS_Walsh_Row_Diag.hpp"
+#endif
 #include <climits>
 #include <cstdio>
 #include <cstring>
@@ -1442,6 +1454,11 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             on_pkt_(pkt);
         }
         rx_seq_++;
+#if defined(HTS_HARQ_DIAG)
+        HARQ_Diag::note_packet_finished(
+            1u, static_cast<uint32_t>(max_harq_),
+            static_cast<uint32_t>(pkt.success_mask != 0u));
+#endif
         full_reset_();
     } else if (cur_mode_ == PayloadMode::VIDEO_16 ||
                cur_mode_ == PayloadMode::VOICE) {
@@ -1491,9 +1508,14 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
         const uint32_t harq_ex =
             static_cast<uint32_t>(harq_round_ >= max_harq_);
         // 연속모드에서는 harq 소진을 하네스 외부(feeds 루프)에서 관리
-        // max_harq_는 DATA_K(32)로 통일하여 VOICE도 32라운드 누적 허용
+        // max_harq_는 DATA_K(800)로 통일
         const uint32_t finish = dec_ok | harq_ex;
         if (finish != 0u) {
+#if defined(HTS_HARQ_DIAG)
+            HARQ_Diag::note_packet_finished(
+                static_cast<uint32_t>(harq_round_),
+                static_cast<uint32_t>(max_harq_), dec_ok);
+#endif
             if (dec_ok != 0u) {
                 harq_feedback_seed_(pkt.data, pkt.data_len, 16, il);
             }
@@ -1598,6 +1620,11 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             static_cast<uint32_t>(harq_round_ >= max_harq_);
         const uint32_t finish = dec_ok | harq_ex;
         if (finish != 0u) {
+#if defined(HTS_HARQ_DIAG)
+            HARQ_Diag::note_packet_finished(
+                static_cast<uint32_t>(harq_round_),
+                static_cast<uint32_t>(max_harq_), dec_ok);
+#endif
             if (dec_ok != 0u) {
                 if (!ir_mode_) {
                     rx_.m64_I.ok = true;
@@ -2792,6 +2819,48 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
     }
 
+#if defined(HTS_WALSH_ROW_DIAG) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    // accum 은 3블록 중 임의 조합(8×8 vs coherent)에서 나올 수 있어,
+    // 승리 off 의 "첫 64칩"만 FWHT 하면 에너지가 0인 채로 남는 경우가 있다.
+    // 계측: best_off 에서 사용 가능한 각 64칩 블록을 FWHT 한 뒤,
+    // row-peak 가 가장 큰 블록의 64-bin 에너지를 기록 (판정 로직 무변경).
+    if (best_off >= 0) {
+        const int off = best_off;
+        const int nblk = ((off + 128 + 63) < 192) ? 3 : 2;
+        alignas(32) int32_t wdiag_TI[64];
+        alignas(32) int32_t wdiag_TQ[64];
+        int64_t wdiag_e_arr[64]{};
+        int64_t pick_peak = -1;
+        for (int b = 0; b < nblk; ++b) {
+            const int base = off + (b << 6);
+            for (int i = 0; i < 64; ++i) {
+                wdiag_TI[i] = static_cast<int32_t>(p0_buf128_I_[base + i]);
+                wdiag_TQ[i] = static_cast<int32_t>(p0_buf128_Q_[base + i]);
+            }
+            fwht_64_complex_inplace_(wdiag_TI, wdiag_TQ);
+            int64_t blk_peak = 0;
+            int64_t e_row[64];
+            for (int r = 0; r < 64; ++r) {
+                const int64_t e =
+                    static_cast<int64_t>(wdiag_TI[r]) * wdiag_TI[r] +
+                    static_cast<int64_t>(wdiag_TQ[r]) * wdiag_TQ[r];
+                e_row[r] = e;
+                if (e > blk_peak) {
+                    blk_peak = e;
+                }
+            }
+            if (blk_peak > pick_peak) {
+                pick_peak = blk_peak;
+                for (int r = 0; r < 64; ++r) {
+                    wdiag_e_arr[r] = e_row[r];
+                }
+            }
+        }
+        WalshRowDiag::record_row_energies(wdiag_e_arr);
+    }
+#endif
+
     const int64_t sum_others = sum_all - static_cast<int64_t>(best_e63);
 
     // r_avg >= 5: (best<<6)-best >= (so<<3)+(so<<1)+(so) = so*5...
@@ -2841,6 +2910,11 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
 
     const bool pass = (best_off >= 0 && r_avg_ok &&
                        best_e63 >= e63_min && sep_ok);
+
+#if defined(HTS_SYNC_DIAG)
+    SyncDiag::record_scan(best_off, static_cast<int64_t>(best_e63),
+                          static_cast<int64_t>(second_e63), pass);
+#endif
 
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
     !defined(HTS_TARGET_AMI)
@@ -3118,6 +3192,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 }
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+#if defined(HTS_AMP_DIAG)
+    AmpDiag::record_chip(rx_I, rx_Q);
+#endif
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
     !defined(HTS_TARGET_AMI)
     static int s_lab_feed_chip_idx = 0;
@@ -3841,7 +3918,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     pay_recv_ = 0;
                     v1_idx_ = 0;
                     sym_idx_ = 0;
-                    max_harq_ = FEC_HARQ::DATA_K; // 모든 모드에서 32
+                    max_harq_ = FEC_HARQ::DATA_K; // =800 (구 주석 "32"와 불일치 정리)
                     set_phase_(RxPhase::READ_PAYLOAD);
                     buf_idx_ = 0;
                     // [Walsh_Row_Permuter] 헤더 완료 후 payload 직전 — TX Build_Packet
@@ -3958,7 +4035,7 @@ void HTS_V400_Dispatcher::Inject_Payload_Phase(PayloadMode mode,
 
     pay_recv_ = 0;
     sym_idx_ = 0;
-    max_harq_ = FEC_HARQ::DATA_K;
+    max_harq_ = FEC_HARQ::DATA_K; // 800
     phase_ = RxPhase::READ_PAYLOAD;
     buf_idx_ = 0;
 

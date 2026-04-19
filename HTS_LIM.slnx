@@ -7,6 +7,7 @@
     <File Path="tools/trng_analyze.py" />
   </Folder>
   <Project Path="CFO_TEST/CFO_TEST.vcxproj" Id="188bce9b-0ab1-4832-841c-b3abfb23605b" />
+  <Project Path="HTS_Jammer_STD/HTS_Jammer_STD.vcxproj" Id="5ad046b2-70b7-4e89-adb8-2dfe3d0ca62b" />
   <Project Path="HTS_LIM/HTS_LIM.vcxproj" Id="9bd2f8c7-315e-4373-83d5-3357f259718e" />
   <Project Path="HTS_TEST/HTS_검증_AMI.vcxproj" Id="c3d4e5f6-a7b8-9012-cdef-123456789012" />
   <Project Path="HTS_TEST/HTS_검증_AMI_Barrage30_Spec.vcxproj" Id="d5e6f708-d0e1-2345-f012-456789012345" />

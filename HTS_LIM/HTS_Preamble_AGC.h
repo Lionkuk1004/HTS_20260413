@@ -12,6 +12,15 @@
 
 #include <cstdint>
 
+// 실험용: AGC 출력 추가 스케일 (시프트 이후 int16 클램프 직전).
+// 기본 256/256 = 기존 동작. 예: 128/256 = 0.5배 (포화 완화 시도).
+#ifndef HTS_AGC_GAIN_SCALE_NUM
+#define HTS_AGC_GAIN_SCALE_NUM 256
+#endif
+#ifndef HTS_AGC_GAIN_SCALE_DEN
+#define HTS_AGC_GAIN_SCALE_DEN 256
+#endif
+
 namespace ProtectedEngine {
 
 class HTS_Preamble_AGC {
@@ -85,18 +94,30 @@ inline void HTS_Preamble_AGC::Set_From_Peak(int32_t peak_mag) noexcept {
 }
 
 inline void HTS_Preamble_AGC::Apply(int16_t& chipI, int16_t& chipQ) const noexcept {
-    if (gain_shift_ == 0) return;
-
-    // shift 증폭 + 포화
-    int32_t vi = static_cast<int32_t>(chipI) << gain_shift_;
-    int32_t vq = static_cast<int32_t>(chipQ) << gain_shift_;
-
-    // 클램프
-    if (vi > 32767) vi = 32767;
-    if (vi < -32768) vi = -32768;
-    if (vq > 32767) vq = 32767;
-    if (vq < -32768) vq = -32768;
-
+    int32_t vi = static_cast<int32_t>(chipI);
+    int32_t vq = static_cast<int32_t>(chipQ);
+    if (gain_shift_ > 0) {
+        vi <<= gain_shift_;
+        vq <<= gain_shift_;
+    }
+    const int64_t num = static_cast<int64_t>(HTS_AGC_GAIN_SCALE_NUM);
+    const int64_t den = static_cast<int64_t>(HTS_AGC_GAIN_SCALE_DEN);
+    if (den != 0) {
+        vi = static_cast<int32_t>((static_cast<int64_t>(vi) * num) / den);
+        vq = static_cast<int32_t>((static_cast<int64_t>(vq) * num) / den);
+    }
+    if (vi > 32767) {
+        vi = 32767;
+    }
+    if (vi < -32768) {
+        vi = -32768;
+    }
+    if (vq > 32767) {
+        vq = 32767;
+    }
+    if (vq < -32768) {
+        vq = -32768;
+    }
     chipI = static_cast<int16_t>(vi);
     chipQ = static_cast<int16_t>(vq);
 }

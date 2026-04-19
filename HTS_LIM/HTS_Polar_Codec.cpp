@@ -7,6 +7,9 @@
 // [제약] float 0, double 0, 나눗셈 0, try-catch 0, 힙 0
 // =============================================================================
 #include "HTS_Polar_Codec.h"
+#if defined(HTS_LLR_DIAG)
+#include "HTS_LLR_Diag.hpp"
+#endif
 #include <cstdint>
 #include <cstring>
 namespace ProtectedEngine {
@@ -544,6 +547,26 @@ bool HTS_Polar_Codec::Decode_SCL(const int16_t *llr, uint8_t *out,
     for (int i = 0; i < n_paths; ++i) {
         crc_pass[i] = scl_extract_and_crc(order[i], candidates[i]) ? 1 : 0;
     }
+#if defined(HTS_LLR_DIAG)
+    {
+        int found_pm = 0;
+        int32_t best_pm = 0;
+        for (int i = 0; i < n_paths; ++i) {
+            if (crc_pass[i]) {
+                const int32_t pm = scl_PM[order[i]];
+                if (found_pm == 0 || pm < best_pm) {
+                    best_pm = pm;
+                    found_pm = 1;
+                }
+            }
+        }
+        if (found_pm != 0) {
+            LLRDiag::record_llr(
+                LLRDiag::ObservePoint::POLAR_PM, best_pm,
+                static_cast<int32_t>(2147483647));
+        }
+    }
+#endif
     // PM 최소인 CRC 통과 경로 선택 (branchless 스캔)
     int32_t found = 0; // 아직 안 찾음
     for (int i = 0; i < n_paths; ++i) {
