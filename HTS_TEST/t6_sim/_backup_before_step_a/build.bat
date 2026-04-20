@@ -17,7 +17,7 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
    /I"." /I"..\..\HTS_LIM" ^
    /DHTS_ALLOW_HOST_BUILD /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
    /DHTS_FEC_POLAR_DISABLE /D_CRT_SECURE_NO_WARNINGS ^
-   /FeHTS_Harq_Matrix_Test.exe HTS_Harq_Matrix_Test.cpp HTS_V400_Dispatcher_Local.cpp /link /nologo
+   /FeHTS_Harq_Matrix_Test.exe HTS_Harq_Matrix_Test.cpp /link /nologo
 if errorlevel 1 goto :err
 
 echo [OK] Both binaries built successfully

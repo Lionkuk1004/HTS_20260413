@@ -9,9 +9,7 @@
 #error "[HTS_FATAL] PC 전용"
 #endif
 
-// [Step A] 로컬 Dispatcher 복사본 사용. 원본 (HTS_LIM/HTS_V400_Dispatcher.hpp) 은
-// HTS_T6_SIM_Test.cpp 가 그대로 사용 → T6 회귀 보호.
-#include "HTS_V400_Dispatcher_Local.hpp"
+#include "HTS_V400_Dispatcher.hpp"
 #include "HTS_Walsh_Row_Converter.hpp"
 #include "HTS_Jammer_STD.hpp"
 #include "HTS_Clopper_Pearson.hpp"
@@ -26,10 +24,10 @@
 #include <string>
 #include <vector>
 
+using ProtectedEngine::DecodedPacket;
 using ProtectedEngine::FEC_HARQ;
-using ProtectedEngineLocal::DecodedPacket;
-using ProtectedEngineLocal::HTS_V400_Dispatcher;
-using ProtectedEngineLocal::PayloadMode;
+using ProtectedEngine::HTS_V400_Dispatcher;
+using ProtectedEngine::PayloadMode;
 
 namespace {
 
@@ -510,5 +508,6 @@ int main() {
 #include "../../HTS_LIM/HTS_Walsh_Row_Converter.cpp"
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
 #include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher.cpp"
 #include "HTS_Session_Derive_Stub.cpp"
 #include "HTS_Jammer_STD.cpp"
