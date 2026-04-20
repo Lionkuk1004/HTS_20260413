@@ -3197,6 +3197,21 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 seed_dot_Q += dq;
             }
 #endif
+#ifdef HTS_WALSH_V5_PREAMBLE
+            // [Step B DIAG] v5 2블록 Walsh-row 시퀀스 매칭 score
+            // (기존 walsh63_dot_ seed 와 병렬 계산, 의사결정 비개입)
+            if (best_off + 128 <= 192) {
+                const int64_t v5_score = walsh_v5_score_2blk_(
+                    &p0_buf128_I_[best_off],
+                    &p0_buf128_Q_[best_off]);
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_TARGET_AMI)
+                std::printf(
+                    "[STAGE4-V5-2B] off=%d v5_score=%lld legacy_seed=(%d,%d)\n",
+                    best_off, static_cast<long long>(v5_score),
+                    seed_dot_I, seed_dot_Q);
+#endif
+            }
+#endif  // HTS_WALSH_V5_PREAMBLE
             est_I_ = seed_dot_I;
             est_Q_ = seed_dot_Q;
             est_count_ = 2;
