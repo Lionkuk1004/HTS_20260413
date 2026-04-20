@@ -1,0 +1,2 @@
+Extracted from stepDpre5_t6_final.log (full log gitignored, ~34MB):
+  정량 합계:  13839 /  15200 ( 91.0%) — 전체 BER: 0.08954
