@@ -1,8 +1,9 @@
 // =============================================================================
-// HTS_Harq_Matrix_Test.cpp — Phase 6 HARQ Matrix (t6_sim 베이스)
+// HTS_Harq_Matrix_Test.cpp — Phase C: FEC transition + 실제 HARQ 루프
 // =============================================================================
-// setup / build_tx / RX feed 경로는 HTS_T6_SIM_Test.cpp 와 동일 패턴.
-// 재밍은 HTS_Jammer_STD (SPEC_002). Clopper-Pearson 95% CI.
+// HTS_T6_SIM_Test.cpp 의 setup() 패턴. 재밍 HTS_Jammer_STD. Clopper-Pearson.
+// HARQ: HTS_MC_Runner 와 동일 — round0 Build_Packet+Feed_Chip,
+//       round>=1 Build_Retx+Feed_Retx_Chip.
 // =============================================================================
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM)
 #error "[HTS_FATAL] PC 전용"
@@ -36,13 +37,12 @@ static constexpr int kPreBoost = 1;
 static constexpr int kMaxC =
     2048 + (FEC_HARQ::NSYM64 + kPreReps + 4) * 64;
 static constexpr int kGuard = 256;
-static constexpr int kTrials = 10;
+static constexpr int kTrials = 100; // v8 Phase C
 static constexpr int kMaxHarq = 8;
 
 static DecodedPacket g_last{};
 static void on_pkt(const DecodedPacket &p) { g_last = p; }
 
-// HTS_T6_SIM_Test.cpp 와 동일 (회귀 경로 보존)
 static void setup(HTS_V400_Dispatcher &d, uint32_t seed) noexcept {
     d.Set_Seed(seed);
     d.Set_IR_Mode(true);
@@ -69,24 +69,6 @@ static void fill_info(uint32_t seed, int t, uint8_t *info) noexcept {
     }
 }
 
-struct TxPkt {
-    int16_t I[kMaxC];
-    int16_t Q[kMaxC];
-    uint8_t info[8];
-    int n;
-};
-
-static TxPkt build_tx(uint32_t ds, int t, bool is_voice) noexcept {
-    TxPkt pkt{};
-    HTS_V400_Dispatcher tx;
-    setup(tx, ds);
-    fill_info(ds, t, pkt.info);
-    const PayloadMode mode =
-        is_voice ? PayloadMode::VOICE : PayloadMode::DATA;
-    pkt.n = tx.Build_Packet(mode, pkt.info, 8, kAmp, pkt.I, pkt.Q, kMaxC);
-    return pkt;
-}
-
 struct TrialResult {
     bool crc_ok;
     int harq_k;
@@ -94,13 +76,60 @@ struct TrialResult {
     bool pre_sync;
     bool hdr_ok;
     bool decode_called;
+    int total_chips;
 };
 
-// RX: T6 feed_raw_ext 와 동일 (선행/후행 0칩 + Get_Phase 스모크 지표만 추가)
-static TrialResult feed_raw_harq(uint32_t ds, const int16_t *rxI,
-                                 const int16_t *rxQ, int n,
-                                 const uint8_t *expected,
-                                 int pre_guard = kGuard) noexcept {
+static void apply_jam_payload(int16_t *payI, int16_t *payQ, int pay_chips,
+                              int nsym, int chips_per_sym,
+                              HTS_Jammer_STD::ChannelType channel,
+                              double intensity, double P_s,
+                              std::mt19937 &rng_jam) noexcept {
+    using Ch = HTS_Jammer_STD::ChannelType;
+    using SP = HTS_Jammer_STD::StdParams;
+    switch (channel) {
+    case Ch::Clean:
+        break;
+    case Ch::AWGN:
+        HTS_Jammer_STD::Add_AWGN(payI, payQ, pay_chips, intensity, P_s,
+                                 rng_jam);
+        break;
+    case Ch::Barrage:
+        HTS_Jammer_STD::Add_Barrage(payI, payQ, pay_chips, intensity, P_s,
+                                    rng_jam);
+        break;
+    case Ch::CW:
+        HTS_Jammer_STD::Add_CW(payI, payQ, pay_chips, intensity, P_s,
+                               SP::CW_F_OFFSET_HZ, SP::F_CHIP_HZ, rng_jam);
+        break;
+    case Ch::Pulse:
+        HTS_Jammer_STD::Add_Pulse(payI, payQ, pay_chips, intensity, P_s,
+                                  SP::PULSE_DUTY, SP::PULSE_T_PERIOD,
+                                  SP::CW_F_OFFSET_HZ, SP::F_CHIP_HZ, rng_jam);
+        break;
+    case Ch::MultiTone:
+        HTS_Jammer_STD::Add_MultiTone(payI, payQ, pay_chips, intensity, P_s,
+                                       SP::MULTI_N_TONES, SP::F_CHIP_HZ,
+                                       SP::F_CHIP_HZ, rng_jam);
+        break;
+    case Ch::Swept:
+        HTS_Jammer_STD::Add_Swept(payI, payQ, pay_chips, intensity, P_s,
+                                  SP::SWEPT_F_START_HZ, SP::SWEPT_F_END_HZ,
+                                  SP::SWEPT_RATE_HZ_S, SP::F_CHIP_HZ, rng_jam);
+        break;
+    case Ch::Partial_Barrage:
+        HTS_Jammer_STD::Add_Partial_Barrage(payI, payQ, nsym, chips_per_sym,
+                                            intensity, SP::PARTIAL_JSR_DB, P_s,
+                                            rng_jam);
+        break;
+    }
+}
+
+// MC_Runner 패턴: R0=Build_Packet+Feed_Chip(+가드), R+=Build_Retx+Feed_Retx
+static TrialResult run_harq_trial(uint32_t ds, const uint8_t *info,
+                                    bool is_voice,
+                                    HTS_Jammer_STD::ChannelType channel,
+                                    double intensity,
+                                    std::mt19937 &rng_jam) noexcept {
     TrialResult r{};
     r.crc_ok = false;
     r.harq_k = kMaxHarq;
@@ -108,62 +137,128 @@ static TrialResult feed_raw_harq(uint32_t ds, const int16_t *rxI,
     r.pre_sync = false;
     r.hdr_ok = false;
     r.decode_called = false;
+    r.total_chips = 0;
 
-    g_last = DecodedPacket{};
+    HTS_V400_Dispatcher tx;
     HTS_V400_Dispatcher rx;
+    setup(tx, ds);
     setup(rx, ds);
 
-    int max_phase = 0;
-    auto bump = [&max_phase](int ph) {
+    const PayloadMode mode =
+        is_voice ? PayloadMode::VOICE : PayloadMode::DATA;
+    const int chips_per_sym = is_voice ? 16 : 64;
+    const int pay_off = (kPreReps + 1) * 64 + 128;
+    const int pre_guard = kGuard;
+
+    int max_phase_global = 0;
+    auto bump = [&max_phase_global](int ph) {
         if (ph < 3) {
-            if (ph > max_phase)
-                max_phase = ph;
-        } else if (max_phase < 2) {
-            max_phase = 2;
+            if (ph > max_phase_global)
+                max_phase_global = ph;
+        } else if (max_phase_global < 2) {
+            max_phase_global = 2;
         }
     };
 
-    for (int i = 0; i < pre_guard; ++i) {
-        rx.Feed_Chip(0, 0);
-        bump(static_cast<int>(rx.Get_Phase()));
-    }
-    for (int i = 0; i < n; ++i) {
-        rx.Feed_Chip(rxI[i], rxQ[i]);
-        bump(static_cast<int>(rx.Get_Phase()));
-    }
-    for (int i = 0; i < kGuard; ++i) {
-        rx.Feed_Chip(0, 0);
-        bump(static_cast<int>(rx.Get_Phase()));
-    }
+    int16_t I[kMaxC], Q[kMaxC];
 
-    r.pre_sync = (max_phase >= 1);
-    r.hdr_ok = (max_phase >= 2);
+    for (int round = 1; round <= kMaxHarq; ++round) {
+        g_last = DecodedPacket{};
 
-    const bool crc_pass =
-        (g_last.success_mask == DecodedPacket::DECODE_MASK_OK);
-    const bool len_ok = (g_last.data_len == 8);
-    r.decode_called = crc_pass;
-
-    if (crc_pass && len_ok) {
-        int bit_err = 0;
-        for (int b = 0; b < 8; ++b) {
-            uint8_t d = static_cast<uint8_t>(
-                static_cast<uint8_t>(g_last.data[b]) ^ expected[b]);
-            d = static_cast<uint8_t>(d - ((d >> 1) & 0x55u));
-            d = static_cast<uint8_t>((d & 0x33u) + ((d >> 2) & 0x33u));
-            d = static_cast<uint8_t>((d + (d >> 4)) & 0x0Fu);
-            bit_err += static_cast<int>(d);
+        int n = 0;
+        if (round == 1) {
+            n = tx.Build_Packet(mode, info, 8, kAmp, I, Q, kMaxC);
+        } else {
+            n = tx.Build_Retx(mode, info, 8, kAmp, I, Q, kMaxC);
         }
-        r.bit_errors = bit_err;
-        r.crc_ok = (bit_err == 0);
-        r.harq_k = 1;
+        if (n <= 0)
+            break;
+
+        int pay_start;
+        int pay_chips;
+        if (round == 1) {
+            pay_start = pay_off;
+            pay_chips = n - pay_off;
+        } else {
+            pay_start = 0;
+            pay_chips = n;
+        }
+        if (pay_chips <= 0)
+            break;
+
+        const int nsym = pay_chips / chips_per_sym;
+
+        double P_s = HTS_Jammer_STD::Measure_Signal_Power(
+            I + pay_start, Q + pay_start, pay_chips);
+        if (P_s <= 0.0)
+            P_s = 1.0;
+
+        apply_jam_payload(I + pay_start, Q + pay_start, pay_chips, nsym,
+                          chips_per_sym, channel, intensity, P_s, rng_jam);
+
+        if (round == 1) {
+            for (int i = 0; i < pre_guard; ++i) {
+                rx.Feed_Chip(0, 0);
+                bump(static_cast<int>(rx.Get_Phase()));
+            }
+            for (int i = 0; i < n; ++i) {
+                rx.Feed_Chip(I[i], Q[i]);
+                bump(static_cast<int>(rx.Get_Phase()));
+            }
+            for (int i = 0; i < kGuard; ++i) {
+                rx.Feed_Chip(0, 0);
+                bump(static_cast<int>(rx.Get_Phase()));
+            }
+            r.total_chips += pre_guard + n + kGuard;
+        } else {
+            for (int i = 0; i < pay_chips; ++i) {
+                rx.Feed_Retx_Chip(I[pay_start + i], Q[pay_start + i]);
+                bump(static_cast<int>(rx.Get_Phase()));
+            }
+            r.total_chips += pay_chips;
+        }
+
+        const bool crc_ok =
+            (g_last.success_mask == DecodedPacket::DECODE_MASK_OK);
+        const bool len_ok = (g_last.data_len == 8);
+        r.decode_called = r.decode_called || crc_ok;
+
+        if (crc_ok && len_ok) {
+            int bit_err = 0;
+            for (int b = 0; b < 8; ++b) {
+                uint8_t d = static_cast<uint8_t>(
+                    static_cast<uint8_t>(g_last.data[b]) ^ info[b]);
+                d = static_cast<uint8_t>(d - ((d >> 1) & 0x55u));
+                d = static_cast<uint8_t>((d & 0x33u) + ((d >> 2) & 0x33u));
+                d = static_cast<uint8_t>((d + (d >> 4)) & 0x0Fu);
+                bit_err += static_cast<int>(d);
+            }
+            r.bit_errors = bit_err;
+            if (bit_err == 0) {
+                r.crc_ok = true;
+                int hk = g_last.harq_k;
+                if (hk < 1)
+                    hk = 1;
+                if (hk > kMaxHarq)
+                    hk = kMaxHarq;
+                r.harq_k = hk;
+                break;
+            }
+        }
+
+        if (round == 1 && !rx.Is_Retx_Ready())
+            break;
     }
+
+    r.pre_sync = (max_phase_global >= 1);
+    r.hdr_ok = (max_phase_global >= 2);
     if (r.decode_called) {
         r.hdr_ok = true;
         r.pre_sync = true;
     }
     if (r.hdr_ok)
         r.pre_sync = true;
+
     return r;
 }
 
@@ -176,14 +271,20 @@ static std::vector<ChannelSpec> Build_Matrix() {
     using Ch = HTS_Jammer_STD::ChannelType;
     std::vector<ChannelSpec> m;
     m.push_back({Ch::Clean, {0.0}});
-    m.push_back({Ch::AWGN, {-20, -25, -30, -35, -40, -45, -50}});
-    m.push_back({Ch::Barrage, {5, 10, 15, 20, 25, 30, 35, 40, 45, 50}});
-    m.push_back({Ch::CW, {5, 10, 15, 20, 25, 30, 35, 40, 45, 50}});
+    m.push_back({Ch::AWGN,
+                 {-5, -6, -7, -8, -9, -10, -11, -12, -13, -14, -15, -16, -17,
+                  -18, -20}});
+    m.push_back({Ch::Barrage,
+                 {10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 22, 25}});
+    m.push_back({Ch::CW,
+                 {10, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 27, 30}});
+    m.push_back({Ch::MultiTone,
+                 {5, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24,
+                  25, 27, 30}});
+    m.push_back({Ch::Swept,
+                 {10, 15, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28}});
     m.push_back({Ch::Pulse, {10, 15, 20, 25, 30, 35, 40}});
-    m.push_back({Ch::MultiTone, {5, 10, 15, 20, 25, 30, 35, 40, 45, 50}});
-    m.push_back({Ch::Swept, {5, 10, 15, 20, 25, 30, 35, 40, 45, 50}});
-    m.push_back({Ch::Partial_Barrage,
-                 {5, 10, 15, 20, 25, 30, 35, 40, 45, 50}});
+    m.push_back({Ch::Partial_Barrage, {5, 10, 20, 30, 40, 50}});
     return m;
 }
 
@@ -197,15 +298,14 @@ struct CellResult {
     int hdr_count;
     int dec_count;
     double elapsed_ms;
-    // DIAG (trial 평균, 유효 trial만 누적)
-    double P_s_payload_avg;
-    double P_s_preamble_avg;
-    double P_after_jam_avg;
-    double jsr_measured_db;
+    double harq_k_avg;
+    int harq_k_max;
+    double latency_avg_chips;
+    int succ_at_k[9];
 };
 
 static uint64_t Derive_Cell_Seed(uint64_t base, bool use_ir, bool is_voice,
-                                  int ch_idx, double intensity) {
+                                 int ch_idx, double intensity) {
     uint64_t s = base;
     s ^= static_cast<uint64_t>(use_ir) * 0x0123456789ABCDEFull;
     s ^= static_cast<uint64_t>(is_voice) * 0xFEDCBA9876543210ull;
@@ -222,102 +322,32 @@ static CellResult Run_Cell(bool is_voice,
                            double intensity, uint64_t base_seed) {
     CellResult r{};
     r.total = kTrials;
+    for (int i = 0; i < 9; ++i)
+        r.succ_at_k[i] = 0;
+    r.harq_k_avg = 0.0;
+    r.harq_k_max = 0;
+    r.latency_avg_chips = 0.0;
+
     std::mt19937 rng_jam(static_cast<uint32_t>(base_seed ^ 0xBEEFCAFEull));
 
     int ok = 0, pre_c = 0, hdr_c = 0, dec_c = 0;
     long long total_be = 0;
-    int diag_trials = 0;
-    const auto t0 = std::chrono::steady_clock::now();
+    long long harq_k_sum = 0;
+    int harq_k_max_obs = 0;
+    long long total_chips_sum = 0;
+    int success_at_k[kMaxHarq + 1] = {0};
 
-    const int chips_per_sym = is_voice ? 16 : 64;
-    using SP = HTS_Jammer_STD::StdParams;
+    const auto t0 = std::chrono::steady_clock::now();
 
     for (int t = 0; t < kTrials; ++t) {
         const uint32_t ds =
             mk_seed(static_cast<uint32_t>(base_seed & 0xFFFFFFFFu), t);
-        auto tx = build_tx(ds, t, is_voice);
-        if (tx.n <= 0) {
-            total_be += 64;
-            continue;
-        }
+        uint8_t info[8];
+        fill_info(ds, t, info);
 
-        int16_t rI[kMaxC], rQ[kMaxC];
-        std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
-        std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
+        TrialResult tr =
+            run_harq_trial(ds, info, is_voice, channel, intensity, rng_jam);
 
-        const int pay_off = (kPreReps + 1) * 64 + 128;
-        const int pay_chips = tx.n - pay_off;
-        if (pay_chips <= 0) {
-            total_be += 64;
-            continue;
-        }
-        const int nsym = pay_chips / chips_per_sym;
-
-        double P_s = HTS_Jammer_STD::Measure_Signal_Power(
-            rI + pay_off, rQ + pay_off, pay_chips);
-        if (P_s <= 0.0)
-            P_s = 1.0;
-
-        const double P_pre =
-            HTS_Jammer_STD::Measure_Signal_Power(rI, rQ, pay_off);
-
-        using Ch = HTS_Jammer_STD::ChannelType;
-        switch (channel) {
-        case Ch::Clean:
-            break;
-        case Ch::AWGN:
-            HTS_Jammer_STD::Add_AWGN(rI + pay_off, rQ + pay_off, pay_chips,
-                                     intensity, P_s, rng_jam);
-            break;
-        case Ch::Barrage:
-            HTS_Jammer_STD::Add_Barrage(rI + pay_off, rQ + pay_off, pay_chips,
-                                        intensity, P_s, rng_jam);
-            break;
-        case Ch::CW:
-            HTS_Jammer_STD::Add_CW(rI + pay_off, rQ + pay_off, pay_chips,
-                                   intensity, P_s, SP::CW_F_OFFSET_HZ,
-                                   SP::F_CHIP_HZ, rng_jam);
-            break;
-        case Ch::Pulse:
-            HTS_Jammer_STD::Add_Pulse(
-                rI + pay_off, rQ + pay_off, pay_chips, intensity, P_s,
-                SP::PULSE_DUTY, SP::PULSE_T_PERIOD, SP::CW_F_OFFSET_HZ,
-                SP::F_CHIP_HZ, rng_jam);
-            break;
-        case Ch::MultiTone:
-            HTS_Jammer_STD::Add_MultiTone(
-                rI + pay_off, rQ + pay_off, pay_chips, intensity, P_s,
-                SP::MULTI_N_TONES, SP::F_CHIP_HZ, SP::F_CHIP_HZ, rng_jam);
-            break;
-        case Ch::Swept:
-            HTS_Jammer_STD::Add_Swept(
-                rI + pay_off, rQ + pay_off, pay_chips, intensity, P_s,
-                SP::SWEPT_F_START_HZ, SP::SWEPT_F_END_HZ, SP::SWEPT_RATE_HZ_S,
-                SP::F_CHIP_HZ, rng_jam);
-            break;
-        case Ch::Partial_Barrage:
-            HTS_Jammer_STD::Add_Partial_Barrage(
-                rI + pay_off, rQ + pay_off, nsym, chips_per_sym, intensity,
-                SP::PARTIAL_JSR_DB, P_s, rng_jam);
-            break;
-        }
-
-        const double P_after = HTS_Jammer_STD::Measure_Signal_Power(
-            rI + pay_off, rQ + pay_off, pay_chips);
-        const double P_jam_est =
-            (P_after > P_s) ? (P_after - P_s) : 0.0;
-        const double jsr_db =
-            (P_jam_est > 0.0 && P_s > 0.0)
-                ? (10.0 * std::log10(P_jam_est / P_s))
-                : -99.0;
-
-        r.P_s_payload_avg += P_s;
-        r.P_s_preamble_avg += P_pre;
-        r.P_after_jam_avg += P_after;
-        r.jsr_measured_db += jsr_db;
-        ++diag_trials;
-
-        TrialResult tr = feed_raw_harq(ds, rI, rQ, tx.n, tx.info);
         if (tr.crc_ok)
             ++ok;
         if (tr.pre_sync)
@@ -327,6 +357,14 @@ static CellResult Run_Cell(bool is_voice,
         if (tr.decode_called)
             ++dec_c;
         total_be += tr.bit_errors;
+
+        harq_k_sum += tr.harq_k;
+        if (tr.harq_k > harq_k_max_obs)
+            harq_k_max_obs = tr.harq_k;
+        total_chips_sum += tr.total_chips;
+        if (tr.crc_ok && tr.harq_k >= 1 && tr.harq_k <= kMaxHarq) {
+            ++success_at_k[tr.harq_k];
+        }
     }
 
     const auto t1 = std::chrono::steady_clock::now();
@@ -342,13 +380,15 @@ static CellResult Run_Cell(bool is_voice,
     auto ci = HTS_Clopper_Pearson::Compute(ok, kTrials, 0.05);
     r.ci_low = ci.p_lower;
     r.ci_high = ci.p_upper;
-    if (diag_trials > 0) {
-        const double nd = static_cast<double>(diag_trials);
-        r.P_s_payload_avg /= nd;
-        r.P_s_preamble_avg /= nd;
-        r.P_after_jam_avg /= nd;
-        r.jsr_measured_db /= nd;
-    }
+
+    r.harq_k_avg =
+        static_cast<double>(harq_k_sum) / static_cast<double>(kTrials);
+    r.harq_k_max = harq_k_max_obs;
+    r.latency_avg_chips =
+        static_cast<double>(total_chips_sum) / static_cast<double>(kTrials);
+    for (int k = 1; k <= kMaxHarq; ++k)
+        r.succ_at_k[k] = success_at_k[k];
+
     return r;
 }
 
@@ -369,19 +409,19 @@ int main() {
         per_mode += static_cast<int>(cs.intensities.size());
     const int total_cells = per_mode * 4;
 
-    std::printf("=== Phase 6 HARQ Matrix (t6_sim base) ===\n");
+    std::printf("=== Phase C HARQ Matrix (t6_sim base) ===\n");
     std::printf("N_MC=%d, total_cells=%d, total_trials=%d\n", kTrials,
                 total_cells, kTrials * total_cells);
     std::printf(
         "+------+---------+-------+-----------------+---------+-------+"
-        "-------------+-------+-------+-------+-------+----------+\n");
+        "-------------+-------+---------+----------+\n");
     std::printf("| %-4s | %-7s | %-5s | %-15s | %-7s | %-5s | %-11s | "
-                "%-5s | %-3s | %-3s | %-3s | %-8s |\n",
+                "%-5s | %-7s | %8s |\n",
                 "No.", "fec", "mode", "channel", "intens", "crc", "CI_95",
-                "BER", "pre", "hdr", "dec", "time_ms");
+                "BER", "harq", "time_ms");
     std::printf(
         "+------+---------+-------+-----------------+---------+-------+"
-        "-------------+-------+-------+-------+-------+----------+\n");
+        "-------------+-------+---------+----------+\n");
 
     std::FILE *fcsv = std::fopen("HARQ_Matrix_Results.csv", "wb");
     const unsigned char bom[3] = {0xEF, 0xBB, 0xBF};
@@ -389,7 +429,8 @@ int main() {
     std::fprintf(fcsv,
                  "fec_path,mode,channel,intensity_unit,intensity,"
                  "crc_ok,total,crc_rate,ci_low,ci_high,ber,pre,hdr,dec,"
-                 "P_s_pay,P_s_pre,P_after,jsr_meas_db,seed\n");
+                 "harq_k_avg,harq_k_max,latency_avg_chips,"
+                 "s_k1,s_k2,s_k3,s_k4,s_k5,s_k6,s_k7,s_k8,seed\n");
 
     int idx = 0;
     const uint64_t BASE_SEED = 0xDEADBEEFCAFEBABEull;
@@ -397,6 +438,7 @@ int main() {
 
     for (int f = 0; f < 2; ++f) {
         const bool use_ir = (f == 1);
+        (void)use_ir;
         for (int m = 0; m < 2; ++m) {
             const bool is_voice = (m == 1);
             int ch_idx = 0;
@@ -409,29 +451,26 @@ int main() {
                     CellResult rr =
                         Run_Cell(is_voice, cs.type, intens, seed);
 
-                    char crc_s[16], ci_s[24], pre_s[8], hdr_s[8], dec_s[8];
-                    std::snprintf(crc_s, sizeof(crc_s), "%2d/%2d", rr.crc_ok,
+                    char crc_s[20], ci_s[24], harq_s[24];
+                    std::snprintf(crc_s, sizeof(crc_s), "%3d/%3d", rr.crc_ok,
                                   rr.total);
                     std::snprintf(ci_s, sizeof(ci_s), "%.2f-%.2f", rr.ci_low,
                                   rr.ci_high);
-                    std::snprintf(pre_s, sizeof(pre_s), "%2d/%2d",
-                                  rr.pre_count, rr.total);
-                    std::snprintf(hdr_s, sizeof(hdr_s), "%2d/%2d",
-                                  rr.hdr_count, rr.total);
-                    std::snprintf(dec_s, sizeof(dec_s), "%2d/%2d",
-                                  rr.dec_count, rr.total);
+                    std::snprintf(harq_s, sizeof(harq_s), "%.2f/%d",
+                                  rr.harq_k_avg, rr.harq_k_max);
 
                     std::printf(
                         "| %4d | %-7s | %-5s | %-15s | %7.2f | %-5s | "
-                        "%-11s | %5.3f | %-3s | %-3s | %-3s | %8.0f |\n",
+                        "%-11s | %5.3f | %-7s | %8.0f |\n",
                         idx, FecName(use_ir), ModeName(is_voice),
                         HTS_Jammer_STD::Channel_Name(cs.type), intens, crc_s,
-                        ci_s, rr.ber, pre_s, hdr_s, dec_s, rr.elapsed_ms);
+                        ci_s, rr.ber, harq_s, rr.elapsed_ms);
 
                     std::fprintf(
                         fcsv,
                         "%s,%s,%s,%s,%.2f,%d,%d,%.6f,%.6f,%.6f,%.6f,%d,%d,%d,"
-                        "%.6f,%.6f,%.6f,%.6f,0x%016llx\n",
+                        "%.6f,%d,%.1f,"
+                        "%d,%d,%d,%d,%d,%d,%d,%d,0x%016llx\n",
                         FecName(use_ir), ModeName(is_voice),
                         HTS_Jammer_STD::Channel_Name(cs.type),
                         HTS_Jammer_STD::Channel_Unit(cs.type), intens,
@@ -439,9 +478,11 @@ int main() {
                         static_cast<double>(rr.crc_ok) /
                             static_cast<double>(rr.total),
                         rr.ci_low, rr.ci_high, rr.ber, rr.pre_count,
-                        rr.hdr_count, rr.dec_count,
-                        rr.P_s_payload_avg, rr.P_s_preamble_avg,
-                        rr.P_after_jam_avg, rr.jsr_measured_db,
+                        rr.hdr_count, rr.dec_count, rr.harq_k_avg,
+                        rr.harq_k_max, rr.latency_avg_chips,
+                        rr.succ_at_k[1], rr.succ_at_k[2], rr.succ_at_k[3],
+                        rr.succ_at_k[4], rr.succ_at_k[5], rr.succ_at_k[6],
+                        rr.succ_at_k[7], rr.succ_at_k[8],
                         static_cast<unsigned long long>(seed));
                     std::fflush(fcsv);
                     std::fflush(stdout);
@@ -453,7 +494,7 @@ int main() {
 
     std::printf(
         "+------+---------+-------+-----------------+---------+-------+"
-        "-------------+-------+-------+-------+-------+----------+\n");
+        "-------------+-------+---------+----------+\n");
     const auto t_end = std::chrono::steady_clock::now();
     std::printf("Elapsed: %.1f s\n",
                 std::chrono::duration<double>(t_end - t_all).count());
