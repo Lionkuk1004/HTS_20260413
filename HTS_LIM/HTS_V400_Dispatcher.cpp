@@ -326,6 +326,75 @@ static void fwht_raw(int32_t *d, int n) noexcept {
         }
     }
 }
+
+// ─────────────────────────────────────────────────────────────
+// [Step B] Walsh-row 시퀀스 매칭 프리앰블 검출 (v5, Python 검증)
+// 원리: 프리앰블이 [W7, W23, W45, W63] 4개 Walsh row 시퀀스로 구성.
+//   각 64-chip 블록 FWHT → 기대 row 의 complex 값 추출 → 블록 간 coherent sum
+//   score = |Σ_b F_b[seq[b]]|²
+// Python v25 실측 (변동 n=4000): 1D 89.1% → v5 91.2% (+2.1%p)
+// 특히 Swept 22dB/Multi 17dB 완전 회복 (Phase C 61%→100%)
+// ─────────────────────────────────────────────────────────────
+#ifdef HTS_WALSH_V5_PREAMBLE
+
+// 프리앰블 시퀀스 (Python 검증값)
+static constexpr uint8_t kV5_PreambleSeq[4] = {7u, 23u, 45u, 63u};
+
+/// @brief v5 Walsh-row 시퀀스 매칭 score 계산 (단일 offset, 4×64 chip)
+/// @note FWHT 는 기존 fwht_raw() 재사용 (ADD/SUB only, MUL-free)
+static int64_t walsh_v5_score_(const int16_t *buf_I,
+                               const int16_t *buf_Q) noexcept {
+    int32_t Z_I = 0;
+    int32_t Z_Q = 0;
+    for (int b = 0; b < 4; ++b) {
+        const int16_t *blk_I = &buf_I[b * 64];
+        const int16_t *blk_Q = &buf_Q[b * 64];
+        alignas(16) int32_t t_I[64];
+        alignas(16) int32_t t_Q[64];
+        for (int i = 0; i < 64; ++i) {
+            t_I[i] = static_cast<int32_t>(blk_I[i]);
+            t_Q[i] = static_cast<int32_t>(blk_Q[i]);
+        }
+        fwht_raw(t_I, 64);
+        fwht_raw(t_Q, 64);
+        const uint8_t r = kV5_PreambleSeq[b];
+        Z_I += t_I[r];
+        Z_Q += t_Q[r];
+    }
+    const int64_t zi64 = static_cast<int64_t>(Z_I);
+    const int64_t zq64 = static_cast<int64_t>(Z_Q);
+    return zi64 * zi64 + zq64 * zq64;
+}
+
+/// @brief v5 2-블록 축소 버전 (p0_buf128_I_/Q_ 192 chip 윈도우 내 128 chip)
+/// @note 실증용. 4블록 full 은 버퍼 256 chip 확장 후 사용.
+static int64_t walsh_v5_score_2blk_(const int16_t *buf_I,
+                                    const int16_t *buf_Q) noexcept {
+    static constexpr uint8_t seq2[2] = {kV5_PreambleSeq[0], kV5_PreambleSeq[1]};
+    int32_t Z_I = 0;
+    int32_t Z_Q = 0;
+    for (int b = 0; b < 2; ++b) {
+        const int16_t *blk_I = &buf_I[b * 64];
+        const int16_t *blk_Q = &buf_Q[b * 64];
+        alignas(16) int32_t t_I[64];
+        alignas(16) int32_t t_Q[64];
+        for (int i = 0; i < 64; ++i) {
+            t_I[i] = static_cast<int32_t>(blk_I[i]);
+            t_Q[i] = static_cast<int32_t>(blk_Q[i]);
+        }
+        fwht_raw(t_I, 64);
+        fwht_raw(t_Q, 64);
+        const uint8_t r = seq2[b];
+        Z_I += t_I[r];
+        Z_Q += t_Q[r];
+    }
+    const int64_t zi64 = static_cast<int64_t>(Z_I);
+    const int64_t zq64 = static_cast<int64_t>(Z_Q);
+    return zi64 * zi64 + zq64 * zq64;
+}
+
+#endif  // HTS_WALSH_V5_PREAMBLE
+
 //  스택 512B(sI[64]+sQ[64]) 제거, dec_wI_/dec_wQ_ 멤버 재활용
 alignas(64) static const int16_t k_walsh_dummy_iq_[64] = {};
 // ── Walsh 피크 탐색: I²+Q² 에너지 (위상 불변, RF 90° 회전에도 신호 소멸 없음) ──
