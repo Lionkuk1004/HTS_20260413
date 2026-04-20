@@ -45,9 +45,9 @@ static constexpr int kMaxHarq = 8;
 static DecodedPacket g_last{};
 static void on_pkt(const DecodedPacket &p) { g_last = p; }
 
-static void setup(HTS_V400_Dispatcher &d, uint32_t seed) noexcept {
+static void setup(HTS_V400_Dispatcher &d, uint32_t seed, bool use_ir) noexcept {
     d.Set_Seed(seed);
-    d.Set_IR_Mode(true);
+    d.Set_IR_Mode(use_ir);
     d.Set_Preamble_Boost(kPreBoost);
     d.Set_Preamble_Reps(kPreReps);
     d.Set_Packet_Callback(on_pkt);
@@ -131,7 +131,8 @@ static TrialResult run_harq_trial(uint32_t ds, const uint8_t *info,
                                     bool is_voice,
                                     HTS_Jammer_STD::ChannelType channel,
                                     double intensity,
-                                    std::mt19937 &rng_jam) noexcept {
+                                    std::mt19937 &rng_jam,
+                                    bool use_ir) noexcept {
     TrialResult r{};
     r.crc_ok = false;
     r.harq_k = kMaxHarq;
@@ -143,8 +144,8 @@ static TrialResult run_harq_trial(uint32_t ds, const uint8_t *info,
 
     HTS_V400_Dispatcher tx;
     HTS_V400_Dispatcher rx;
-    setup(tx, ds);
-    setup(rx, ds);
+    setup(tx, ds, use_ir);
+    setup(rx, ds, use_ir);
 
     const PayloadMode mode =
         is_voice ? PayloadMode::VOICE : PayloadMode::DATA;
@@ -321,7 +322,7 @@ static uint64_t Derive_Cell_Seed(uint64_t base, bool use_ir, bool is_voice,
 
 static CellResult Run_Cell(bool is_voice,
                            HTS_Jammer_STD::ChannelType channel,
-                           double intensity, uint64_t base_seed) {
+                           double intensity, uint64_t base_seed, bool use_ir) {
     CellResult r{};
     r.total = kTrials;
     for (int i = 0; i < 9; ++i)
@@ -348,7 +349,8 @@ static CellResult Run_Cell(bool is_voice,
         fill_info(ds, t, info);
 
         TrialResult tr =
-            run_harq_trial(ds, info, is_voice, channel, intensity, rng_jam);
+            run_harq_trial(ds, info, is_voice, channel, intensity, rng_jam,
+                           use_ir);
 
         if (tr.crc_ok)
             ++ok;
@@ -440,7 +442,6 @@ int main() {
 
     for (int f = 0; f < 2; ++f) {
         const bool use_ir = (f == 1);
-        (void)use_ir;
         for (int m = 0; m < 2; ++m) {
             const bool is_voice = (m == 1);
             int ch_idx = 0;
@@ -451,7 +452,7 @@ int main() {
                         Derive_Cell_Seed(BASE_SEED, use_ir, is_voice, ch_idx,
                                          intens);
                     CellResult rr =
-                        Run_Cell(is_voice, cs.type, intens, seed);
+                        Run_Cell(is_voice, cs.type, intens, seed, use_ir);
 
                     char crc_s[20], ci_s[24], harq_s[24];
                     std::snprintf(crc_s, sizeof(crc_s), "%3d/%3d", rr.crc_ok,
