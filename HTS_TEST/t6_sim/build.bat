@@ -1,6 +1,7 @@
 @echo off
 del /F /Q *.obj 2>nul
 del /F /Q HTS_T6_SIM_Test.exe 2>nul
+del /F /Q HTS_T6_SIM_Test_V5.exe 2>nul
 del /F /Q HTS_Harq_Matrix_Test.exe 2>nul
 del /F /Q HTS_Harq_Matrix_Test_V5.exe 2>nul
 
@@ -10,6 +11,16 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
    /DHTS_ALLOW_HOST_BUILD /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
    /DHTS_FEC_POLAR_DISABLE /DHTS_DIAG_PRINTF /D_CRT_SECURE_NO_WARNINGS ^
    /FeHTS_T6_SIM_Test.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
+   ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp /link /nologo
+if errorlevel 1 goto :err
+
+REM -- 1b. T6 SIM + v5 DIAG (메인 Dispatcher HTS_WALSH_V5_PREAMBLE; 회귀 비교용)
+cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
+   /I"." /I"..\..\HTS_LIM" ^
+   /DHTS_ALLOW_HOST_BUILD /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
+   /DHTS_FEC_POLAR_DISABLE /DHTS_DIAG_PRINTF /DHTS_WALSH_V5_PREAMBLE ^
+   /D_CRT_SECURE_NO_WARNINGS ^
+   /FeHTS_T6_SIM_Test_V5.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
    ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp /link /nologo
 if errorlevel 1 goto :err
 
@@ -30,7 +41,7 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
    /FeHTS_Harq_Matrix_Test_V5.exe HTS_Harq_Matrix_Test.cpp HTS_V400_Dispatcher_Local.cpp /link /nologo
 if errorlevel 1 goto :err
 
-echo [OK] T6 + HARQ Matrix (OFF) + HARQ Matrix V5 (ON) built successfully
+echo [OK] T6 + T6_V5 + HARQ Matrix (OFF) + HARQ Matrix V5 (ON) built successfully
 goto :eof
 
 :err
