@@ -19,7 +19,7 @@
 #define HTS_FEC_IR_FWHT_DUMP_MAX 3
 #endif
 #endif
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
 #include "HTS_DWT_Profiler.h"
 #endif
 #if defined(HTS_LLR_DIAG)
@@ -491,7 +491,7 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
     int32_t raw[BPS64_MAX]{};
     for (int b = 0; b < bps; ++b) {
         const int sh_bit = bps - 1 - b;
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
         // Max-Log-MAP: max(corr|bit=0) - max(corr|bit=1) — Sum 대비 잡음 빈 누적 완화
         int32_t pos_max = INT32_MIN;
         int32_t neg_max = INT32_MIN;
@@ -543,7 +543,7 @@ void FEC_HARQ::Bin_To_LLR(const int32_t *fI, const int32_t *fQ, int nc, int bps,
     // max|raw| ≈ valid × max|corr|; 시프트 후 tpe_clamp_llr 범위 내
     // UDIV 제거 → ARM 사이클 절감
     for (int b = 0; b < bps; ++b) {
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
         // Polar용: >>10 (SCL min-sum 해상도 확보)
         // ±38400 >> 10 = ±37, HARQ 32R 누적 = ±1184 < int16 ✓
         llr[b] = raw[b] >> 10;
@@ -677,7 +677,7 @@ void FEC_HARQ::Deinterleave(int16_t *I, int16_t *Q, const uint8_t *p,
         Q[i] = tQ[i];
     }
 }
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
 // Polar(512,80) 인코딩 + 688 cyclic repetition → 심볼 배열 (64칩 전용)
 static int polar_encode_to_syms(const uint8_t *info, int len, uint8_t *syms,
                                 int bps, int nsym) noexcept {
@@ -915,7 +915,7 @@ bool FEC_HARQ::Decode16(const RxState16 &s, uint8_t *out, int *len, uint32_t il,
 // ── 64칩 래퍼 ──
 int FEC_HARQ::Encode64(const uint8_t *info, int len, uint8_t *syms, uint32_t il,
                        WorkBuf &wb) noexcept {
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
     (void)il;
     (void)wb;
     return polar_encode_to_syms(info, len, syms, BPS64, NSYM64);
@@ -949,7 +949,7 @@ int FEC_HARQ::Encode64_A(const uint8_t *info, int len, uint8_t *syms,
         return 0;
     if (nsym_for_bps(bps) > NSYM64)
         return 0;
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
     (void)il;
     (void)wb;
     return polar_encode_to_syms(info, len, syms, bps, nsym_for_bps(bps));
@@ -1091,7 +1091,7 @@ int FEC_HARQ::Encode64_IR(const uint8_t *info, int len, uint8_t *syms,
     const int ns = nsym_for_bps(bps);
     if (ns > NSYM64)
         return 0;
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
     (void)wb;
     (void)il_seed;
     (void)rv;
@@ -1281,7 +1281,7 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 static_cast<int32_t>(in_range);
         }
     }
-#if defined(HTS_FEC_POLAR_ENABLE)
+#if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
     (void)il_seed;
     (void)rv;
     // ── P0-FIX-004: Polar 경로 위상 독립화 ──

@@ -1,0 +1,17 @@
+Step D-1-1 — Encode64_A 전처리 발췌 (Matrix 플래그: /DHTS_FEC_POLAR_DISABLE 포함)
+
+A) build.bat Matrix 블록(2번) — 이미 /DHTS_FEC_POLAR_DISABLE 있었음.
+
+B) cpp 수정 전(git T6_SIM_BEFORE_STEP_D1) + 위 플래그로 cl /E:
+   Encode64_A 본문이 polar_encode_to_syms 로 전개됨 (DISABLE 무시).
+
+C) cpp 수정 후 + 동일 플래그로 cl /E (preproc_fec_harq_d1.cpp, 로컬만 보관 가능):
+   Encode64_A 본문이 return Encode_Core(...) 만 남음 — Conv 축.
+
+발췌 B (fec_harq_before_d1.cpp 전처리, 라인 근처):
+  (void)il;
+  (void)wb;
+  return polar_encode_to_syms(info, len, syms, bps, nsym_for_bps(bps));
+
+발췌 C (현재 HTS_FEC_HARQ.cpp 전처리):
+  return Encode_Core(info, len, syms, il, bps, nsym_for_bps(bps), wb);
