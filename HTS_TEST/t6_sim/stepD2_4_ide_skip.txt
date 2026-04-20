@@ -1,0 +1,1 @@
+[D-2-4] VS IDE 빌드: Cursor 환경에서 VS GUI 실행 불가 — CLI build.bat + HTS_T6_SIM_Test.exe 로만 검증.
