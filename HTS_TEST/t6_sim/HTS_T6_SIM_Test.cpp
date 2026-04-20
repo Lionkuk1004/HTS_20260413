@@ -72,7 +72,7 @@ static constexpr int      kMaxC      = 2048 + (FEC_HARQ::NSYM64 + kPreReps + 4) 
 static constexpr int      kGuard     = 256;
 static constexpr double   kPi        = 3.14159265358979323846;
 static constexpr double   kChipRate  = 200000.0;
-static constexpr int      kTrials    = 20;  // 통계적 의미를 위해 20회
+static constexpr int      kTrials    = 100;  // [Step C-1] S3 LPI 측정용 통계 신뢰도 (20→100)
 
 // ═══════════════════════════════════════════════════════════════
 //  결과 수집 (루프 내 printf 금지 → 배열 누적)
