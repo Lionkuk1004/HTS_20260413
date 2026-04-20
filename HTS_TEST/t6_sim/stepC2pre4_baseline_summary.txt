@@ -1,0 +1,61 @@
+=================================================================
+Step C-2 적용 직전 Baseline 종합 (2026-04-19)
+=================================================================
+
+[T6 시뮬레이터]
+  Legacy 빌드: 13839 / 15200 (91.0% 표시; 비율 91.046%)
+  V5 빌드:     13839 / 15200 (91.0%)
+  V5 DIAG: Legacy와 정량 합계 동일 — 파이프라인 의사결정 영향 없음(관찰 전용 확인).
+
+[HARQ Matrix 매트릭스 측정]
+  전체 Chase: 44.56%
+  전체 IR:    40.69%
+  Δ(IR-Chase): -3.87%p
+
+  Easy (min>=90%) 구간:
+    cell: 40
+    Chase: 99.50%  IR: 99.28%
+
+  Moderate 박스 (양쪽 30~90%, easy/hard 제외):
+    cell: 8
+    Chase: 72.75%  IR: 63.50%  Δ(IR-Chase): -9.25%p
+
+  Moderate-B (한 축이라도 30~90%):
+    cell: 31
+    Chase: 72.84%  IR: 61.13%  Δ(IR-Chase): -11.71%p
+
+  Hard (max<30%):
+    cell: 80
+    Chase: 2.49%  IR: 2.30%
+
+  D-2 대비: Chase/IR/Moderate-B 수치 동일(재현).
+
+[S3 SNR 워터폴 v5 분포 — stepC2pre3 재측정, parser v2]
+  SNR (dB) | n_total | non_zero% | mean v5_score | corr_legacy
+  ---------|---------|-----------|-----------------|-------------
+      -30  |     112 |      93.8% |      6.914e+10 | -0.018
+      -25  |     137 |      78.8% |      6.653e+10 | -0.109
+      -20  |     126 |      69.8% |      1.576e+10 | -0.185
+      -15  |     136 |      69.1% |      7.160e+09 |  0.024
+      -10  |     115 |      36.5% |      2.060e+09 | -0.014
+       -5  |     104 |       7.7% |      1.705e+09 | -0.441
+       +0  |     100 |       0.0% |      0.000e+00 |  0.000
+       +5  |     100 |       0.0% |      0.000e+00 |  0.000
+      +10  |     100 |       0.0% |      0.000e+00 |  0.000
+
+  상세 CSV/TXT: stepC2pre3_s3_v5_stats.csv, stepC2pre3_s3_v5_stats.txt
+  원본 V5 전체 로그: stepC2pre3_t6_v5_full.log (로컬, git 미포함 권장)
+
+[빌드 상태]
+  T6 build.bat: Polar ON (DISABLE 미정의)
+  T6 vcxproj:   Polar ON (HTS_FEC_POLAR_DISABLE 제거, D-2 정합)
+  Matrix build: Polar OFF (/DHTS_FEC_POLAR_DISABLE)
+
+[git 상태]
+  branch: step_c1_s3_v5_lpi
+  tag: T6_SIM_BEFORE_STEP_C2_PRE (C2-Pre-0), T6_SIM_BASELINE_BEFORE_C2 (C2-Pre-5)
+
+[Step C-2 예측 메모]
+  저 SNR(-30~-10 dB): v5_score non-zero 비율·평균 큼 → Phase 0에 v5 matched filter 적용 시 개선 여지.
+  0/+5/+10 dB: v5_score 전부 0 — Clean 고SNR은 legacy 충분; 회귀 시 100% 유지 검증 포인트.
+  재밍 중간 SNR: Moderate 구간에서 v5 이득 기대, 단 legacy 합계는 이미 13839로 고정 목표.
