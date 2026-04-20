@@ -1304,7 +1304,11 @@ int main() {
 #include "../../HTS_LIM/HTS_FEC_HARQ.cpp"
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
 #include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
-#include "../../HTS_LIM/HTS_V400_Dispatcher.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Core.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Payload.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_TX.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Decode.cpp"
 #if defined(HTS_HARQ_DIAG)
 #include "../../HTS_LIM/HTS_HARQ_Diag.cpp"
 #endif

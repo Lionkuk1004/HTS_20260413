@@ -222,7 +222,19 @@
     <ClCompile Include="HTS_FEC_HARQ.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_V400_Dispatcher.cpp">
+    <ClCompile Include="HTS_V400_Dispatcher_Core.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_Sync.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_TX.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_Decode.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Holo_Tensor_Engine.cpp">
@@ -361,6 +373,36 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Walsh_Row_Permuter.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Walsh_Row_Converter.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Walsh_Row_Diag.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Sync_Diag.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Row_Consistency_Diag.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_LLR_Diag.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_HARQ_Diag.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_CW_Detect_Diag.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_CW_Excision.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_CW_LLR_Weight.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Amp_Diag.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -836,6 +878,42 @@
     <ClInclude Include="HTS_Walsh_Row_Permuter.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_V400_Dispatcher_Internal.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Walsh_Row_Converter.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Walsh_Row_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Sync_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Row_Consistency_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_LLR_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_HARQ_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_CW_Detect_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_CW_Excision.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_CW_LLR_Weight.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Amp_Diag.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_DWT_Profiler.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Hts session15 handoff · MD" />
@@ -855,5 +933,6 @@
     </None>
     <None Include=".audit_log.md" />
     <None Include="cpp.hint" />
+    <None Include="HTS_V400_Dispatcher.cpp.pre_split_backup" />
   </ItemGroup>
 </Project>

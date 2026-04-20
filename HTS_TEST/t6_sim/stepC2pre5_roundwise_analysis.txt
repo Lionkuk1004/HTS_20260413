@@ -1,0 +1,48 @@
+========================================================================
+Step C2-Pre5: Round-wise from HARQ_Matrix_Results_STEP_C2_PRE.csv
+Definition: s_kj = trials with CRC OK that finished at HARQ round j (HTS_Harq_Matrix_Test.cpp Run_Cell)
+========================================================================
+
+CHASE (fec_path=chase, mode=DATA)
+  rows=88 total_trials=8800 crc_ok_sum=6817 sum_s_k1..8=6817
+  finish_at_k=1: 6817 trials (77.4659% of all trials in these cells)
+  finish_at_k=2: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=3: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=4: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=5: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=6: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=7: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=8: 0 trials (0.0000% of all trials in these cells)
+  Cumulative success mass (sum s_k1..r) / total_trials:
+    r<=1: 6817/8800 = 77.4659%
+    r<=2: 6817/8800 = 77.4659%
+    r<=3: 6817/8800 = 77.4659%
+    r<=4: 6817/8800 = 77.4659%
+    r<=5: 6817/8800 = 77.4659%
+    r<=6: 6817/8800 = 77.4659%
+    r<=7: 6817/8800 = 77.4659%
+    r<=8: 6817/8800 = 77.4659%
+
+IR (fec_path=ir_harq, mode=DATA)
+  rows=88 total_trials=8800 crc_ok_sum=5411 sum_s_k1..8=5411
+  finish_at_k=1: 5411 trials (61.4886% of all trials in these cells)
+  finish_at_k=2: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=3: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=4: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=5: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=6: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=7: 0 trials (0.0000% of all trials in these cells)
+  finish_at_k=8: 0 trials (0.0000% of all trials in these cells)
+  Cumulative success mass (sum s_k1..r) / total_trials:
+    r<=1: 5411/8800 = 61.4886%
+    r<=2: 5411/8800 = 61.4886%
+    r<=3: 5411/8800 = 61.4886%
+    r<=4: 5411/8800 = 61.4886%
+    r<=5: 5411/8800 = 61.4886%
+    r<=6: 5411/8800 = 61.4886%
+    r<=7: 5411/8800 = 61.4886%
+    r<=8: 5411/8800 = 61.4886%
+
+Weighted DATA crc_rate: Chase 77.4659%  IR 61.4886%  delta -15.9773p
+
+Observation: s_k2..s_k8 sums are 0 for all DATA rows in this CSV => no successful multi-round decode counted.

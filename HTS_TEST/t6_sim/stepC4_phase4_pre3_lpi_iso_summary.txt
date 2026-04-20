@@ -1,0 +1,20 @@
+Step C-4b Phase 4-Pre-3 — Holo LPI ON vs OFF (V4-64 RealSync, Cov 50%, MF OFF, J/S -1/0/5, 100 trials/cell)
+Source: first clean console capture from HTS_FEC_Layer_Real_Sync_Test_LPIiso.exe (HTS_REAL_SYNC_LPI_ISO).
+
+TIM (timing LPI):
+  J/S   Holo ON CRC%   Holo OFF CRC%   delta (OFF-ON)   OFF avgR/maxR
+  -1      1.0           2.0             +1.0 pp          5.5 / 10
+   0      6.0           6.0              0.0 pp          1.0 / 1
+   5      0.0           2.0             +2.0 pp          1.0 / 1
+
+BOTH:
+  J/S   Holo ON CRC%   Holo OFF CRC%   delta (OFF-ON)   OFF avgR/maxR
+  -1      5.0           5.0              0.0 pp          1.0 / 1
+   0      4.0           4.0              0.0 pp          1.0 / 1
+   5      0.0           2.0             +2.0 pp          1.0 / 1
+
+Scenario: alpha-2 dominant — disabling Holo LPI does not materially restore payload CRC% at J/S=-1 (TIM -1: 1% vs 2%; BOTH unchanged). No alpha-1 style 80%+ lift.
+
+Notes:
+- Decode64_IR stderr lines may appear at top of console; ignore for metrics.
+- For full progress lines, re-run exe and tee to a UTF-8 terminal or save from IDE terminal.

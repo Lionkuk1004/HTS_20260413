@@ -181,12 +181,18 @@
   <ItemGroup>
     <ClCompile Include="aria050117.c" />
     <ClCompile Include="hmac.c" />
+    <ClCompile Include="HTS_Amp_Diag.cpp" />
     <ClCompile Include="HTS_CoAP_Engine.cpp" />
+    <ClCompile Include="HTS_CW_Detect_Diag.cpp" />
+    <ClCompile Include="HTS_CW_Excision.cpp" />
+    <ClCompile Include="HTS_CW_LLR_Weight.cpp" />
     <ClCompile Include="HTS_Device_Status_Reporter.cpp" />
     <ClCompile Include="HTS_Emergency_Beacon.cpp" />
+    <ClCompile Include="HTS_HARQ_Diag.cpp" />
     <ClCompile Include="HTS_IPC_Protocol.cpp" />
     <ClCompile Include="HTS_Key_Provisioning.cpp" />
     <ClCompile Include="HTS_KT_DSN_Adapter.cpp" />
+    <ClCompile Include="HTS_LLR_Diag.cpp" />
     <ClCompile Include="HTS_Location_Engine.cpp" />
     <ClCompile Include="HTS_Mesh_Router.cpp" />
     <ClCompile Include="HTS_Mesh_Sync.cpp" />
@@ -196,9 +202,11 @@
     <ClCompile Include="HTS_OTA_AMI_Manager.cpp" />
     <ClCompile Include="HTS_OTA_Manager.cpp" />
     <ClCompile Include="HTS_Priority_Scheduler.cpp" />
+    <ClCompile Include="HTS_Row_Consistency_Diag.cpp" />
     <ClCompile Include="HTS_Secure_Boot_Verify.cpp" />
     <ClCompile Include="HTS_Sensor_Aggregator.cpp" />
     <ClCompile Include="HTS_Sensor_Fusion.cpp" />
+    <ClCompile Include="HTS_Sync_Diag.cpp" />
     <ClCompile Include="HTS_Tamper_HAL.cpp" />
     <ClCompile Include="HTS64_Native_ECCM_Core.cpp" />
     <ClCompile Include="HTS_Dynamic_Fractal_Mapper.cpp">
@@ -299,8 +307,14 @@
     <ClCompile Include="HTS_Security_Pipeline.cpp" />
     <ClCompile Include="HTS_Unified_Scheduler.cpp" />
     <ClCompile Include="HTS_Universal_Adapter.cpp" />
-    <ClCompile Include="HTS_V400_Dispatcher.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Sync.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Decode.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_Voice_Codec_Bridge.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Converter.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Diag.cpp" />
     <ClCompile Include="HTS_Walsh_Row_Permuter.cpp" />
     <ClCompile Include="KISA_HMAC.c" />
     <ClCompile Include="KISA_SHA256.c" />
@@ -320,13 +334,20 @@
   <ItemGroup>
     <ClInclude Include="arm_arch.h" />
     <ClInclude Include="cpu_info.h" />
+    <ClInclude Include="HTS_Amp_Diag.hpp" />
     <ClInclude Include="HTS_Arm_Irq_Mask_Guard.h" />
     <ClInclude Include="HTS_Channel_Physics.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
+    <ClInclude Include="HTS_CW_Detect_Diag.hpp" />
+    <ClInclude Include="HTS_CW_Excision.hpp" />
+    <ClInclude Include="HTS_CW_LLR_Weight.hpp" />
     <ClInclude Include="HTS_Data_Loader.h" />
     <ClInclude Include="HTS_Device_Status_Reporter.h" />
+    <ClInclude Include="HTS_DWT_Profiler.h" />
     <ClInclude Include="HTS_Emergency_Beacon.h" />
+    <ClInclude Include="HTS_HARQ_Diag.hpp" />
     <ClInclude Include="HTS_Key_Provisioning.h" />
+    <ClInclude Include="HTS_LLR_Diag.hpp" />
     <ClInclude Include="HTS_Location_Engine.h" />
     <ClInclude Include="HTS_Mesh_Router.h" />
     <ClInclude Include="HTS_Mesh_Sync.h" />
@@ -335,11 +356,13 @@
     <ClInclude Include="HTS_OTA_AMI_Manager.h" />
     <ClInclude Include="HTS_Priority_Scheduler.h" />
     <ClInclude Include="HTS_Quantum_Key_Bridge.h" />
+    <ClInclude Include="HTS_Row_Consistency_Diag.hpp" />
     <ClInclude Include="HTS_Secure_Boot_Verify.h" />
     <ClInclude Include="HTS_Sensor_Aggregator.h" />
     <ClInclude Include="HTS_Sensor_Fusion.h" />
     <ClInclude Include="HTS_Server_Stress_Test.h" />
     <ClInclude Include="HTS_Storage_Adapter.hpp" />
+    <ClInclude Include="HTS_Sync_Diag.hpp" />
     <ClInclude Include="HTS_Tamper_HAL.h" />
     <ClInclude Include="HTS64_Native_ECCM_Core.hpp">
       <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
@@ -455,8 +478,11 @@
     <ClInclude Include="HTS_Types.h" />
     <ClInclude Include="HTS_Unified_Scheduler.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="HTS_V400_Dispatcher_Internal.hpp" />
     <ClInclude Include="HTS_Voice_Codec_Bridge.h" />
     <ClInclude Include="HTS_Voice_Codec_Bridge_Defs.h" />
+    <ClInclude Include="HTS_Walsh_Row_Converter.hpp" />
+    <ClInclude Include="HTS_Walsh_Row_Diag.hpp" />
     <ClInclude Include="HTS_Walsh_Row_Permuter.hpp" />
     <ClInclude Include="KISA_HMAC.h" />
     <ClInclude Include="KISA_SHA256.h" />
@@ -490,6 +516,7 @@
     <None Include="HTS_Storage_Adapter.def" />
     <None Include="HTS_Universal_Adapter.def" />
     <None Include="HTS_Universal_API.def" />
+    <None Include="HTS_V400_Dispatcher.cpp.pre_split_backup" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

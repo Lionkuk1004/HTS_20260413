@@ -71,6 +71,9 @@
 #include "HTS_CFO_Compensator.h"
 #include "HTS_TPC_Controller.h"
 #include "HTS_Preamble_AGC.h"
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+#include "HTS_Rx_Matched_Filter.h"
+#endif
 
 namespace ProtectedEngine {
 
@@ -289,6 +292,15 @@ namespace ProtectedEngine {
 
         /// @brief RF PLL 안정 슬롯 수(64칩 1심볼 분량)
         static constexpr int FHSS_SETTLE_CHIPS = 64;
+
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+        /// @brief Matched filter 프리앰블 힌트 경로 활성화 (기본: 비활성, 회귀 안전)
+        /// @note /DHTS_SYNC_USE_MATCHED_FILTER 빌드에서만 링크됨.
+        void Set_Matched_Filter_Sync(bool enable) noexcept;
+        [[nodiscard]] bool Get_Matched_Filter_Sync() const noexcept;
+        /// @brief 최근 MF 타이밍 추정 (정수 chip<<16 + PTE 소수 Q16)
+        [[nodiscard]] int32_t Get_Estimated_Timing_Offset_Q16() const noexcept;
+#endif
 
     private:
         RxPhase     phase_;             ///< 현재 RX 상태 (CFI 보호)
@@ -535,6 +547,37 @@ namespace ProtectedEngine {
 
         int32_t first_c63_ = 0; ///< FPR: preamble first m=63 energy
         int32_t m63_gap_ = 0;   ///< FPR: consecutive non-m63 gap count
+
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+        // ── Step C-4b: MF 프리앰블 힌트 (SRAM ~1.8 KiB 추가) ─────────────
+        static constexpr size_t kMF_RefChips    = 64u;
+        static constexpr size_t kMF_OffsetRange = 16u;
+        static constexpr size_t kMF_NumOffsets =
+            2u * kMF_OffsetRange + 1u; // 33
+        static constexpr size_t kMF_RecvBufLen =
+            kMF_RefChips + 2u * kMF_OffsetRange; // 96
+
+        HTS_Rx_Matched_Filter mf_engine_;
+        alignas(8) int32_t mf_ref_q16_[kMF_RefChips] = {};
+        alignas(8) int32_t mf_recv_I_q16_[kMF_RecvBufLen] = {};
+        alignas(8) int32_t mf_recv_Q_q16_[kMF_RecvBufLen] = {};
+        uint16_t             mf_recv_count_ = 0u;
+        alignas(8) int32_t mf_corr_I_[kMF_NumOffsets] = {};
+        alignas(8) int32_t mf_corr_Q_[kMF_NumOffsets] = {};
+        alignas(8) uint32_t mf_envelope_[kMF_NumOffsets] = {};
+        bool     mf_enabled_ = false;
+        bool     mf_ref_ready_ = false;
+        bool     mf_synced_ = false;
+        uint32_t mf_ref_rx_seq_ = 0xFFFFFFFFu;
+        int32_t  mf_estimated_offset_q16_ = 0;
+
+        void mf_generate_reference_(uint32_t rx_seq) noexcept;
+        [[nodiscard]] bool mf_feed_chip_(int16_t rx_I, int16_t rx_Q) noexcept;
+        [[nodiscard]] int32_t mf_pte_refine_(int peak_idx) const noexcept;
+        void                  mf_reset_() noexcept;
+        [[nodiscard]] static uint32_t mf_envelope_combine_(
+            int32_t corr_I, int32_t corr_Q) noexcept;
+#endif
 
         /// @brief Walsh 디코딩 결과 (심볼 + 에너지)
         struct SymDecResult {

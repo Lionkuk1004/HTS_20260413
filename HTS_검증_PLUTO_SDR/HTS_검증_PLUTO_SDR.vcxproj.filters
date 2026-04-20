@@ -24,7 +24,19 @@
     <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher.cpp">
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="..\HTS_TEST\t6_sim\HTS_Session_Derive_Stub.cpp">

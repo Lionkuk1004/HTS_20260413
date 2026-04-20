@@ -139,7 +139,11 @@
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp" />
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" />
     <ClCompile Include="..\HTS_TEST\t6_sim\HTS_Session_Derive_Stub.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp" />

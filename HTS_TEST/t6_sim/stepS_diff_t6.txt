@@ -1,0 +1,21 @@
+Comparing files stepS_pre_split_t6.log and STEPS_POST_SPLIT_T6.LOG
+***** stepS_pre_split_t6.log
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+    Endurance 10000 (10.2s)      10000/10000 100.0% [####################] PASS
+[AJC-STATE] anti_jam_engine_present=0 reason=removed_step3 notch_path=n/a iq_mode=0 ir_mode=0 lpi_on=0 p_metrics_bound=0 nf_q16
+***** STEPS_POST_SPLIT_T6.LOG
+[P0-SCAN] off=-1 e63=0 avg_o=0 r_avg=999 r_sep=999 emin=38000 sep=1
+    Endurance 10000 (12.4s)      10000/10000 100.0% [####################] PASS
+[AJC-STATE] anti_jam_engine_present=0 reason=removed_step3 notch_path=n/a iq_mode=0 ir_mode=0 lpi_on=0 p_metrics_bound=0 nf_q16
+*****
+
+***** stepS_pre_split_t6.log
+â  ì´ bit errors: 87104 / 972800                                   â
+â  ì´ ìì:   17.0s                                              â
+âââââââââââââââââââââââââââââââââââââââââââ
+***** STEPS_POST_SPLIT_T6.LOG
+â  ì´ bit errors: 87104 / 972800                                   â
+â  ì´ ìì:   19.8s                                              â
+âââââââââââââââââââââââââââââââââââââââââââ
+*****
+

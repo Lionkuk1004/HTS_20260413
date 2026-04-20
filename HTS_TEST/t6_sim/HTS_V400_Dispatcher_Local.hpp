@@ -78,6 +78,9 @@
 #include "HTS_TPC_Controller.h"
 #include "HTS_Preamble_AGC.h"
 #include "HTS_RF_Metrics.h"
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+#include "HTS_Rx_Matched_Filter.h"
+#endif
 
 namespace ProtectedEngineLocal {
 using ProtectedEngine::FEC_HARQ;
@@ -268,6 +271,10 @@ using ProtectedEngine::HTS_RF_Metrics;
         [[nodiscard]] int         Get_Current_BPS64()   const noexcept;
         /// @brief 현재 RX 상태 머신 단계 반환
         [[nodiscard]] RxPhase     Get_Phase()            const noexcept;
+        /// @brief WAIT_SYNC 내 프리앰블 서브단계(0/1) — PC 진단용
+        [[nodiscard]] int         Get_Pre_Phase()        const noexcept {
+            return pre_phase_;
+        }
         /// @brief 현재 페이로드 모드 반환
         [[nodiscard]] PayloadMode Get_Mode()             const noexcept;
         /// @brief VIDEO 모드 연속 실패 횟수 반환
@@ -299,6 +306,12 @@ using ProtectedEngine::HTS_RF_Metrics;
 
         /// @brief RF PLL 안정 슬롯 수(64칩 1심볼 분량)
         static constexpr int FHSS_SETTLE_CHIPS = 64;
+
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+        void Set_Matched_Filter_Sync(bool enable) noexcept;
+        [[nodiscard]] bool Get_Matched_Filter_Sync() const noexcept;
+        [[nodiscard]] int32_t Get_Estimated_Timing_Offset_Q16() const noexcept;
+#endif
 
     private:
         RxPhase     phase_;             ///< 현재 RX 상태 (CFI 보호)
@@ -545,6 +558,36 @@ using ProtectedEngine::HTS_RF_Metrics;
 
         int32_t first_c63_ = 0; ///< FPR: preamble first m=63 energy
         int32_t m63_gap_ = 0;   ///< FPR: consecutive non-m63 gap count
+
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+        static constexpr size_t kMF_RefChips    = 64u;
+        static constexpr size_t kMF_OffsetRange = 16u;
+        static constexpr size_t kMF_NumOffsets =
+            2u * kMF_OffsetRange + 1u;
+        static constexpr size_t kMF_RecvBufLen =
+            kMF_RefChips + 2u * kMF_OffsetRange;
+
+        ::ProtectedEngine::HTS_Rx_Matched_Filter mf_engine_;
+        alignas(8) int32_t mf_ref_q16_[kMF_RefChips] = {};
+        alignas(8) int32_t mf_recv_I_q16_[kMF_RecvBufLen] = {};
+        alignas(8) int32_t mf_recv_Q_q16_[kMF_RecvBufLen] = {};
+        uint16_t             mf_recv_count_ = 0u;
+        alignas(8) int32_t mf_corr_I_[kMF_NumOffsets] = {};
+        alignas(8) int32_t mf_corr_Q_[kMF_NumOffsets] = {};
+        alignas(8) uint32_t mf_envelope_[kMF_NumOffsets] = {};
+        bool     mf_enabled_ = false;
+        bool     mf_ref_ready_ = false;
+        bool     mf_synced_ = false;
+        uint32_t mf_ref_rx_seq_ = 0xFFFFFFFFu;
+        int32_t  mf_estimated_offset_q16_ = 0;
+
+        void mf_generate_reference_(uint32_t rx_seq) noexcept;
+        [[nodiscard]] bool mf_feed_chip_(int16_t rx_I, int16_t rx_Q) noexcept;
+        [[nodiscard]] int32_t mf_pte_refine_(int peak_idx) const noexcept;
+        void                  mf_reset_() noexcept;
+        [[nodiscard]] static uint32_t mf_envelope_combine_(
+            int32_t corr_I, int32_t corr_Q) noexcept;
+#endif
 
         /// @brief Walsh 디코딩 결과 (심볼 + 에너지)
         struct SymDecResult {

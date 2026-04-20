@@ -100,7 +100,11 @@ add_executable(HTS_V400_SIC_PC_Test_Run
   benchmark/HTS_V400_SIC_PC_Test.cpp
   "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
-  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Core.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Sync.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Payload.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_TX.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Decode.cpp"
 )
 target_link_libraries(HTS_V400_SIC_PC_Test_Run PRIVATE hts_pc_layer2_tensor_fec)
 target_include_directories(HTS_V400_SIC_PC_Test_Run PRIVATE
@@ -122,7 +126,11 @@ add_executable(HTS_L3_Spectrum_Measured_Test
   benchmark/HTS_L3_Spectrum_Measured_Test.cpp
   "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
   "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
-  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Core.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Sync.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Payload.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_TX.cpp"
+  "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Decode.cpp"
 )
 target_link_libraries(HTS_L3_Spectrum_Measured_Test PRIVATE hts_pc_layer2_tensor_fec)
 target_include_directories(HTS_L3_Spectrum_Measured_Test PRIVATE
@@ -284,7 +292,11 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_Polar_Codec.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Core.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Sync.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Payload.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_TX.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Decode.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Security_Pipeline.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Universal_API.cpp"
@@ -336,7 +348,11 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_Polar_Codec.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Walsh_Row_Permuter.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/t6_sim/HTS_Session_Derive_Stub.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Core.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Sync.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Payload.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_TX.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_V400_Dispatcher_Decode.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Holo_LPI.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Security_Pipeline.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Universal_API.cpp"

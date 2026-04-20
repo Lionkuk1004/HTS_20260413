@@ -1,0 +1,3 @@
+Comparing files stepS_pre_split_lpi_iso.log and STEPS_POST_SPLIT_LPI_ISO.LOG
+FC: no differences encountered
+

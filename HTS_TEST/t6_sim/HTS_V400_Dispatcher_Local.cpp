@@ -12,6 +12,13 @@
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h" // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+#include "HTS_Dynamic_Config.h"
+#if defined(_MSC_VER)
+#include <intrin.h>
+#endif
+#include "../../HTS_LIM/HTS_Rx_Matched_Filter.cpp"
+#endif
 #if defined(HTS_HARQ_DIAG)
 #include "HTS_HARQ_Diag.hpp"
 #endif
@@ -29,6 +36,11 @@
 #include <cstring>
 #include <cstdint>
 #include <cstddef>
+#if defined(HTS_DIAG_TRY_DECODE)
+#  define DIAG_PRINTF(...) std::printf(__VA_ARGS__)
+#else
+#  define DIAG_PRINTF(...) ((void)0)
+#endif
 // ── AMI/PS-LTE Target Selector ─────────────────────────────
 // AMI 200 kcps 환경 (T6 하네스 기본): 32-chip Phase 0/1 coherent + non-coherent 합산
 // PS-LTE 1 Mcps 환경: 64-chip Phase 0/1 coherent (기존 유지)
@@ -56,6 +68,56 @@ extern "C" void Mock_RF_Synth_Set_Channel(uint8_t channel) noexcept {
     const unsigned ch = static_cast<unsigned>(channel) & 0x7Fu;
     std::printf("[Mock_RF_Synth] ch=%u\n", ch);
 }
+#if defined(HTS_DIAG_TRY_DECODE)
+namespace {
+void diag_int32_span_(const char *tag, const int32_t *p, int n) noexcept {
+    if (p == nullptr || n <= 0) {
+        DIAG_PRINTF("[DIAG]   %s: (empty)\n", tag);
+        return;
+    }
+    const int cap = (n > 4096) ? 4096 : n;
+    int32_t mn = p[0];
+    int32_t mx = p[0];
+    int64_t sm = 0;
+    for (int i = 0; i < cap; ++i) {
+        const int32_t v = p[i];
+        if (v < mn) {
+            mn = v;
+        }
+        if (v > mx) {
+            mx = v;
+        }
+        sm += static_cast<int64_t>(v);
+    }
+    DIAG_PRINTF("[DIAG]   %s: n=%d min=%d max=%d avg=%lld\n", tag, cap,
+                static_cast<int>(mn), static_cast<int>(mx),
+                static_cast<long long>(sm / cap));
+}
+void diag_int16_span_(const char *tag, const int16_t *p, int n) noexcept {
+    if (p == nullptr || n <= 0) {
+        DIAG_PRINTF("[DIAG]   %s: (empty)\n", tag);
+        return;
+    }
+    const int cap = (n > 4096) ? 4096 : n;
+    int32_t mn = static_cast<int32_t>(p[0]);
+    int32_t mx = static_cast<int32_t>(p[0]);
+    int64_t sm = 0;
+    for (int i = 0; i < cap; ++i) {
+        const int32_t v = static_cast<int32_t>(p[i]);
+        if (v < mn) {
+            mn = v;
+        }
+        if (v > mx) {
+            mx = v;
+        }
+        sm += static_cast<int64_t>(v);
+    }
+    DIAG_PRINTF("[DIAG]   %s: n=%d min=%d max=%d avg=%lld\n", tag, cap,
+                static_cast<int>(mn), static_cast<int>(mx),
+                static_cast<long long>(sm / cap));
+}
+} // namespace
+#endif
 namespace ProtectedEngineLocal {
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngine::HTS_Holo_LPI;
@@ -764,6 +826,12 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       holo_lpi_seed_{}, holo_lpi_mix_q8_(128), holo_lpi_scalars_{},
       holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
       holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{}
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+      ,
+      mf_engine_(::ProtectedEngine::HTS_Sys_Tier::STANDARD_CHIP),
+      mf_enabled_(false), mf_ref_ready_(false), mf_synced_(false),
+      mf_ref_rx_seq_(0xFFFFFFFFu), mf_estimated_offset_q16_(0)
+#endif
 {
 #if defined(HTS_DIAG_PRINTF)
     // PROMPT 38: AntiJamEngine 본문은 Step3 제거 — 플래그·대체 경로만 실측
@@ -1128,6 +1196,9 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     }
     holo_lpi_rx_chip_idx_ = 0u;
     holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+    mf_reset_();
+#endif
 }
 void HTS_V400_Dispatcher::update_derot_shift_from_est_() noexcept {
     const int32_t mI = est_I_ >> 31;
@@ -1217,6 +1288,9 @@ void HTS_V400_Dispatcher::fhss_abort_rx_for_hop_() noexcept {
     harq_inited_ = false;
     retx_ready_ = false;
     cur_mode_ = PayloadMode::UNKNOWN;
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+    mf_reset_();
+#endif
 }
 uint8_t HTS_V400_Dispatcher::FHSS_Derive_Channel(uint32_t seed,
                                                  uint32_t seq) noexcept {
@@ -1515,6 +1589,14 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
     pkt.mode = cur_mode_;
     pkt.success_mask = DecodedPacket::DECODE_MASK_FAIL;
     uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
+#if defined(HTS_DIAG_TRY_DECODE)
+    DIAG_PRINTF(
+        "[DIAG] try_decode ENTER mode=%d ir=%d harq_round=%u sym_idx=%d "
+        "pay_recv=%d pay_total=%d max_harq=%u\n",
+        static_cast<int>(cur_mode_), static_cast<int>(ir_mode_),
+        static_cast<unsigned>(harq_round_), sym_idx_, pay_recv_, pay_total_,
+        static_cast<unsigned>(max_harq_));
+#endif
     /* WorkBuf: try_decode_ 진입 시 memset 초기화 완료 (BUG-FIX-IR5). */
     if (cur_mode_ == PayloadMode::VIDEO_1) {
         pkt.success_mask =
@@ -1585,7 +1667,22 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
         // 연속모드에서는 harq 소진을 하네스 외부(feeds 루프)에서 관리
         // max_harq_는 DATA_K(800)로 통일
         const uint32_t finish = dec_ok | harq_ex;
+#if defined(HTS_DIAG_TRY_DECODE)
+        DIAG_PRINTF(
+            "[DIAG] try_decode VIDEO/VOICE summary round=%u mask=0x%08X "
+            "dec_ok=%u harq_ex=%u finish=%u\n",
+            static_cast<unsigned>(harq_round_),
+            static_cast<unsigned>(pkt.success_mask),
+            static_cast<unsigned>(dec_ok), static_cast<unsigned>(harq_ex),
+            static_cast<unsigned>(finish));
+#endif
         if (finish != 0u) {
+#if defined(HTS_DIAG_TRY_DECODE)
+            DIAG_PRINTF(
+                "[DIAG] HARQ EXIT (16/VOICE) round=%u dec_ok=%u harq_ex=%u\n",
+                static_cast<unsigned>(harq_round_),
+                static_cast<unsigned>(dec_ok), static_cast<unsigned>(harq_ex));
+#endif
 #if defined(HTS_HARQ_DIAG)
             HARQ_Diag::note_packet_finished(
                 static_cast<uint32_t>(harq_round_),
@@ -1613,6 +1710,12 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             retx_ready_ = true;
             buf_idx_ = 0;
             // set_phase_(RxPhase::WAIT_SYNC);
+#if defined(HTS_DIAG_TRY_DECODE)
+            DIAG_PRINTF(
+                "[DIAG] HARQ CONTINUE (16/VOICE) round=%u dec_ok=%u harq_ex=%u\n",
+                static_cast<unsigned>(harq_round_),
+                static_cast<unsigned>(dec_ok), static_cast<unsigned>(harq_ex));
+#endif
         }
     } else if (cur_mode_ == PayloadMode::DATA) {
         harq_round_++;
@@ -1644,6 +1747,11 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             ir_chip_I_, ir_chip_Q_, nsym_ir, FEC_HARQ::C64, bps,
                             il, rv, *ir_state_, pkt.data, &pkt.data_len, wb_,
                             walsh_shift_payload)));
+#if defined(HTS_DIAG_TRY_DECODE)
+                    diag_int16_span_(
+                        "ir_chip_I accum",
+                        ir_chip_I_, nsym_ir * FEC_HARQ::C64);
+#endif
 #if defined(HTS_DIAG_PRINTF)
                     std::printf(
                         "[PAYLOAD-SHIFT] walsh_shift=%u dom=%u\n",
@@ -1686,6 +1794,11 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                                 &rx_.m64_I.aI[0][0], harq_Q_[0], nsym,
                                 FEC_HARQ::C64, bps, pkt.data, &pkt.data_len, il,
                                 wb_)));
+#if defined(HTS_DIAG_TRY_DECODE)
+                        diag_int32_span_(
+                            "harq_Q accum", &harq_Q_[0][0],
+                            nsym * FEC_HARQ::C64);
+#endif
                     }
                 }
             }
@@ -1694,7 +1807,24 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
         const uint32_t harq_ex =
             static_cast<uint32_t>(harq_round_ >= max_harq_);
         const uint32_t finish = dec_ok | harq_ex;
+#if defined(HTS_DIAG_TRY_DECODE)
+        DIAG_PRINTF(
+            "[DIAG] try_decode DATA summary round=%u mask=0x%08X dec_ok=%u "
+            "harq_ex=%u finish=%u ir=%d bps=%d crc_ok=%d path_metric=n/a\n",
+            static_cast<unsigned>(harq_round_),
+            static_cast<unsigned>(pkt.success_mask),
+            static_cast<unsigned>(dec_ok), static_cast<unsigned>(harq_ex),
+            static_cast<unsigned>(finish), static_cast<int>(ir_mode_),
+            cur_bps64_,
+            static_cast<int>(pkt.success_mask != 0u));
+#endif
         if (finish != 0u) {
+#if defined(HTS_DIAG_TRY_DECODE)
+            DIAG_PRINTF(
+                "[DIAG] HARQ EXIT (DATA) round=%u dec_ok=%u harq_ex=%u\n",
+                static_cast<unsigned>(harq_round_),
+                static_cast<unsigned>(dec_ok), static_cast<unsigned>(harq_ex));
+#endif
 #if defined(HTS_HARQ_DIAG)
             HARQ_Diag::note_packet_finished(
                 static_cast<uint32_t>(harq_round_),
@@ -1722,6 +1852,12 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             retx_ready_ = true;
             buf_idx_ = 0;
             // set_phase_(RxPhase::WAIT_SYNC);
+#if defined(HTS_DIAG_TRY_DECODE)
+            DIAG_PRINTF(
+                "[DIAG] HARQ CONTINUE (DATA) round=%u dec_ok=%u harq_ex=%u\n",
+                static_cast<unsigned>(harq_round_),
+                static_cast<unsigned>(dec_ok), static_cast<unsigned>(harq_ex));
+#endif
         }
     }
 }
@@ -3354,6 +3490,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     }
     if (phase_ == RxPhase::WAIT_SYNC) {
         if (pre_phase_ == 0) {
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+            if (mf_enabled_ && !mf_synced_) {
+                if (mf_feed_chip_(chip_I, chip_Q)) {
+                    mf_synced_ = true;
+                }
+            }
+#endif
             p0_buf128_I_[p0_chip_count_] = chip_I;
             p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
@@ -3638,6 +3781,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             }
 #endif
             pre_phase_ = 0;
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+            mf_reset_();
+#endif
             psal_pending_ = false; psal_off_ = 0; psal_e63_ = 0;
             p0_chip_count_ = 0; p0_carry_count_ = 0;
             p1_carry_pending_ = 0; p1_tail_collect_rem_ = 0;
@@ -3728,6 +3874,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             return;
         }
         pre_phase_ = 0;
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+        mf_reset_();
+#endif
         psal_pending_ = false; psal_off_ = 0; psal_e63_ = 0;
         p0_chip_count_ = 0; p0_carry_count_ = 0;
         p1_carry_pending_ = 0; p1_tail_collect_rem_ = 0;
@@ -4148,4 +4297,280 @@ void HTS_V400_Dispatcher::Inject_Payload_Phase(PayloadMode mode,
 
     // [REMOVED Step3] pay_cps_ 변경 시 ajc_.Reset — AJC 제거
 }
+
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+
+namespace {
+
+    struct MF_PRNG_State {
+        uint32_t s[4];
+    };
+
+    static inline void mf_prng_init_(
+        MF_PRNG_State& st, uint32_t seed, uint32_t aux) noexcept {
+        st.s[0] = seed ^ 0xDEADBEEFu;
+        st.s[1] = seed ^ 0xCAFEBABEu;
+        st.s[2] = aux ^ 0x12345678u;
+        st.s[3] = aux ^ 0x87654321u;
+    }
+
+    static inline uint32_t mf_prng_next_(MF_PRNG_State& st) noexcept {
+        const uint32_t result = st.s[0] + st.s[3];
+        const uint32_t t = st.s[1] << 9u;
+        st.s[2] ^= st.s[0];
+        st.s[3] ^= st.s[1];
+        st.s[1] ^= st.s[2];
+        st.s[0] ^= st.s[3];
+        st.s[2] ^= t;
+        st.s[3] = (st.s[3] << 11u) | (st.s[3] >> 21u);
+        return result;
+    }
+
+    static inline int mf_popcount_u32_(uint32_t x) noexcept {
+#if defined(_MSC_VER)
+        return static_cast<int>(__popcnt(x));
+#else
+        return __builtin_popcount(static_cast<int>(x));
+#endif
+    }
+
+    static inline int8_t mf_walsh_bit_(uint32_t row, uint32_t col) noexcept {
+        const uint32_t andv = row & col;
+        const int pc = mf_popcount_u32_(andv);
+        return static_cast<int8_t>(1 - ((pc & 1) << 1));
+    }
+
+    static void mf_shuffle_u16_perm_(
+        uint16_t* p, uint32_t n, MF_PRNG_State& rng) noexcept {
+        for (uint32_t i = 0u; i < n; ++i) {
+            p[i] = static_cast<uint16_t>(i);
+        }
+        for (uint32_t i = n - 1u; i > 0u; --i) {
+            const uint32_t r = mf_prng_next_(rng) % (i + 1u);
+            const uint16_t tmp = p[i];
+            p[i] = p[r];
+            p[r] = tmp;
+        }
+    }
+
+} // namespace
+
+void HTS_V400_Dispatcher::Set_Matched_Filter_Sync(bool enable) noexcept {
+    mf_enabled_ = enable;
+    if (!enable) {
+        mf_ref_ready_ = false;
+        mf_reset_();
+    }
+}
+
+bool HTS_V400_Dispatcher::Get_Matched_Filter_Sync() const noexcept {
+    return mf_enabled_;
+}
+
+int32_t HTS_V400_Dispatcher::Get_Estimated_Timing_Offset_Q16() const noexcept {
+    return mf_estimated_offset_q16_;
+}
+
+void HTS_V400_Dispatcher::mf_reset_() noexcept {
+    std::memset(mf_recv_I_q16_, 0, sizeof(mf_recv_I_q16_));
+    std::memset(mf_recv_Q_q16_, 0, sizeof(mf_recv_Q_q16_));
+    mf_recv_count_ = 0u;
+    mf_synced_ = false;
+    mf_estimated_offset_q16_ = 0;
+}
+
+uint32_t HTS_V400_Dispatcher::mf_envelope_combine_(
+    int32_t corr_I, int32_t corr_Q) noexcept {
+    const int64_t i64 = static_cast<int64_t>(corr_I);
+    const int64_t q64 = static_cast<int64_t>(corr_Q);
+    const int64_t ai = (i64 < 0) ? -i64 : i64;
+    const int64_t aq = (q64 < 0) ? -q64 : q64;
+    const uint32_t abs_I = (ai > static_cast<int64_t>(UINT32_MAX))
+        ? UINT32_MAX
+        : static_cast<uint32_t>(ai);
+    const uint32_t abs_Q = (aq > static_cast<int64_t>(UINT32_MAX))
+        ? UINT32_MAX
+        : static_cast<uint32_t>(aq);
+    const int32_t diff =
+        static_cast<int32_t>(abs_I) - static_cast<int32_t>(abs_Q);
+    const uint32_t mask = static_cast<uint32_t>(diff >> 31);
+    const uint32_t mx = (abs_I & ~mask) | (abs_Q & mask);
+    const uint32_t mn = (abs_Q & ~mask) | (abs_I & mask);
+    return mx + (mn >> 1u);
+}
+
+void HTS_V400_Dispatcher::mf_generate_reference_(uint32_t rx_seq) noexcept {
+    static constexpr int8_t kPreambleData[16] = {
+        1, -1, 1, 1, -1, 1, -1, 1, 1, -1, -1, 1, -1, -1, 1, 1
+    };
+    static constexpr uint32_t kN = 64u;
+
+    MF_PRNG_State rng{};
+    mf_prng_init_(rng, seed_, rx_seq);
+
+    uint16_t rows16[16];
+    {
+        uint16_t tmp64[64];
+        mf_shuffle_u16_perm_(tmp64, kN, rng);
+        for (uint32_t k = 0u; k < 16u; ++k) {
+            rows16[k] = tmp64[k];
+        }
+    }
+    uint16_t col_perm[64];
+    mf_shuffle_u16_perm_(col_perm, kN, rng);
+    const uint32_t mlo = mf_prng_next_(rng);
+    const uint32_t mhi = mf_prng_next_(rng);
+    const uint64_t mask64 =
+        (static_cast<uint64_t>(mhi) << 32u) | static_cast<uint64_t>(mlo);
+
+    int32_t chips[64] = {};
+    for (uint32_t i = 0u; i < kN; ++i) {
+        int32_t sum = 0;
+        for (uint32_t k = 0u; k < 16u; ++k) {
+            const uint32_t r = static_cast<uint32_t>(rows16[k]);
+            const int8_t w = mf_walsh_bit_(r, i);
+            sum += static_cast<int32_t>(kPreambleData[k]) *
+                   static_cast<int32_t>(w);
+        }
+        const uint32_t phys_u = static_cast<uint32_t>(col_perm[i]);
+        const uint32_t phys =
+            (phys_u < kN) ? phys_u : (phys_u % kN);
+        const uint64_t bit = (mask64 >> static_cast<int>(i)) & 1ull;
+        const int32_t ms =
+            static_cast<int32_t>(1 - static_cast<int32_t>(bit << 1u));
+        chips[phys] = sum * ms;
+    }
+
+    int32_t max_abs = 0;
+    for (uint32_t i = 0u; i < kN; ++i) {
+        const int32_t a =
+            (chips[i] < 0) ? -chips[i] : chips[i];
+        if (a > max_abs) {
+            max_abs = a;
+        }
+    }
+    if (max_abs == 0) {
+        max_abs = 1;
+    }
+    for (uint32_t i = 0u; i < kN; ++i) {
+        const int32_t scaled =
+            (chips[i] * static_cast<int32_t>(0x7FFF)) / max_abs;
+        mf_ref_q16_[i] = scaled << 16;
+    }
+
+    (void)mf_engine_.Set_Reference_Sequence(mf_ref_q16_, kN);
+    mf_ref_rx_seq_ = rx_seq;
+    mf_ref_ready_ = true;
+}
+
+bool HTS_V400_Dispatcher::mf_feed_chip_(int16_t rx_I, int16_t rx_Q) noexcept {
+    if (!mf_ref_ready_ || mf_ref_rx_seq_ != rx_seq_) {
+        mf_generate_reference_(rx_seq_);
+        if (!mf_ref_ready_) {
+            return false;
+        }
+    }
+
+    if (mf_recv_count_ >= kMF_RecvBufLen) {
+        constexpr size_t kShift = 16u;
+        for (size_t i = 0u; i < kMF_RecvBufLen - kShift; ++i) {
+            mf_recv_I_q16_[i] = mf_recv_I_q16_[i + kShift];
+            mf_recv_Q_q16_[i] = mf_recv_Q_q16_[i + kShift];
+        }
+        mf_recv_count_ = static_cast<uint16_t>(
+            static_cast<uint32_t>(mf_recv_count_) - static_cast<uint32_t>(kShift));
+    }
+
+    mf_recv_I_q16_[mf_recv_count_] =
+        static_cast<int32_t>(rx_I) << 16;
+    mf_recv_Q_q16_[mf_recv_count_] =
+        static_cast<int32_t>(rx_Q) << 16;
+    mf_recv_count_ = static_cast<uint16_t>(
+        static_cast<uint32_t>(mf_recv_count_) + 1u);
+
+    if (static_cast<uint32_t>(mf_recv_count_) <
+        kMF_RefChips + kMF_OffsetRange) {
+        return false;
+    }
+
+    const bool ok_I = mf_engine_.Apply_Filter(
+        mf_recv_I_q16_, static_cast<size_t>(mf_recv_count_), mf_corr_I_);
+    if (!ok_I) {
+        return false;
+    }
+    const bool ok_Q = mf_engine_.Apply_Filter(
+        mf_recv_Q_q16_, static_cast<size_t>(mf_recv_count_), mf_corr_Q_);
+    if (!ok_Q) {
+        return false;
+    }
+
+    const size_t num_outputs =
+        static_cast<size_t>(mf_recv_count_) - kMF_RefChips + 1u;
+    const size_t limit =
+        (num_outputs < kMF_NumOffsets) ? num_outputs : kMF_NumOffsets;
+    for (size_t k = 0u; k < limit; ++k) {
+        mf_envelope_[k] =
+            mf_envelope_combine_(mf_corr_I_[k], mf_corr_Q_[k]);
+    }
+    for (size_t k = limit; k < kMF_NumOffsets; ++k) {
+        mf_envelope_[k] = 0u;
+    }
+
+    uint32_t best_env = 0u;
+    int32_t  best_idx = -1;
+    for (uint32_t k = 0u; k < limit; ++k) {
+        const uint32_t e = mf_envelope_[k];
+        const int32_t diff =
+            static_cast<int32_t>(e) - static_cast<int32_t>(best_env);
+        const int32_t mask = diff >> 31;
+        best_env = (e & static_cast<uint32_t>(~mask)) |
+                   (best_env & static_cast<uint32_t>(mask));
+        best_idx = (static_cast<int32_t>(k) & ~mask) |
+                   (best_idx & mask);
+    }
+
+    constexpr uint32_t kMF_PeakThreshold = 0x00400000u;
+    if (best_env < kMF_PeakThreshold || best_idx < 0) {
+        return false;
+    }
+
+    mf_estimated_offset_q16_ = mf_pte_refine_(best_idx);
+    return true;
+}
+
+int32_t HTS_V400_Dispatcher::mf_pte_refine_(int peak_idx) const noexcept {
+    const int32_t int_ofs =
+        static_cast<int32_t>(peak_idx) -
+        static_cast<int32_t>(kMF_OffsetRange);
+    if (peak_idx <= 0 ||
+        peak_idx >= static_cast<int>(kMF_NumOffsets) - 1) {
+        return int_ofs << 16;
+    }
+
+    const int64_t y_m1 =
+        static_cast<int64_t>(mf_envelope_[static_cast<size_t>(peak_idx - 1)]);
+    const int64_t y_0 =
+        static_cast<int64_t>(mf_envelope_[static_cast<size_t>(peak_idx)]);
+    const int64_t y_p1 =
+        static_cast<int64_t>(mf_envelope_[static_cast<size_t>(peak_idx + 1)]);
+
+    const int64_t denom = 2LL * (y_m1 - 2LL * y_0 + y_p1);
+    if (denom == 0LL) {
+        return int_ofs << 16;
+    }
+
+    const int64_t num = (y_m1 - y_p1) << 16;
+    int64_t delta_q16 = num / denom;
+    constexpr int64_t kQ16Half = 1LL << 15;
+    if (delta_q16 > kQ16Half) {
+        delta_q16 = kQ16Half;
+    } else if (delta_q16 < -kQ16Half) {
+        delta_q16 = -kQ16Half;
+    }
+    return static_cast<int32_t>(
+        (static_cast<int64_t>(int_ofs) << 16) + delta_q16);
+}
+
+#endif // HTS_SYNC_USE_MATCHED_FILTER
+
 } // namespace ProtectedEngineLocal
