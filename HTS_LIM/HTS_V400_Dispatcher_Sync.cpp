@@ -972,6 +972,44 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             }
         }
 #endif
+#if defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK)
+        // Stage A-0 Step 2: AMI best_dom_row 산출 (pass 확정 후 FWHT 2회)
+        // WALSH_BANK L243-L272 패턴 축소 차용
+        {
+            alignas(4) int32_t T_I[2][64];
+            alignas(4) int32_t T_Q[2][64];
+            int64_t row_e[64] = {0};
+            for (int blk = 0; blk < 2; ++blk) {
+                const int base = best_off + (blk << 6);
+                for (int i = 0; i < 64; ++i) {
+                    T_I[blk][i] = static_cast<int32_t>(p0_buf128_I_[base + i]);
+                    T_Q[blk][i] = static_cast<int32_t>(p0_buf128_Q_[base + i]);
+                }
+                fwht_64_complex_inplace_(T_I[blk], T_Q[blk]);
+                for (int r = 0; r < 64; ++r) {
+                    row_e[r] +=
+                        static_cast<int64_t>(T_I[blk][r]) * T_I[blk][r] +
+                        static_cast<int64_t>(T_Q[blk][r]) * T_Q[blk][r];
+                }
+            }
+            // argmax with 63 tie-break (WALSH_BANK 관례)
+            int ami_max_row = 63;
+            int64_t ami_max_e = row_e[63];
+            for (int r = 0; r < 64; ++r) {
+                if (row_e[r] > ami_max_e) {
+                    ami_max_e = row_e[r];
+                    ami_max_row = r;
+                }
+            }
+            best_dom_row = ami_max_row;
+#if defined(HTS_DIAG_PRINTF)
+            std::printf(
+                "[AMI-DOM] best_off=%d dom_row=%d e_max>>16=%lld\n",
+                best_off, ami_max_row,
+                static_cast<long long>(ami_max_e >> 16));
+#endif
+        }
+#endif
         dominant_row_ = static_cast<uint8_t>(best_dom_row);
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
         std::printf(
