@@ -1045,6 +1045,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                              &p0_buf128_Q_[best_off + 64],
                              d1I, d1Q);
                 cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
+                // [CFO 4-3] P0 스캔 구간 192 chip 위상 누적 전진
+                //           payload 첫 Apply 시 위상이 스캔 구간 끝과 정합
+                cfo_.Advance_Phase_Only(192);
             }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
