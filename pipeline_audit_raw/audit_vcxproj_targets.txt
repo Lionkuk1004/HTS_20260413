@@ -1,0 +1,327 @@
+﻿
+=== D:\HTS_ARM11_Firmware\HTS_LIM\CFO_TEST\CFO_TEST.vcxproj ===
+    <ClCompile Include="CFO_TEST.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_Jammer_STD\HTS_Jammer_STD.vcxproj ===
+    <ClCompile Include="HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="HTS_Harq_Matrix_Main.cpp" />
+    <ClCompile Include="HTS_Holo_LPI.cpp" />
+    <ClCompile Include="HTS_Jammer_STD.cpp" />
+    <ClCompile Include="HTS_Polar_Codec.cpp" />
+    <ClCompile Include="HTS_Secure_Memory.cpp" />
+    <ClCompile Include="HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_Walsh_Row_Converter.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Permuter.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_L3_Spectrum_Measured_Test\HTS_L3_Spectrum_Measured_Test.vcxproj ===
+    <ClCompile Include="HTS_L3_Spectrum_Measured_Test.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LIM.vcxproj ===
+    <TargetName>HTS_LIM_V3</TargetName>
+    <TargetName>HTS_LIM_V3</TargetName>
+    <TargetName>HTS_LIM_V3</TargetName>
+    <TargetName>HTS_LIM_V3</TargetName>
+    <ClCompile Include="aria050117.c" />
+    <ClCompile Include="hmac.c" />
+    <ClCompile Include="HTS_Amp_Diag.cpp" />
+    <ClCompile Include="HTS_CoAP_Engine.cpp" />
+    <ClCompile Include="HTS_CW_Detect_Diag.cpp" />
+    <ClCompile Include="HTS_CW_Excision.cpp" />
+    <ClCompile Include="HTS_CW_LLR_Weight.cpp" />
+    <ClCompile Include="HTS_Device_Status_Reporter.cpp" />
+    <ClCompile Include="HTS_Emergency_Beacon.cpp" />
+    <ClCompile Include="HTS_HARQ_Diag.cpp" />
+    <ClCompile Include="HTS_IPC_Protocol.cpp" />
+    <ClCompile Include="HTS_Key_Provisioning.cpp" />
+    <ClCompile Include="HTS_KT_DSN_Adapter.cpp" />
+    <ClCompile Include="HTS_LLR_Diag.cpp" />
+    <ClCompile Include="HTS_Location_Engine.cpp" />
+    <ClCompile Include="HTS_Mesh_Router.cpp" />
+    <ClCompile Include="HTS_Mesh_Sync.cpp" />
+    <ClCompile Include="HTS_Meter_Data_Manager.cpp" />
+    <ClCompile Include="HTS_Modbus_Gateway.cpp" />
+    <ClCompile Include="HTS_Neighbor_Discovery.cpp" />
+    <ClCompile Include="HTS_OTA_AMI_Manager.cpp" />
+    <ClCompile Include="HTS_OTA_Manager.cpp" />
+    <ClCompile Include="HTS_Priority_Scheduler.cpp" />
+    <ClCompile Include="HTS_Row_Consistency_Diag.cpp" />
+    <ClCompile Include="HTS_Secure_Boot_Verify.cpp" />
+    <ClCompile Include="HTS_Sensor_Aggregator.cpp" />
+    <ClCompile Include="HTS_Sensor_Fusion.cpp" />
+    <ClCompile Include="HTS_Sync_Diag.cpp" />
+    <ClCompile Include="HTS_Tamper_HAL.cpp" />
+    <ClCompile Include="HTS64_Native_ECCM_Core.cpp" />
+    <ClCompile Include="HTS_Dynamic_Fractal_Mapper.cpp">
+    <ClCompile Include="HTS_3D_Tensor_FEC.cpp">
+    <ClCompile Include="HTS_Channel_Physics.cpp">
+    <ClCompile Include="HTS_Adaptive_BPS_Controller.cpp" />
+    <ClCompile Include="HTS_Pipeline_V2_Dispatcher.cpp" />
+    <ClCompile Include="HTS_Polar_Codec.cpp" />
+    <ClCompile Include="HTS_AES_Bridge.cpp" />
+    <ClCompile Include="HTS_AMI_Protocol.cpp" />
+    <ClCompile Include="host_aarch64\HTS_Anchor_Vault.cpp">
+    <ClCompile Include="HTS_AntiAnalysis_Shield.cpp" />
+    <ClCompile Include="HTS_Antipodal_Core.cpp" />
+    <ClCompile Include="HTS_API.cpp" />
+    <ClCompile Include="HTS_ARIA_Bridge.cpp" />
+    <ClCompile Include="HTS_Auto_Rollback_Manager.cpp" />
+    <ClCompile Include="HTS_BLE_NFC_Gateway.cpp" />
+    <ClCompile Include="HTS_CCTV_Security.cpp" />
+    <ClCompile Include="HTS_Conditional_SelfTest.cpp" />
+    <ClCompile Include="HTS_Config.cpp" />
+    <ClCompile Include="HTS_Console_Manager.cpp" />
+    <ClCompile Include="HTS_Crypto_KAT.cpp" />
+    <ClCompile Include="HTS_CTR_DRBG.cpp" />
+    <ClCompile Include="HTS_Device_Profile.cpp" />
+    <ClCompile Include="HTS_Dynamic_Config.cpp" />
+    <ClCompile Include="HTS_Dynamic_Key_Rotator.cpp" />
+    <ClCompile Include="HTS_Entropy_Arrow.cpp" />
+    <ClCompile Include="HTS_Entropy_Monitor.cpp" />
+    <ClCompile Include="HTS_FEC_HARQ.cpp" Condition="'$(ExcludeHTS_FEC_HARQ_FromLib)'!='true'" />
+    <ClCompile Include="HTS_Gyro_Engine.cpp" />
+    <ClCompile Include="HTS_Hardware_Bridge.cpp" />
+    <ClCompile Include="HTS_Hardware_Shield.cpp" />
+    <ClCompile Include="HTS_HMAC_Bridge.cpp" />
+    <ClCompile Include="HTS_Holo_Dispatcher.cpp" />
+    <ClCompile Include="HTS_Holo_Tensor_4D.cpp" />
+    <ClCompile Include="HTS_Holo_LPI.cpp" />
+    <ClCompile Include="HTS_Holo_Tensor_Engine.cpp" />
+    <ClCompile Include="HTS_IoT_Codec.cpp" />
+    <ClCompile Include="host_aarch64\HTS_IPC_Protocol_A55.cpp" />
+    <ClCompile Include="HTS_LEA_Bridge.cpp" />
+    <ClCompile Include="HTS_LSH256_Bridge.cpp" />
+    <ClCompile Include="HTS_Network_Bridge.cpp" />
+    <ClCompile Include="HTS_Orbital_Mapper.cpp" />
+    <ClCompile Include="HTS_Pointer_Auth.cpp" />
+    <ClCompile Include="HTS_Physical_Entropy_Engine.cpp" />
+    <ClCompile Include="HTS_Quantum_Decoy_VDF.cpp" />
+    <ClCompile Include="HTS_Quantum_Key_Bridge.cpp" />
+    <ClCompile Include="HTS_Polymorphic_Shield.cpp" />
+    <ClCompile Include="HTS_Power_Manager.cpp" />
+    <ClCompile Include="HTS_Remote_Attestation.cpp" />
+    <ClCompile Include="HTS_Role_Auth.cpp" />
+    <ClCompile Include="HTS_Rx_Matched_Filter.cpp" />
+    <ClCompile Include="HTS_Rx_Sync_Detector.cpp" />
+    <ClCompile Include="HTS_Security_Session.cpp" />
+    <ClCompile Include="HTS_Session_Gateway.cpp" />
+    <ClCompile Include="HTS_SHA256_Bridge.cpp" />
+    <ClCompile Include="HTS_Sparse_Recovery.cpp" />
+    <ClCompile Include="host_aarch64\HTS_Storage_Interface.cpp">
+    <ClCompile Include="HTS_TRNG_Collector.cpp" />
+    <ClCompile Include="HTS_Tx_Scheduler.cpp" />
+    <ClCompile Include="HTS_Universal_API.cpp" />
+    <ClCompile Include="BB1_Core_Engine.cpp" />
+    <ClCompile Include="HTS_ConstantTimeUtil.cpp" />
+    <ClCompile Include="HTS_Crc32Util.cpp" />
+    <ClCompile Include="HTS_Anti_Debug.cpp">
+    <ClCompile Include="HTS_Anti_Glitch.cpp" />
+    <ClCompile Include="HTS_Creator_Telemetry.cpp" />
+    <ClCompile Include="HTS_Dual_Tensor_16bit.cpp" />
+    <ClCompile Include="HTS_Gaussian_Pulse.cpp" />
+    <ClCompile Include="HTS_Hardware_Auto_Scaler.cpp" />
+    <ClCompile Include="HTS_Hardware_Init.cpp" />
+    <ClCompile Include="HTS_Key_Rotator.cpp" />
+    <ClCompile Include="HTS_POST_Manager.cpp" />
+    <ClCompile Include="HTS_Secure_Logger.cpp" />
+    <ClCompile Include="HTS_Secure_Memory.cpp" />
+    <ClCompile Include="HTS_Security_Pipeline.cpp" />
+    <ClCompile Include="HTS_Unified_Scheduler.cpp" />
+    <ClCompile Include="HTS_Universal_Adapter.cpp" />
+    <ClCompile Include="HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Sync.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Decode.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_Voice_Codec_Bridge.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Converter.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Diag.cpp" />
+    <ClCompile Include="HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="KISA_HMAC.c" />
+    <ClCompile Include="KISA_SHA256.c" />
+    <ClCompile Include="lea_base.c" />
+    <ClCompile Include="lea_core.c" />
+    <ClCompile Include="lea_gcm_generic.c" />
+    <ClCompile Include="lea_online.c" />
+    <ClCompile Include="lea_t_fallback.c" />
+    <ClCompile Include="lea_t_generic.c" />
+    <ClCompile Include="lsh.c" />
+    <ClCompile Include="lsh256.c">
+    <ClCompile Include="lsh512.c" />
+    <ClCompile Include="util.c" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_AMI.vcxproj ===
+    <TargetName>AMI_Integration</TargetName>
+    <TargetName>AMI_Integration</TargetName>
+    <TargetName>AMI_Integration</TargetName>
+    <TargetName>AMI_Integration</TargetName>
+    <ClCompile Include="HTS_TPE_Bitwise_Simulation_main.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_AMI_Barrage30_Spec.vcxproj ===
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
+    <TargetName>HTS_Extended_Endurance_Test</TargetName>
+    <ClCompile Include="benchmark\HTS_L3_Spectrum_Measured_Test.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="t6_sim\HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_AntiJam.vcxproj ===
+    <TargetName>HTS_AntiJam_Harness</TargetName>
+    <TargetName>HTS_AntiJam_Harness</TargetName>
+    <TargetName>HTS_AntiJam_Harness</TargetName>
+    <TargetName>HTS_AntiJam_Harness</TargetName>
+    <ClCompile Include="HTS_AJ_Main.cpp" />
+    <ClCompile Include="HTS_AJ_TestRunner.cpp" />
+    <ClCompile Include="HTS_AJ_TestReport.cpp" />
+    <ClCompile Include="HTS_AJ_Summary.cpp" />
+    <ClCompile Include="HTS_AJ_Stats.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="t6_sim\HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_KCMVP.vcxproj ===
+    <TargetName>KCMVP_Crypto4</TargetName>
+    <TargetName>KCMVP_Crypto4</TargetName>
+    <TargetName>KCMVP_Crypto4</TargetName>
+    <TargetName>KCMVP_Crypto4</TargetName>
+    <ClCompile Include="KCMVP_암호_4종_종합_테스트.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_ARIA_Bridge.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_HMAC_Bridge.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_LEA_Bridge.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_LSH256_Bridge.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_ConstantTimeUtil.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp" />
+    <ClCompile Include="..\HTS_LIM\aria050117.c" />
+    <ClCompile Include="..\HTS_LIM\KISA_SHA256.c" />
+    <ClCompile Include="..\HTS_LIM\lea_base.c" />
+    <ClCompile Include="..\HTS_LIM\lea_core.c" />
+    <ClCompile Include="..\HTS_LIM\lea_gcm_generic.c" />
+    <ClCompile Include="..\HTS_LIM\lea_online.c" />
+    <ClCompile Include="..\HTS_LIM\lea_t_fallback.c" />
+    <ClCompile Include="..\HTS_LIM\lea_t_generic.c" />
+    <ClCompile Include="..\HTS_LIM\lsh.c" />
+    <ClCompile Include="..\HTS_LIM\lsh256.c" />
+    <ClCompile Include="..\HTS_LIM\lsh512.c" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_TPE_Bitwise.vcxproj ===
+    <TargetName>TPE_Bitwise_Sim</TargetName>
+    <TargetName>TPE_Bitwise_Sim</TargetName>
+    <TargetName>TPE_Bitwise_Sim</TargetName>
+    <TargetName>TPE_Bitwise_Sim</TargetName>
+    <ClCompile Include="HTS_TPE_Bitwise_Simulation_main.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_종합재밍.vcxproj ===
+    <TargetName>JamCombo_TensorHARQ</TargetName>
+    <TargetName>JamCombo_TensorHARQ</TargetName>
+    <TargetName>JamCombo_TensorHARQ</TargetName>
+    <TargetName>JamCombo_TensorHARQ</TargetName>
+    <ClCompile Include="AMI_종합_통합_테스트.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\ALL_BUILD.vcxproj ===
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\HTS_Calibration_Run.vcxproj ===
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">HTS_Calibration_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">HTS_Calibration_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">HTS_Calibration_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">HTS_Calibration_Run</TargetName>
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\calibration\HTS_Channel_Calibration.cpp" />
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\calibration\HTS_Channel_Calibration_Test.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\HTS_Fractal_Mapper_Run.vcxproj ===
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">HTS_Fractal_Mapper_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">HTS_Fractal_Mapper_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">HTS_Fractal_Mapper_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">HTS_Fractal_Mapper_Run</TargetName>
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\calibration\HTS_Dynamic_Fractal_Mapper_PC_Test.cpp" />
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\HTS_Microbench_Run.vcxproj ===
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">HTS_Microbench_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">HTS_Microbench_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">HTS_Microbench_Run</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">HTS_Microbench_Run</TargetName>
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\benchmark\HTS_Microbench_Run.cpp" />
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\hts_pc_layer2_tensor_fec.vcxproj ===
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">hts_pc_layer2_tensor_fec</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='Release|x64'">hts_pc_layer2_tensor_fec</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='MinSizeRel|x64'">hts_pc_layer2_tensor_fec</TargetName>
+    <TargetName Condition="'$(Configuration)|$(Platform)'=='RelWithDebInfo|x64'">hts_pc_layer2_tensor_fec</TargetName>
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Channel_Physics.cpp" />
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiJam_Engine.cpp" />
+    <ClCompile Include="D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\ZERO_CHECK.vcxproj ===
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\CMakeFiles\4.2.3-msvc3\VCTargetsPath.vcxproj ===
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\build-calibration\CMakeFiles\4.2.3-msvc3\CompilerIdCXX\CompilerIdCXX.vcxproj ===
+    <ClCompile Include="CMakeCXXCompilerId.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_검증_PLUTO_SDR.vcxproj ===
+    <TargetName>HTS_Pluto_Test</TargetName>
+    <TargetName>HTS_Pluto_Test</TargetName>
+    <TargetName>HTS_Pluto_Test</TargetName>
+    <TargetName>HTS_Pluto_Test</TargetName>
+    <ClCompile Include="HTS_Pluto_Test.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="..\t6_sim\HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Holo_LPI.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Secure_Memory.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.vcxproj ===
+    <TargetName>HTS_T6_SIM_Test</TargetName>
+    <TargetName>HTS_T6_SIM_Test</TargetName>
+    <TargetName>HTS_T6_SIM_Test</TargetName>
+    <TargetName>HTS_T6_SIM_Test</TargetName>
+    <ClCompile Include="HTS_T6_SIM_Test.cpp" />
+    <ClCompile Include="HTS_Session_Derive_Stub.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_검증_PLUTO_SDR\HTS_검증_PLUTO_SDR.vcxproj ===
+    <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" />
+    <ClCompile Include="..\HTS_TEST\t6_sim\HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp" />
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\POLAR_TEST\POLAR_TEST.vcxproj ===
+    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp" />
+    <ClCompile Include="POLAR_PIPE_TEST.cpp" />
+

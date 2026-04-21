@@ -1,0 +1,19 @@
+=== ORPHAN HEADER PATHS (18) ===
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\arm_arch.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Data_Loader.h
+D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\include\hts_gcc_arm_force_include.h
+D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\include\HTS_HAL.h
+D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\include\HTS_Interface_Manager.h
+D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\include\HTS_Interface_StubLayout.h
+D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\include\HTS_LockFree_Ring.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_MAC_RateController.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_PHY_Config.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Memory_Manager.hpp
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sensor_ADC_Guard.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Server_Stress_Test.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Storage_Adapter.hpp
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_TimeSpace_Guard.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Types.h
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_Adapter.hpp
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_API.hpp
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_key.h

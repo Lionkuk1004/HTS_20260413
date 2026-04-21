@@ -1,0 +1,3 @@
+Comparing files split_10db.txt and TUNE_10DB.TXT
+FC: no differences encountered
+

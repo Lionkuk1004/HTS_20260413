@@ -1,0 +1,5 @@
+[Phase4B2-Sample] trials=1000 cells=36 HTS_WALSH_ROW_MASK_SAMPLE=0 shift=3
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Phase4B2-Sample] done wall=3.026 min

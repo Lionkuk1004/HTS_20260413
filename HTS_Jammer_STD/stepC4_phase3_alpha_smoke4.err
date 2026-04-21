@@ -1,0 +1,2 @@
+[Phase3-Alpha] trials=10 smoke=1 mini=1 IR=1 DATA=1 FEC_POLAR_DISABLE(build)
+[Phase3-Alpha] done wall=0.00 min cells=1

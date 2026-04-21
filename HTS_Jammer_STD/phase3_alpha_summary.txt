@@ -1,0 +1,33 @@
+Phase 3-alpha harness summary
+trials_per_cell=10 n_cells=1 wall_minutes=0.001
+
+zone_counts PASS(>=90%)=0 RISK(50-90%)=0 FAIL(<50%)=1
+
+per_jam PASS_cells (zone PASS; cells_per_jam=1):
+  J1_AWGN: 0
+  J2_CW: 0
+  J3_Pulse: 0
+  J4_Barrage: 0
+  J5_Multi: 0
+  J6_Swept: 0
+
+LPI NONE: pass=0 risk=0 fail=1
+LPI TIM:  pass=0 risk=0 fail=0
+
+Coverage worst success_rate (min over run cells):
+  100%: 0.0000
+
+JSR mean success_rate (over cells at that JSR):
+  -5 dB: 0.0000
+  +0 dB: 0.0000
+  +10 dB: 0.0000
+  +20 dB: 0.0000
+  +30 dB: 0.0000
+  +40 dB: 0.0000
+
+MIL-style coarse counts (cell = one scenario; JSR grid -5..+40):
+  Threat I   JSR +20..+30 dB: pass=0 risk=0 fail=0
+  Threat II  JSR +5..+15 dB: pass=0 risk=0 fail=0
+  Threat III JSR +10..+20 dB: pass=0 risk=0 fail=0
+
+Beta candidates (RISK zone 50%~90%), up to 64 lines:

@@ -1,0 +1,2 @@
+jam,cov_pct,jsr_db,lpi,trials,pass,success_rate,cp_lower,cp_upper,avg_harq,zone
+J1_AWGN,20,-5,NONE,10,0,0.0000,0.0000,0.3085,8,FAIL

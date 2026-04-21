@@ -2,6 +2,7 @@
 #define HTS_V400_DISPATCHER_INTERNAL_HPP
 
 #include "HTS_V400_Dispatcher.hpp"
+#include "HTS_V400_FWHT_Int16Scale.hpp"
 #include <climits>
 #include <cstdint>
 #include <cstddef>
@@ -386,6 +387,18 @@ inline int16_t ssat16_dispatch_(int32_t v) noexcept {
                          (-32768 & -static_cast<int32_t>(ov_lo));
     return static_cast<int16_t>((v & ~msk) | (repl & msk));
 #endif
+}
+
+// Phase 4-B-1: 스펙트럼 피크 기반 칩-domain ≫shift — 본체는 HTS_V400_FWHT_Int16Scale.hpp
+inline int32_t fwht_post_peak_max_abs_(const int32_t *wI, const int32_t *wQ,
+                                         int n) noexcept {
+    return HtsFwhtInt16Scale::post_peak_max_abs(wI, wQ, n);
+}
+inline int fwht_int16_store_downshift_(int32_t peak_abs) noexcept {
+    return HtsFwhtInt16Scale::downshift_for_int16_store(peak_abs);
+}
+inline void fwht_post_shift_hist_record(int shift) noexcept {
+    HtsFwhtInt16Scale::post_shift_hist_record(shift);
 }
 // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정 (T6 96.5% 유지).
 //  T6 진단 시 outlier 발생 비율 0.003%, abs_sum=0. 완전 제거.

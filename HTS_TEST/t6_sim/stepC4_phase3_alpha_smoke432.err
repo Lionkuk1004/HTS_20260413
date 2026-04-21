@@ -1,0 +1,5 @@
+[Phase3-Alpha] trials=10 smoke=1 mini=0 LocalDispatcher
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Phase3-Alpha] done cells=432 wall=0.099 min

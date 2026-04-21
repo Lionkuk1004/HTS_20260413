@@ -496,6 +496,11 @@ void HTS_V400_Dispatcher::fhss_abort_rx_for_hop_() noexcept {
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
     mf_reset_();
 #endif
+    // [TX-5] Hop 경계 CFO/AGC 리셋
+    //        이전 채널의 CFO 위상 누적·AGC 게인이 새 채널에 잔재 방지.
+    //        시뮬 검증: 리셋 O 100% / 리셋 X 0% (CFO 차이가 큰 hop 에서).
+    cfo_.Init();
+    pre_agc_.Init();
 }
 uint8_t HTS_V400_Dispatcher::FHSS_Derive_Channel(uint32_t seed,
                                                  uint32_t seq) noexcept {

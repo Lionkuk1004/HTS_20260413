@@ -160,12 +160,27 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
         // [REMOVED Step1] soft_clip_iq — Gaussian noise 에 무효 확정
         if (nc == 16) {
             if (sym_idx_ < FEC_HARQ::NSYM16) {
-                if (ir_mode_) {
+                    if (ir_mode_) {
                     /* IR 칩: ECCM 후 버퍼 저장 (CW 제거 효과 반영) */
                     const int base = sym_idx_ * FEC_HARQ::C16;
+                    alignas(16) int32_t wI[16];
+                    alignas(16) int32_t wQ[16];
                     for (int c = 0; c < nc; ++c) {
-                        ir_chip_I_[base + c] = buf_I_[c];
-                        ir_chip_Q_[base + c] = buf_Q_[c];
+                        wI[c] = static_cast<int32_t>(buf_I_[c]);
+                        wQ[c] = static_cast<int32_t>(buf_Q_[c]);
+                    }
+                    fwht_raw(wI, nc);
+                    fwht_raw(wQ, nc);
+                    const int32_t pk = fwht_post_peak_max_abs_(wI, wQ, nc);
+                    const int sh = fwht_int16_store_downshift_(pk);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+                    fwht_post_shift_hist_record(sh);
+#endif
+                    for (int c = 0; c < nc; ++c) {
+                        ir_chip_I_[base + c] = ssat16_dispatch_(
+                            static_cast<int32_t>(buf_I_[c]) >> sh);
+                        ir_chip_Q_[base + c] = ssat16_dispatch_(
+                            static_cast<int32_t>(buf_Q_[c]) >> sh);
                     }
                 } else {
                     FEC_HARQ::Feed16_1sym(rx_.m16, buf_I_, buf_Q_, sym_idx_);
@@ -238,10 +253,11 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                             // 레벨 derotation은 불필요하며, RF 환경에서 est 벡터의
                             // 노이즈로 인해 스케일 왜곡을 유발하여 FEC 실패 원인이 됨.
                             // T9(FEC 직접 호출)가 99/100 성공하는 것이 증명.
+                            alignas(16) int32_t preI[64];
+                            alignas(16) int32_t preQ[64];
                             for (int c = 0; c < nc; ++c) {
                                 int32_t vi = static_cast<int32_t>(buf_I_[c]);
                                 int32_t vq = static_cast<int32_t>(buf_Q_[c]);
-                                // SIC 차감: 기저대역 직접 차감
                                 const uint32_t neg = static_cast<uint32_t>(
                                     (sic_sym_bits >>
                                      static_cast<uint32_t>(c)) & 1u);
@@ -253,8 +269,28 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                                     static_cast<int32_t>(use_sic_u);
                                 vi -= sub;
                                 vq -= sub;
-                                ir_chip_I_[base + c] = ssat16_dispatch_(vi);
-                                ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
+                                preI[c] = vi;
+                                preQ[c] = vq;
+                            }
+                            alignas(16) int32_t wI[64];
+                            alignas(16) int32_t wQ[64];
+                            for (int c = 0; c < nc; ++c) {
+                                wI[c] = preI[c];
+                                wQ[c] = preQ[c];
+                            }
+                            fwht_raw(wI, nc);
+                            fwht_raw(wQ, nc);
+                            const int32_t pk =
+                                fwht_post_peak_max_abs_(wI, wQ, nc);
+                            const int sh = fwht_int16_store_downshift_(pk);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+                            fwht_post_shift_hist_record(sh);
+#endif
+                            for (int c = 0; c < nc; ++c) {
+                                ir_chip_I_[base + c] =
+                                    ssat16_dispatch_(preI[c] >> sh);
+                                ir_chip_Q_[base + c] =
+                                    ssat16_dispatch_(preQ[c] >> sh);
                             }
                         }
                         for (int c = 0; c < nc; ++c) {
@@ -663,3 +699,8 @@ void HTS_V400_Dispatcher::Inject_Payload_Phase(PayloadMode mode,
     // [REMOVED Step3] pay_cps_ 변경 시 ajc_.Reset — AJC 제거
 }
 } // namespace ProtectedEngine
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+namespace HtsFwhtInt16Scale {
+std::atomic<uint32_t> g_post_shift_hist[8]{};
+} // namespace HtsFwhtInt16Scale
+#endif

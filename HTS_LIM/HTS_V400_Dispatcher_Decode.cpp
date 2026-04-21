@@ -24,6 +24,14 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
     }
     fwht_raw(dec_wI_, n_eff);
     fwht_raw(dec_wQ_, n_eff);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    {
+        const int32_t pk =
+            fwht_post_peak_max_abs_(dec_wI_, dec_wQ_, n_eff);
+        const int sh = fwht_int16_store_downshift_(pk);
+        fwht_post_shift_hist_record(sh);
+    }
+#endif
     int search = n_eff;
     if (cap_search_to_bps && n_eff == 64) {
         const int bps = cur_bps64_;

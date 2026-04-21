@@ -1,0 +1,3 @@
+Comparing files split_lpi_none2.txt and TUNE_LPI_NONE.TXT
+FC: no differences encountered
+

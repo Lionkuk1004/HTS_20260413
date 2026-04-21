@@ -1,0 +1,21 @@
+=== ORPHAN CANDIDATES (20 files) ===
+  HTS_AMI_Barrage30_Test_V2.cpp
+  HTS_AMI_CommSpec_Barrage30_Matrix_Test.cpp
+  HTS_Extended_Endurance_Test.cpp
+  HTS_FEC_Layer_Test.cpp
+  HTS_Fractal_Channel_Compare.cpp
+  HTS_LDPC.cpp
+  HTS_LPI_Measurement.cpp
+  HTS_Layer10111213_Sequential_Audit_PC_Test.cpp
+  HTS_Layer1417_Host_IPC_Tick_API_Stub.cpp
+  HTS_Layer14_17_Sequential_Audit_PC_Test.cpp
+  HTS_Layer345_Sequential_Audit_PC_Test.cpp
+  HTS_Layer6789_Sequential_Audit_PC_Test.cpp
+  HTS_Pipeline_Sequential_Audit_PC_Test.cpp
+  HTS_Pipeline_V2_Compare.cpp
+  HTS_RS_FEC_Sequential_Audit_PC_Test.cpp
+  HTS_RS_GF16.cpp
+  HTS_TPC_LPI_Test.cpp
+  HTS_V400_SIC_PC_Test.cpp
+  toolchain_smoke_main.cpp
+  종합재밍_종합_테스트.cpp

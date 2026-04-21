@@ -1,0 +1,7 @@
+[Phase3-Alpha] trials=10 smoke=1 mini=1 IR=1 DATA=1 FEC_POLAR_DISABLE(build)
+jam,cov_pct,jsr_db,lpi,trials,pass,success_rate,cp_lower,cp_upper,avg_harq,zone
+[Decode64_IR entry] nsym=115 nc=64 bps=6
+[Decode64_IR entry] nsym=115 nc=64 bps=6
+[Decode64_IR entry] nsym=115 nc=64 bps=6
+J1_AWGN,20,-5,NONE,10,0,0.0000,0.0000,0.3085,8,FAIL
+[Phase3-Alpha] done wall=0.00 min cells=1

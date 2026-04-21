@@ -27,6 +27,25 @@
 #include <cstring>
 #include <random>
 #include <vector>
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+extern "C" void HTS_SIC_DIAG_Reset_Counters(void) noexcept;
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+extern "C" void HTS_AGC_DIAG_Reset_Counters(void) noexcept;
+extern "C" void HTS_AGC_DIAG_Get_SsatCounts(uint32_t *sat, uint32_t *tot) noexcept;
+#endif
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+extern "C" void HTS_IR_ROUND_DIAG_Reset_Records(void) noexcept;
+extern "C" void HTS_IR_ROUND_DIAG_Dump_Trial(const char *label) noexcept;
+#endif
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+extern "C" void HTS_FWHT_DIAG_Reset_Records(void) noexcept;
+extern "C" void HTS_FWHT_DIAG_Dump_Trial(const char *label) noexcept;
+#endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+extern "C" void HTS_FEC_FWHT_DIAG_Reset_Records(void) noexcept;
+extern "C" void HTS_FEC_FWHT_DIAG_Dump_Trial(const char *label) noexcept;
+#endif
 namespace {
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngineLocal::DecodedPacket;
@@ -949,7 +968,7 @@ static LayerResult test_full_stack_v4(PayloadMode mode, double js_db,
 static LayerResult test_full_stack_v4_lpi_real_sync(
     PayloadMode mode, double js_db, double coverage_pct, LPI_Mode lpi_mode,
     int max_feeds, int trials, int target_bps, uint32_t seed_base,
-    bool holo_lpi_engine_enabled = false) noexcept {
+    bool holo_lpi_engine_enabled = false, bool ir_sic_enabled = false) noexcept {
     FEC_HARQ::Set_IR_Erasure_Enabled(false);
 
     const int nc = (mode == PayloadMode::DATA) ? 64 : 16;
@@ -1002,6 +1021,20 @@ static LayerResult test_full_stack_v4_lpi_real_sync(
     };
 
     for (int t = 0; t < trials; ++t) {
+#if defined(HTS_DIAG_AGC_TRACE)
+        HTS_AGC_DIAG_Reset_Counters();
+#elif defined(HTS_DIAG_SIC_DIST)
+        HTS_SIC_DIAG_Reset_Counters();
+#endif
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+        HTS_IR_ROUND_DIAG_Reset_Records();
+#endif
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+        HTS_FWHT_DIAG_Reset_Records();
+#endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+        HTS_FEC_FWHT_DIAG_Reset_Records();
+#endif
         if (mode == PayloadMode::DATA && trials == kTrialsV464) {
             std::printf(
                 "  V4-64-RealSync Holo=%s J/S=%.0f cov=%.0f%% LPI=%s  %d/%d\r",
@@ -1055,7 +1088,7 @@ static LayerResult test_full_stack_v4_lpi_real_sync(
         tx_disp.Set_Seed(ds);
         tx_disp.Set_Preamble_Reps(kPreambleReps);
         tx_disp.Set_Preamble_Boost(kPreambleBoost);
-        tx_disp.Set_IR_SIC_Enabled(false);
+        tx_disp.Set_IR_SIC_Enabled(ir_sic_enabled);
         apply_rx_bps(tx_disp);
         if (holo_lpi_engine_enabled) {
             tx_disp.Enable_Holo_LPI(kLabHoloLpiSeed);
@@ -1080,7 +1113,7 @@ static LayerResult test_full_stack_v4_lpi_real_sync(
         rx_disp.Set_Seed(ds);
         rx_disp.Set_Preamble_Reps(kPreambleReps);
         rx_disp.Set_Preamble_Boost(kPreambleBoost);
-        rx_disp.Set_IR_SIC_Enabled(false);
+        rx_disp.Set_IR_SIC_Enabled(ir_sic_enabled);
         rx_disp.Set_Packet_Callback(on_pkt);
         apply_rx_bps(rx_disp);
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
@@ -1118,7 +1151,7 @@ static LayerResult test_full_stack_v4_lpi_real_sync(
                     rx_disp.Set_Seed(ds);
                     rx_disp.Set_Preamble_Reps(kPreambleReps);
                     rx_disp.Set_Preamble_Boost(kPreambleBoost);
-                    rx_disp.Set_IR_SIC_Enabled(false);
+                    rx_disp.Set_IR_SIC_Enabled(ir_sic_enabled);
                     rx_disp.Set_Packet_Callback(on_pkt);
                     apply_rx_bps(rx_disp);
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
@@ -1255,6 +1288,55 @@ static LayerResult test_full_stack_v4_lpi_real_sync(
             if (rounds_used > res.max_rounds)
                 res.max_rounds = rounds_used;
         }
+#if defined(HTS_DIAG_AGC_TRACE)
+        if (mode == PayloadMode::DATA) {
+            uint32_t sat = 0u;
+            uint32_t tot = 0u;
+            HTS_AGC_DIAG_Get_SsatCounts(&sat, &tot);
+            const double pct =
+                (tot > 0u)
+                    ? (100.0 * static_cast<double>(sat) /
+                       static_cast<double>(tot))
+                    : 0.0;
+            std::fprintf(stderr,
+                         "[AGC-DIAG-SUMMARY] SIC=%s trial=%d J/S=%.0f LPI=%s "
+                         "ssat16_sat=%u/%u (%.4f%%)\n",
+                         ir_sic_enabled ? "ON" : "OFF", t, js_db,
+                         lpi_mode_name(lpi_mode), static_cast<unsigned>(sat),
+                         static_cast<unsigned>(tot), pct);
+        }
+#endif
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+        if (mode == PayloadMode::DATA) {
+            char ir_label[192];
+            std::snprintf(
+                ir_label, sizeof(ir_label),
+                "SIC=%s J/S=%.0f LPI=%s trial=%d", ir_sic_enabled ? "ON" : "OFF",
+                js_db, lpi_mode_name(lpi_mode), t);
+            HTS_IR_ROUND_DIAG_Dump_Trial(ir_label);
+        }
+#endif
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+        if (mode == PayloadMode::DATA) {
+            char fw_label[192];
+            std::snprintf(
+                fw_label, sizeof(fw_label),
+                "SIC=%s J/S=%.0f LPI=%s trial=%d", ir_sic_enabled ? "ON" : "OFF",
+                js_db, lpi_mode_name(lpi_mode), t);
+            HTS_FWHT_DIAG_Dump_Trial(fw_label);
+        }
+#endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+        if (mode == PayloadMode::DATA) {
+            char fec_label[192];
+            std::snprintf(
+                fec_label, sizeof(fec_label),
+                "SIC=%s J/S=%.0f LPI=%s trial=%d",
+                ir_sic_enabled ? "ON" : "OFF", js_db, lpi_mode_name(lpi_mode),
+                t);
+            HTS_FEC_FWHT_DIAG_Dump_Trial(fec_label);
+        }
+#endif
     }
 
     if (mode == PayloadMode::DATA && trials == kTrialsV464) {
@@ -1270,17 +1352,25 @@ static LayerResult test_full_stack_v4_lpi_real_sync(
 }
 } // namespace
 int main() {
-#if defined(HTS_DIAG_TRY_DECODE)
+#if defined(HTS_DIAG_TRY_DECODE) || defined(HTS_DIAG_AGC_TRACE)
     static constexpr int kTrialsDiag = 5;
     static constexpr int kMaxRoundsDiag = 32;
     static constexpr uint32_t kSeedDiag = 0xB40730u;
     static constexpr double kCovDiag = 50.0;
     std::printf(
         "\n================================================================\n");
+#  if defined(HTS_DIAG_TRY_DECODE)
     std::printf(
         "  Step C-4b Phase 4-Pre-4: HTS_DIAG_TRY_DECODE "
         "(%d trials x 4 cells)\n",
         kTrialsDiag);
+#  else
+    std::fprintf(
+        stderr,
+        "  Step C-4b Phase 4-A-2: HTS_DIAG_AGC_TRACE (%d trials x 4 cells, "
+        "SIC OFF then ON)\n",
+        kTrialsDiag);
+#  endif
     std::printf(
         "================================================================\n");
 #  if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
@@ -1290,12 +1380,33 @@ int main() {
         std::printf("\n[FATAL] Layer 0 FAIL\n");
         return 1;
     }
+#  if defined(HTS_DIAG_AGC_TRACE)
+    for (int sic_phase = 0; sic_phase < 2; ++sic_phase) {
+        const bool sic_on = (sic_phase == 1);
+        std::fprintf(stderr,
+                     "\n\n############################################\n");
+        std::fprintf(stderr, "###  SIC %s  PHASE\n",
+                     sic_on ? "ON " : "OFF");
+        std::fprintf(stderr,
+                     "############################################\n\n");
+#endif
     auto run_diag_cell = [&](const char *title, LPI_Mode lm, double js) {
+#  if defined(HTS_DIAG_AGC_TRACE)
+        std::fprintf(stderr, "\n%s (SIC=%s)\n", title,
+                     sic_on ? "ON" : "OFF");
+#  else
         std::printf("\n%s\n", title);
+#  endif
         const uint32_t cell_seed = iso_cell_seed(kSeedDiag, js, kCovDiag, lm);
+#  if defined(HTS_DIAG_AGC_TRACE)
+        const LayerResult rv = test_full_stack_v4_lpi_real_sync(
+            PayloadMode::DATA, js, kCovDiag, lm, kMaxRoundsDiag, kTrialsDiag, 4,
+            cell_seed, true, sic_on);
+#  else
         const LayerResult rv = test_full_stack_v4_lpi_real_sync(
             PayloadMode::DATA, js, kCovDiag, lm, kMaxRoundsDiag, kTrialsDiag, 4,
             cell_seed, true);
+#  endif
         print_row("V4-64-Sync-DIAG", rv);
         print_row_v4_phase_diag(rv);
         std::fflush(stdout);
@@ -1306,7 +1417,14 @@ int main() {
     run_diag_cell("=== DIAG TIM 5 dB (single-round trend) ===",
                   LPI_Mode::TIMING_ONLY, 5.0);
     run_diag_cell("=== DIAG BOTH -1 dB ===", LPI_Mode::BOTH, -1.0);
+#  if defined(HTS_DIAG_AGC_TRACE)
+    }
+#endif
+#  if defined(HTS_DIAG_TRY_DECODE)
     std::printf("\n=== 완료 (Phase 4-Pre-4 DIAG) ===\n");
+#  elif defined(HTS_DIAG_AGC_TRACE)
+    std::fprintf(stderr, "\n=== 완료 (Phase 4-A-2 SIC OFF/ON AGC DIAG) ===\n");
+#  endif
     return 0;
 #else
     static constexpr int kTrials = 24;

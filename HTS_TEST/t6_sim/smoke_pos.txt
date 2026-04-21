@@ -1,0 +1,17 @@
+# Phase3-alpha --smoke-position-check
+# Model (A): random burst start within payload only
+# chips_before_payload pay_off=448 (preamble+header)
+# Scenario: J1_AWGN cov=20% JSR=0dB NONE IR=DATA
+
+trial=0 trial_seed=0x6bdf0b26a2efbc67 burst_start=4636 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=1 trial_seed=0x6bdf0c26a2efbe1a burst_start=1639 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=2 trial_seed=0x6bdf0d26a2efbfcd burst_start=5532 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=3 trial_seed=0x6bdf0e26a2efc180 burst_start=3497 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=4 trial_seed=0x6bdf0f26a2efc333 burst_start=5221 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=5 trial_seed=0x6bdf1026a2efc4e6 burst_start=1356 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=6 trial_seed=0x6bdf1126a2efc699 burst_start=8701 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=7 trial_seed=0x6bdf1226a2efc84c burst_start=609 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=8 trial_seed=0x6bdf1326a2efc9ff burst_start=7580 burst_len=2202 payload_chips=11008 crc_ok=1
+trial=9 trial_seed=0x6bdf1426a2efcbb2 burst_start=246 burst_len=2202 payload_chips=11008 crc_ok=1
+
+pass_crc=10 / 10 (expect >=9 for sanity)

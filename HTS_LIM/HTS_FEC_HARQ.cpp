@@ -40,6 +40,421 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+extern "C" void HTS_FEC_STRUCT_DIAG_Reset(void) noexcept;
+extern "C" void HTS_FEC_STRUCT_DIAG_Dump(const char *label) noexcept;
+#endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+#  include <algorithm>
+#  if defined(HTS_ALLOW_HOST_BUILD)
+#    include <cstdio>
+#    define FEC_FWHT_DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
+#  else
+#    define FEC_FWHT_DIAG_PRINTF(...) ((void)0)
+#  endif
+namespace fec_fwht_diag {
+static constexpr int kHistBuckets = 8;
+static std::atomic<uint32_t> g_fec_input_hist[kHistBuckets]{};
+static std::atomic<uint32_t> g_fec_output_hist[kHistBuckets]{};
+static std::atomic<uint32_t> g_fec_clip_count{0u};
+static std::atomic<uint32_t> g_fec_total_samples{0u};
+static std::atomic<int32_t> g_fec_row_max[64]{};
+static std::atomic<int32_t> g_fec_llr_max{INT32_MIN};
+static std::atomic<int32_t> g_fec_llr_min{INT32_MAX};
+static std::atomic<int32_t> g_fec_ir_accum_max{0};
+static std::atomic<uint32_t> g_fec_decode64_call_count{0u};
+
+static inline int bucket_of_(int32_t v) noexcept {
+    const int32_t av = v < 0 ? -v : v;
+    if (av < 100) {
+        return 0;
+    }
+    if (av < 1000) {
+        return 1;
+    }
+    if (av < 10000) {
+        return 2;
+    }
+    if (av < 32768) {
+        return 3;
+    }
+    if (av < 100000) {
+        return 4;
+    }
+    if (av < 1000000) {
+        return 5;
+    }
+    if (av < 10000000) {
+        return 6;
+    }
+    return 7;
+}
+static inline void hist_add_(std::atomic<uint32_t> *hist, int32_t v) noexcept {
+    hist[bucket_of_(v)].fetch_add(1u, std::memory_order_relaxed);
+}
+static inline void note_clip_pair_(int32_t vI, int32_t vQ) noexcept {
+    g_fec_total_samples.fetch_add(2u, std::memory_order_relaxed);
+    if (vI > 32767 || vI < -32768) {
+        g_fec_clip_count.fetch_add(1u, std::memory_order_relaxed);
+    }
+    if (vQ > 32767 || vQ < -32768) {
+        g_fec_clip_count.fetch_add(1u, std::memory_order_relaxed);
+    }
+}
+static inline void row_energy_update_(const int32_t *wI, const int32_t *wQ,
+                                      int nc) noexcept {
+    const int n = (nc < 64) ? nc : 64;
+    for (int r = 0; r < n; ++r) {
+        const int32_t vI = wI[static_cast<std::size_t>(r)];
+        const int32_t vQ = wQ[static_cast<std::size_t>(r)];
+        const int32_t ai = vI < 0 ? -vI : vI;
+        const int32_t aq = vQ < 0 ? -vQ : vQ;
+        const int32_t energy = ai + aq;
+        int32_t prev = g_fec_row_max[r].load(std::memory_order_relaxed);
+        while (energy > prev &&
+               !g_fec_row_max[r].compare_exchange_weak(
+                   prev, energy, std::memory_order_relaxed,
+                   std::memory_order_relaxed)) {
+        }
+    }
+}
+static void accum_fwht_input_(const int32_t *fI, const int32_t *fQ,
+                               int nc) noexcept {
+    for (int c = 0; c < nc; ++c) {
+        hist_add_(g_fec_input_hist, fI[static_cast<std::size_t>(c)]);
+        hist_add_(g_fec_input_hist, fQ[static_cast<std::size_t>(c)]);
+    }
+}
+/// Walsh butterfly FWHT 직후( `fec_ir_fwht_bin_unshift` 전) 스펙트럼 bin 값.
+static void accum_butterfly_fwht_out_(const int32_t *fI, const int32_t *fQ,
+                                        int nc) noexcept {
+    for (int c = 0; c < nc; ++c) {
+        const int32_t vI = fI[static_cast<std::size_t>(c)];
+        const int32_t vQ = fQ[static_cast<std::size_t>(c)];
+        hist_add_(g_fec_output_hist, vI);
+        hist_add_(g_fec_output_hist, vQ);
+        note_clip_pair_(vI, vQ);
+    }
+}
+static void accum_llr_(const int32_t *llr, int bps) noexcept {
+    for (int b = 0; b < bps; ++b) {
+        const int32_t v = llr[static_cast<std::size_t>(b)];
+        int32_t mx = g_fec_llr_max.load(std::memory_order_relaxed);
+        while (v > mx &&
+               !g_fec_llr_max.compare_exchange_weak(mx, v,
+                                                    std::memory_order_relaxed,
+                                                    std::memory_order_relaxed)) {
+        }
+        int32_t mn = g_fec_llr_min.load(std::memory_order_relaxed);
+        while (v < mn &&
+               !g_fec_llr_min.compare_exchange_weak(mn, v,
+                                                    std::memory_order_relaxed,
+                                                    std::memory_order_relaxed)) {
+        }
+    }
+}
+static void note_ir_accum_max_(const int32_t *acc, int n) noexcept {
+    int32_t local_mx = 0;
+    for (int i = 0; i < n; ++i) {
+        const int32_t v = acc[static_cast<std::size_t>(i)];
+        const int32_t av = v < 0 ? -v : v;
+        if (av > local_mx) {
+            local_mx = av;
+        }
+    }
+    int32_t prev = g_fec_ir_accum_max.load(std::memory_order_relaxed);
+    while (local_mx > prev &&
+           !g_fec_ir_accum_max.compare_exchange_weak(
+               prev, local_mx, std::memory_order_relaxed,
+               std::memory_order_relaxed)) {
+    }
+}
+void reset_all_records_() noexcept {
+    for (int i = 0; i < kHistBuckets; ++i) {
+        g_fec_input_hist[i].store(0u, std::memory_order_relaxed);
+        g_fec_output_hist[i].store(0u, std::memory_order_relaxed);
+    }
+    g_fec_clip_count.store(0u, std::memory_order_relaxed);
+    g_fec_total_samples.store(0u, std::memory_order_relaxed);
+    g_fec_llr_max.store(static_cast<int32_t>(INT32_MIN),
+                        std::memory_order_relaxed);
+    g_fec_llr_min.store(static_cast<int32_t>(INT32_MAX),
+                        std::memory_order_relaxed);
+    g_fec_ir_accum_max.store(0, std::memory_order_relaxed);
+    g_fec_decode64_call_count.store(0u, std::memory_order_relaxed);
+    for (int r = 0; r < 64; ++r) {
+        g_fec_row_max[r].store(0, std::memory_order_relaxed);
+    }
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+    HTS_FEC_STRUCT_DIAG_Reset();
+#endif
+}
+} // namespace fec_fwht_diag
+#else
+#  define FEC_FWHT_DIAG_PRINTF(...) ((void)0)
+#endif
+
+// Phase 4-A-7: FEC peak / LLR path structure (DIAG only, no algorithm change).
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+#  if defined(HTS_ALLOW_HOST_BUILD)
+#    define FEC_STRUCT_DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
+#  else
+#    define FEC_STRUCT_DIAG_PRINTF(...) ((void)0)
+#  endif
+namespace fec_struct_diag {
+static std::atomic<uint32_t> g_decode64_invocation{0u};
+static std::atomic<uint32_t> g_call_count_sym0_unshift{0u};
+static std::atomic<int32_t> g_peak_max_l1{INT32_MIN};
+static std::atomic<int32_t> g_second_peak_l1{0};
+static std::atomic<int32_t> g_sidelobe_ratio_pct_max{0};
+static std::atomic<int32_t> g_llr_post_bin_max{INT32_MIN};
+static std::atomic<int32_t> g_llr_post_bin_min{INT32_MAX};
+static std::atomic<int32_t> g_llr_pre_clamp_max{INT32_MIN};
+static std::atomic<int32_t> g_llr_pre_clamp_min{INT32_MAX};
+static std::atomic<int32_t> g_llr_post_clamp_max{INT32_MIN};
+static std::atomic<int32_t> g_llr_post_clamp_min{INT32_MAX};
+
+static inline int32_t row_l1_(const int32_t *fI, const int32_t *fQ,
+                              int r) noexcept {
+    const int32_t vI = fI[static_cast<std::size_t>(r)];
+    const int32_t vQ = fQ[static_cast<std::size_t>(r)];
+    const int32_t ai = vI < 0 ? -vI : vI;
+    const int32_t aq = vQ < 0 ? -vQ : vQ;
+    return ai + aq;
+}
+static inline void peak_two_rows_l1_(const int32_t *fI, const int32_t *fQ,
+                                      int nc, int *out_peak_r,
+                                      int32_t *out_peak_v, int *out_sec_r,
+                                      int32_t *out_sec_v) noexcept {
+    int peak_r = 0;
+    int sec_r = 0;
+    int32_t peak_v = INT32_MIN;
+    int32_t sec_v = INT32_MIN;
+    const int n = (nc < 64) ? nc : 64;
+    for (int r = 0; r < n; ++r) {
+        const int32_t e = row_l1_(fI, fQ, r);
+        if (e > peak_v) {
+            sec_v = peak_v;
+            sec_r = peak_r;
+            peak_v = e;
+            peak_r = r;
+        } else if (e > sec_v) {
+            sec_v = e;
+            sec_r = r;
+        }
+    }
+    *out_peak_r = peak_r;
+    *out_peak_v = peak_v;
+    *out_sec_r = sec_r;
+    *out_sec_v = sec_v;
+}
+
+static void reset_stats_() noexcept {
+    g_decode64_invocation.store(0u, std::memory_order_relaxed);
+    g_call_count_sym0_unshift.store(0u, std::memory_order_relaxed);
+    g_peak_max_l1.store(INT32_MIN, std::memory_order_relaxed);
+    g_second_peak_l1.store(0, std::memory_order_relaxed);
+    g_sidelobe_ratio_pct_max.store(0, std::memory_order_relaxed);
+    g_llr_post_bin_max.store(INT32_MIN, std::memory_order_relaxed);
+    g_llr_post_bin_min.store(INT32_MAX, std::memory_order_relaxed);
+    g_llr_pre_clamp_max.store(INT32_MIN, std::memory_order_relaxed);
+    g_llr_pre_clamp_min.store(INT32_MAX, std::memory_order_relaxed);
+    g_llr_post_clamp_max.store(INT32_MIN, std::memory_order_relaxed);
+    g_llr_post_clamp_min.store(INT32_MAX, std::memory_order_relaxed);
+}
+
+static void trace_unshift_in_(const int32_t *fI, const int32_t *fQ, int nc,
+                             uint32_t decode_inv, int sym_idx) noexcept {
+    if (decode_inv > 3u || sym_idx != 0) {
+        return;
+    }
+    int pr = 0;
+    int sr = 0;
+    int32_t pv = 0;
+    int32_t sv = 0;
+    peak_two_rows_l1_(fI, fQ, nc, &pr, &pv, &sr, &sv);
+    FEC_STRUCT_DIAG_PRINTF(
+        "[FEC-STRUCT-1] unshift IN #%u sym=%d: peak row=%d L1(|I|+|Q|)=%d, "
+        "2nd row=%d val=%d nc=%d\n",
+        static_cast<unsigned>(decode_inv), sym_idx, pr, static_cast<int>(pv),
+        sr, static_cast<int>(sv), nc);
+}
+
+static void trace_unshift_out_(const int32_t *fI, const int32_t *fQ, int nc,
+                              uint32_t decode_inv, int sym_idx,
+                              unsigned walsh_shift) noexcept {
+    if (decode_inv > 3u || sym_idx != 0) {
+        return;
+    }
+    int pr = 0;
+    int sr = 0;
+    int32_t pv = 0;
+    int32_t sv = 0;
+    peak_two_rows_l1_(fI, fQ, nc, &pr, &pv, &sr, &sv);
+    int32_t ratio_pct = 0;
+    if (pv > 0 && sv >= 0) {
+        ratio_pct = static_cast<int32_t>((100LL * sv) / pv);
+    }
+    FEC_STRUCT_DIAG_PRINTF(
+        "[FEC-STRUCT-2] unshift OUT #%u sym=%d walsh_shift=%u: peak row=%d "
+        "L1=%d, 2nd row=%d L1=%d ratio=%d%%\n",
+        static_cast<unsigned>(decode_inv), sym_idx, walsh_shift, pr,
+        static_cast<int>(pv), sr, static_cast<int>(sv),
+        static_cast<int>(ratio_pct));
+    int32_t prev_p = g_peak_max_l1.load(std::memory_order_relaxed);
+    if (pv > prev_p) {
+        g_peak_max_l1.store(pv, std::memory_order_relaxed);
+    }
+    g_second_peak_l1.store(sv, std::memory_order_relaxed);
+    int32_t prev_r = g_sidelobe_ratio_pct_max.load(std::memory_order_relaxed);
+    if (ratio_pct > prev_r) {
+        g_sidelobe_ratio_pct_max.store(ratio_pct, std::memory_order_relaxed);
+    }
+}
+
+static void trace_bin_to_llr_meta_(uint32_t decode_inv, int sym_idx, int nc,
+                                   int bps) noexcept {
+    if (decode_inv > 3u || sym_idx != 0) {
+        return;
+    }
+    FEC_STRUCT_DIAG_PRINTF(
+        "[FEC-STRUCT-3] Bin_To_LLR input #%u sym=%d: bins=%d bps=%d "
+        "(fI/fQ int32, post-unshift)\n",
+        static_cast<unsigned>(decode_inv), sym_idx, nc, bps);
+}
+
+static void trace_llr_post_bin_(const int32_t *llr, int bps,
+                                uint32_t decode_inv, int sym_idx) noexcept {
+    if (decode_inv > 3u || sym_idx != 0 || llr == nullptr || bps <= 0) {
+        return;
+    }
+    int32_t mx = INT32_MIN;
+    int32_t mn = INT32_MAX;
+    for (int b = 0; b < bps; ++b) {
+        const int32_t v = llr[static_cast<std::size_t>(b)];
+        if (v > mx) {
+            mx = v;
+        }
+        if (v < mn) {
+            mn = v;
+        }
+    }
+    FEC_STRUCT_DIAG_PRINTF(
+        "[FEC-STRUCT-4] LLR after Bin_To_LLR (>>12 conv) #%u sym=%d: [%d, %d]\n",
+        static_cast<unsigned>(decode_inv), sym_idx, static_cast<int>(mn),
+        static_cast<int>(mx));
+    int32_t pmax = g_llr_post_bin_max.load(std::memory_order_relaxed);
+    int32_t pmin = g_llr_post_bin_min.load(std::memory_order_relaxed);
+    if (mx > pmax) {
+        g_llr_post_bin_max.store(mx, std::memory_order_relaxed);
+    }
+    if (mn < pmin) {
+        g_llr_post_bin_min.store(mn, std::memory_order_relaxed);
+    }
+}
+
+static void trace_clamp_before_after_(
+    const int32_t *llr_pre, const int32_t *llr_post_wb, int bps,
+    uint32_t decode_inv, int sym_idx) noexcept {
+    if (decode_inv > 3u || sym_idx != 0 || llr_pre == nullptr ||
+        llr_post_wb == nullptr || bps <= 0) {
+        return;
+    }
+    int32_t bmx = INT32_MIN;
+    int32_t bmn = INT32_MAX;
+    int32_t amx = INT32_MIN;
+    int32_t amn = INT32_MAX;
+    for (int b = 0; b < bps; ++b) {
+        const int32_t vb = llr_pre[static_cast<std::size_t>(b)];
+        const int32_t va = llr_post_wb[static_cast<std::size_t>(b)];
+        if (vb > bmx) {
+            bmx = vb;
+        }
+        if (vb < bmn) {
+            bmn = vb;
+        }
+        if (va > amx) {
+            amx = va;
+        }
+        if (va < amn) {
+            amn = va;
+        }
+    }
+    FEC_STRUCT_DIAG_PRINTF(
+        "[FEC-STRUCT-5] clamp BEFORE tpe_clamp_llr #%u sym=%d: [%d, %d]\n",
+        static_cast<unsigned>(decode_inv), sym_idx, static_cast<int>(bmn),
+        static_cast<int>(bmx));
+    FEC_STRUCT_DIAG_PRINTF(
+        "[FEC-STRUCT-6] clamp AFTER  tpe_clamp_llr #%u sym=%d: [%d, %d] "
+        "(limit ±500000)\n",
+        static_cast<unsigned>(decode_inv), sym_idx, static_cast<int>(amn),
+        static_cast<int>(amx));
+    int32_t p1 = g_llr_pre_clamp_max.load(std::memory_order_relaxed);
+    int32_t p2 = g_llr_pre_clamp_min.load(std::memory_order_relaxed);
+    if (bmx > p1) {
+        g_llr_pre_clamp_max.store(bmx, std::memory_order_relaxed);
+    }
+    if (bmn < p2) {
+        g_llr_pre_clamp_min.store(bmn, std::memory_order_relaxed);
+    }
+    p1 = g_llr_post_clamp_max.load(std::memory_order_relaxed);
+    p2 = g_llr_post_clamp_min.load(std::memory_order_relaxed);
+    if (amx > p1) {
+        g_llr_post_clamp_max.store(amx, std::memory_order_relaxed);
+    }
+    if (amn < p2) {
+        g_llr_post_clamp_min.store(amn, std::memory_order_relaxed);
+    }
+}
+
+static void dump_trial_(const char *label) noexcept {
+    const uint32_t inv =
+        g_decode64_invocation.load(std::memory_order_relaxed);
+    if (inv == 0u) {
+        return;
+    }
+    FEC_STRUCT_DIAG_PRINTF("\n[FEC-STRUCT-7] === %s structure summary ===\n",
+                           label != nullptr ? label : "");
+    FEC_STRUCT_DIAG_PRINTF(
+        "  Decode64_IR invocations (this segment): %u\n",
+        static_cast<unsigned>(inv));
+    FEC_STRUCT_DIAG_PRINTF(
+        "  sym0 unshift detailed traces: %u\n",
+        static_cast<unsigned>(
+            g_call_count_sym0_unshift.load(std::memory_order_relaxed)));
+    FEC_STRUCT_DIAG_PRINTF(
+        "  peak L1(|I|+|Q|) max (sym0 traces): %d\n",
+        static_cast<int>(g_peak_max_l1.load(std::memory_order_relaxed)));
+    FEC_STRUCT_DIAG_PRINTF(
+        "  sidelobe ratio max (2nd/peak %% on L1): %d\n",
+        static_cast<int>(
+            g_sidelobe_ratio_pct_max.load(std::memory_order_relaxed)));
+    FEC_STRUCT_DIAG_PRINTF(
+        "  LLR after Bin_To_LLR (>>12) range: [%d, %d]\n",
+        static_cast<int>(g_llr_post_bin_min.load(std::memory_order_relaxed)),
+        static_cast<int>(g_llr_post_bin_max.load(std::memory_order_relaxed)));
+    FEC_STRUCT_DIAG_PRINTF(
+        "  LLR pre-clamp range: [%d, %d]\n",
+        static_cast<int>(g_llr_pre_clamp_min.load(std::memory_order_relaxed)),
+        static_cast<int>(g_llr_pre_clamp_max.load(std::memory_order_relaxed)));
+    FEC_STRUCT_DIAG_PRINTF(
+        "  LLR post-clamp range: [%d, %d]\n",
+        static_cast<int>(
+            g_llr_post_clamp_min.load(std::memory_order_relaxed)),
+        static_cast<int>(
+            g_llr_post_clamp_max.load(std::memory_order_relaxed)));
+    FEC_STRUCT_DIAG_PRINTF("[FEC-STRUCT-7] === end ===\n\n");
+}
+} // namespace fec_struct_diag
+
+extern "C" void HTS_FEC_STRUCT_DIAG_Reset(void) noexcept {
+    fec_struct_diag::reset_stats_();
+}
+extern "C" void HTS_FEC_STRUCT_DIAG_Dump(const char *label) noexcept {
+    fec_struct_diag::dump_trial_(label);
+}
+#endif // HTS_DIAG_FEC_STRUCTURE || HTS_DIAG_AGC_TRACE
+
 #if defined(HTS_FEC_PROFILE)
 #include <chrono>
 #if defined(_WIN32)
@@ -105,6 +520,38 @@ static inline int32_t fec_ir_fast_abs_i32(int32_t v) noexcept {
     const int32_t m = v >> 31;
     return (v ^ m) - m;
 }
+#if HTS_WALSH_ROW_MASK_SAMPLE
+/// FWHT row 대비: |fI+fQ| max 기준 threshold=max>>SHIFT 미만 bin 제로화 (MUL 없음).
+static inline void fec_ir_walsh_row_mask_apply(int32_t *fI, int32_t *fQ,
+                                               int nc) noexcept {
+    if (fI == nullptr || fQ == nullptr || nc <= 0) {
+        return;
+    }
+    int32_t max_abs = 0;
+    for (int m = 0; m < nc; ++m) {
+        const int32_t fi = fI[static_cast<std::size_t>(m)];
+        const int32_t fq = fQ[static_cast<std::size_t>(m)];
+        const int32_t corr = fi + fq;
+        const int32_t abs_corr = fec_ir_fast_abs_i32(corr);
+        if (abs_corr > max_abs) {
+            max_abs = abs_corr;
+        }
+    }
+    const uint32_t mu = static_cast<uint32_t>(max_abs);
+    const int32_t threshold = static_cast<int32_t>(
+        mu >> static_cast<unsigned>(HTS_WALSH_ROW_MASK_SHIFT));
+    for (int m = 0; m < nc; ++m) {
+        const int32_t fi = fI[static_cast<std::size_t>(m)];
+        const int32_t fq = fQ[static_cast<std::size_t>(m)];
+        const int32_t corr = fi + fq;
+        const int32_t abs_corr = fec_ir_fast_abs_i32(corr);
+        if (abs_corr < threshold) {
+            fI[static_cast<std::size_t>(m)] = 0;
+            fQ[static_cast<std::size_t>(m)] = 0;
+        }
+    }
+}
+#endif
 // Stage 6B: RX FWHT bin m 는 TX bin (m XOR shift) 에너지 — LLR 전 역치환
 namespace {
 static inline void fec_ir_fwht_bin_unshift(int32_t* fI, int32_t* fQ, int nc,
@@ -1168,10 +1615,58 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     use_I = g_wrc_sym_i;
     use_Q = g_wrc_sym_q;
 #endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+    {
+        using namespace fec_fwht_diag;
+        const uint32_t cc =
+            g_fec_decode64_call_count.fetch_add(1u, std::memory_order_relaxed) +
+            1u;
+        if (cc <= 3u) {
+            int32_t in_I_max = INT32_MIN;
+            int32_t in_I_min = INT32_MAX;
+            int32_t in_Q_max = INT32_MIN;
+            int32_t in_Q_min = INT32_MAX;
+            for (int s = 0; s < nsym; ++s) {
+                const int b0 = s * nc;
+                for (int c = 0; c < nc; ++c) {
+                    const int32_t vI =
+                        static_cast<int32_t>(use_I[b0 + c]);
+                    const int32_t vQ =
+                        static_cast<int32_t>(use_Q[b0 + c]);
+                    if (vI > in_I_max) {
+                        in_I_max = vI;
+                    }
+                    if (vI < in_I_min) {
+                        in_I_min = vI;
+                    }
+                    if (vQ > in_Q_max) {
+                        in_Q_max = vQ;
+                    }
+                    if (vQ < in_Q_min) {
+                        in_Q_min = vQ;
+                    }
+                }
+            }
+            FEC_FWHT_DIAG_PRINTF(
+                "[FEC-FWHT-1] Decode64_IR entry #%u: ir_chip_I=[%d,%d] "
+                "ir_chip_Q=[%d,%d] nsym=%d nc=%d walsh_shift=%u\n",
+                static_cast<unsigned>(cc), static_cast<int>(in_I_min),
+                static_cast<int>(in_I_max), static_cast<int>(in_Q_min),
+                static_cast<int>(in_Q_max), nsym, nc,
+                static_cast<unsigned>(walsh_shift));
+        }
+    }
+#endif
     std::array<int32_t, k_fwht_buf_sz> &fI = g_fec_dec_fI;
     std::array<int32_t, k_fwht_buf_sz> &fQ = g_fec_dec_fQ;
     std::array<int32_t, k_llr_buf_sz> &llr = g_fec_dec_llr;
     llr.fill(static_cast<int32_t>(0));
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+    const uint32_t fec_struct_decode_inv =
+        fec_struct_diag::g_decode64_invocation.fetch_add(1u,
+                                                         std::memory_order_relaxed) +
+        1u;
+#endif
     const uint32_t er_en =
         static_cast<uint32_t>(g_ir_erasure_en.load(std::memory_order_relaxed));
 #if defined(HTS_DIAG_PRINTF)
@@ -1191,8 +1686,49 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             fI[static_cast<std::size_t>(c)] = Ii & mask;
             fQ[static_cast<std::size_t>(c)] = Qi & mask;
         }
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+        fec_fwht_diag::accum_fwht_input_(fI.data(), fQ.data(), nc);
+#endif
         FWHT(fI.data(), nc);
         FWHT(fQ.data(), nc);
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+        fec_fwht_diag::accum_butterfly_fwht_out_(fI.data(), fQ.data(), nc);
+        {
+            using namespace fec_fwht_diag;
+            const uint32_t cc =
+                g_fec_decode64_call_count.load(std::memory_order_relaxed);
+            if (cc <= 3u && sym == 0) {
+                int32_t out_max = INT32_MIN;
+                int32_t out_min = INT32_MAX;
+                int32_t max_row_energy = 0;
+                int max_row_idx = 0;
+                for (int r = 0; r < nc; ++r) {
+                    const int32_t vI = fI[static_cast<std::size_t>(r)];
+                    const int32_t vQ = fQ[static_cast<std::size_t>(r)];
+                    (void)vQ;
+                    if (vI > out_max) {
+                        out_max = vI;
+                    }
+                    if (vI < out_min) {
+                        out_min = vI;
+                    }
+                    const int32_t ai = vI < 0 ? -vI : vI;
+                    const int32_t aq = vQ < 0 ? -vQ : vQ;
+                    const int32_t energy = ai + aq;
+                    if (energy > max_row_energy) {
+                        max_row_energy = energy;
+                        max_row_idx = r;
+                    }
+                }
+                FEC_FWHT_DIAG_PRINTF(
+                    "[FEC-FWHT-2] sym0 FWHT out (pre-unshift) #%u: I=[%d,%d] "
+                    "max_row=%d energy=%d\n",
+                    static_cast<unsigned>(cc), static_cast<int>(out_min),
+                    static_cast<int>(out_max), max_row_idx,
+                    static_cast<int>(max_row_energy));
+            }
+        }
+#endif
         int fec_ir_do_fwht_dump = 0;
 #if defined(HTS_DIAG_PRINTF)
         if (sym == 0 && walsh_shift != 0u &&
@@ -1204,7 +1740,23 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 static_cast<uint32_t>(walsh_shift), fI.data(), fQ.data(), nc, 1);
         }
 #endif
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+        fec_struct_diag::trace_unshift_in_(fI.data(), fQ.data(), nc,
+                                           fec_struct_decode_inv, sym);
+#endif
         fec_ir_fwht_bin_unshift(fI.data(), fQ.data(), nc, walsh_shift);
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+        fec_struct_diag::trace_unshift_out_(
+            fI.data(), fQ.data(), nc, fec_struct_decode_inv, sym,
+            static_cast<unsigned>(walsh_shift));
+        if (fec_struct_decode_inv <= 3u && sym == 0) {
+            fec_struct_diag::g_call_count_sym0_unshift.fetch_add(
+                1u, std::memory_order_relaxed);
+        }
+#endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+        fec_fwht_diag::row_energy_update_(fI.data(), fQ.data(), nc);
+#endif
 #if defined(HTS_DIAG_PRINTF)
         if (fec_ir_do_fwht_dump != 0) {
             fec_ir_diag_fwht_top5_print(
@@ -1261,7 +1813,18 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 fI.data(), fQ.data(), nc, k_cw_ex_opts);
         }
 #endif
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+        fec_struct_diag::trace_bin_to_llr_meta_(fec_struct_decode_inv, sym, nc,
+                                                bps);
+#endif
+#if HTS_WALSH_ROW_MASK_SAMPLE
+        fec_ir_walsh_row_mask_apply(fI.data(), fQ.data(), nc);
+#endif
         Bin_To_LLR(fI.data(), fQ.data(), nc, bps, llr.data());
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+        fec_struct_diag::trace_llr_post_bin_(llr.data(), bps, fec_struct_decode_inv,
+                                             sym);
+#endif
 #if defined(HTS_DIAG_PRINTF)
         if (fec_ir_do_fwht_dump != 0) {
             std::printf("[FEC-LLR] call=%d: ", s_fec_ir_fwht_dump_calls);
@@ -1280,6 +1843,23 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
                 tpe_clamp_llr(llr[static_cast<std::size_t>(b)]) &
                 static_cast<int32_t>(in_range);
         }
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+        if (fec_struct_decode_inv <= 3u && sym == 0) {
+            fec_struct_diag::trace_clamp_before_after_(
+                llr.data(), wb.ru.all_llr + static_cast<std::size_t>(sym * bps),
+                bps, fec_struct_decode_inv, sym);
+        }
+#endif
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+        for (int b = 0; b < bps; ++b) {
+            const int bi = sym * bps + b;
+            if (bi < TOTAL_CODED) {
+                const int32_t v =
+                    wb.ru.all_llr[static_cast<std::size_t>(bi)];
+                fec_fwht_diag::accum_llr_(&v, 1);
+            }
+        }
+#endif
     }
 #if defined(HTS_FEC_POLAR_ENABLE) && !defined(HTS_FEC_POLAR_DISABLE)
     (void)il_seed;
@@ -1468,6 +2048,9 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         slot =
             tpe_sat_add_llr(slot, wb.ru.all_llr[static_cast<std::size_t>(i)]);
     }
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+    fec_fwht_diag::note_ir_accum_max_(ir_state.llr_accum, TOTAL_CODED);
+#endif
 #if defined(HTS_LLR_DIAG)
     {
         static constexpr int32_t kIrAccumClampLim = 500000;
@@ -1674,6 +2257,101 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
     return dec_ok;
 }
 } // namespace ProtectedEngine
+
+#if defined(HTS_DIAG_FEC_FWHT) || defined(HTS_DIAG_AGC_TRACE)
+extern "C" void HTS_FEC_FWHT_DIAG_Reset_Records(void) noexcept {
+    fec_fwht_diag::reset_all_records_();
+}
+#  if defined(HTS_ALLOW_HOST_BUILD)
+extern "C" void HTS_FEC_FWHT_DIAG_Dump_Trial(const char *label) noexcept {
+    using namespace fec_fwht_diag;
+    uint32_t in_hist[kHistBuckets];
+    uint32_t out_hist[kHistBuckets];
+    uint32_t total_in = 0u;
+    uint32_t total_out = 0u;
+    for (int i = 0; i < kHistBuckets; ++i) {
+        in_hist[i] = g_fec_input_hist[i].load(std::memory_order_relaxed);
+        out_hist[i] = g_fec_output_hist[i].load(std::memory_order_relaxed);
+        total_in += in_hist[i];
+        total_out += out_hist[i];
+    }
+    if (total_in == 0u && total_out == 0u) {
+        FEC_FWHT_DIAG_PRINTF("\n[FEC-FWHT-6] %s: no FEC FWHT samples\n\n",
+                             label != nullptr ? label : "");
+        return;
+    }
+    FEC_FWHT_DIAG_PRINTF(
+        "\n[FEC-FWHT-6] === %s FEC Decode64_IR histograms ===\n",
+        label != nullptr ? label : "");
+    FEC_FWHT_DIAG_PRINTF(
+        "  (output hist = Walsh butterfly FWHT, pre "
+        "fec_ir_fwht_bin_unshift)\n");
+    FEC_FWHT_DIAG_PRINTF(
+        "  Decode64_IR invocations (this trial segment): %u\n",
+        static_cast<unsigned>(
+            g_fec_decode64_call_count.load(std::memory_order_relaxed)));
+    FEC_FWHT_DIAG_PRINTF("  bucket  |   input%%   |   output%%\n");
+    static const char *const k_bucket_labels[] = {
+        "<100", "<1k", "<10k", "<32k", "<100k", "<1M", "<10M", ">=10M"};
+    const uint32_t tin = (total_in != 0u) ? total_in : 1u;
+    const uint32_t tout = (total_out != 0u) ? total_out : 1u;
+    for (int i = 0; i < kHistBuckets; ++i) {
+        FEC_FWHT_DIAG_PRINTF(
+            "  %-7s | %10.2f | %10.2f\n", k_bucket_labels[i],
+            100.0 * static_cast<double>(in_hist[i]) /
+                static_cast<double>(tin),
+            100.0 * static_cast<double>(out_hist[i]) /
+                static_cast<double>(tout));
+    }
+    const uint32_t clip =
+        g_fec_clip_count.load(std::memory_order_relaxed);
+    const uint32_t tot =
+        g_fec_total_samples.load(std::memory_order_relaxed);
+    const uint32_t tden = (tot != 0u) ? tot : 1u;
+    FEC_FWHT_DIAG_PRINTF(
+        "  would-clip int16 (|v|>32767): %u / %u (%.4f%%)\n",
+        static_cast<unsigned>(clip), static_cast<unsigned>(tot),
+        100.0 * static_cast<double>(clip) / static_cast<double>(tden));
+    FEC_FWHT_DIAG_PRINTF(
+        "  ir_accum max |llr| (after tpe_sat_add_llr combine): %d\n",
+        static_cast<int>(
+            g_fec_ir_accum_max.load(std::memory_order_relaxed)));
+    FEC_FWHT_DIAG_PRINTF(
+        "  per-chip LLR range after tpe_clamp_llr → wb.ru.all_llr: [%d, %d]\n",
+        static_cast<int>(g_fec_llr_min.load(std::memory_order_relaxed)),
+        static_cast<int>(g_fec_llr_max.load(std::memory_order_relaxed)));
+    FEC_FWHT_DIAG_PRINTF(
+        "  Row |I|+|Q| max (post fec_ir_fwht_bin_unshift), top 5:\n");
+    int32_t row_copy[64];
+    for (int r = 0; r < 64; ++r) {
+        row_copy[r] = g_fec_row_max[r].load(std::memory_order_relaxed);
+    }
+    for (int t = 0; t < 5; ++t) {
+        int best_r = -1;
+        int32_t best_e = 0;
+        for (int r = 0; r < 64; ++r) {
+            const int32_t e = row_copy[r];
+            if (e > best_e) {
+                best_e = e;
+                best_r = r;
+            }
+        }
+        if (best_r < 0 || best_e <= 0) {
+            break;
+        }
+        FEC_FWHT_DIAG_PRINTF("    row %2d: energy %d\n", best_r,
+                             static_cast<int>(best_e));
+        row_copy[best_r] = 0;
+    }
+#if defined(HTS_DIAG_FEC_STRUCTURE) || defined(HTS_DIAG_AGC_TRACE)
+    HTS_FEC_STRUCT_DIAG_Dump(label);
+#endif
+    FEC_FWHT_DIAG_PRINTF("[FEC-FWHT-6] === end ===\n\n");
+}
+#  else
+extern "C" void HTS_FEC_FWHT_DIAG_Dump_Trial(const char *) noexcept {}
+#  endif
+#endif
 
 #if defined(HTS_CW_EXCISION_V1)
 #include "HTS_CW_Excision.cpp"

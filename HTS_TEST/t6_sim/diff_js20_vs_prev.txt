@@ -1,0 +1,3 @@
+Comparing files prev_js20.txt and TUNE_JS20.TXT
+FC: no differences encountered
+

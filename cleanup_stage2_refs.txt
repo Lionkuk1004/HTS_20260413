@@ -1,0 +1,6 @@
+﻿D:\HTS_ARM11_Firmware\HTS_LIM\build-m4\CMakeFiles\VerifyGlobs.cmake
+D:\HTS_ARM11_Firmware\HTS_LIM\cleanup_stage2_refs.txt
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\arm_firmware\CMakeLists.txt
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LIM.vcxproj
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_AMI_Barrage30_Spec.vcxproj
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_검증_종합재밍.vcxproj

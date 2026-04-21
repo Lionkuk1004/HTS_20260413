@@ -1,0 +1,3 @@
+Comparing files split_rs_none.txt and FIX_RS_NONE.TXT
+FC: no differences encountered
+

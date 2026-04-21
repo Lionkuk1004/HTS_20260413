@@ -1,0 +1,132 @@
+﻿
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\pipeline_experiment\build.bat ===
+   /FeHTS_T6_SIM_Test_exp.exe HTS_T6_SIM_Test_exp.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\pipeline_experiment_6515323\build.bat ===
+   /FeHTS_T6_SIM_Test_exp.exe HTS_T6_SIM_Test_exp.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\pipeline_experiment_stage0_baseline\build.bat ===
+   /FeHTS_T6_SIM_Test_exp.exe HTS_T6_SIM_Test_exp.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_excision_off.bat ===
+   /FeHTS_T6_MC_EX_OFF.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_excision_on.bat ===
+   /FeHTS_T6_MC_EX_ON.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_harness.bat ===
+   /FeHTS_T6_MC.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_w_010.bat ===
+   /FeHTS_T6_MC_W_010.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_w_025.bat ===
+   /FeHTS_T6_MC_W_025.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_w_050.bat ===
+   /FeHTS_T6_MC_W_050.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\build_mc_w_off.bat ===
+   /FeHTS_T6_MC_W_OFF.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build.bat ===
+   /FeHTS_T6_SIM_Test.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
+   /FeHTS_T6_SIM_Test_V5.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
+   /FeHTS_Harq_Matrix_Test.exe HTS_Harq_Matrix_Test.cpp HTS_V400_Dispatcher_Local.cpp /link /nologo
+   /FeHTS_Harq_Matrix_Test_V5.exe HTS_Harq_Matrix_Test.cpp HTS_V400_Dispatcher_Local.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_agc_sweep.bat ===
+cl %CLF% /DHTS_AGC_GAIN_SCALE_NUM=256 /DHTS_AGC_GAIN_SCALE_DEN=256 /FeHTS_T6_AGC_baseline.exe %SRC% /link /nologo
+cl %CLF% /DHTS_AGC_GAIN_SCALE_NUM=128 /DHTS_AGC_GAIN_SCALE_DEN=256 /FeHTS_T6_AGC_half.exe %SRC% /link /nologo
+cl %CLF% /DHTS_AGC_GAIN_SCALE_NUM=64 /DHTS_AGC_GAIN_SCALE_DEN=256 /FeHTS_T6_AGC_quarter.exe %SRC% /link /nologo
+cl %CLF% /DHTS_AGC_GAIN_SCALE_NUM=512 /DHTS_AGC_GAIN_SCALE_DEN=256 /FeHTS_T6_AGC_double.exe %SRC% /link /nologo
+cl %CLF% /DHTS_AGC_GAIN_SCALE_NUM=32 /DHTS_AGC_GAIN_SCALE_DEN=256 /FeHTS_T6_AGC_small.exe %SRC% /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_amp_diag.bat ===
+   /FeHTS_T6_AMP_DIAG.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_cw_detect.bat ===
+   /FeHTS_T6_CW_DETECT.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_cw_detect_v2.bat ===
+   /FeHTS_T6_CW_DETECT_V2.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_harq_diag.bat ===
+   /FeHTS_T6_HARQ_DIAG.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_llr_diag.bat ===
+   /FeHTS_T6_LLR_DIAG.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_phase2.bat ===
+  /FeHTS_BER_PER_UnitTest.exe HTS_BER_PER_UnitTest.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_phase3.bat ===
+  /FeHTS_Jammer_STD_UnitTest.exe HTS_Jammer_STD_UnitTest.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_phase3_cliff.bat ===
+  /FeHTS_Phase3_Cliff.exe HTS_Jammer_STD_UnitTest.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_phase3_diag.bat ===
+  /FeHTS_Phase3_Diag.exe HTS_Jammer_STD_UnitTest.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_row_consistency.bat ===
+   /FeHTS_T6_ROW_CONSIST.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_sync_diag.bat ===
+   /FeHTS_T6_SYNC_DIAG.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_t6_w_010.bat ===
+   /FeHTS_T6_W_010.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_t6_w_025.bat ===
+   /FeHTS_T6_W_025.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_t6_w_050.bat ===
+   /FeHTS_T6_W_050.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_t6_w_off.bat ===
+   /FeHTS_T6_W_OFF.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_walsh_row.bat ===
+   /FeHTS_T6_WALSH_ROW.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_wrc_compare.bat ===
+cl %CLFLAGS% /DHTS_WRC_METHOD=0 /FeHTS_T6_WRC_baseline.exe %SRC% /link /nologo
+cl %CLFLAGS% /DHTS_WRC_METHOD=1 /FeHTS_T6_WRC_A.exe %SRC% /link /nologo
+cl %CLFLAGS% /DHTS_WRC_METHOD=2 /FeHTS_T6_WRC_B.exe %SRC% /link /nologo
+cl %CLFLAGS% /DHTS_WRC_METHOD=3 /FeHTS_T6_WRC_C.exe %SRC% /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_and_test_wrc_ir.bat ===
+       /FeHTS_T6_WRC_IR_%%M.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_layer_lpi_isolation.bat ===
+  /FeHTS_FEC_Layer_LPI_Isolation_Test.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_layer_partial_test.bat ===
+  /FeHTS_FEC_Layer_Partial_Test.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_phase3_awgn_debug.bat ===
+  /FeHTS_Jammer_STD_UnitTest.exe HTS_Jammer_STD_UnitTest.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\build_step_c3.bat ===
+  /FeHTS_Block_Message_Test.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\_backup_before_diag\build.bat ===
+   /FeHTS_T6_SIM_Test.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
+   /FeHTS_Harq_Matrix_Test.exe HTS_Harq_Matrix_Test.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\_backup_before_step_a\build.bat ===
+   /FeHTS_T6_SIM_Test.exe HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
+   /FeHTS_Harq_Matrix_Test.exe HTS_Harq_Matrix_Test.cpp /link /nologo
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_waterfall\build_waterfall.bat ===
+   /FeHTS_T6_Waterfall.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_waterfall\build_waterfall_smoke.bat ===
+   /FeHTS_T6_Waterfall_Smoke.exe ^
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_waterfall\run_waterfall.bat ===
+
+=== D:\HTS_ARM11_Firmware\HTS_LIM\verify_tensor_unit_test\build_and_run.bat ===
+cl /nologo /EHsc /std:c++17 /O2 /W3 /DNDEBUG /I"HTS_LIM" verify_tensor_unit_test\test_hts_tensor_engine.cpp /Fe:verify_tensor_unit_test\test_hts_tensor_engine.exe /Fo:verify_tensor_unit_test\test_hts_tensor_engine.obj
+

@@ -1,0 +1,3 @@
+Comparing files stepS_post_fix_tune_real_sync.log and STEPS_PROD_REAL_SYNC.LOG
+FC: no differences encountered
+

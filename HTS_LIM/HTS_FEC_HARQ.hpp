@@ -80,6 +80,15 @@
 #include <cstdint>
 #include <cstddef>
 
+// Walsh-row contrast mask (Decode64_IR → Bin_To_LLR 직전, Conv 경로만).
+// 기본 OFF: 바이너리·동작 회귀 0. ON 시에만 추가 루프(비교·시프트·제로화).
+#ifndef HTS_WALSH_ROW_MASK_SAMPLE
+#define HTS_WALSH_ROW_MASK_SAMPLE 0
+#endif
+#ifndef HTS_WALSH_ROW_MASK_SHIFT
+#define HTS_WALSH_ROW_MASK_SHIFT 3
+#endif
+
 // HTS_FEC_M4_RAM_LAYOUT:
 //   · 실칩: ARM 계열 && !HTS_ALLOW_HOST_BUILD
 //   · PC 시뮬을 실M4와 동일하게: vcxproj 등에 HTS_FEC_SIMULATE_M4_RAM_LAYOUT 정의

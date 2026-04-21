@@ -1,0 +1,61 @@
+Phase 3-alpha (LocalDispatcher)
+trials=1000 n_cells=432 wall_min=13.9890
+
+PASS>=90%: 335  RISK: 23  FAIL: 74
+
+per_jam PASS_cells:
+  J1_AWGN: 46
+  J2_CW: 57
+  J3_Pulse: 71
+  J4_Barrage: 46
+  J5_Multi: 57
+  J6_Swept: 58
+
+LPI NONE: pass=188 risk=10 fail=18
+LPI TIM:  pass=147 risk=13 fail=56
+
+Coverage min success_rate:
+  20%: 0.2440
+  30%: 0.0010
+  35%: 0.0000
+  40%: 0.0000
+  45%: 0.0000
+  100%: 0.0000
+
+JSR mean success_rate:
+  -5 dB: 1.0000
+  +0 dB: 0.9999
+  +10 dB: 0.9966
+  +20 dB: 0.8577
+  +30 dB: 0.5762
+  +40 dB: 0.5456
+
+MIL coarse (overlapping JSR bins vs grid):
+  I   +20..+30: pass=85 risk=18 fail=41
+  II  +5..+15:  pass=72 risk=0 fail=0
+  III +10..+20: pass=127 risk=8 fail=9
+
+Beta candidates (RISK), max 64:
+  J1_AWGN cov=20 jsr=30 TIM 0.8090
+  J1_AWGN cov=30 jsr=30 NONE 0.8020
+  J1_AWGN cov=35 jsr=20 NONE 0.8250
+  J1_AWGN cov=40 jsr=20 NONE 0.6050
+  J1_AWGN cov=40 jsr=20 TIM 0.8200
+  J1_AWGN cov=45 jsr=20 TIM 0.5860
+  J1_AWGN cov=45 jsr=40 NONE 0.7990
+  J2_CW cov=20 jsr=30 TIM 0.8150
+  J2_CW cov=20 jsr=40 TIM 0.5860
+  J2_CW cov=30 jsr=30 TIM 0.5300
+  J2_CW cov=100 jsr=30 NONE 0.7060
+  J3_Pulse cov=100 jsr=40 TIM 0.8740
+  J4_Barrage cov=20 jsr=30 TIM 0.8160
+  J4_Barrage cov=30 jsr=30 NONE 0.8070
+  J4_Barrage cov=35 jsr=20 NONE 0.8240
+  J4_Barrage cov=40 jsr=20 NONE 0.5990
+  J4_Barrage cov=40 jsr=20 TIM 0.8160
+  J4_Barrage cov=45 jsr=20 TIM 0.5930
+  J4_Barrage cov=45 jsr=40 NONE 0.8100
+  J5_Multi cov=20 jsr=30 TIM 0.6630
+  J5_Multi cov=100 jsr=30 NONE 0.6540
+  J6_Swept cov=20 jsr=40 TIM 0.6600
+  J6_Swept cov=30 jsr=30 TIM 0.7310

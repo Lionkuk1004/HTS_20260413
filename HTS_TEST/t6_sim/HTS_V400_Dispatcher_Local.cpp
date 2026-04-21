@@ -9,6 +9,7 @@
 //               (&harq_Q_[0][0] 금지 — 2차원 배열 타입과 혼동 시 HardFault)
 //
 #include "HTS_V400_Dispatcher_Local.hpp"
+#include "../../HTS_LIM/HTS_V400_FWHT_Int16Scale.hpp"
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h" // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
@@ -38,8 +39,195 @@
 #include <cstddef>
 #if defined(HTS_DIAG_TRY_DECODE)
 #  define DIAG_PRINTF(...) std::printf(__VA_ARGS__)
+#elif defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+#  define DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
 #else
 #  define DIAG_PRINTF(...) ((void)0)
+#endif
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST) || \
+    defined(HTS_DIAG_FWHT_INTERNAL)
+#  include <atomic>
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+#  define AGC_DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
+#else
+#  define AGC_DIAG_PRINTF(...) ((void)0)
+#endif
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+#  define SIC_DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
+// Phase 4-A-3: SIC 적용 후 |vi|/|vq| 중 큰 값 분포 (ssat 포화 원인 실측).
+//  참고: 차감항 sub 는 Walsh 비트맵·sic_amp 로 ±sic_walsh_amp_ (고정 진폭).
+namespace {
+std::atomic<uint32_t> g_sic_subamt_bin_0_100{0};
+std::atomic<uint32_t> g_sic_subamt_bin_100_1000{0};
+std::atomic<uint32_t> g_sic_subamt_bin_1k_10k{0};
+std::atomic<uint32_t> g_sic_subamt_bin_10k_32k{0};
+std::atomic<uint32_t> g_sic_subamt_bin_over_32k{0};
+std::atomic<uint32_t> g_sic_subamt_total{0};
+std::atomic<uint32_t> g_sic_valid_count{0};
+std::atomic<uint32_t> g_sic_invalid_count{0};
+std::atomic<uint32_t> g_sic_fill_called{0};
+std::atomic<int> g_sic_sym_detail_logs{0};
+static inline void sic_hist_add_post_sub_max_(int32_t vi,
+                                                int32_t vq) noexcept {
+    const int32_t ai = vi < 0 ? -vi : vi;
+    const int32_t aq = vq < 0 ? -vq : vq;
+    const uint32_t mx =
+        static_cast<uint32_t>(ai > aq ? ai : aq);
+    g_sic_subamt_total.fetch_add(1u, std::memory_order_relaxed);
+    if (mx < 100u) {
+        g_sic_subamt_bin_0_100.fetch_add(1u, std::memory_order_relaxed);
+    } else if (mx < 1000u) {
+        g_sic_subamt_bin_100_1000.fetch_add(1u, std::memory_order_relaxed);
+    } else if (mx < 10000u) {
+        g_sic_subamt_bin_1k_10k.fetch_add(1u, std::memory_order_relaxed);
+    } else if (mx < 32768u) {
+        g_sic_subamt_bin_10k_32k.fetch_add(1u, std::memory_order_relaxed);
+    } else {
+        g_sic_subamt_bin_over_32k.fetch_add(1u, std::memory_order_relaxed);
+    }
+}
+} // namespace
+extern "C" void HTS_SIC_DIAG_Reset_Counters(void) noexcept {
+    g_sic_subamt_bin_0_100.store(0u, std::memory_order_relaxed);
+    g_sic_subamt_bin_100_1000.store(0u, std::memory_order_relaxed);
+    g_sic_subamt_bin_1k_10k.store(0u, std::memory_order_relaxed);
+    g_sic_subamt_bin_10k_32k.store(0u, std::memory_order_relaxed);
+    g_sic_subamt_bin_over_32k.store(0u, std::memory_order_relaxed);
+    g_sic_subamt_total.store(0u, std::memory_order_relaxed);
+    g_sic_valid_count.store(0u, std::memory_order_relaxed);
+    g_sic_invalid_count.store(0u, std::memory_order_relaxed);
+    g_sic_fill_called.store(0u, std::memory_order_relaxed);
+    g_sic_sym_detail_logs.store(0, std::memory_order_relaxed);
+}
+#else
+#  define SIC_DIAG_PRINTF(...) ((void)0)
+#endif
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE) || \
+    defined(HTS_DIAG_SIC_DIST)
+#  define IR_ROUND_DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
+#else
+#  define IR_ROUND_DIAG_PRINTF(...) ((void)0)
+#endif
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+// Phase 4-A-4: HARQ 라운드별 buf / ir_chip / Feed 샘플 추이 (진단 전용).
+namespace ir_round_diag {
+static constexpr int kIrRoundMaxTrack = 64;
+struct IrRoundRecord {
+    int32_t buf_I_max;
+    int32_t buf_I_min;
+    int32_t buf_Q_max;
+    int32_t buf_Q_min;
+    int32_t ir_chip_I_max;
+    int32_t ir_chip_I_min;
+    int32_t ir_chip_Q_max;
+    int32_t ir_chip_Q_min;
+    uint32_t new_chip_sum_abs;
+    uint32_t chip_sample_n;
+};
+static IrRoundRecord g_ir_round_rec[kIrRoundMaxTrack] = {};
+static uint32_t g_ir_feed_sample_ctr = 0u;
+static inline void init_rec_(IrRoundRecord *r) noexcept {
+    r->buf_I_max = INT32_MIN;
+    r->buf_I_min = INT32_MAX;
+    r->buf_Q_max = INT32_MIN;
+    r->buf_Q_min = INT32_MAX;
+    r->ir_chip_I_max = INT32_MIN;
+    r->ir_chip_I_min = INT32_MAX;
+    r->ir_chip_Q_max = INT32_MIN;
+    r->ir_chip_Q_min = INT32_MAX;
+    r->new_chip_sum_abs = 0u;
+    r->chip_sample_n = 0u;
+}
+static inline void touch_buf_(int round, int32_t vI, int32_t vQ) noexcept {
+    if (round < 0 || round >= kIrRoundMaxTrack) {
+        return;
+    }
+    IrRoundRecord &rec = g_ir_round_rec[round];
+    if (vI > rec.buf_I_max) {
+        rec.buf_I_max = vI;
+    }
+    if (vI < rec.buf_I_min) {
+        rec.buf_I_min = vI;
+    }
+    if (vQ > rec.buf_Q_max) {
+        rec.buf_Q_max = vQ;
+    }
+    if (vQ < rec.buf_Q_min) {
+        rec.buf_Q_min = vQ;
+    }
+}
+static inline void touch_ir_(int round, int32_t vI, int32_t vQ) noexcept {
+    if (round < 0 || round >= kIrRoundMaxTrack) {
+        return;
+    }
+    IrRoundRecord &rec = g_ir_round_rec[round];
+    if (vI > rec.ir_chip_I_max) {
+        rec.ir_chip_I_max = vI;
+    }
+    if (vI < rec.ir_chip_I_min) {
+        rec.ir_chip_I_min = vI;
+    }
+    if (vQ > rec.ir_chip_Q_max) {
+        rec.ir_chip_Q_max = vQ;
+    }
+    if (vQ < rec.ir_chip_Q_min) {
+        rec.ir_chip_Q_min = vQ;
+    }
+}
+static inline void feed_sample_(int round, int16_t iq_I,
+                                int16_t iq_Q) noexcept {
+    if (round < 0 || round >= kIrRoundMaxTrack) {
+        return;
+    }
+    IrRoundRecord &rec = g_ir_round_rec[round];
+    const uint32_t abs_I =
+        static_cast<uint32_t>(iq_I < 0 ? -static_cast<int32_t>(iq_I)
+                                       : static_cast<int32_t>(iq_I));
+    const uint32_t abs_Q =
+        static_cast<uint32_t>(iq_Q < 0 ? -static_cast<int32_t>(iq_Q)
+                                       : static_cast<int32_t>(iq_Q));
+    rec.new_chip_sum_abs += abs_I + abs_Q;
+    rec.chip_sample_n++;
+}
+} // namespace ir_round_diag
+extern "C" void HTS_IR_ROUND_DIAG_Reset_Records(void) noexcept {
+    ir_round_diag::g_ir_feed_sample_ctr = 0u;
+    for (int r = 0; r < ir_round_diag::kIrRoundMaxTrack; ++r) {
+        ir_round_diag::init_rec_(&ir_round_diag::g_ir_round_rec[r]);
+    }
+}
+extern "C" void HTS_IR_ROUND_DIAG_Dump_Trial(const char *label) noexcept {
+    IR_ROUND_DIAG_PRINTF(
+        "\n[IR-ROUND-5] === %s — per-HARQ-slot history ===\n",
+        label != nullptr ? label : "(null)");
+    IR_ROUND_DIAG_PRINTF(
+        "  round | buf_I_max  ir_chip_I_max  | buf_I_min  ir_chip_I_min "
+        "| avg_new_chip\n");
+    for (int r = 0; r < ir_round_diag::kIrRoundMaxTrack; ++r) {
+        const ir_round_diag::IrRoundRecord &rec =
+            ir_round_diag::g_ir_round_rec[r];
+        const bool touched =
+            (rec.buf_I_max != INT32_MIN || rec.buf_I_min != INT32_MAX ||
+             rec.ir_chip_I_max != INT32_MIN ||
+             rec.ir_chip_I_min != INT32_MAX || rec.chip_sample_n != 0u);
+        if (!touched) {
+            continue;
+        }
+        const uint32_t avg_chip =
+            rec.chip_sample_n > 0u
+                ? rec.new_chip_sum_abs / rec.chip_sample_n
+                : 0u;
+        IR_ROUND_DIAG_PRINTF(
+            "  %5d | %10d %14d | %10d %14d | %12u\n", r,
+            static_cast<int>(rec.buf_I_max),
+            static_cast<int>(rec.ir_chip_I_max),
+            static_cast<int>(rec.buf_I_min),
+            static_cast<int>(rec.ir_chip_I_min),
+            static_cast<unsigned>(avg_chip));
+    }
+    IR_ROUND_DIAG_PRINTF("[IR-ROUND-5] === end ===\n\n");
+}
 #endif
 // ── AMI/PS-LTE Target Selector ─────────────────────────────
 // AMI 200 kcps 환경 (T6 하네스 기본): 32-chip Phase 0/1 coherent + non-coherent 합산
@@ -68,7 +256,8 @@ extern "C" void Mock_RF_Synth_Set_Channel(uint8_t channel) noexcept {
     const unsigned ch = static_cast<unsigned>(channel) & 0x7Fu;
     std::printf("[Mock_RF_Synth] ch=%u\n", ch);
 }
-#if defined(HTS_DIAG_TRY_DECODE)
+#if defined(HTS_DIAG_TRY_DECODE) || defined(HTS_DIAG_AGC_TRACE) || \
+    defined(HTS_DIAG_SIC_DIST)
 namespace {
 void diag_int32_span_(const char *tag, const int32_t *p, int n) noexcept {
     if (p == nullptr || n <= 0) {
@@ -395,6 +584,349 @@ static void fwht_raw(int32_t *d, int n) noexcept {
     }
 }
 
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+#  define FWHT_DIAG_PRINTF(...) std::fprintf(stderr, __VA_ARGS__)
+#else
+#  define FWHT_DIAG_PRINTF(...) ((void)0)
+#endif
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+// Phase 4-A-5: fwht_raw(64) 입·출력·row·(payload) stage 피크 — 연산 경로 불변.
+namespace fwht_diag {
+static constexpr int kFwhtHistBuckets = 8;
+static std::atomic<uint32_t> g_fwht_diag_epoch{0u};
+static std::atomic<uint32_t> g_fwht_input_hist[kFwhtHistBuckets]{};
+static std::atomic<uint32_t> g_fwht_output_hist[kFwhtHistBuckets]{};
+static std::atomic<uint32_t> g_fwht_clip_at_ssat{0};
+static std::atomic<uint32_t> g_fwht_ssat_total{0};
+static std::atomic<int32_t> g_fwht_row_max[64]{};
+static std::atomic<int32_t> g_fwht_stage_peak[6]{};
+
+static inline int fwht_bucket_of_(int32_t v) noexcept {
+    const int32_t av = v < 0 ? -v : v;
+    if (av < 100) {
+        return 0;
+    }
+    if (av < 1000) {
+        return 1;
+    }
+    if (av < 10000) {
+        return 2;
+    }
+    if (av < 32768) {
+        return 3;
+    }
+    if (av < 100000) {
+        return 4;
+    }
+    if (av < 1000000) {
+        return 5;
+    }
+    if (av < 10000000) {
+        return 6;
+    }
+    return 7;
+}
+static inline void hist_add_(std::atomic<uint32_t> *hist, int32_t v) noexcept {
+    const int b = fwht_bucket_of_(v);
+    hist[b].fetch_add(1u, std::memory_order_relaxed);
+}
+static inline void note_clip_pair_(int32_t vI, int32_t vQ) noexcept {
+    g_fwht_ssat_total.fetch_add(2u, std::memory_order_relaxed);
+    if (vI > 32767 || vI < -32768) {
+        g_fwht_clip_at_ssat.fetch_add(1u, std::memory_order_relaxed);
+    }
+    if (vQ > 32767 || vQ < -32768) {
+        g_fwht_clip_at_ssat.fetch_add(1u, std::memory_order_relaxed);
+    }
+}
+static inline void row_energy_update_(const int32_t *wI, const int32_t *wQ,
+                                      int n) noexcept {
+    for (int r = 0; r < n; ++r) {
+        const int32_t vI = wI[r];
+        const int32_t vQ = wQ[r];
+        const int32_t ai = vI < 0 ? -vI : vI;
+        const int32_t aq = vQ < 0 ? -vQ : vQ;
+        const int32_t energy = ai + aq;
+        int32_t prev = g_fwht_row_max[r].load(std::memory_order_relaxed);
+        while (energy > prev &&
+               !g_fwht_row_max[r].compare_exchange_weak(
+                   prev, energy, std::memory_order_relaxed,
+                   std::memory_order_relaxed)) {
+        }
+    }
+}
+static void accum_int16_pair_hist_(const int16_t *I, const int16_t *Q,
+                                    int n) noexcept {
+    for (int i = 0; i < n; ++i) {
+        hist_add_(g_fwht_input_hist, static_cast<int32_t>(I[i]));
+        hist_add_(g_fwht_input_hist, static_cast<int32_t>(Q[i]));
+    }
+}
+static void accum_int32_pair_hist_clip_row_(const int32_t *wI,
+                                            const int32_t *wQ,
+                                            int n) noexcept {
+    for (int i = 0; i < n; ++i) {
+        const int32_t vI = wI[i];
+        const int32_t vQ = wQ[i];
+        hist_add_(g_fwht_output_hist, vI);
+        hist_add_(g_fwht_output_hist, vQ);
+        note_clip_pair_(vI, vQ);
+    }
+    row_energy_update_(wI, wQ, n);
+}
+static void fwht_raw_64_stage_peaks_on_copy_(const int32_t src[64],
+                                             int32_t peak[6]) noexcept {
+    int32_t d[64];
+    for (int i = 0; i < 64; ++i) {
+        d[i] = src[i];
+    }
+    int s = 0;
+    auto stage_max = [&]() noexcept {
+        int32_t mx = 0;
+        for (int i = 0; i < 64; ++i) {
+            const int32_t v = d[i];
+            const int32_t av = v < 0 ? -v : v;
+            if (av > mx) {
+                mx = av;
+            }
+        }
+        peak[s++] = mx;
+    };
+    for (int i = 0; i < 64; i += 2) {
+        const int32_t u = d[i], v = d[i + 1];
+        d[i] = u + v;
+        d[i + 1] = u - v;
+    }
+    stage_max();
+    for (int i = 0; i < 64; i += 4) {
+        int32_t u = d[i], v = d[i + 2];
+        d[i] = u + v;
+        d[i + 2] = u - v;
+        u = d[i + 1];
+        v = d[i + 3];
+        d[i + 1] = u + v;
+        d[i + 3] = u - v;
+    }
+    stage_max();
+    for (int i = 0; i < 64; i += 8) {
+        for (int k = 0; k < 4; ++k) {
+            const int32_t u = d[i + k], v = d[i + 4 + k];
+            d[i + k] = u + v;
+            d[i + 4 + k] = u - v;
+        }
+    }
+    stage_max();
+    for (int i = 0; i < 64; i += 16) {
+        for (int k = 0; k < 8; ++k) {
+            const int32_t u = d[i + k], v = d[i + 8 + k];
+            d[i + k] = u + v;
+            d[i + 8 + k] = u - v;
+        }
+    }
+    stage_max();
+    for (int i = 0; i < 64; i += 32) {
+        for (int k = 0; k < 16; ++k) {
+            const int32_t u = d[i + k], v = d[i + 16 + k];
+            d[i + k] = u + v;
+            d[i + 16 + k] = u - v;
+        }
+    }
+    stage_max();
+    for (int k = 0; k < 32; ++k) {
+        const int32_t u = d[k], v = d[k + 32];
+        d[k] = u + v;
+        d[k + 32] = u - v;
+    }
+    stage_max();
+}
+static void merge_stage_peaks_(const int32_t peak[6]) noexcept {
+    for (int t = 0; t < 6; ++t) {
+        int32_t prev = g_fwht_stage_peak[t].load(std::memory_order_relaxed);
+        const int32_t v = peak[t];
+        while (v > prev &&
+               !g_fwht_stage_peak[t].compare_exchange_weak(
+                   prev, v, std::memory_order_relaxed,
+                   std::memory_order_relaxed)) {
+        }
+    }
+}
+static void payload_shadow_fwht_from_bufs_(const int16_t *bufI,
+                                           const int16_t *bufQ,
+                                           int sym_idx) noexcept {
+    alignas(64) int32_t tI[64];
+    alignas(64) int32_t tQ[64];
+    for (int i = 0; i < 64; ++i) {
+        tI[i] = static_cast<int32_t>(bufI[i]);
+        tQ[i] = static_cast<int32_t>(bufQ[i]);
+    }
+    accum_int16_pair_hist_(bufI, bufQ, 64);
+    int32_t peakI[6] = {};
+    fwht_raw_64_stage_peaks_on_copy_(tI, peakI);
+    merge_stage_peaks_(peakI);
+    fwht_raw(tI, 64);
+    fwht_raw(tQ, 64);
+    accum_int32_pair_hist_clip_row_(tI, tQ, 64);
+    static thread_local uint32_t s_in_ep = 0u;
+    static thread_local int s_in_log = 0;
+    const uint32_t ep_in =
+        fwht_diag::g_fwht_diag_epoch.load(std::memory_order_relaxed);
+    if (ep_in != s_in_ep) {
+        s_in_ep = ep_in;
+        s_in_log = 0;
+    }
+    if (s_in_log < 10) {
+        int32_t mnI = INT32_MAX, mxI = INT32_MIN, mnQ = INT32_MAX, mxQ = INT32_MIN;
+        for (int c = 0; c < 64; ++c) {
+            const int32_t a = static_cast<int32_t>(bufI[c]);
+            const int32_t b = static_cast<int32_t>(bufQ[c]);
+            if (a < mnI) {
+                mnI = a;
+            }
+            if (a > mxI) {
+                mxI = a;
+            }
+            if (b < mnQ) {
+                mnQ = b;
+            }
+            if (b > mxQ) {
+                mxQ = b;
+            }
+        }
+        FWHT_DIAG_PRINTF(
+            "[FWHT-DIAG-1] payload shadow FWHT input sym=%d: I=[%d,%d] Q=[%d,%d]\n",
+            sym_idx, static_cast<int>(mnI), static_cast<int>(mxI),
+            static_cast<int>(mnQ), static_cast<int>(mxQ));
+        ++s_in_log;
+    }
+    static thread_local uint32_t s_out_ep = 0u;
+    static thread_local int s_out_log = 0;
+    const uint32_t ep_out =
+        fwht_diag::g_fwht_diag_epoch.load(std::memory_order_relaxed);
+    if (ep_out != s_out_ep) {
+        s_out_ep = ep_out;
+        s_out_log = 0;
+    }
+    if (s_out_log < 10) {
+        int32_t mnI = INT32_MAX, mxI = INT32_MIN, mnQ = INT32_MAX, mxQ = INT32_MIN;
+        int max_row = 0;
+        int32_t max_e = 0;
+        for (int r = 0; r < 64; ++r) {
+            const int32_t vI = tI[r];
+            const int32_t vQ = tQ[r];
+            if (vI < mnI) {
+                mnI = vI;
+            }
+            if (vI > mxI) {
+                mxI = vI;
+            }
+            if (vQ < mnQ) {
+                mnQ = vQ;
+            }
+            if (vQ > mxQ) {
+                mxQ = vQ;
+            }
+            const int32_t ai = vI < 0 ? -vI : vI;
+            const int32_t aq = vQ < 0 ? -vQ : vQ;
+            const int32_t e = ai + aq;
+            if (e > max_e) {
+                max_e = e;
+                max_row = r;
+            }
+        }
+        FWHT_DIAG_PRINTF(
+            "[FWHT-DIAG-2] payload shadow FWHT output sym=%d: I=[%d,%d] Q=[%d,%d] "
+            "max_row=%d energy=%d stageI_peak=%d %d %d %d %d %d\n",
+            sym_idx, static_cast<int>(mnI), static_cast<int>(mxI),
+            static_cast<int>(mnQ), static_cast<int>(mxQ), max_row,
+            static_cast<int>(max_e), static_cast<int>(peakI[0]),
+            static_cast<int>(peakI[1]), static_cast<int>(peakI[2]),
+            static_cast<int>(peakI[3]), static_cast<int>(peakI[4]),
+            static_cast<int>(peakI[5]));
+        ++s_out_log;
+    }
+}
+} // namespace fwht_diag
+extern "C" void HTS_FWHT_DIAG_Reset_Records(void) noexcept {
+    fwht_diag::g_fwht_diag_epoch.fetch_add(1u, std::memory_order_relaxed);
+    for (int i = 0; i < fwht_diag::kFwhtHistBuckets; ++i) {
+        fwht_diag::g_fwht_input_hist[i].store(0u, std::memory_order_relaxed);
+        fwht_diag::g_fwht_output_hist[i].store(0u, std::memory_order_relaxed);
+    }
+    fwht_diag::g_fwht_clip_at_ssat.store(0u, std::memory_order_relaxed);
+    fwht_diag::g_fwht_ssat_total.store(0u, std::memory_order_relaxed);
+    for (int r = 0; r < 64; ++r) {
+        fwht_diag::g_fwht_row_max[r].store(0, std::memory_order_relaxed);
+    }
+    for (int t = 0; t < 6; ++t) {
+        fwht_diag::g_fwht_stage_peak[t].store(0, std::memory_order_relaxed);
+    }
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    HtsFwhtInt16Scale::post_shift_hist_reset();
+#endif
+}
+extern "C" void HTS_FWHT_DIAG_Dump_Trial(const char *label) noexcept {
+    uint32_t in_hist[fwht_diag::kFwhtHistBuckets];
+    uint32_t out_hist[fwht_diag::kFwhtHistBuckets];
+    uint32_t total_in = 0u;
+    uint32_t total_out = 0u;
+    for (int i = 0; i < fwht_diag::kFwhtHistBuckets; ++i) {
+        in_hist[i] =
+            fwht_diag::g_fwht_input_hist[i].load(std::memory_order_relaxed);
+        out_hist[i] =
+            fwht_diag::g_fwht_output_hist[i].load(std::memory_order_relaxed);
+        total_in += in_hist[i];
+        total_out += out_hist[i];
+    }
+    if (total_in == 0u && total_out == 0u) {
+        return;
+    }
+    const uint32_t tot_in_d = (total_in > 0u) ? total_in : 1u;
+    const uint32_t tot_out_d = (total_out > 0u) ? total_out : 1u;
+    FWHT_DIAG_PRINTF("\n[FWHT-DIAG-5] === %s — fwht_raw(64) histograms "
+                     "(header walsh_dec + payload shadow) ===\n",
+                     label != nullptr ? label : "(null)");
+    FWHT_DIAG_PRINTF("  bucket  |   input%%   |   output%%\n");
+    static const char *const kLab[fwht_diag::kFwhtHistBuckets] = {
+        "<100", "<1k", "<10k", "<32k", "<100k", "<1M", "<10M", ">=10M"};
+    for (int i = 0; i < fwht_diag::kFwhtHistBuckets; ++i) {
+        FWHT_DIAG_PRINTF(
+            "  %-7s | %10.4f | %10.4f\n", kLab[i],
+            100.0 * static_cast<double>(in_hist[i]) /
+                static_cast<double>(tot_in_d),
+            100.0 * static_cast<double>(out_hist[i]) /
+                static_cast<double>(tot_out_d));
+    }
+    const uint32_t clip =
+        fwht_diag::g_fwht_clip_at_ssat.load(std::memory_order_relaxed);
+    const uint32_t tot =
+        fwht_diag::g_fwht_ssat_total.load(std::memory_order_relaxed);
+    const uint32_t tot_d = (tot > 0u) ? tot : 1u;
+    FWHT_DIAG_PRINTF("  ssat16 would-clip (|v|>32767) samples: %u / %u "
+                     "(%.4f%%)\n",
+                     static_cast<unsigned>(clip), static_cast<unsigned>(tot),
+                     100.0 * static_cast<double>(clip) /
+                         static_cast<double>(tot_d));
+    FWHT_DIAG_PRINTF("  fwht_raw I-channel stage |.|max (trial max): ");
+    for (int t = 0; t < 6; ++t) {
+        FWHT_DIAG_PRINTF(
+            "%s%d", (t > 0) ? " " : "",
+            static_cast<int>(
+                fwht_diag::g_fwht_stage_peak[t].load(
+                    std::memory_order_relaxed)));
+    }
+    FWHT_DIAG_PRINTF("\n  === Row energy (|I|+|Q|) max over trial ===\n");
+    for (int r = 0; r < 64; ++r) {
+        const int32_t e =
+            fwht_diag::g_fwht_row_max[r].load(std::memory_order_relaxed);
+        if (e > 0) {
+            FWHT_DIAG_PRINTF("  row %2d | %d\n", r, static_cast<int>(e));
+        }
+    }
+    FWHT_DIAG_PRINTF("[FWHT-DIAG-5] === end ===\n\n");
+    HtsFwhtInt16Scale::post_shift_hist_dump(label);
+}
+#endif
+
 // ─────────────────────────────────────────────────────────────
 // [Step B] Walsh-row 시퀀스 매칭 프리앰블 검출 (v5, Python 검증)
 // 원리: 프리앰블이 [W7, W23, W45, W63] 4개 Walsh row 시퀀스로 구성.
@@ -480,8 +1012,110 @@ HTS_V400_Dispatcher::walsh_dec_full_(const int16_t *I, const int16_t *Q, int n,
         dec_wI_[i] = srcI[i];
         dec_wQ_[i] = srcQ[i];
     }
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    if (p_ok != 0u) {
+        fwht_diag::accum_int16_pair_hist_(srcI, srcQ, n_eff);
+        if (n_eff == 64) {
+            static thread_local uint32_t s_hdr_in_ep = 0u;
+            static thread_local int s_hdr_in_log = 0;
+            const uint32_t ep =
+                fwht_diag::g_fwht_diag_epoch.load(std::memory_order_relaxed);
+            if (ep != s_hdr_in_ep) {
+                s_hdr_in_ep = ep;
+                s_hdr_in_log = 0;
+            }
+            if (s_hdr_in_log < 10) {
+                int32_t mnI = INT32_MAX, mxI = INT32_MIN, mnQ = INT32_MAX,
+                        mxQ = INT32_MIN;
+                for (int c = 0; c < 64; ++c) {
+                    const int32_t a = static_cast<int32_t>(srcI[c]);
+                    const int32_t b = static_cast<int32_t>(srcQ[c]);
+                    if (a < mnI) {
+                        mnI = a;
+                    }
+                    if (a > mxI) {
+                        mxI = a;
+                    }
+                    if (b < mnQ) {
+                        mnQ = b;
+                    }
+                    if (b > mxQ) {
+                        mxQ = b;
+                    }
+                }
+                FWHT_DIAG_PRINTF(
+                    "[FWHT-DIAG-1] header walsh_dec input sym_idx=%d: "
+                    "I=[%d,%d] Q=[%d,%d]\n",
+                    static_cast<int>(sym_idx_), static_cast<int>(mnI),
+                    static_cast<int>(mxI), static_cast<int>(mnQ),
+                    static_cast<int>(mxQ));
+                ++s_hdr_in_log;
+            }
+        }
+    }
+#endif
     fwht_raw(dec_wI_, n_eff);
     fwht_raw(dec_wQ_, n_eff);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    {
+        const int32_t pk =
+            HtsFwhtInt16Scale::post_peak_max_abs(dec_wI_, dec_wQ_, n_eff);
+        const int sh =
+            HtsFwhtInt16Scale::downshift_for_int16_store(pk);
+        HtsFwhtInt16Scale::post_shift_hist_record(sh);
+    }
+#endif
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    if (p_ok != 0u) {
+        fwht_diag::accum_int32_pair_hist_clip_row_(dec_wI_, dec_wQ_, n_eff);
+        if (n_eff == 64) {
+            static thread_local uint32_t s_hdr_out_ep = 0u;
+            static thread_local int s_hdr_out_log = 0;
+            const uint32_t ep =
+                fwht_diag::g_fwht_diag_epoch.load(std::memory_order_relaxed);
+            if (ep != s_hdr_out_ep) {
+                s_hdr_out_ep = ep;
+                s_hdr_out_log = 0;
+            }
+            if (s_hdr_out_log < 10) {
+                int32_t mnI = INT32_MAX, mxI = INT32_MIN, mnQ = INT32_MAX,
+                        mxQ = INT32_MIN;
+                int max_row = 0;
+                int32_t max_e = 0;
+                for (int r = 0; r < 64; ++r) {
+                    const int32_t vI = dec_wI_[r];
+                    const int32_t vQ = dec_wQ_[r];
+                    if (vI < mnI) {
+                        mnI = vI;
+                    }
+                    if (vI > mxI) {
+                        mxI = vI;
+                    }
+                    if (vQ < mnQ) {
+                        mnQ = vQ;
+                    }
+                    if (vQ > mxQ) {
+                        mxQ = vQ;
+                    }
+                    const int32_t ai = vI < 0 ? -vI : vI;
+                    const int32_t aq = vQ < 0 ? -vQ : vQ;
+                    const int32_t e = ai + aq;
+                    if (e > max_e) {
+                        max_e = e;
+                        max_row = r;
+                    }
+                }
+                FWHT_DIAG_PRINTF(
+                    "[FWHT-DIAG-2] header walsh_dec output sym_idx=%d: "
+                    "I=[%d,%d] Q=[%d,%d] max_row=%d energy=%d\n",
+                    static_cast<int>(sym_idx_), static_cast<int>(mnI),
+                    static_cast<int>(mxI), static_cast<int>(mnQ),
+                    static_cast<int>(mxQ), max_row, static_cast<int>(max_e));
+                ++s_hdr_out_log;
+            }
+        }
+    }
+#endif
     int search = n_eff;
     if (cap_search_to_bps && n_eff == 64) {
         const int bps = cur_bps64_;
@@ -762,6 +1396,34 @@ static inline int16_t ssat16_dispatch_(int32_t v) noexcept {
     return static_cast<int16_t>((v & ~msk) | (repl & msk));
 #endif
 }
+#if defined(HTS_DIAG_AGC_TRACE)
+namespace {
+std::atomic<uint32_t> g_agc_ssat16_sat{0};
+std::atomic<uint32_t> g_agc_ssat16_total{0};
+} // namespace
+static inline int16_t ssat16_dispatch_agc_(int32_t v) noexcept {
+    g_agc_ssat16_total.fetch_add(1u, std::memory_order_relaxed);
+    if (v > 32767 || v < -32768) {
+        g_agc_ssat16_sat.fetch_add(1u, std::memory_order_relaxed);
+    }
+    return ssat16_dispatch_(v);
+}
+extern "C" void HTS_AGC_DIAG_Reset_Counters(void) noexcept {
+    g_agc_ssat16_sat.store(0u, std::memory_order_relaxed);
+    g_agc_ssat16_total.store(0u, std::memory_order_relaxed);
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+    HTS_SIC_DIAG_Reset_Counters();
+#endif
+}
+extern "C" void HTS_AGC_DIAG_Get_SsatCounts(uint32_t *sat, uint32_t *tot) noexcept {
+    if (sat != nullptr) {
+        *sat = g_agc_ssat16_sat.load(std::memory_order_relaxed);
+    }
+    if (tot != nullptr) {
+        *tot = g_agc_ssat16_total.load(std::memory_order_relaxed);
+    }
+}
+#endif
 // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정 (T6 96.5% 유지).
 //  T6 진단 시 outlier 발생 비율 0.003%, abs_sum=0. 완전 제거.
 
@@ -1003,6 +1665,8 @@ void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
     (void)pkt;
 }
 void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
+    const int sic_expect_was =
+        static_cast<int>(sic_expect_valid_ & 1u);
     sic_expect_valid_ = false;
     if (!sic_ir_enabled_ || ir_state_ == nullptr) {
         return;
@@ -1010,6 +1674,19 @@ void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
     if (ir_state_->sic_tentative_valid == 0u) {
         return;
     }
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+    const uint32_t sic_fill_seq =
+        g_sic_fill_called.fetch_add(1u, std::memory_order_relaxed);
+    if (sic_fill_seq < 20u) {
+        const int tv =
+            static_cast<int>(ir_state_->sic_tentative_valid);
+        SIC_DIAG_PRINTF(
+            "[SIC-DIAG-1] fill_sic_expected #%u harq_round=%d sym_idx=%d "
+            "sic_expect_was=%d sic_ir=%d tentative_valid=%d\n",
+            static_cast<unsigned>(sic_fill_seq), static_cast<int>(harq_round_),
+            sym_idx_, sic_expect_was, static_cast<int>(sic_ir_enabled_), tv);
+    }
+#endif
     std::memset(g_sic_bits, 0, sizeof(g_sic_bits));
     uint8_t *const syms = g_v400_sym_scratch;
     const int rv_fb = (ir_rv_ + 3) & 3;
@@ -1018,6 +1695,12 @@ void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
         FEC_HARQ::Encode64_IR(ir_state_->sic_tentative, FEC_HARQ::MAX_INFO,
                               syms, il, cur_bps64_, rv_fb, wb_);
     if (enc_n <= 0) {
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+        if (sic_fill_seq < 20u) {
+            SIC_DIAG_PRINTF("[SIC-DIAG-2] fill abort enc_n=%d (wipe)\n",
+                            enc_n);
+        }
+#endif
         SecureMemory::secureWipe(static_cast<void *>(syms),
                                  sizeof(g_v400_sym_scratch));
         return;
@@ -1036,6 +1719,48 @@ void HTS_V400_Dispatcher::fill_sic_expected_64_() noexcept {
         g_sic_bits[static_cast<std::size_t>(s)] = bits;
     }
     sic_expect_valid_ = true;
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+    g_sic_sym_detail_logs.store(0, std::memory_order_relaxed);
+#endif
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+    if (sic_fill_seq < 20u) {
+        const int32_t amp = static_cast<int32_t>(sic_walsh_amp_);
+        int32_t mn_sc = INT32_MAX;
+        int32_t mx_sc = INT32_MIN;
+        for (int c = 0; c < 64; ++c) {
+            const uint32_t neg0 =
+                popc32(static_cast<uint32_t>(
+                           syms[0]) &
+                       static_cast<uint32_t>(c)) &
+                1u;
+            const int32_t sc =
+                amp - 2 * amp * static_cast<int32_t>(neg0);
+            if (sc < mn_sc) {
+                mn_sc = sc;
+            }
+            if (sc > mx_sc) {
+                mx_sc = sc;
+            }
+        }
+        SIC_DIAG_PRINTF(
+            "[SIC-DIAG-2] fill ok enc_n=%d rv_fb=%d sic_amp=%d "
+            "sym0 sic_chip=[%d,%d] valid_after=1\n",
+            enc_n, rv_fb, static_cast<int>(amp), static_cast<int>(mn_sc),
+            static_cast<int>(mx_sc));
+        SIC_DIAG_PRINTF("  sym0 sic_chip c=0,16,32,48: ");
+        for (int cc = 0; cc < 64; cc += 16) {
+            const uint32_t neg0 =
+                popc32(static_cast<uint32_t>(
+                           syms[0]) &
+                       static_cast<uint32_t>(cc)) &
+                1u;
+            const int32_t sc =
+                amp - 2 * amp * static_cast<int32_t>(neg0);
+            SIC_DIAG_PRINTF("%d ", static_cast<int>(sc));
+        }
+        SIC_DIAG_PRINTF("\n");
+    }
+#endif
     SecureMemory::secureWipe(static_cast<void *>(syms),
                              sizeof(g_v400_sym_scratch));
 }
@@ -1436,6 +2161,12 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     static_cast<int32_t>(buf_Q_[c]) * sgn);
             }
         }
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+        if (nc == 64 && ir_mode_ && cur_mode_ == PayloadMode::DATA) {
+            fwht_diag::payload_shadow_fwht_from_bufs_(buf_I_, buf_Q_,
+                                                      sym_idx_);
+        }
+#endif
         // [REMOVED Step2] cw_cancel_64_(buf_I_, buf_Q_) — NOP 확정
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(...) — 학습 구조 불일치로 NOP
         // [REMOVED Step1] soft_clip_iq — Gaussian noise 에 무효 확정
@@ -1444,9 +2175,26 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 if (ir_mode_) {
                     /* IR 칩: ECCM 후 버퍼 저장 (CW 제거 효과 반영) */
                     const int base = sym_idx_ * FEC_HARQ::C16;
+                    alignas(16) int32_t wI16[16];
+                    alignas(16) int32_t wQ16[16];
                     for (int c = 0; c < nc; ++c) {
-                        ir_chip_I_[base + c] = buf_I_[c];
-                        ir_chip_Q_[base + c] = buf_Q_[c];
+                        wI16[c] = static_cast<int32_t>(buf_I_[c]);
+                        wQ16[c] = static_cast<int32_t>(buf_Q_[c]);
+                    }
+                    fwht_raw(wI16, nc);
+                    fwht_raw(wQ16, nc);
+                    const int32_t pk16 =
+                        HtsFwhtInt16Scale::post_peak_max_abs(wI16, wQ16, nc);
+                    const int sh16 =
+                        HtsFwhtInt16Scale::downshift_for_int16_store(pk16);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+                    HtsFwhtInt16Scale::post_shift_hist_record(sh16);
+#endif
+                    for (int c = 0; c < nc; ++c) {
+                        ir_chip_I_[base + c] = ssat16_dispatch_(
+                            static_cast<int32_t>(buf_I_[c]) >> sh16);
+                        ir_chip_Q_[base + c] = ssat16_dispatch_(
+                            static_cast<int32_t>(buf_Q_[c]) >> sh16);
                     }
                 } else {
                     FEC_HARQ::Feed16_1sym(rx_.m16, buf_I_, buf_Q_, sym_idx_);
@@ -1513,16 +2261,53 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                             g_sic_bits[static_cast<std::size_t>(sym_idx_)];
                         const int32_t sic_amp =
                             static_cast<int32_t>(sic_walsh_amp_);
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+                        {
+                            const int rr = static_cast<int>(harq_round_);
+                            for (int c = 0; c < nc; ++c) {
+                                ir_round_diag::touch_buf_(
+                                    rr, static_cast<int32_t>(buf_I_[c]),
+                                    static_cast<int32_t>(buf_Q_[c]));
+                            }
+                        }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+                        if (sym_idx_ < 10 && nc == 64) {
+                            SIC_DIAG_PRINTF(
+                                "[AGC-DIAG-4] IR BEFORE sym=%d gain_shift=%d "
+                                "sic_amp=%d use_sic=%u\n",
+                                sym_idx_, static_cast<int>(pre_agc_.Get_Shift()),
+                                static_cast<int>(sic_amp),
+                                static_cast<unsigned>(use_sic_u));
+                            diag_int16_span_("prev_ir_chip_I", &ir_chip_I_[base],
+                                             16);
+                            diag_int16_span_("buf_I_rx", buf_I_, 16);
+                        }
+#endif
                         {
                             // Derotation 제거: FEC_HARQ::Decode64_IR이 위상 불변
                             // 디코딩(I²+Q² 에너지 기반)을 수행하므로 Dispatcher
                             // 레벨 derotation은 불필요하며, RF 환경에서 est 벡터의
                             // 노이즈로 인해 스케일 왜곡을 유발하여 FEC 실패 원인이 됨.
                             // T9(FEC 직접 호출)가 99/100 성공하는 것이 증명.
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+                            int32_t agc_sic_vi[64];
+                            int32_t agc_sic_vq[64];
+#endif
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+                            const int sym_log = g_sic_sym_detail_logs.load(
+                                std::memory_order_relaxed);
+                            const bool log_this_sym = (sym_log < 5) && (nc == 64);
+#endif
+                            alignas(16) int32_t preI[64];
+                            alignas(16) int32_t preQ[64];
                             for (int c = 0; c < nc; ++c) {
-                                int32_t vi = static_cast<int32_t>(buf_I_[c]);
-                                int32_t vq = static_cast<int32_t>(buf_Q_[c]);
-                                // SIC 차감: 기저대역 직접 차감
+                                const int32_t raw_i =
+                                    static_cast<int32_t>(buf_I_[c]);
+                                const int32_t raw_q =
+                                    static_cast<int32_t>(buf_Q_[c]);
+                                int32_t vi = raw_i;
+                                int32_t vq = raw_q;
                                 const uint32_t neg = static_cast<uint32_t>(
                                     (sic_sym_bits >>
                                      static_cast<uint32_t>(c)) & 1u);
@@ -1534,9 +2319,105 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                                     static_cast<int32_t>(use_sic_u);
                                 vi -= sub;
                                 vq -= sub;
-                                ir_chip_I_[base + c] = ssat16_dispatch_(vi);
-                                ir_chip_Q_[base + c] = ssat16_dispatch_(vq);
+                                preI[c] = vi;
+                                preQ[c] = vq;
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+                                if (use_sic_u != 0u) {
+                                    g_sic_valid_count.fetch_add(
+                                        1u, std::memory_order_relaxed);
+                                    sic_hist_add_post_sub_max_(vi, vq);
+                                } else {
+                                    g_sic_invalid_count.fetch_add(
+                                        1u, std::memory_order_relaxed);
+                                }
+                                agc_sic_vi[c] = vi;
+                                agc_sic_vq[c] = vq;
+                                if (log_this_sym && (c % 16) == 0) {
+                                    SIC_DIAG_PRINTF(
+                                        "[SIC-DIAG-3] sym=%d c=%d raw_I=%d "
+                                        "raw_Q=%d sub=%d sic_chip=%d "
+                                        "post_I=%d post_Q=%d use_sic=%u\n",
+                                        sym_idx_, c, static_cast<int>(raw_i),
+                                        static_cast<int>(raw_q),
+                                        static_cast<int>(sub),
+                                        static_cast<int>(sic_chip),
+                                        static_cast<int>(vi),
+                                        static_cast<int>(vq),
+                                        static_cast<unsigned>(use_sic_u));
+                                }
+#endif
                             }
+                            alignas(16) int32_t wI64[64];
+                            alignas(16) int32_t wQ64[64];
+                            for (int c = 0; c < nc; ++c) {
+                                wI64[c] = preI[c];
+                                wQ64[c] = preQ[c];
+                            }
+                            fwht_raw(wI64, nc);
+                            fwht_raw(wQ64, nc);
+                            const int32_t pk64 =
+                                HtsFwhtInt16Scale::post_peak_max_abs(
+                                    wI64, wQ64, nc);
+                            const int sh64 =
+                                HtsFwhtInt16Scale::downshift_for_int16_store(
+                                    pk64);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+                            HtsFwhtInt16Scale::post_shift_hist_record(sh64);
+#endif
+                            for (int c = 0; c < nc; ++c) {
+#if defined(HTS_DIAG_AGC_TRACE)
+                                ir_chip_I_[base + c] = ssat16_dispatch_agc_(
+                                    preI[c] >> sh64);
+                                ir_chip_Q_[base + c] = ssat16_dispatch_agc_(
+                                    preQ[c] >> sh64);
+#else
+                                ir_chip_I_[base + c] =
+                                    ssat16_dispatch_(preI[c] >> sh64);
+                                ir_chip_Q_[base + c] =
+                                    ssat16_dispatch_(preQ[c] >> sh64);
+#endif
+                            }
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+                            {
+                                const int rr = static_cast<int>(harq_round_);
+                                for (int c = 0; c < nc; ++c) {
+                                    ir_round_diag::touch_ir_(
+                                        rr,
+                                        static_cast<int32_t>(
+                                            ir_chip_I_[base + c]),
+                                        static_cast<int32_t>(
+                                            ir_chip_Q_[base + c]));
+                                }
+                            }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+                            if (log_this_sym) {
+                                (void)g_sic_sym_detail_logs.fetch_add(
+                                    1, std::memory_order_relaxed);
+                            }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_SIC_DIST)
+                            if (sym_idx_ < 10 && nc == 64) {
+                                int sat_i = 0;
+                                int sat_q = 0;
+                                for (int c = 0; c < nc; ++c) {
+                                    if (agc_sic_vi[c] > 32767 ||
+                                        agc_sic_vi[c] < -32768) {
+                                        ++sat_i;
+                                    }
+                                    if (agc_sic_vq[c] > 32767 ||
+                                        agc_sic_vq[c] < -32768) {
+                                        ++sat_q;
+                                    }
+                                }
+                                SIC_DIAG_PRINTF(
+                                    "[AGC-DIAG-5] SIC subtract BEFORE ssat16: "
+                                    "sym=%d |vi|>32767: %d/%d |vq|>32767: %d/%d\n",
+                                    sym_idx_, sat_i, nc, sat_q, nc);
+                                diag_int32_span_("sic_sub_I_raw", agc_sic_vi, 16);
+                                diag_int32_span_("sic_sub_Q_raw", agc_sic_vq, 16);
+                            }
+#endif
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
@@ -1584,6 +2465,95 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
     // 것을 방지. 16칩(NSYM16=172)은 wb_ 사용 영역이 작아 영향 없으나,
     // 64칩(NSYM64=172, BPS=4)은 전체 TOTAL_CODED(688) 슬롯을 사용하므로 필수.
     std::memset(&wb_, 0, sizeof(wb_));
+#if defined(HTS_DIAG_SIC_DIST) || defined(HTS_DIAG_AGC_TRACE)
+    {
+        const uint32_t total =
+            g_sic_subamt_total.load(std::memory_order_relaxed);
+        if (total > 0u) {
+            const uint32_t b0 =
+                g_sic_subamt_bin_0_100.load(std::memory_order_relaxed);
+            const uint32_t b1 =
+                g_sic_subamt_bin_100_1000.load(std::memory_order_relaxed);
+            const uint32_t b2 =
+                g_sic_subamt_bin_1k_10k.load(std::memory_order_relaxed);
+            const uint32_t b3 =
+                g_sic_subamt_bin_10k_32k.load(std::memory_order_relaxed);
+            const uint32_t b4 =
+                g_sic_subamt_bin_over_32k.load(std::memory_order_relaxed);
+            const uint32_t vc =
+                g_sic_valid_count.load(std::memory_order_relaxed);
+            const uint32_t ic =
+                g_sic_invalid_count.load(std::memory_order_relaxed);
+            const uint32_t fc =
+                g_sic_fill_called.load(std::memory_order_relaxed);
+            const double inv_tot = 100.0 / static_cast<double>(total);
+            SIC_DIAG_PRINTF(
+                "[SIC-DIAG-5] try_decode entry post-SIC |chip|max bins "
+                "(use_sic=1 chips only; sub=±sic_amp):\n"
+                "  fill_called=%u valid_chips=%u invalid_chips=%u\n"
+                "  post_max: <100=%u (%.3f%%) 100~1k=%u (%.3f%%) "
+                "1k~10k=%u (%.3f%%) 10k~32k=%u (%.3f%%) >=32k=%u (%.3f%%)\n"
+                "  total_hist_chips=%u\n",
+                static_cast<unsigned>(fc), static_cast<unsigned>(vc),
+                static_cast<unsigned>(ic), static_cast<unsigned>(b0),
+                static_cast<double>(b0) * inv_tot,
+                static_cast<unsigned>(b1),
+                static_cast<double>(b1) * inv_tot,
+                static_cast<unsigned>(b2),
+                static_cast<double>(b2) * inv_tot,
+                static_cast<unsigned>(b3),
+                static_cast<double>(b3) * inv_tot,
+                static_cast<unsigned>(b4),
+                static_cast<double>(b4) * inv_tot,
+                static_cast<unsigned>(total));
+        }
+    }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    if (ir_mode_ && ir_chip_I_ != nullptr && ir_chip_Q_ != nullptr &&
+        cur_mode_ == PayloadMode::DATA) {
+        const int bps = cur_bps64_;
+        int nchip = 0;
+        if (bps >= FEC_HARQ::BPS64_MIN_OPERABLE &&
+            bps <= FEC_HARQ::BPS64_MAX) {
+            const int nsym_ir = FEC_HARQ::nsym_for_bps(bps);
+            nchip = nsym_ir * FEC_HARQ::C64;
+        }
+        if (nchip > 0) {
+            int32_t ir_min_I = INT32_MAX;
+            int32_t ir_max_I = INT32_MIN;
+            int32_t ir_min_Q = INT32_MAX;
+            int32_t ir_max_Q = INT32_MIN;
+            for (int i = 0; i < nchip; ++i) {
+                const int32_t vI = static_cast<int32_t>(ir_chip_I_[i]);
+                const int32_t vQ = static_cast<int32_t>(ir_chip_Q_[i]);
+                if (vI < ir_min_I) {
+                    ir_min_I = vI;
+                }
+                if (vI > ir_max_I) {
+                    ir_max_I = vI;
+                }
+                if (vQ < ir_min_Q) {
+                    ir_min_Q = vQ;
+                }
+                if (vQ > ir_max_Q) {
+                    ir_max_Q = vQ;
+                }
+            }
+            uint32_t sat = 0u;
+            uint32_t tot = 0u;
+            HTS_AGC_DIAG_Get_SsatCounts(&sat, &tot);
+            AGC_DIAG_PRINTF(
+                "[AGC-DIAG-7] try_decode_ entry: harq_round=%d gain_shift=%d "
+                "ir_chip_I=[%d,%d] ir_chip_Q=[%d,%d] ssat16_sat=%u/%u\n",
+                static_cast<int>(harq_round_),
+                static_cast<int>(pre_agc_.Get_Shift()),
+                static_cast<int>(ir_min_I), static_cast<int>(ir_max_I),
+                static_cast<int>(ir_min_Q), static_cast<int>(ir_max_Q),
+                static_cast<unsigned>(sat), static_cast<unsigned>(tot));
+        }
+    }
+#endif
     const uint8_t walsh_shift_payload = current_walsh_shift_();
     DecodedPacket pkt = {};
     pkt.mode = cur_mode_;
@@ -1718,6 +2688,33 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
 #endif
         }
     } else if (cur_mode_ == PayloadMode::DATA) {
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+        if (ir_mode_) {
+            const int slot = static_cast<int>(harq_round_);
+            if (slot >= 0 && slot < ir_round_diag::kIrRoundMaxTrack) {
+                const ir_round_diag::IrRoundRecord &rec =
+                    ir_round_diag::g_ir_round_rec[slot];
+                const uint32_t avg_chip =
+                    rec.chip_sample_n > 0u
+                        ? rec.new_chip_sum_abs / rec.chip_sample_n
+                        : 0u;
+                IR_ROUND_DIAG_PRINTF(
+                    "[IR-ROUND-4] round=%d buf_I=[%d,%d] buf_Q=[%d,%d] "
+                    "ir_chip_I=[%d,%d] ir_chip_Q=[%d,%d] avg_new_chip=%u "
+                    "samples=%u\n",
+                    slot, static_cast<int>(rec.buf_I_min),
+                    static_cast<int>(rec.buf_I_max),
+                    static_cast<int>(rec.buf_Q_min),
+                    static_cast<int>(rec.buf_Q_max),
+                    static_cast<int>(rec.ir_chip_I_min),
+                    static_cast<int>(rec.ir_chip_I_max),
+                    static_cast<int>(rec.ir_chip_Q_min),
+                    static_cast<int>(rec.ir_chip_Q_max),
+                    static_cast<unsigned>(avg_chip),
+                    static_cast<unsigned>(rec.chip_sample_n));
+            }
+        }
+#endif
         harq_round_++;
         if (ir_mode_) {
                 const int bps = cur_bps64_;
@@ -3360,7 +4357,19 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             // B-2: est seed 확정 직후 mag/recip 즉시 계산
             //   이후 on_sym_ 심볼당 정규화 derotation 사용
             update_derot_shift_from_est_();
-            // CFO 는 Walsh 도메인에서 처리 예정 — MCE 철거 (Stage 1)
+            // Option 2 (Phase3-α v2): 시간도메인 CFO — 기존 HTS_CFO_Compensator API 재배선
+            if (best_off + 128 <= 192) {
+                int32_t cfo_d0i = 0, cfo_d0q = 0, cfo_d1i = 0, cfo_d1q = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
+                             cfo_d0i, cfo_d0q);
+                walsh63_dot_(&p0_buf128_I_[best_off + 64],
+                             &p0_buf128_Q_[best_off + 64], cfo_d1i, cfo_d1q);
+                cfo_.Estimate_From_Preamble(cfo_d0i, cfo_d0q, cfo_d1i, cfo_d1q,
+                                            64);
+                cfo_.Advance_Phase_Only(192);
+            } else {
+                cfo_.Init();
+            }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
                 int32_t mag_sum = 0;
@@ -3373,7 +4382,18 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                     mag_sum += (aq ^ sq) - sq;
                 }
                 const int32_t peak_avg = mag_sum >> 6;
+#if defined(HTS_DIAG_AGC_TRACE)
+                const int32_t prev_shift = pre_agc_.Get_Shift();
+#endif
                 pre_agc_.Set_From_Peak(peak_avg);
+#if defined(HTS_DIAG_AGC_TRACE)
+                AGC_DIAG_PRINTF(
+                    "[AGC-DIAG-2] pre_agc Set_From_Peak: peak_avg=%d "
+                    "old_shift=%d new_shift=%d target_amp=%d\n",
+                    static_cast<int>(peak_avg), static_cast<int>(prev_shift),
+                    static_cast<int>(pre_agc_.Get_Shift()),
+                    static_cast<int>(HTS_Preamble_AGC::kTargetAmp));
+#endif
             }
 #if defined(HTS_DIAG_PRINTF)
             std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
@@ -3418,6 +4438,27 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 }
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+    if (cur_mode_ == PayloadMode::DATA) {
+        if ((ir_round_diag::g_ir_feed_sample_ctr++ & 63u) == 0u) {
+            ir_round_diag::feed_sample_(static_cast<int>(harq_round_), rx_I,
+                                        rx_Q);
+        }
+    }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    static uint32_t s_agc_feed_chip_ctr = 0u;
+    if ((s_agc_feed_chip_ctr++ & 63u) == 0u) {
+        const int32_t ri = static_cast<int32_t>(rx_I);
+        const int32_t rq = static_cast<int32_t>(rx_Q);
+        const int32_t mag_sq = ri * ri + rq * rq;
+        AGC_DIAG_PRINTF(
+            "[AGC-DIAG-1] Feed_Chip raw: I=%d Q=%d mag_sq=%d ctr=%u\n",
+            static_cast<int>(rx_I), static_cast<int>(rx_Q),
+            static_cast<int>(mag_sq),
+            static_cast<unsigned>(s_agc_feed_chip_ctr));
+    }
+#endif
 #if defined(HTS_AMP_DIAG)
     AmpDiag::record_chip(rx_I, rx_Q);
 #endif
@@ -3473,9 +4514,48 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             static_cast<int>(dc_est_Q_));
     }
 #endif
-    // CFO 는 Walsh 도메인에서 처리 예정 (시간도메인 Apply 철거, Stage 1)
-    // 프리앰블 AGC
+    // 프리앰블 AGC (P0 추정·버퍼는 이 경로와 동일 도메인)
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_FWHT_INTERNAL)
+    const int32_t agc_in_i = static_cast<int32_t>(chip_I);
+    const int32_t agc_in_q = static_cast<int32_t>(chip_Q);
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    static uint32_t s_agc_apply_ctr = 0u;
+#endif
     pre_agc_.Apply(chip_I, chip_Q);
+    // Option 2: AGC 이후 RX 역회전 (P0 walsh_dot·버퍼와 동일 도메인)
+    cfo_.Apply(chip_I, chip_Q);
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    if (cur_mode_ == PayloadMode::DATA && phase_ == RxPhase::READ_PAYLOAD) {
+        static thread_local uint32_t s_fwht_agc_ep = 0u;
+        static thread_local int s_fwht_agc_pair = 0;
+        const uint32_t ep_agc =
+            fwht_diag::g_fwht_diag_epoch.load(std::memory_order_relaxed);
+        if (ep_agc != s_fwht_agc_ep) {
+            s_fwht_agc_ep = ep_agc;
+            s_fwht_agc_pair = 0;
+        }
+        if (s_fwht_agc_pair < 20) {
+            FWHT_DIAG_PRINTF(
+                "[FWHT-DIAG-4] AGC: gain_shift=%d in_I=%d in_Q=%d out_I=%d "
+                "out_Q=%d\n",
+                static_cast<int>(pre_agc_.Get_Shift()),
+                static_cast<int>(agc_in_i), static_cast<int>(agc_in_q),
+                static_cast<int>(chip_I), static_cast<int>(chip_Q));
+            ++s_fwht_agc_pair;
+        }
+    }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    if ((++s_agc_apply_ctr & 255u) == 0u) {
+        AGC_DIAG_PRINTF(
+            "[AGC-DIAG-3] AGC Apply: gain_shift=%d chip_dc_in=(%d,%d) "
+            "chip_out=(%d,%d)\n",
+            static_cast<int>(pre_agc_.Get_Shift()), static_cast<int>(agc_in_i),
+            static_cast<int>(agc_in_q), static_cast<int>(chip_I),
+            static_cast<int>(chip_Q));
+    }
+#endif
     apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
     if (phase_ == RxPhase::RF_SETTLING) {
         (void)chip_I;
@@ -4251,6 +5331,13 @@ void HTS_V400_Dispatcher::Feed_Retx_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     buf_I_[buf_idx_] = ti;
     buf_Q_[buf_idx_] = tq;
     buf_idx_++;
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+    if (cur_mode_ == PayloadMode::DATA) {
+        if ((ir_round_diag::g_ir_feed_sample_ctr++ & 63u) == 0u) {
+            ir_round_diag::feed_sample_(static_cast<int>(harq_round_), ti, tq);
+        }
+    }
+#endif
     if (buf_idx_ >= pay_cps_)
         on_sym_();
 }
@@ -4574,3 +5661,9 @@ int32_t HTS_V400_Dispatcher::mf_pte_refine_(int peak_idx) const noexcept {
 #endif // HTS_SYNC_USE_MATCHED_FILTER
 
 } // namespace ProtectedEngineLocal
+
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+namespace HtsFwhtInt16Scale {
+std::atomic<uint32_t> g_post_shift_hist[8]{};
+} // namespace HtsFwhtInt16Scale
+#endif
