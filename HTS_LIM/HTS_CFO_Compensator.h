@@ -40,6 +40,13 @@ public:
 
     void Apply(int16_t &chipI, int16_t &chipQ) noexcept;
 
+    /// @brief 칩 출력 없이 누적 위상만 n_chips 만큼 전진 (P0 스캔 구간 보정)
+    ///        Apply 의 per-chip Q14 복소 곱(cos_acc_/sin_acc_ 갱신)만 반복하고,
+    ///        64 chip 마다 Apply 와 동일한 float sqrt 정규화를 수행.
+    /// @param n_chips 전진할 chip 수 (Local.cpp 관례: P0 스캔 구간 192)
+    /// @note  active_=false 이면 no-op. I/Q 회전·출력은 생략.
+    void Advance_Phase_Only(int32_t n_chips) noexcept;
+
     bool Is_Active() const noexcept { return active_; }
 
     void Reset() noexcept;
@@ -200,6 +207,37 @@ inline void HTS_CFO_Compensator::Apply(int16_t &chipI, int16_t &chipQ) noexcept
             const float scale = 16384.0f / std::sqrt(mag2);
             cos_acc_ = static_cast<int32_t>(std::round(fc * scale));
             sin_acc_ = static_cast<int32_t>(std::round(fs * scale));
+        }
+    }
+}
+
+inline void HTS_CFO_Compensator::Advance_Phase_Only(int32_t n_chips) noexcept {
+    if (!active_) return;
+    if (n_chips <= 0) return;
+
+    for (int32_t k = 0; k < n_chips; ++k) {
+        const int32_t next_cos = static_cast<int32_t>(
+            (static_cast<int64_t>(cos_acc_) * static_cast<int64_t>(cos_per_chip_) -
+             static_cast<int64_t>(sin_acc_) * static_cast<int64_t>(sin_per_chip_)) >>
+            14);
+        const int32_t next_sin = static_cast<int32_t>(
+            (static_cast<int64_t>(cos_acc_) * static_cast<int64_t>(sin_per_chip_) +
+             static_cast<int64_t>(sin_acc_) * static_cast<int64_t>(cos_per_chip_)) >>
+            14);
+
+        cos_acc_ = next_cos;
+        sin_acc_ = next_sin;
+
+        ++chip_counter_;
+        if ((chip_counter_ & 0x3F) == 0) {
+            const float fc = static_cast<float>(cos_acc_);
+            const float fs = static_cast<float>(sin_acc_);
+            const float mag2 = fc * fc + fs * fs;
+            if (mag2 > 0.0f) {
+                const float scale = 16384.0f / std::sqrt(mag2);
+                cos_acc_ = static_cast<int32_t>(std::round(fc * scale));
+                sin_acc_ = static_cast<int32_t>(std::round(fs * scale));
+            }
         }
     }
 }
