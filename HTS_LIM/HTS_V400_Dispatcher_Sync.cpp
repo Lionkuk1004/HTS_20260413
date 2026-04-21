@@ -56,8 +56,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     int best_dom_row = 63;
     int32_t best_seed_I = 0;
     int32_t best_seed_Q = 0;
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     static int s_stage4_scan_idx = 0;
     ++s_stage4_scan_idx;
     const bool diag_this_scan = (s_stage4_scan_idx <= 3);
@@ -207,8 +206,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     }
 #endif
 
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     {
         static int s_p0_full_dump_idx = 0;
         ++s_p0_full_dump_idx;
@@ -362,8 +360,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 T2_Q[i] = static_cast<int32_t>(p0_buf128_Q_[off + 128 + i]);
             }
             fwht_64_complex_inplace_(T2_I, T2_Q);
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
             {
                 static int s_p0_fwht_dump_idx = 0;
                 // PROMPT 39: 전역 한도가 S8 이전에 고갈되지 않도록 상향 (DIAG 전용)
@@ -501,8 +498,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             const int32_t accum_8x8 =
                 static_cast<int32_t>(((e8x8_sum * 2) / 3) >> 14);
             accum = (accum_8x8 > accum_cohr) ? accum_8x8 : accum_cohr;
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
             if (diag_this_scan) {
                 if (cons_ok) {
                     ++cons_pass_count;
@@ -559,8 +555,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 accum = static_cast<int32_t>((e63_0 + e63_1) >> 16);
             }
         }
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
         {
             static int s_stage4b_diag_line = 0;
             if ((off == 0 || off == 32 || off == 63) &&
@@ -798,8 +793,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                           static_cast<int64_t>(second_e63), pass);
 #endif
 
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     if (diag_this_scan) {
         std::printf(
             "[STAGE4-SCAN#%d] cons_pass=%d best_cons_off=%d r0=%d r1=%d r2=%d "
@@ -979,8 +973,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
 #endif
         dominant_row_ = static_cast<uint8_t>(best_dom_row);
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
         std::printf(
             "[STAGE4-P0] lock dominant_row=%u off=%d (seed=walsh63 non-coh)\n",
             static_cast<unsigned>(dominant_row_), best_off);
@@ -1017,7 +1010,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 const int64_t v5_score = walsh_v5_score_2blk_(
                     &p0_buf128_I_[best_off],
                     &p0_buf128_Q_[best_off]);
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF)
                 std::printf(
                     "[STAGE4-V5-2B] off=%d v5_score=%lld legacy_seed=(%d,%d)\n",
                     best_off, static_cast<long long>(v5_score),
@@ -1109,8 +1102,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #if defined(HTS_AMP_DIAG)
     AmpDiag::record_chip(rx_I, rx_Q);
 #endif
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     static int s_lab_feed_chip_idx = 0;
     ++s_lab_feed_chip_idx;
     if (s_lab_feed_chip_idx <= 300) {
@@ -1150,8 +1142,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
-    !defined(HTS_TARGET_AMI)
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
         (s_lab_feed_chip_idx % 16) == 0) {
         std::printf(
