@@ -13,8 +13,13 @@
 #if defined(HTS_TARGET_AMI) && defined(HTS_TARGET_PSLTE)
 #  error "HTS_TARGET_AMI 와 HTS_TARGET_PSLTE 는 동시 정의 불가"
 #endif
-#if defined(HTS_TARGET_AMI)
-#  error "HTS_TARGET_AMI 32-chip 경로는 2026-04-18 T6 붕괴 (43/11200) 로 비활성. 원인 규명 전 빌드 금지."
+// [AMI_DRY_RUN 2026-04-22] 원인 규명용 실측을 위해 임시 해제
+// 원문:
+//   #error "HTS_TARGET_AMI 32-chip 경로는 2026-04-18 T6 붕괴 (43/11200) 로 비활성. 원인 규명 전 빌드 금지."
+// 해제 사유: 43/11200 리터럴 로그 미발견 → 실측으로 실제 동작 확인 필요
+// 복구 책임: PHASE_B1_AMI_DRY_RUN.md 결과에 따라 복원 또는 정식 해제
+#if defined(HTS_TARGET_AMI) && defined(HTS_AMI_FORCE_DISABLE)
+#  error "HTS_TARGET_AMI 32-chip 경로 비활성 (HTS_AMI_FORCE_DISABLE 지정 시)"
 #endif
 
 namespace ProtectedEngine {
