@@ -152,7 +152,7 @@
     <ClInclude Include="HTS_Secure_Memory.h" />
     <ClInclude Include="HTS_Session_Gateway.hpp" />
     <ClInclude Include="HTS_TPC_Controller.h" />
-    <ClInclude Include="HTS_V400_Dispatcher.hpp" />
+    <ClInclude Include="..\HTS_LIM\HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_Walsh_Row_Converter.hpp" />
     <ClInclude Include="HTS_Walsh_Row_Permuter.hpp" />
   </ItemGroup>

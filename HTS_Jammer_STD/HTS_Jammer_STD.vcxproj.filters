@@ -56,7 +56,7 @@
     <ClInclude Include="HTS_TPC_Controller.h">
       <Filter>메인트리_복사본</Filter>
     </ClInclude>
-    <ClInclude Include="HTS_V400_Dispatcher.hpp">
+    <ClInclude Include="..\HTS_LIM\HTS_V400_Dispatcher.hpp">
       <Filter>메인트리_복사본</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Walsh_Row_Converter.hpp">
