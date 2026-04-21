@@ -1159,7 +1159,10 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     }
 #endif
     // CFO 는 Walsh 도메인에서 처리 예정 (시간도메인 Apply 철거, Stage 1)
-    // 프리앰블 AGC
+    // ★ [CFO 4-2] Apply 복원 (Estimate 는 4-1, phase0_scan_ P0 락 지점에서 호출됨)
+    //   순서: DC → CFO → AGC (Core/Src 설계 정합, AGC peak 에 CFO 회전 잔재 제거)
+    cfo_.Apply(chip_I, chip_Q);
+    // 프리앰블 AGC (DC/CFO 후)
     pre_agc_.Apply(chip_I, chip_Q);
     apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
     if (phase_ == RxPhase::RF_SETTLING) {
