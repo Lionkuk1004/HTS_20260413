@@ -1032,6 +1032,20 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             //   이후 on_sym_ 심볼당 정규화 derotation 사용
             update_derot_shift_from_est_();
             // CFO 는 Walsh 도메인에서 처리 예정 — MCE 철거 (Stage 1)
+            // ★ [CFO 4-1] Estimate 복원 (Apply 는 4-2)
+            //   블록0/블록1 dot 을 재계산 (seed_dot_* 은 2블록 합이라 분리 불가).
+            //   phase0_scan_ 은 P0 락 1회뿐 → 추가 walsh63_dot_ 2회 WCET 영향 무시.
+            {
+                int32_t d0I = 0, d0Q = 0;
+                int32_t d1I = 0, d1Q = 0;
+                walsh63_dot_(&p0_buf128_I_[best_off + 0],
+                             &p0_buf128_Q_[best_off + 0],
+                             d0I, d0Q);
+                walsh63_dot_(&p0_buf128_I_[best_off + 64],
+                             &p0_buf128_Q_[best_off + 64],
+                             d1I, d1Q);
+                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
+            }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
                 int32_t mag_sum = 0;
