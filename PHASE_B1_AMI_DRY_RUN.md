@@ -8,7 +8,7 @@
 | 항목 | 값 |
 |------|-----|
 | branch | `ami_dry_run` |
-| HEAD (보고서 커밋 포함) | `44aab13` (`PHASE_B1_AMI_DRY_RUN.md` 실측 보고) |
+| HEAD (보고서 커밋 포함) | `59b2262` (`PHASE_B1_AMI_DRY_RUN.md` 실측 보고) |
 | 기반 커밋 | `a556e57` (`CFO복구`) — 브랜치는 `step_c1_s3_v5_lpi`에서 분기 후 위 커밋이 부모 |
 | `#error` 해제 커밋 | `10ebfc9` (`ami_dry_run: #error 임시 해제 (실측 위한 조건부 차단 변경)`) |
 | 빌드 스크립트 커밋 | `2fee54f` |
@@ -142,7 +142,7 @@
 
 ## Git 상태
 
-- 브랜치 **`ami_dry_run`** 유지; 커밋: `10ebfc9`, `2fee54f`, `44aab13`.  
+- 브랜치 **`ami_dry_run`** 유지; 커밋: `10ebfc9`, `2fee54f`, `59b2262`.  
 - `master` 와는 히스토리가 크게 갈라져 있음 (`git diff main ami_dry_run --stat` 매우 큼 — **브랜치가 `main`이 아닌 다른 라인에서 이미 분기된 상태**). **main 직접 수정 없음.**  
 
 ---
