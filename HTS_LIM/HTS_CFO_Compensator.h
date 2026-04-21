@@ -151,6 +151,12 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble_MCE(
 
 inline void HTS_CFO_Compensator::Apply(int16_t &chipI, int16_t &chipQ) noexcept
 {
+    // ★ [CFO 4-2 DIAG] 컴파일 타임 매크로로 Apply 강제 무효화
+    //   HTS_CFO_APPLY_FORCE_OFF 정의 시 Apply 는 no-op (회귀 비교용)
+#if defined(HTS_CFO_APPLY_FORCE_OFF)
+    (void)chipI; (void)chipQ;
+    return;
+#endif
     if (!active_) {
         return;
     }
