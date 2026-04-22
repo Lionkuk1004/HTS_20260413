@@ -629,6 +629,13 @@ namespace ProtectedEngine {
         /// @brief 블랙홀 처리 (아웃라이어 칩 소거)
         void blackhole_(int16_t* I, int16_t* Q, int nc) noexcept;
 
+#if defined(HTS_HOLO_PREAMBLE)
+        /// 홀로텐서 4D 프리앰블 시퀀스 생성 (64 chip BPSK, Q 는 호출자가 0)
+        void generate_holo_preamble_(int16_t* out_I, int16_t amp,
+                                    const uint32_t seed[4],
+                                    uint32_t slot) noexcept;
+#endif
+
         /// Holo LPI RX 역스칼라 (Walsh·상관 전, `scalar_time_slot` = `rx_seq_` 또는 Retx용)
         void apply_holo_lpi_inverse_rx_chip_(int16_t& chip_I, int16_t& chip_Q,
                                              uint32_t scalar_time_slot) noexcept;

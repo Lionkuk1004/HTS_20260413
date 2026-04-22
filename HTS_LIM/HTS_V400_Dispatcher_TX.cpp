@@ -5,6 +5,9 @@
 #include "HTS_V400_Dispatcher_Internal.hpp"
 #include "HTS_Holo_LPI.h"
 #include "HTS_Secure_Memory.h"
+#if defined(HTS_HOLO_PREAMBLE)
+#include "HTS_Holo_Tensor_4D_Defs.h"
+#endif
 #include <cstdint>
 #include <cstddef>
 namespace ProtectedEngine {
@@ -27,6 +30,69 @@ static inline int16_t *bp_dst_q(int16_t *oQ, int pos,
         (reinterpret_cast<std::uintptr_t>(g_bp_sink_q) & ~okm));
 }
 } // namespace
+
+#if defined(HTS_HOLO_PREAMBLE)
+void HTS_V400_Dispatcher::generate_holo_preamble_(
+    int16_t* const out_I, const int16_t amp, const uint32_t seed[4],
+    const uint32_t slot) noexcept {
+    auto mix = [](const uint32_t z0) noexcept -> uint32_t {
+        uint32_t z = z0;
+        z = (z ^ (z >> 16u)) * 0x45D9F3Bu;
+        z = (z ^ (z >> 16u)) * 0x45D9F3Bu;
+        return z ^ (z >> 16u);
+    };
+    Xoshiro128ss rng{};
+    rng.s[0] = mix(seed[0] ^ slot);
+    rng.s[1] = mix(seed[1] ^ (slot * 0x9E3779B9u));
+    rng.s[2] = mix(seed[2] ^ (slot * 0x517CC1B7u));
+    rng.s[3] = mix(seed[3] ^ (slot * 0x6C62272Eu));
+    rng.s[0] ^= 0x50524500u;
+    for (int w = 0; w < 8; ++w) {
+        (void)rng.Next();
+    }
+
+    int32_t buf[64];
+    for (int i = 0; i < 64; ++i) {
+        buf[i] = (rng.Next() & 1u) ? 1 : -1;
+    }
+    fwht_raw(buf, 64);
+
+    static constexpr uint8_t k_perm[24][4] = {
+        {0, 1, 2, 3}, {0, 1, 3, 2}, {0, 2, 1, 3}, {0, 2, 3, 1}, {0, 3, 1, 2},
+        {0, 3, 2, 1}, {1, 0, 2, 3}, {1, 0, 3, 2}, {1, 2, 0, 3}, {1, 2, 3, 0},
+        {1, 3, 0, 2}, {1, 3, 2, 0}, {2, 0, 1, 3}, {2, 0, 3, 1}, {2, 1, 0, 3},
+        {2, 1, 3, 0}, {2, 3, 0, 1}, {2, 3, 1, 0}, {3, 0, 1, 2}, {3, 0, 2, 1},
+        {3, 1, 0, 2}, {3, 1, 2, 0}, {3, 2, 0, 1}, {3, 2, 1, 0}};
+    for (int i = 0; i < 64; i += 4) {
+        const uint32_t gyro = rng.Next();
+        for (int j = 0; j < 4; ++j) {
+            if ((gyro >> static_cast<uint32_t>(j)) & 1u) {
+                buf[i + j] = -buf[i + j];
+            }
+        }
+        const uint8_t pi =
+            static_cast<uint8_t>(((gyro >> 4u) & 0x1Fu) % 24u);
+        const uint8_t* p = k_perm[pi];
+        const int32_t v0 = buf[i + p[0]];
+        const int32_t v1 = buf[i + p[1]];
+        const int32_t v2 = buf[i + p[2]];
+        const int32_t v3 = buf[i + p[3]];
+        buf[i + 0] = v0 + v1 + v2 + v3;
+        buf[i + 1] = v0 - v1 + v2 - v3;
+        buf[i + 2] = v0 + v1 - v2 - v3;
+        buf[i + 3] = v0 - v1 - v2 + v3;
+    }
+    fwht_raw(buf, 64);
+
+    for (int i = 0; i < 64; ++i) {
+        const int32_t b = buf[i];
+        out_I[i] = (b >= 0)
+                       ? amp
+                       : static_cast<int16_t>(-static_cast<int32_t>(amp));
+    }
+}
+#endif
+
 int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                                       int ilen, int16_t amp, int16_t *oI,
                                       int16_t *oQ, int max_c) noexcept {
@@ -146,9 +212,22 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     const int inc = static_cast<int>(go & 1u);
 
     int pos = 0;
+#if defined(HTS_HOLO_PREAMBLE)
+    int16_t holo_pre_I[64];
+    generate_holo_preamble_(holo_pre_I, pre_amp, holo_lpi_seed_, tx_seq_);
+#endif
     for (int r = 0; r < pre_reps_; ++r) {
+#if defined(HTS_HOLO_PREAMBLE)
+        for (int j = 0; j < 64; ++j) {
+            int16_t* const di = bp_dst_i(oI, pos + j, okm);
+            int16_t* const dq = bp_dst_q(oQ, pos + j, okm);
+            di[0] = holo_pre_I[j];
+            dq[0] = 0;
+        }
+#else
         walsh_enc(PRE_SYM0, 64, pre_amp, bp_dst_i(oI, pos, okm),
                   bp_dst_q(oQ, pos, okm));
+#endif
         pos += 64 * inc;
     }
     walsh_enc(PRE_SYM1, 64, pre_amp, bp_dst_i(oI, pos, okm),
