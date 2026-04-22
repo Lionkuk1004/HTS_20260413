@@ -772,6 +772,89 @@ static void test_S5() {
 }
 
 // ═══════════════════════════════════════════════════════════════
+//  S5F: 동일 CFO sweep — seed / payload 고정 (ablation, 원인 분리)
+//  원본 S5 대비: mk_seed(0x500000u,0) + build_tx(...,0) 만 사용, trial 루프는
+//  통계 형식 유지(kTrials). CFO·ch_cfo·feed_raw_ext 경로는 S5 와 동일.
+// ═══════════════════════════════════════════════════════════════
+static void test_S5_seed_fixed() {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
+    hdr("S5F", "CFO sweep (seed/payload 고정)");
+    const double cfos[] = {
+        0, 50, 100, 200, 500, 1000, 2000,
+        2500, 3000, 3500, 4000, 4500,
+        5000,
+        7500, 10000,
+        12500, 15000, 17500, 20000, 25000};
+    const uint32_t ds_fixed = mk_seed(0x500000u, 0);
+    const TxPkt      tx_fixed = build_tx(ds_fixed, 0);
+    if (tx_fixed.n <= 0) {
+        row("TX build (t=0)", 0, kTrials);
+        return;
+    }
+    for (double cfo : cfos) {
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
+        for (int t = 0; t < kTrials; ++t) {
+            (void)t;
+            int16_t rI[kMaxC], rQ[kMaxC];
+            std::memcpy(rI, tx_fixed.I,
+                        sizeof(int16_t) * static_cast<size_t>(tx_fixed.n));
+            std::memcpy(rQ, tx_fixed.Q,
+                        sizeof(int16_t) * static_cast<size_t>(tx_fixed.n));
+            ch_cfo(rI, rQ, tx_fixed.n, cfo);
+            const TrialMetrics m =
+                feed_raw_ext(ds_fixed, rI, rQ, tx_fixed.n, tx_fixed.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
+        }
+        char label[32], param[16];
+        std::snprintf(label, sizeof(label), "CFO %+6.0f Hz", cfo);
+        std::snprintf(param, sizeof(param), "%.0fHz", cfo);
+        row(label, ok, kTrials);
+        record_ext("S5F", param, ok, crc_only, kTrials, total_bits);
+    }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S5F");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S5F");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S5F");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S5F");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S5F");
+#endif
+}
+
+// ═══════════════════════════════════════════════════════════════
 //  S6: 다중 경로 (3-tap)
 // ═══════════════════════════════════════════════════════════════
 static void test_S6() {
@@ -1217,6 +1300,7 @@ int main() {
     test_S3();
     test_S4();
     test_S5();
+    test_S5_seed_fixed();
     test_S6();
     test_S7();
     test_S8();
