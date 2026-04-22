@@ -544,6 +544,9 @@ namespace ProtectedEngine {
         void handle_video_(uint32_t decode_ok_mask) noexcept;
         void full_reset_() noexcept;
         void phase0_scan_() noexcept;
+#if defined(HTS_HOLO_PREAMBLE)
+        void phase0_scan_holo_preamble_rx_() noexcept;
+#endif
 #ifdef HTS_USE_HOLOGRAPHIC_SYNC
         bool use_holographic_sync_{ false };
         void phase0_scan_holographic_() noexcept;
