@@ -71,7 +71,11 @@ static constexpr int      kPreBoost  = 1;
 static constexpr int      kMaxC      = 2048 + (FEC_HARQ::NSYM64 + kPreReps + 4) * 64;
 static constexpr int      kGuard     = 256;
 static constexpr double   kPi        = 3.14159265358979323846;
-static constexpr double   kChipRate  = 200000.0;
+#if defined(HTS_TARGET_AMI)
+static constexpr double   kChipRate  = 200000.0;   // AMI: 200 kcps
+#else
+static constexpr double   kChipRate  = 1000000.0;  // PS-LTE: 1 Mcps
+#endif
 static constexpr int      kTrials    = 100;  // [Step C-1] S3 LPI 측정용 통계 신뢰도 (20→100)
 
 // ═══════════════════════════════════════════════════════════════
