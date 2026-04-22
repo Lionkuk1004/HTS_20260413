@@ -248,6 +248,58 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
     return m;
 }
 
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+/// feed_raw_ext 와 동일 + `Set_Holographic_Sync(true)` (Step 3 S5-HOLO)
+static TrialMetrics feed_raw_ext_holo(uint32_t ds, const int16_t* rxI,
+                                      const int16_t* rxQ, int n,
+                                      const uint8_t* expected,
+                                      int pre_guard = kGuard) noexcept {
+    TrialMetrics m{};
+    m.pass = false;
+    m.crc_passed = false;
+    m.length_correct = false;
+    m.bit_errors = 64;
+    m.byte_errors = 8;
+
+    g_last = DecodedPacket{};
+    HTS_V400_Dispatcher rx;
+    setup(rx, ds);
+    rx.Set_Holographic_Sync(true);
+
+    for (int i = 0; i < pre_guard; ++i) rx.Feed_Chip(0, 0);
+    for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
+    for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
+
+    m.crc_passed = (g_last.success_mask == DecodedPacket::DECODE_MASK_OK);
+    m.length_correct = (g_last.data_len == 8);
+
+    if (m.crc_passed && m.length_correct) {
+        int bit_err = 0;
+        int byte_err = 0;
+        for (int b = 0; b < 8; ++b) {
+            uint8_t d = static_cast<uint8_t>(
+                static_cast<uint8_t>(g_last.data[b]) ^ expected[b]);
+            if (d != 0u) {
+                ++byte_err;
+                d = static_cast<uint8_t>(d - ((d >> 1) & 0x55u));
+                d = static_cast<uint8_t>((d & 0x33u) + ((d >> 2) & 0x33u));
+                d = static_cast<uint8_t>((d + (d >> 4)) & 0x0Fu);
+                bit_err += static_cast<int>(d);
+            }
+        }
+        m.bit_errors = bit_err;
+        m.byte_errors = byte_err;
+        m.pass = (bit_err == 0);
+    }
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::mark_packet_boundary_v2();
+#elif defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::mark_packet_boundary();
+#endif
+    return m;
+}
+#endif  // HTS_USE_HOLOGRAPHIC_SYNC
+
 static bool feed_raw(uint32_t ds, const int16_t* rxI, const int16_t* rxQ,
                      int n, const uint8_t* expected, int pre_guard = kGuard) noexcept {
     return feed_raw_ext(ds, rxI, rxQ, n, expected, pre_guard).pass;
@@ -854,6 +906,86 @@ static void test_S5_seed_fixed() {
 #endif
 }
 
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+// ═══════════════════════════════════════════════════════════════
+//  S5-HOLO: S5 와 동일 CFO sweep, holographic phase0 경로 (seed domain 분리)
+//  (Step 3 v3: test_S5_seed_fixed 직후 배치)
+// ═══════════════════════════════════════════════════════════════
+static void test_S5_holographic() noexcept {
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::reset_sync_stats();
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::reset_row_stats();
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::reset_llr_stats();
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::reset_stats();
+#endif
+#if defined(HTS_CW_DETECT_DIAG)
+    ProtectedEngine::CWDetectDiag::reset_stats();
+    ProtectedEngine::CWDetectDiag::set_expect_non_cw(true);
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::reset_stats_v2();
+    ProtectedEngine::CWDetectDiag::set_scenario_label(
+        ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
+#endif
+    hdr("S5-HOLO", "CFO sweep with L1+L2+L3+L5 Holographic");
+    const double cfos[] = {
+        0, 50, 100, 200, 500, 1000, 2000,
+        2500, 3000, 3500, 4000, 4500,
+        5000,
+        7500, 10000,
+        12500, 15000, 17500, 20000, 25000};
+    for (double cfo : cfos) {
+        int ok = 0, crc_only = 0;
+        long long total_bits = 0;
+        for (int t = 0; t < kTrials; ++t) {
+            const uint32_t ds = mk_seed(0x5A5A5Au, t);
+            auto tx = build_tx(ds, t);
+            if (tx.n <= 0) {
+                total_bits += 64;
+                continue;
+            }
+            int16_t rI[kMaxC], rQ[kMaxC];
+            std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
+            std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
+            ch_cfo(rI, rQ, tx.n, cfo);
+            const TrialMetrics m = feed_raw_ext_holo(ds, rI, rQ, tx.n, tx.info);
+            if (m.pass) {
+                ++ok;
+            } else if (m.crc_passed && m.length_correct) {
+                ++crc_only;
+            }
+            total_bits += m.bit_errors;
+        }
+        char label[32], param[16];
+        std::snprintf(label, sizeof(label), "CFO %+6.0f Hz", cfo);
+        std::snprintf(param, sizeof(param), "%.0fHz", cfo);
+        row(label, ok, kTrials);
+        record_ext("S5H", param, ok, crc_only, kTrials, total_bits);
+    }
+#if defined(HTS_SYNC_DIAG)
+    ProtectedEngine::SyncDiag::print_sync_stats("S5-HOLO");
+#endif
+#if defined(HTS_WALSH_ROW_DIAG)
+    ProtectedEngine::WalshRowDiag::print_row_stats("S5-HOLO");
+#endif
+#if defined(HTS_LLR_DIAG)
+    ProtectedEngine::LLRDiag::print_llr_stats("S5-HOLO");
+#endif
+#if defined(HTS_ROW_CONSISTENCY_DIAG)
+    ProtectedEngine::RowConsistencyDiag::print_stats("S5-HOLO");
+#endif
+#if defined(HTS_CW_DETECT_DIAG_V2)
+    ProtectedEngine::CWDetectDiag::print_stats_2d("S5-HOLO");
+#endif
+}
+#endif  // HTS_USE_HOLOGRAPHIC_SYNC
+
 // ═══════════════════════════════════════════════════════════════
 //  S6: 다중 경로 (3-tap)
 // ═══════════════════════════════════════════════════════════════
@@ -1301,6 +1433,9 @@ int main() {
     test_S4();
     test_S5();
     test_S5_seed_fixed();
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+    test_S5_holographic();
+#endif
     test_S6();
     test_S7();
     test_S8();

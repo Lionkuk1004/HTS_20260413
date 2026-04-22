@@ -8,7 +8,7 @@ setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
 
-REM Holographic sync Step2+ (default OFF; uncomment next line to enable macro)
+REM Holographic: default OFF (Step2 baseline). S5-HOLO/DIAG: uncomment next line.
 set HOLO_FLAG=
 REM set HOLO_FLAG=/DHTS_USE_HOLOGRAPHIC_SYNC
 
