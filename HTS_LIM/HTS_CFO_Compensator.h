@@ -78,11 +78,11 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble(
     int32_t dI1, int32_t dQ1,
     int32_t block_chips) noexcept
 {
-    // conj(z0)·z1 의 실수/허수: cos = dI0*dI1+dQ0*dQ1, sin = dI0*dQ1−dQ0*dI1
+    // conj(z0)·z1 역회전용: cos = dI0*dI1+dQ0*dQ1, sin = dQ0*dI1−dI0*dQ1
     const int64_t cos_delta = static_cast<int64_t>(dI0) * dI1 +
                               static_cast<int64_t>(dQ0) * dQ1;
-    const int64_t sin_delta = static_cast<int64_t>(dI0) * dQ1 -
-                              static_cast<int64_t>(dQ0) * dI1;
+    const int64_t sin_delta = static_cast<int64_t>(dQ0) * dI1 -
+                              static_cast<int64_t>(dI0) * dQ1;
 
     const int64_t ac = (cos_delta < 0) ? -cos_delta : cos_delta;
     const int64_t as = (sin_delta < 0) ? -sin_delta : sin_delta;
