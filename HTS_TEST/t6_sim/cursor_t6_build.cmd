@@ -1,9 +1,5 @@
 @echo off
-REM HTS_T6_SIM_Test_ami.exe — AMI 경로 dry-run 빌드
-REM 기반: cursor_t6_build.cmd + /DHTS_TARGET_AMI 추가
-REM 출력: HTS_T6_SIM_Test_ami.exe (baseline 덮어쓰지 않음)
-REM Sync: HTS_T6_SIM_Test.cpp 가 HTS_TARGET_AMI 일 때
-REM   HTS_V400_Dispatcher_Sync_AMI.cpp 를 include (PS-LTE Sync 경로 TU)
+REM HTS_T6_SIM_Test.exe - Cursor cl flags (same as build.bat stage 1)
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
@@ -17,10 +13,9 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
    /DHTS_ALLOW_HOST_BUILD ^
    /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
    /DHTS_DIAG_PRINTF ^
-   /DHTS_TARGET_AMI ^
    %HOLO_FLAG% ^
    /D_CRT_SECURE_NO_WARNINGS ^
-   /FeHTS_T6_SIM_Test_ami.exe ^
+   /FeHTS_T6_SIM_Test.exe ^
    HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
    ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
    ..\..\HTS_LIM\HTS_Preamble_Holographic.cpp ^

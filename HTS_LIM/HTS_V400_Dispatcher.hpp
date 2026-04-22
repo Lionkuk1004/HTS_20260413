@@ -74,6 +74,9 @@
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
 #include "HTS_Rx_Matched_Filter.h"
 #endif
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+#include "HTS_Preamble_Holographic.h"
+#endif
 
 namespace ProtectedEngine {
 
@@ -243,6 +246,16 @@ namespace ProtectedEngine {
         void Set_SIC_Walsh_Amp(int16_t amp) noexcept;
         /// @brief TPC 송신 진폭(amp) — 적응형 e63 정렬 문턱(amp×38) 연동
         void Set_Tx_Amp(int16_t amp) noexcept;
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+        /// @brief Holographic sync (L1+L2+L5 + FWHT verify) 활성화
+        /// @param enable true = phase0_scan_holographic_ 경로, false = 기본(기존 스캔)
+        void Set_Holographic_Sync(bool enable) noexcept {
+            use_holographic_sync_ = enable;
+        }
+        [[nodiscard]] bool Get_Holographic_Sync() const noexcept {
+            return use_holographic_sync_;
+        }
+#endif
         /// @brief TPC 컨트롤러 참조 반환 (외부 설정용)
         HTS_TPC_Controller& Get_TPC() noexcept;
         const HTS_TPC_Controller& Get_TPC() const noexcept;
@@ -531,6 +544,10 @@ namespace ProtectedEngine {
         void handle_video_(uint32_t decode_ok_mask) noexcept;
         void full_reset_() noexcept;
         void phase0_scan_() noexcept;
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+        bool use_holographic_sync_{ false };
+        void phase0_scan_holographic_() noexcept;
+#endif
         void psal_commit_align_() noexcept;
         void update_derot_shift_from_est_() noexcept;
         void harq_feedback_seed_(const uint8_t* data, int data_len,

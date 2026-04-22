@@ -13,6 +13,9 @@
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+#include "HTS_Preamble_Holographic.h"
+#endif
 #include "HTS_Secure_Memory.h"
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
 #include "HTS_Dynamic_Config.h"
@@ -60,6 +63,12 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 }
 
 void HTS_V400_Dispatcher::phase0_scan_() noexcept {
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+    if (use_holographic_sync_) {
+        phase0_scan_holographic_();
+        return;
+    }
+#endif
     int32_t best_e63 = 0, second_e63 = 0;
     int best_off = -1;
     int64_t sum_all = 0;
@@ -1146,6 +1155,117 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         p0_chip_count_ = 64;
     }
 }
+
+#ifdef HTS_USE_HOLOGRAPHIC_SYNC
+
+// ─────────────────────────────────────────────────────────────
+// phase0_scan_holographic_()
+//   L1+L2+L3+L5 조합 sync (시뮬 Phase 6 winner)
+//
+//   L1: Zadoff-Chu descramble
+//   L2: 8-segment non-coherent combining
+//   L5: Peak-to-median ratio (FP 방어 핵심)
+//   L3: FWHT multi-row verify (2차, best_off 에서 1회)
+//
+//   기존 phase0_scan_ 구조 호환:
+//     - p0_buf128_I_/Q_ 사용 (192 chip 버퍼)
+//     - tx_amp_ 기준 threshold
+//     - psal_commit_align_ 호출
+//     - FAIL 시 shift 동일
+// ─────────────────────────────────────────────────────────────
+void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
+    using namespace ProtectedEngine::Holographic;
+
+    int64_t energies[64];
+
+    for (int off = 0; off < 64; ++off) {
+        energies[off] = holographic_dot_segmented(
+            &p0_buf128_I_[off], &p0_buf128_Q_[off]);
+    }
+
+    int64_t best_e = 0;
+    int best_off = -1;
+    for (int off = 0; off < 64; ++off) {
+        if (energies[off] > best_e) {
+            best_e = energies[off];
+            best_off = off;
+        }
+    }
+
+    const int32_t ratio_x10 = peak_to_median_ratio_x10(energies, 64);
+    constexpr int32_t k_RATIO_MIN_X10 = 25;
+    const bool l5_ok = (ratio_x10 >= k_RATIO_MIN_X10);
+
+    const int64_t amp = static_cast<int64_t>(tx_amp_);
+    const int64_t threshold_12 = (amp * 38LL * amp * 38LL) / 8LL;
+    const bool l12_ok = (best_e >= threshold_12);
+
+    bool l3_ok = false;
+    if (l12_ok && l5_ok && best_off >= 0) {
+        int32_t t_I[64];
+        int32_t t_Q[64];
+        for (int i = 0; i < 64; ++i) {
+            const int idx = best_off + i;
+            const int32_t rI = static_cast<int32_t>(p0_buf128_I_[idx]);
+            const int32_t rQ = static_cast<int32_t>(p0_buf128_Q_[idx]);
+            const int32_t cos_v = static_cast<int32_t>(k_chu_table[i].cos_q14);
+            const int32_t sin_v = static_cast<int32_t>(k_chu_table[i].sin_q14);
+            t_I[i] = (rI * cos_v + rQ * sin_v) >> 14;
+            t_Q[i] = (rQ * cos_v - rI * sin_v) >> 14;
+        }
+
+        fwht_raw(t_I, 64);
+        fwht_raw(t_Q, 64);
+
+        int64_t row_e[64];
+        for (int i = 0; i < 64; ++i) {
+            row_e[i] = static_cast<int64_t>(t_I[i]) * t_I[i] +
+                       static_cast<int64_t>(t_Q[i]) * t_Q[i];
+        }
+
+        int64_t top4_sum = 0;
+        for (int k = 0; k < 4; ++k) {
+            int max_idx = 0;
+            int64_t max_val = row_e[0];
+            for (int i = 1; i < 64; ++i) {
+                if (row_e[i] > max_val) {
+                    max_val = row_e[i];
+                    max_idx = i;
+                }
+            }
+            top4_sum += max_val;
+            row_e[max_idx] = -1;
+        }
+
+        const int64_t threshold_3 = (amp * 38LL * amp * 38LL) * 3LL / 10LL;
+        l3_ok = (top4_sum >= threshold_3);
+    }
+
+    const bool pass = l12_ok && l5_ok && l3_ok;
+
+#if defined(HTS_DIAG_PRINTF)
+    std::printf("[P0-HOLO-AMI] off=%d e=%lld ratio_x10=%d "
+                "l12=%d l5=%d l3=%d pass=%d\n",
+                best_off, static_cast<long long>(best_e), ratio_x10,
+                static_cast<int>(l12_ok), static_cast<int>(l5_ok),
+                static_cast<int>(l3_ok), static_cast<int>(pass));
+#endif
+
+    if (pass) {
+        psal_off_ = best_off;
+        psal_e63_ = static_cast<int32_t>(best_e >> 16);
+        psal_commit_align_();
+    } else {
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+    }
+}
+
+#endif  // HTS_USE_HOLOGRAPHIC_SYNC
+
 void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #if defined(HTS_AMP_DIAG)
     AmpDiag::record_chip(rx_I, rx_Q);
