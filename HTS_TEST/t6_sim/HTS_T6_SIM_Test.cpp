@@ -719,7 +719,13 @@ static void test_S5() {
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
     hdr("S5", "극한 CFO 추종 (블라인드)");
-    const double cfos[] = {0, 50, 100, 200, 500, 1000, 2000, 5000};
+    // CFO sweep: 저역 + AMI 한계(2.5~5 kHz) + PS-LTE 상한(7.5~25 kHz), 단일 배열
+    const double cfos[] = {
+        0, 50, 100, 200, 500, 1000, 2000,
+        2500, 3000, 3500, 4000, 4500,
+        5000,
+        7500, 10000,
+        12500, 15000, 17500, 20000, 25000};
     for (double cfo : cfos) {
         int ok = 0, crc_only = 0;
         long long total_bits = 0;
