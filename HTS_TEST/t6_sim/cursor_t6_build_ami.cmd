@@ -2,6 +2,8 @@
 REM HTS_T6_SIM_Test_ami.exe — AMI 경로 dry-run 빌드
 REM 기반: cursor_t6_build.cmd + /DHTS_TARGET_AMI 추가
 REM 출력: HTS_T6_SIM_Test_ami.exe (baseline 덮어쓰지 않음)
+REM Sync: HTS_T6_SIM_Test.cpp 가 HTS_TARGET_AMI 일 때
+REM   HTS_V400_Dispatcher_Sync_AMI.cpp 를 include (PS-LTE Sync 경로 TU)
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"

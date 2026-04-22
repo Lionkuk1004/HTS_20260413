@@ -1305,7 +1305,12 @@ int main() {
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
 #include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Core.cpp"
+#if defined(HTS_TARGET_AMI)
+// AMI 빌드: Sync TU 분리 — PS-LTE 로직 초기(HTS_TARGET_AMI 본 TU 내 undef)
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.cpp"
+#else
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Sync.cpp"
+#endif
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Payload.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_TX.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Decode.cpp"
