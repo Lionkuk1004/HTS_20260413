@@ -16,7 +16,7 @@ $Snippet = Join-Path $SIM "stepS_t6_post_split_includes.snippet"
 $splitFiles = @(
   "HTS_V400_Dispatcher_Internal.hpp",
   "HTS_V400_Dispatcher_Core.cpp",
-  "HTS_V400_Dispatcher_Sync.cpp",
+  "HTS_V400_Dispatcher_Sync_PSLTE.cpp",
   "HTS_V400_Dispatcher_Payload.cpp",
   "HTS_V400_Dispatcher_TX.cpp",
   "HTS_V400_Dispatcher_Decode.cpp"
@@ -24,7 +24,7 @@ $splitFiles = @(
 
 $postBlock = @"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Core.cpp"
-#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Payload.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_TX.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Decode.cpp"

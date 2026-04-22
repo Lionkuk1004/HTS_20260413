@@ -230,7 +230,7 @@ using namespace detail;
 
   const sync_cpp =
     `// =============================================================================
-// HTS_V400_Dispatcher_Sync.cpp — Feed_Chip / phase0 / MF
+// HTS_V400_Dispatcher_Sync_PSLTE.cpp — Feed_Chip / phase0 / MF
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
@@ -268,7 +268,7 @@ using namespace detail;
   fs.writeFileSync(path.join(ROOT, "HTS_V400_Dispatcher_Decode.cpp"), decode_cpp);
   fs.writeFileSync(path.join(ROOT, "HTS_V400_Dispatcher_Payload.cpp"), payload_cpp);
   fs.writeFileSync(path.join(ROOT, "HTS_V400_Dispatcher_TX.cpp"), tx_cpp);
-  fs.writeFileSync(path.join(ROOT, "HTS_V400_Dispatcher_Sync.cpp"), sync_cpp);
+  fs.writeFileSync(path.join(ROOT, "HTS_V400_Dispatcher_Sync_PSLTE.cpp"), sync_cpp);
 
   console.log("OK from", path.basename(CANONICAL));
 }

@@ -165,7 +165,7 @@
     <ClCompile Include="HTS_Secure_Memory.cpp" />
     <ClCompile Include="HTS_Session_Derive_Stub.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />

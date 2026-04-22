@@ -646,7 +646,7 @@ int main(int argc, char** argv) {
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
 #include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Core.cpp"
-#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Payload.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_TX.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Decode.cpp"

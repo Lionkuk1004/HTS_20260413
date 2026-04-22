@@ -225,7 +225,7 @@
     <ClCompile Include="HTS_V400_Dispatcher_Core.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_V400_Dispatcher_Sync.cpp">
+    <ClCompile Include="HTS_V400_Dispatcher_Sync_PSLTE.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp">

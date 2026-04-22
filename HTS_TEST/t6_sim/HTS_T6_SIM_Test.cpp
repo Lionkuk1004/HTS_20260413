@@ -1309,7 +1309,7 @@ int main() {
 // AMI 빌드: Sync TU 분리 — PS-LTE 로직 초기(HTS_TARGET_AMI 본 TU 내 undef)
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.cpp"
 #else
-#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync.cpp"
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp"
 #endif
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Payload.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_TX.cpp"

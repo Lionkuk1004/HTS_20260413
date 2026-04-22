@@ -198,7 +198,7 @@
     <ClCompile Include="..\t6_sim\HTS_Session_Derive_Stub.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp" />
-    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Sync.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" />
