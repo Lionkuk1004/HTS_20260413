@@ -1751,7 +1751,10 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
 #if defined(HTS_HOLO_PREAMBLE)
-        // Phase 1: PRE_SYM0 = 홀로텐서 BPSK — Walsh row 63 대신 템플릿 교차상관
+        // Phase 1 PRE_SYM0: 템플릿 직접 교차상관 (Phase 2B).
+        // Phase 2C differential(Re/복소) 시도 시: Phase0 은 192칩·오프셋 탐색으로
+        // 정렬되나 Phase1 은 64칩 고정창이라 CFO·경계 후 acc 가 상쇄되어
+        // e63 << e0 (PRE_SYM1 오판) — 본 빌드는 검증된 직접 상관 유지.
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I = 0, dot0_Q = 0;
         int16_t holo_p1_tpl[64];

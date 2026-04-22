@@ -1761,6 +1761,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
 #if defined(HTS_HOLO_PREAMBLE)
+        // Phase 1 PRE_SYM0: 직접 교차상관 (Phase 2B). differential 시도는
+        // Sync_PSLTE.cpp HOLO 블록 주석과 동일 사유로 유지하지 않음.
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I = 0, dot0_Q = 0;
         int16_t holo_p1_tpl[64];
