@@ -78,7 +78,7 @@
 
 - **커밋 메시지**: `holographic_util: L1+L2+L5 유틸 모듈 신규 (시뮬 Phase6 기반, FTO safe)`
 - **태그**: **`T_HOLO_L1_L2_L5_UTIL`**
-- **커밋 ID**: `git rev-parse T_HOLO_L1_L2_L5_UTIL^{}` 로 확인
+- **커밋 ID**: **`20e5ff6`** (`git rev-parse T_HOLO_L1_L2_L5_UTIL^{}` 와 일치)
 
 ---
 
