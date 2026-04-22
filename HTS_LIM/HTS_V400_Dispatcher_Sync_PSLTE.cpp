@@ -1750,7 +1750,31 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
-#if defined(HTS_PHASE0_WALSH_BANK)
+#if defined(HTS_HOLO_PREAMBLE)
+        // Phase 1: PRE_SYM0 = 홀로텐서 BPSK — Walsh row 63 대신 템플릿 교차상관
+        int32_t dot63_I = 0, dot63_Q = 0;
+        int32_t dot0_I = 0, dot0_Q = 0;
+        int16_t holo_p1_tpl[64];
+        {
+            const int16_t amp_tpl =
+                (tx_amp_ > 0) ? tx_amp_ : static_cast<int16_t>(1000);
+            generate_holo_preamble_(holo_p1_tpl, amp_tpl, holo_lpi_seed_,
+                                    rx_seq_);
+        }
+        for (int j = 0; j < 64; ++j) {
+            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
+            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
+            const int32_t sg = (holo_p1_tpl[j] > 0) ? 1 : -1;
+            dot63_I += cI * sg;
+            dot63_Q += cQ * sg;
+            dot0_I += cI;
+            dot0_Q += cQ;
+        }
+        const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I
+                             + static_cast<int64_t>(dot63_Q) * dot63_Q;
+        const int64_t e0_64 = static_cast<int64_t>(dot0_I) * dot0_I
+                            + static_cast<int64_t>(dot0_Q) * dot0_Q;
+#elif defined(HTS_PHASE0_WALSH_BANK)
         // ── Walsh Bank Phase 1: FWHT + dominant_row 매칭 ──
         int32_t dot63_I = 0, dot63_Q = 0;
         int32_t dot0_I  = 0, dot0_Q  = 0;
