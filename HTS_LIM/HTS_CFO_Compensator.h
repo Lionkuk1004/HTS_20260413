@@ -1,22 +1,73 @@
 // =============================================================================
-// HTS_CFO_Compensator.h — 주파수 오프셋 보상 (Q14 + 선택적 float 경로)
+// HTS_CFO_Compensator.h — 주파수 오프셋 보상 (Q14, ARM 경로 정수만)
 // =============================================================================
 // P0 프리앰블에서 위상 회전률 추정 → 이후 칩에 역회전 적용.
 //
-// - Apply: 복소 누적 위상 (Schmidl–Cox 스타일), 64 chip 마다 float 정규화.
+// - Apply: 복소 누적 위상 (Schmidl–Cox 스타일), 64 chip 마다 Q14 정수 정규화.
 // - Estimate_From_Preamble: 레거시 2블록 dot (호환). sin_per_chip 산출 후
-//   cos_per_chip 은 Q14 단위원 제약 sqrt(1−sin²) 로 정합 (cos≈1 소각도 제거).
-// - Estimate_From_Preamble_MCE: Luise–Reggiannini 1995 MCE (float atan2).
+//   cos_per_chip 은 Q14 단위원 제약 이진 탐색 제곱근(kQ14One²−sin²) 로 정합.
+// - Estimate_From_Preamble_MCE: Luise–Reggiannini 1995 MCE (PC 전용, libm).
+//   HTS_ALLOW_HOST_BUILD 일 때만 선언·정의.
 //
-// @note KCMVP 심사 시 MCE·sqrt·정규화 float 는 CORDIC/정수 근사로 치환 가능.
+// @note KCMVP 심사 시 MCE는 비호스트 빌드에서 제외됨.
 //
 // @warning sizeof(HTS_CFO_Compensator) ≈ 32 bytes
 // =============================================================================
 #ifndef HTS_CFO_COMPENSATOR_H
 #define HTS_CFO_COMPENSATOR_H
 
-#include <cmath>
 #include <cstdint>
+#ifdef HTS_ALLOW_HOST_BUILD
+#include <cmath>
+#endif
+
+namespace {
+
+/// c2 의 정수 내림 제곱근, c2 ≤ kQ14One² (cos_per_chip 용)
+inline int32_t hts_cfo_int_root_q14(int64_t c2) noexcept {
+    if (c2 <= 0) return 0;
+    int32_t lo = 0;
+    constexpr int32_t kQ14 = 16384;
+    int32_t hi = kQ14;
+    while (lo < hi) {
+        const int32_t mid = (lo + hi + 1) >> 1;
+        if (static_cast<int64_t>(mid) * mid <= c2)
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+    return lo;
+}
+
+/// mag2 내 정수 내림 제곱근 (누적 벡터 길이; mid*mid 오버플로 회피)
+inline int64_t hts_cfo_int_root_u64(int64_t x) noexcept {
+    if (x <= 0) return 0;
+    int64_t lo = 0;
+    int64_t hi = 3037000499LL;
+    while (lo < hi) {
+        const int64_t mid = (lo + hi + 1) >> 1;
+        if (mid != 0 && mid <= x / mid)
+            lo = mid;
+        else
+            hi = mid - 1;
+    }
+    return lo;
+}
+
+/// (cos_acc, sin_acc) 를 크기 ≈ kQ14One 인 Q14 벡터로 정수 정규화
+inline void hts_cfo_renorm_q14_accum(int32_t &ca, int32_t &sa) noexcept {
+    const int64_t fc = static_cast<int64_t>(ca);
+    const int64_t fs = static_cast<int64_t>(sa);
+    const int64_t mag2 = fc * fc + fs * fs;
+    if (mag2 <= 0) return;
+    const int64_t sm = hts_cfo_int_root_u64(mag2);
+    if (sm == 0) return;
+    constexpr int64_t k14 = 16384;
+    ca = static_cast<int32_t>((fc * k14 + (sm >> 1)) / sm);
+    sa = static_cast<int32_t>((fs * k14 + (sm >> 1)) / sm);
+}
+
+} // namespace
 
 namespace ProtectedEngine {
 
@@ -30,6 +81,7 @@ public:
         int32_t dI1, int32_t dQ1,
         int32_t block_chips) noexcept;
 
+#ifdef HTS_ALLOW_HOST_BUILD
     /**
      * @brief MCE — Luise & Reggiannini 1995 (R(m)·conj(R(m−1)) 누적)
      * @param R_I R(0..8) 실수부, 길이 9
@@ -37,12 +89,13 @@ public:
      */
     void Estimate_From_Preamble_MCE(const int64_t *R_I,
                                     const int64_t *R_Q) noexcept;
+#endif
 
     void Apply(int16_t &chipI, int16_t &chipQ) noexcept;
 
     /// @brief 칩 출력 없이 누적 위상만 n_chips 만큼 전진 (P0 스캔 구간 보정)
     ///        Apply 의 per-chip Q14 복소 곱(cos_acc_/sin_acc_ 갱신)만 반복하고,
-    ///        64 chip 마다 Apply 와 동일한 float sqrt 정규화를 수행.
+    ///        64 chip 마다 Apply 와 동일한 Q14 정수 정규화를 수행.
     /// @param n_chips 전진할 chip 수 (Local.cpp 관례: P0 스캔 구간 192)
     /// @note  active_=false 이면 no-op. I/Q 회전·출력은 생략.
     void Advance_Phase_Only(int32_t n_chips) noexcept;
@@ -103,14 +156,18 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble(
     } else {
         sin_per_chip_ = sin_block / block_chips;
     }
-    // 복소 per-chip step 과 단위원 정합: |exp(jω)|=1 → cos²+sin²=kQ14One² (Q14)
+    // cos: 정수 제곱근(kQ14One² - sin²) (Q14), 나눗셈 없는 이진 탐색 루프
     {
-        const float sf = static_cast<float>(sin_per_chip_);
-        const float c2 = static_cast<float>(kQ14One) * static_cast<float>(kQ14One) -
-                         sf * sf;
-        cos_per_chip_ = (c2 > 0.0f)
-            ? static_cast<int32_t>(std::lround(std::sqrt(c2)))
-            : 0;
+        const int64_t sin_sq =
+            static_cast<int64_t>(sin_per_chip_) * sin_per_chip_;
+        const int64_t q14_sq =
+            static_cast<int64_t>(kQ14One) * kQ14One;
+        const int64_t c2 = q14_sq - sin_sq;
+        if (c2 <= 0) {
+            cos_per_chip_ = 0;
+        } else {
+            cos_per_chip_ = hts_cfo_int_root_q14(c2);
+        }
     }
 
     cos_acc_ = kQ14One;
@@ -119,6 +176,7 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble(
     active_ = true;
 }
 
+#ifdef HTS_ALLOW_HOST_BUILD
 inline void HTS_CFO_Compensator::Estimate_From_Preamble_MCE(
     const int64_t *R_I, const int64_t *R_Q) noexcept
 {
@@ -155,6 +213,7 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble_MCE(
     chip_counter_ = 0;
     active_ = true;
 }
+#endif
 
 inline void HTS_CFO_Compensator::Apply(int16_t &chipI, int16_t &chipQ) noexcept
 {
@@ -200,14 +259,7 @@ inline void HTS_CFO_Compensator::Apply(int16_t &chipI, int16_t &chipQ) noexcept
 
     ++chip_counter_;
     if ((chip_counter_ & 0x3F) == 0) {
-        const float fc = static_cast<float>(cos_acc_);
-        const float fs = static_cast<float>(sin_acc_);
-        const float mag2 = fc * fc + fs * fs;
-        if (mag2 > 0.0f) {
-            const float scale = 16384.0f / std::sqrt(mag2);
-            cos_acc_ = static_cast<int32_t>(std::round(fc * scale));
-            sin_acc_ = static_cast<int32_t>(std::round(fs * scale));
-        }
+        hts_cfo_renorm_q14_accum(cos_acc_, sin_acc_);
     }
 }
 
@@ -230,14 +282,7 @@ inline void HTS_CFO_Compensator::Advance_Phase_Only(int32_t n_chips) noexcept {
 
         ++chip_counter_;
         if ((chip_counter_ & 0x3F) == 0) {
-            const float fc = static_cast<float>(cos_acc_);
-            const float fs = static_cast<float>(sin_acc_);
-            const float mag2 = fc * fc + fs * fs;
-            if (mag2 > 0.0f) {
-                const float scale = 16384.0f / std::sqrt(mag2);
-                cos_acc_ = static_cast<int32_t>(std::round(fc * scale));
-                sin_acc_ = static_cast<int32_t>(std::round(fs * scale));
-            }
+            hts_cfo_renorm_q14_accum(cos_acc_, sin_acc_);
         }
     }
 }
