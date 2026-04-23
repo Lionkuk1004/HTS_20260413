@@ -137,19 +137,13 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         const int32_t d1I = static_cast<int32_t>(best_acI >> sh);
         const int32_t d1Q = static_cast<int32_t>(best_acQ >> sh);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
-        std::printf(
-            "[CALL-EST-OLD] (1, 0, %d, %d, 64) → sin_d=-acQ=-%d\n",
-            static_cast<int>(d1I), static_cast<int>(d1Q),
-            static_cast<int>(d1Q));
-        std::printf(
-            "[CALL-EST-NEW] (%d, %d, 1, 0, 64) → sin_d=+acQ=+%d\n",
-            static_cast<int>(d1I), static_cast<int>(d1Q),
-            static_cast<int>(d1Q));
+        std::printf("[CALL-EST-ATAN2] acI=%d acQ=%d lag=64\n",
+                    static_cast<int>(d1I), static_cast<int>(d1Q));
 #endif
-        cfo_.Estimate_From_Preamble(d1I, d1Q, 1, 0, 64);
+        cfo_.Estimate_From_Autocorr(d1I, d1Q, 64);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
-            "[POST-EST] sin14=%d hz=%d\n",
+            "[POST-EST-ATAN2] sin14=%d hz=%d\n",
             static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
             static_cast<int>(
                 static_cast<double>(cfo_.Get_Sin_Per_Chip_Q14()) * 1e6 /

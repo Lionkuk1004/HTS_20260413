@@ -4,8 +4,10 @@
 // P0 프리앰블에서 위상 회전률 추정 → 이후 칩에 역회전 적용.
 //
 // - Apply: 복소 누적 위상 (Schmidl–Cox 스타일), 64 chip 마다 Q14 정수 정규화.
-// - Estimate_From_Preamble: 레거시 2블록 dot (호환). sin_per_chip 산출 후
+// - Estimate_From_Preamble: 레거시 2블록 dot (Walsh 호환). sin_per_chip 산출 후
 //   cos_per_chip 은 Q14 단위원 제약 이진 탐색 제곱근(kQ14One²−sin²) 로 정합.
+// - Estimate_From_Autocorr: Holo P0 lag 자기상관 벡터에 atan2(Q12)로 블록 위상,
+//   per-chip 은 /lag 후 테일러로 sin Q14 (큰 CFO에서 small-angle 오류 완화).
 // - Estimate_From_Preamble_MCE: Luise–Reggiannini 1995 MCE (PC 전용, libm).
 //   HTS_ALLOW_HOST_BUILD 일 때만 선언·정의.
 //
@@ -84,6 +86,10 @@ public:
         int32_t dI1, int32_t dQ1,
         int32_t block_chips) noexcept;
 
+    /// Holo P0: lag 자기상관 (ac_I + j·ac_Q) 위상, atan2 기반 (Walsh 경로 미사용).
+    void Estimate_From_Autocorr(int32_t ac_I, int32_t ac_Q,
+                                int32_t lag_chips) noexcept;
+
 #ifdef HTS_ALLOW_HOST_BUILD
     /**
      * @brief MCE — Luise & Reggiannini 1995 (R(m)·conj(R(m−1)) 누적)
@@ -141,6 +147,10 @@ private:
     int32_t chip_counter_ = 0;
 
     static constexpr int32_t kQ14One = 16384;
+    /// atan(y/x) for 0 <= y <= x, x > 0; 결과 = atan(y/x)·4096 (Q12 각도).
+    static int32_t atan_frac_q12(int32_t y, int32_t x) noexcept;
+    /// atan2(y,x)·4096, 범위 약 [-12868, +12868] (±π rad).
+    static int32_t atan2_q12(int32_t y, int32_t x) noexcept;
 };
 
 inline void HTS_CFO_Compensator::Init() noexcept {
@@ -153,6 +163,57 @@ inline void HTS_CFO_Compensator::Init() noexcept {
 }
 
 inline void HTS_CFO_Compensator::Reset() noexcept { Init(); }
+
+inline int32_t HTS_CFO_Compensator::atan_frac_q12(int32_t y,
+                                                  int32_t x) noexcept {
+    if (x <= 0 || y < 0 || y > x) {
+        return 0;
+    }
+    if (y == 0) {
+        return 0;
+    }
+    static constexpr int16_t kLut[17] = {
+        0,   256,  511,  763,  1018, 1266, 1508, 1741,
+        1965, 2178, 2380, 2571, 2749, 2915, 3068, 3208, 3217};
+    const int64_t ratio_q14 =
+        (static_cast<int64_t>(y) << 14) / static_cast<int64_t>(x);
+    const int64_t scaled = ratio_q14 * 16;
+    int32_t idx = static_cast<int32_t>(scaled >> 14);
+    if (idx >= 16) {
+        return static_cast<int32_t>(kLut[16]);
+    }
+    const int32_t base = static_cast<int32_t>(kLut[idx]);
+    const int32_t next = static_cast<int32_t>(kLut[idx + 1]);
+    const int32_t frac = static_cast<int32_t>(scaled & ((1 << 14) - 1));
+    return base + static_cast<int32_t>(
+               (static_cast<int64_t>(next - base) * frac) >> 14);
+}
+
+inline int32_t HTS_CFO_Compensator::atan2_q12(int32_t y,
+                                              int32_t x) noexcept {
+    if (x == 0 && y == 0) {
+        return 0;
+    }
+    const int32_t ax = (x < 0) ? -x : x;
+    const int32_t ay = (y < 0) ? -y : y;
+    const bool swap = ay > ax;
+    const int32_t u = swap ? ay : ax;
+    const int32_t v = swap ? ax : ay;
+    if (u == 0) {
+        return (y >= 0) ? 6434 : -6434;
+    }
+    int32_t ang = atan_frac_q12(v, u);
+    if (swap) {
+        ang = 6434 - ang;
+    }
+    if (x < 0) {
+        ang = 12868 - ang;
+    }
+    if (y < 0) {
+        ang = -ang;
+    }
+    return ang;
+}
 
 inline void HTS_CFO_Compensator::Estimate_From_Preamble(
     int32_t dI0, int32_t dQ0,
@@ -246,6 +307,93 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble(
     std::printf("[EST-OUT] sin14=%d cos14=%d (pre-active)\n",
                 static_cast<int>(sin_per_chip_),
                 static_cast<int>(cos_per_chip_));
+#endif
+#endif
+
+    cos_acc_ = kQ14One;
+    sin_acc_ = 0;
+    chip_counter_ = 0;
+    active_ = true;
+}
+
+inline void HTS_CFO_Compensator::Estimate_From_Autocorr(
+    int32_t ac_I, int32_t ac_Q, int32_t lag_chips) noexcept
+{
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    std::printf(
+        "[EST-ATAN2-IN] acI=%d acQ=%d lag=%d\n",
+        static_cast<int>(ac_I), static_cast<int>(ac_Q),
+        static_cast<int>(lag_chips));
+#endif
+    if (lag_chips <= 0) {
+        active_ = false;
+        return;
+    }
+    const int64_t mag2 = static_cast<int64_t>(ac_I) * ac_I +
+                         static_cast<int64_t>(ac_Q) * ac_Q;
+    if (mag2 < 1000000LL) {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+        std::printf(
+            "[EST-ATAN2-SKIP] mag2=%lld < 1e6\n",
+            static_cast<long long>(mag2));
+#endif
+        active_ = false;
+        return;
+    }
+
+    const int32_t phase_q12_block = atan2_q12(ac_Q, ac_I);
+    const int32_t phase_q12_chip = phase_q12_block / lag_chips;
+
+    const int64_t ph = static_cast<int64_t>(phase_q12_chip);
+    int64_t sin_q14 =
+        (ph * 4LL) -
+        (ph * ph * ph * static_cast<int64_t>(kQ14One)) /
+            (6LL * 4096LL * 4096LL * 4096LL);
+    if (sin_q14 > 32767LL) {
+        sin_q14 = 32767LL;
+    }
+    if (sin_q14 < -32768LL) {
+        sin_q14 = -32768LL;
+    }
+    sin_per_chip_ = static_cast<int32_t>(sin_q14);
+
+    {
+        const int64_t sin_sq =
+            static_cast<int64_t>(sin_per_chip_) * sin_per_chip_;
+        const int64_t q14_sq =
+            static_cast<int64_t>(kQ14One) * kQ14One;
+        const int64_t c2 = q14_sq - sin_sq;
+        if (c2 <= 0) {
+            cos_per_chip_ = 0;
+        } else {
+            cos_per_chip_ = hts_cfo_int_root_q14(c2);
+        }
+    }
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+#if defined(HTS_ALLOW_HOST_BUILD)
+    {
+        constexpr double k14d = 16384.0;
+        const double th = std::atan2(
+            static_cast<double>(sin_per_chip_) / k14d,
+            static_cast<double>(cos_per_chip_) / k14d);
+        constexpr double kTwoPi =
+            6.283185307179586476925286766559005768394338798750211;
+        std::printf(
+            "[EST-ATAN2-OUT] phase_blk=%d phase_chip=%d sin14=%d cos14=%d "
+            "hz_est_1Mcps=%.2f (pre-active)\n",
+            static_cast<int>(phase_q12_block),
+            static_cast<int>(phase_q12_chip),
+            static_cast<int>(sin_per_chip_),
+            static_cast<int>(cos_per_chip_),
+            th * 1000000.0 / kTwoPi);
+    }
+#else
+    std::printf(
+        "[EST-ATAN2-OUT] phase_blk=%d phase_chip=%d sin14=%d cos14=%d "
+        "(pre-active)\n",
+        static_cast<int>(phase_q12_block), static_cast<int>(phase_q12_chip),
+        static_cast<int>(sin_per_chip_), static_cast<int>(cos_per_chip_));
 #endif
 #endif
 
