@@ -2408,6 +2408,34 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
 #if defined(HTS_HOLO_PREAMBLE)
+#if defined(HTS_HOLO_CMYK_MODE) && HTS_HOLO_CMYK_MODE
+        // Phase 3.P: CMYK — Legacy generate_holo_preamble_ 64-chip 상관 skip.
+        // Phase 0 gravity cube 가 A|B|C|D 구조로 프리앰블 진위를 확정하므로
+        // 단일 64-chip Legacy 템플릿 상관은 신호와 불일치해 PRE_SYM1 을 망침.
+        // PRE_SYM0 / PRE_SYM1 은 Walsh 고정 분할이므로 PS-LTE Stage 2 와 동일 FWHT.
+        int32_t dot63_I = 0, dot63_Q = 0;
+        int32_t dot0_I = 0, dot0_Q = 0;
+        alignas(4) int32_t T_I[64];
+        alignas(4) int32_t T_Q[64];
+        for (int j = 0; j < 64; ++j) {
+            T_I[j] = static_cast<int32_t>(orig_I_[j]);
+            T_Q[j] = static_cast<int32_t>(orig_Q_[j]);
+        }
+        fwht_64_complex_inplace_(T_I, T_Q);
+        {
+            const int dom = static_cast<int>(dominant_row_);
+            const int sym1_row =
+                dom ^ static_cast<int>(k_W63_FWHT_ROW_NATURAL);
+            dot63_I = T_I[dom];
+            dot63_Q = T_Q[dom];
+            dot0_I = T_I[sym1_row];
+            dot0_Q = T_Q[sym1_row];
+        }
+        const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I
+                             + static_cast<int64_t>(dot63_Q) * dot63_Q;
+        const int64_t e0_64 = static_cast<int64_t>(dot0_I) * dot0_I
+                            + static_cast<int64_t>(dot0_Q) * dot0_Q;
+#else
         // Phase 1 PRE_SYM0: 직접 교차상관 (Phase 2B). differential 시도는
         // Sync_PSLTE.cpp HOLO 블록 주석과 동일 사유로 유지하지 않음.
         int32_t dot63_I = 0, dot63_Q = 0;
@@ -2432,6 +2460,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                              + static_cast<int64_t>(dot63_Q) * dot63_Q;
         const int64_t e0_64 = static_cast<int64_t>(dot0_I) * dot0_I
                             + static_cast<int64_t>(dot0_Q) * dot0_Q;
+#endif
 #elif defined(HTS_PHASE0_WALSH_BANK)
         // ── Walsh Bank Phase 1: FWHT + dominant_row 매칭 ──
         int32_t dot63_I = 0, dot63_Q = 0;
