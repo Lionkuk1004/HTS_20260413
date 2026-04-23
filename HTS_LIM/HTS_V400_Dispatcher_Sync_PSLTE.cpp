@@ -719,6 +719,25 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_pslte_() noexcept {
         pre_agc_.Set_From_Peak(peak_avg);
     }
 
+    // Phase 3.F: INNOViD — AGC 동등화: Full XC 에너지 → peak 진폭 (Legacy Set_From_Peak 계약)
+    {
+        const int64_t mag2_est = best_total >> 10;
+        int32_t peak_mag_est =
+            static_cast<int32_t>(int_sqrt64(mag2_est));
+        if (peak_mag_est < 1) {
+            peak_mag_est = 1;
+        }
+        pre_agc_.Set_From_Peak(peak_mag_est);
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+        std::printf(
+            "[CMYK-DIAG-AGC-PSLTE] best_total=%lld peak_mag_est=%d agc_sh=%d\n",
+            static_cast<long long>(best_total),
+            static_cast<int>(peak_mag_est),
+            static_cast<int>(pre_agc_.Get_Shift()));
+        std::fflush(stdout);
+#endif
+    }
+
     psal_off_ = best_off % 64;  // 실험
     // Phase 3.C: INNOViD — Option C1: psal_e63_ from Full XC peak (best_total>>14)
     {
