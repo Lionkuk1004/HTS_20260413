@@ -302,18 +302,38 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
 
     {
         int32_t mag_sum = 0;
+        int32_t mag_max = 0;
+        int32_t nonzero = 0;
         for (int j = 0; j < 64; ++j) {
             const int32_t ai =
                 static_cast<int32_t>(p0_buf128_I_[chip_start + j]);
             const int32_t aq =
                 static_cast<int32_t>(p0_buf128_Q_[chip_start + j]);
             const int32_t si = ai >> 31;
-            mag_sum += (ai ^ si) - si;
+            const int32_t abs_i = (ai ^ si) - si;
             const int32_t sq = aq >> 31;
-            mag_sum += (aq ^ sq) - sq;
+            const int32_t abs_q = (aq ^ sq) - sq;
+            const int32_t chip_mag = abs_i + abs_q;
+            mag_sum += chip_mag;
+            if (chip_mag > mag_max) {
+                mag_max = chip_mag;
+            }
+            if (chip_mag > 0) {
+                ++nonzero;
+            }
         }
         const int32_t peak_avg = mag_sum >> 6;
         pre_agc_.Set_From_Peak(peak_avg);
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PLATFORM_ARM) && !HTS_HOLO_CMYK_MODE
+        std::printf(
+            "[LEGACY-DIAG-PEAK-AMI] chip_start=%d mag_sum=%d peak_avg=%d "
+            "mag_max=%d nonzero=%d/64 agc_sh=%d\n",
+            static_cast<int>(chip_start), static_cast<int>(mag_sum),
+            static_cast<int>(peak_avg), static_cast<int>(mag_max),
+            static_cast<int>(nonzero),
+            static_cast<int>(pre_agc_.Get_Shift()));
+        std::fflush(stdout);
+#endif
     }
 
     psal_off_ = chip_start;
@@ -662,18 +682,38 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
 
     {
         int32_t mag_sum = 0;
+        int32_t mag_max = 0;
+        int32_t nonzero = 0;
         for (int j = 0; j < 64; ++j) {
             const int32_t ai =
                 static_cast<int32_t>(p0_buf128_I_[best_off + j]);
             const int32_t aq =
                 static_cast<int32_t>(p0_buf128_Q_[best_off + j]);
             const int32_t si = ai >> 31;
-            mag_sum += (ai ^ si) - si;
+            const int32_t abs_i = (ai ^ si) - si;
             const int32_t sq = aq >> 31;
-            mag_sum += (aq ^ sq) - sq;
+            const int32_t abs_q = (aq ^ sq) - sq;
+            const int32_t chip_mag = abs_i + abs_q;
+            mag_sum += chip_mag;
+            if (chip_mag > mag_max) {
+                mag_max = chip_mag;
+            }
+            if (chip_mag > 0) {
+                ++nonzero;
+            }
         }
         const int32_t peak_avg = mag_sum >> 6;
         pre_agc_.Set_From_Peak(peak_avg);
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+        std::printf(
+            "[CMYK-DIAG-PEAK-AMI] best_off=%d mag_sum=%d peak_avg=%d "
+            "mag_max=%d nonzero=%d/64 agc_sh=%d\n",
+            static_cast<int>(best_off), static_cast<int>(mag_sum),
+            static_cast<int>(peak_avg), static_cast<int>(mag_max),
+            static_cast<int>(nonzero),
+            static_cast<int>(pre_agc_.Get_Shift()));
+        std::fflush(stdout);
+#endif
     }
 
     // Phase 3.G: INNOViD — Legacy contract: pre_agc_.Set_From_Peak(peak_avg) 한 번만
