@@ -87,56 +87,37 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         (tx_amp_ > 0) ? static_cast<int32_t>(tx_amp_) : amp_est;
 
     int best_off_ac = -1;
-    int64_t best_pick_mag2 = 0;
-    int64_t best_mag2 = 0;
-    int64_t best_acI = 0;
-    int64_t best_acQ = 0;
+    int64_t best_mag2 = -1;
+
     for (int off = 0; off < 64; ++off) {
-        int64_t pickI = 0;
-        int64_t pickQ = 0;
-        for (int blk = 0; blk < 4; ++blk) {
-            const int base = off + (blk << 4);
-            int64_t sI = 0;
-            int64_t sQ = 0;
-            for (int n = 0; n < 16; ++n) {
-                const int32_t r1I =
-                    static_cast<int32_t>(p0_buf128_I_[base + n]);
-                const int32_t r1Q =
-                    static_cast<int32_t>(p0_buf128_Q_[base + n]);
-                const int32_t r2I =
-                    static_cast<int32_t>(p0_buf128_I_[base + n + 16]);
-                const int32_t r2Q =
-                    static_cast<int32_t>(p0_buf128_Q_[base + n + 16]);
-                sI += static_cast<int64_t>(r1I) * r2I +
-                      static_cast<int64_t>(r1Q) * r2Q;
-                sQ += static_cast<int64_t>(r1I) * r2Q -
-                      static_cast<int64_t>(r1Q) * r2I;
-            }
-            pickI += sI;
-            pickQ += sQ;
-        }
-        const int64_t pick_mag2 = pickI * pickI + pickQ * pickQ;
         int64_t acI = 0;
         int64_t acQ = 0;
         for (int n = 0; n < 64; ++n) {
-            const int32_t r1I = static_cast<int32_t>(p0_buf128_I_[off + n]);
-            const int32_t r1Q = static_cast<int32_t>(p0_buf128_Q_[off + n]);
-            const int32_t r2I = static_cast<int32_t>(p0_buf128_I_[off + n + 64]);
-            const int32_t r2Q = static_cast<int32_t>(p0_buf128_Q_[off + n + 64]);
+            const int32_t r1I =
+                static_cast<int32_t>(p0_buf128_I_[off + n]);
+            const int32_t r1Q =
+                static_cast<int32_t>(p0_buf128_Q_[off + n]);
+            const int32_t r2I =
+                static_cast<int32_t>(p0_buf128_I_[off + n + 64]);
+            const int32_t r2Q =
+                static_cast<int32_t>(p0_buf128_Q_[off + n + 64]);
             acI += static_cast<int64_t>(r1I) * r2I +
                    static_cast<int64_t>(r1Q) * r2Q;
             acQ += static_cast<int64_t>(r1I) * r2Q -
                    static_cast<int64_t>(r1Q) * r2I;
         }
         const int64_t mag2 = acI * acI + acQ * acQ;
-        if (pick_mag2 > best_pick_mag2) {
-            best_pick_mag2 = pick_mag2;
-            best_off_ac = off;
+        if (mag2 > best_mag2) {
             best_mag2 = mag2;
-            best_acI = acI;
-            best_acQ = acQ;
+            best_off_ac = off;
         }
     }
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    std::printf(
+        "[P0-TIMING-LAG64] best_off=%d mag2=%lld\n",
+        best_off_ac, static_cast<long long>(best_mag2));
+#endif
 
     const int64_t ac_thr =
         (static_cast<int64_t>(amp_thr) * amp_thr * 64LL * 64LL) / 500000LL;
@@ -149,10 +130,34 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         return;
     }
 
+    int64_t cfo_acI = 0;
+    int64_t cfo_acQ = 0;
+    const int bo = best_off_ac;
+    for (int n = 0; n < 48; ++n) {
+        const int32_t r1I =
+            static_cast<int32_t>(p0_buf128_I_[bo + n]);
+        const int32_t r1Q =
+            static_cast<int32_t>(p0_buf128_Q_[bo + n]);
+        const int32_t r2I =
+            static_cast<int32_t>(p0_buf128_I_[bo + n + 16]);
+        const int32_t r2Q =
+            static_cast<int32_t>(p0_buf128_Q_[bo + n + 16]);
+        cfo_acI += static_cast<int64_t>(r1I) * r2I +
+                   static_cast<int64_t>(r1Q) * r2Q;
+        cfo_acQ += static_cast<int64_t>(r1I) * r2Q -
+                   static_cast<int64_t>(r1Q) * r2I;
+    }
+
     {
+        int64_t est_acI = cfo_acI;
+        int64_t est_acQ = cfo_acQ;
+        if (cfo_acQ == 0LL && cfo_acI < 0LL) {
+            est_acI = -cfo_acI;
+        }
+
         int sh = 0;
-        int64_t mx = (best_acI < 0) ? -best_acI : best_acI;
-        const int64_t ax = (best_acQ < 0) ? -best_acQ : best_acQ;
+        int64_t mx = (est_acI < 0) ? -est_acI : est_acI;
+        const int64_t ax = (est_acQ < 0) ? -est_acQ : est_acQ;
         if (ax > mx) {
             mx = ax;
         }
@@ -160,13 +165,16 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             mx >>= 1;
             ++sh;
         }
-        const int32_t d1I = static_cast<int32_t>(best_acI >> sh);
-        const int32_t d1Q = static_cast<int32_t>(best_acQ >> sh);
+        const int32_t d1I = static_cast<int32_t>(est_acI >> sh);
+        const int32_t d1Q = static_cast<int32_t>(est_acQ >> sh);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
-        std::printf("[CALL-EST-ATAN2] acI=%d acQ=%d lag=64\n",
-                    static_cast<int>(d1I), static_cast<int>(d1Q));
+        std::printf(
+            "[P0-CFO-LAG16] acI=%lld acQ=%lld d1I=%d d1Q=%d sh=%d off=%d\n",
+            static_cast<long long>(cfo_acI),
+            static_cast<long long>(cfo_acQ), static_cast<int>(d1I),
+            static_cast<int>(d1Q), sh, bo);
 #endif
-        cfo_.Estimate_From_Autocorr(d1I, d1Q, 64);
+        cfo_.Estimate_From_Autocorr(d1I, d1Q, 16);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
             "[POST-EST-ATAN2] sin14=%d hz=%d\n",
