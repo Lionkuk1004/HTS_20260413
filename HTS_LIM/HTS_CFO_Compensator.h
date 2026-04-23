@@ -102,6 +102,31 @@ public:
 
     bool Is_Active() const noexcept { return active_; }
 
+    /// DIAG: Apply() 이 실제로 회전을 적용하는지(=active_)
+    bool Is_Apply_Active() const noexcept { return active_; }
+
+    int32_t Get_Sin_Per_Chip_Q14() const noexcept { return sin_per_chip_; }
+    int32_t Get_Cos_Per_Chip_Q14() const noexcept { return cos_per_chip_; }
+
+#ifdef HTS_ALLOW_HOST_BUILD
+    /**
+     * @brief sin/cos per chip (Q14) → Hz (chip_rate_hz = chips/s).
+     * @note PS-LTE T6_SIM: 1e6; AMI: 2e5.
+     */
+    double Get_Est_Hz(double chip_rate_hz) const noexcept {
+        if (!active_) {
+            return 0.0;
+        }
+        constexpr double k14 = 16384.0;
+        const double s = static_cast<double>(sin_per_chip_) / k14;
+        const double c = static_cast<double>(cos_per_chip_) / k14;
+        const double th = std::atan2(s, c);
+        constexpr double kTwoPi =
+            6.283185307179586476925286766559005768394338798750211;
+        return th * chip_rate_hz / kTwoPi;
+    }
+#endif
+
     void Reset() noexcept;
 
 private:

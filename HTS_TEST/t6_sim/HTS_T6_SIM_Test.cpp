@@ -771,6 +771,17 @@ static void test_S5() {
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
     hdr("S5", "극한 CFO 추종 (블라인드)");
+#if defined(HTS_DIAG_SINGLE_CFO)
+# ifndef HTS_DIAG_SINGLE_CFO_HZ
+#  define HTS_DIAG_SINGLE_CFO_HZ 5000
+# endif
+# ifndef HTS_DIAG_SINGLE_CFO_TRIALS
+#  define HTS_DIAG_SINGLE_CFO_TRIALS 10
+# endif
+    const double cfos[] = {
+        static_cast<double>(HTS_DIAG_SINGLE_CFO_HZ)};
+    constexpr int kS5TrialsThisBuild = HTS_DIAG_SINGLE_CFO_TRIALS;
+#else
     // CFO sweep: 저역 + AMI 한계(2.5~5 kHz) + PS-LTE 상한(7.5~25 kHz), 단일 배열
     const double cfos[] = {
         0, 50, 100, 200, 500, 1000, 2000,
@@ -778,10 +789,12 @@ static void test_S5() {
         5000,
         7500, 10000,
         12500, 15000, 17500, 20000, 25000};
+    constexpr int kS5TrialsThisBuild = kTrials;
+#endif
     for (double cfo : cfos) {
         int ok = 0, crc_only = 0;
         long long total_bits = 0;
-        for (int t = 0; t < kTrials; ++t) {
+        for (int t = 0; t < kS5TrialsThisBuild; ++t) {
             const uint32_t ds = mk_seed(0x500000u, t);
             auto tx = build_tx(ds, t);
             if (tx.n <= 0) {
@@ -803,8 +816,8 @@ static void test_S5() {
         char label[32], param[16];
         std::snprintf(label, sizeof(label), "CFO %+6.0f Hz", cfo);
         std::snprintf(param, sizeof(param), "%.0fHz", cfo);
-        row(label, ok, kTrials);
-        record_ext("S5", param, ok, crc_only, kTrials, total_bits);
+        row(label, ok, kS5TrialsThisBuild);
+        record_ext("S5", param, ok, crc_only, kS5TrialsThisBuild, total_bits);
     }
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::print_sync_stats("S5");
@@ -1425,6 +1438,28 @@ int main() {
     std::printf("║  FAIL = 엔진 실제 한계 (꼼수 제로)               ║\n");
     std::printf("╚═══════════════════════════════════════════════════╝\n");
 
+#if defined(HTS_DIAG_SINGLE_CFO)
+# ifndef HTS_DIAG_SINGLE_CFO_HZ
+#  define HTS_DIAG_SINGLE_CFO_HZ 5000
+# endif
+# ifndef HTS_DIAG_SINGLE_CFO_TRIALS
+#  define HTS_DIAG_SINGLE_CFO_TRIALS 10
+# endif
+    std::printf(
+        "\n[DIAG] HTS_DIAG_SINGLE_CFO: S5 only, HZ=%d trials=%d\n\n",
+        static_cast<int>(HTS_DIAG_SINGLE_CFO_HZ),
+        static_cast<int>(HTS_DIAG_SINGLE_CFO_TRIALS));
+    auto t_all = std::chrono::steady_clock::now();
+    test_S5();
+    auto t_end = std::chrono::steady_clock::now();
+    const double sec =
+        std::chrono::duration<double>(t_end - t_all).count();
+    std::printf("\n[DIAG] done in %.2fs — grep [DIAG-P0] [DIAG-P1] "
+                "[DIAG-APPLY] in stderr/stdout capture\n",
+                sec);
+    return 0;
+#else
+
     auto t_all = std::chrono::steady_clock::now();
 
     test_S1();
@@ -1525,6 +1560,7 @@ int main() {
 #endif
 
     return 0;
+#endif
 }
 
 // ── 소스 링크 (단일 TU 빌드) ──

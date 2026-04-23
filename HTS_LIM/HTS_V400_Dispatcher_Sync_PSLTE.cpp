@@ -105,6 +105,13 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     const int64_t ac_thr =
         (static_cast<int64_t>(amp_thr) * amp_thr * 64LL * 64LL) / 500000LL;
     if (best_off_ac < 0 || best_mag2 < ac_thr) {
+#if defined(HTS_DIAG_PRINTF)
+        std::printf(
+            "[DIAG-P0-FAIL] stage=ac best_off=%d best_ac_magsq=%lld "
+            "ac_thr=%lld (xc not run)\n",
+            best_off_ac, static_cast<long long>(best_mag2),
+            static_cast<long long>(ac_thr));
+#endif
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -169,6 +176,14 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     const int64_t xc_thr =
         (static_cast<int64_t>(amp_thr) * amp_thr * 63LL * 9LL) / 100LL;
     if (best_xc < xc_thr) {
+#if defined(HTS_DIAG_PRINTF)
+        std::printf(
+            "[DIAG-P0-FAIL] stage=xc best_off=%d best_ac_magsq=%lld "
+            "ac_thr=%lld best_xc=%lld xc_thr=%lld\n",
+            best_off_ac, static_cast<long long>(best_mag2),
+            static_cast<long long>(ac_thr), static_cast<long long>(best_xc),
+            static_cast<long long>(xc_thr));
+#endif
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -233,6 +248,28 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         "amp=%d\n",
         best_off_ac, chip_start, static_cast<long long>(best_mag2),
         static_cast<long long>(best_xc), static_cast<int>(amp_thr));
+#if defined(HTS_ALLOW_HOST_BUILD)
+    std::printf(
+        "[DIAG-P0] best_off=%d ac_magsq=%lld acI=%lld acQ=%lld "
+        "cfo_est_hz=%.2f xc_peak=%lld chip_start=%d cfo_ap=%d sin14=%d "
+        "cos14=%d\n",
+        best_off_ac, static_cast<long long>(best_mag2),
+        static_cast<long long>(best_acI), static_cast<long long>(best_acQ),
+        cfo_.Get_Est_Hz(1000000.0), static_cast<long long>(best_xc),
+        chip_start, cfo_.Is_Apply_Active() ? 1 : 0,
+        static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+        static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
+#else
+    std::printf(
+        "[DIAG-P0] best_off=%d ac_magsq=%lld acI=%lld acQ=%lld "
+        "xc_peak=%lld chip_start=%d cfo_ap=%d sin14=%d cos14=%d\n",
+        best_off_ac, static_cast<long long>(best_mag2),
+        static_cast<long long>(best_acI), static_cast<long long>(best_acQ),
+        static_cast<long long>(best_xc), chip_start,
+        cfo_.Is_Apply_Active() ? 1 : 0,
+        static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+        static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
+#endif
 #endif
 }
 #endif
@@ -1638,6 +1675,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+    const int16_t before_cfo_I = chip_I;
+    const int16_t before_cfo_Q = chip_Q;
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
         (s_lab_feed_chip_idx % 16) == 0) {
@@ -1651,6 +1690,23 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     // CFO 역회전 적용 (Estimate 완료 시 active, 미완료 시 no-op)
     // 순서: DC → CFO → AGC
     cfo_.Apply(chip_I, chip_Q);
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF)
+    {
+        static int s_apply_diag_n = 0;
+        if (s_apply_diag_n < 10) {
+            std::printf(
+                "[DIAG-APPLY] n=%d before=(%d,%d) after=(%d,%d) "
+                "cfo_ap=%d sin14=%d cos14=%d\n",
+                s_apply_diag_n, static_cast<int>(before_cfo_I),
+                static_cast<int>(before_cfo_Q), static_cast<int>(chip_I),
+                static_cast<int>(chip_Q),
+                cfo_.Is_Apply_Active() ? 1 : 0,
+                static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+                static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
+            ++s_apply_diag_n;
+        }
+    }
+#endif
     // 프리앰블 AGC
     pre_agc_.Apply(chip_I, chip_Q);
     apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
@@ -1896,6 +1952,20 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         static constexpr int32_t k_P1_MIN_E = 1000;  // 64-chip coherent (기존)
 #endif
         const int32_t max_e_sh = (e63_sh >= e0_sh) ? e63_sh : e0_sh;
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF)
+        {
+            static int s_diag_p1_blk = 0;
+            ++s_diag_p1_blk;
+            if (s_diag_p1_blk <= 48) {
+                const int sym_gate = (e63_64 >= e0_64) ? 63 : 0;
+                std::printf(
+                    "[DIAG-P1] blk_idx=%d e63_sh=%d e0_sh=%d sym_gate=%d "
+                    "dot63_I=%d dot63_Q=%d dot0_I=%d dot0_Q=%d cfo_ap=%d\n",
+                    s_diag_p1_blk, e63_sh, e0_sh, sym_gate, dot63_I, dot63_Q,
+                    dot0_I, dot0_Q, cfo_.Is_Apply_Active() ? 1 : 0);
+            }
+        }
+#endif
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
         {
             static int s_p1_e_count = 0;
