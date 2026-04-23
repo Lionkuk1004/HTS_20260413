@@ -7,6 +7,7 @@
 
 #if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
 
+#include "HTS_BitOps.h"
 #include "HTS_Holo_Tensor_4D_Defs.h"
 #include <climits>
 #include <cstdint>
@@ -191,6 +192,91 @@ inline int32_t gravity_coarse_timing_scan(const int16_t* tx, const int16_t* tq,
     }
     return best_off;
 }
+
+// -----------------------------------------------------------------
+// Phase 3.A: Sign XC (1-bit vs template sign). INNOViD — integer-only;
+// popcount via popcount32 (ARM SWAR / PC HW). Stage-1 hook: Phase 3.B.
+// -----------------------------------------------------------------
+static inline uint64_t tpl_to_sign64(const int16_t* tpl) noexcept {
+    uint64_t s = 0;
+    for (int i = 0; i < 64; ++i) {
+        if (tpl[i] > 0) {
+            s |= (1ULL << static_cast<unsigned>(i));
+        }
+    }
+    return s;
+}
+
+static inline uint64_t rx_extract_sign64(const int16_t* buf,
+                                          int32_t off) noexcept {
+    uint64_t s = 0;
+    for (int i = 0; i < 64; ++i) {
+        if (buf[off + i] > 0) {
+            s |= (1ULL << static_cast<unsigned>(i));
+        }
+    }
+    return s;
+}
+
+static inline int64_t sign_score_one(uint64_t rx_I_sign, uint64_t rx_Q_sign,
+                                     uint64_t tpl_sign) noexcept {
+    int64_t total = 0;
+    for (int sub = 0; sub < 4; ++sub) {
+        const uint64_t mask = 0xFFFFULL << static_cast<unsigned>(sub * 16);
+        const uint64_t rI = (rx_I_sign & mask) >> static_cast<unsigned>(sub * 16);
+        const uint64_t rQ = (rx_Q_sign & mask) >> static_cast<unsigned>(sub * 16);
+        const uint64_t tp = (tpl_sign & mask) >> static_cast<unsigned>(sub * 16);
+
+        const int mI = static_cast<int>(popcount32(
+            static_cast<uint32_t>(rI ^ tp)));
+        const int mQ = static_cast<int>(popcount32(
+            static_cast<uint32_t>(rQ ^ tp)));
+        const int aI = 16 - 2 * mI;
+        const int aQ = 16 - 2 * mQ;
+        total += static_cast<int64_t>(aI) * aI +
+                 static_cast<int64_t>(aQ) * aQ;
+    }
+    return total;
+}
+
+static inline int64_t sign_score_4tmpl_at(const int16_t* tx, const int16_t* tq,
+                                          int32_t off, uint64_t sA,
+                                          uint64_t sB, uint64_t sC,
+                                          uint64_t sD) noexcept {
+    return sign_score_one(rx_extract_sign64(tx, off),
+                          rx_extract_sign64(tq, off), sA) +
+           sign_score_one(rx_extract_sign64(tx, off + 64),
+                          rx_extract_sign64(tq, off + 64), sB) +
+           sign_score_one(rx_extract_sign64(tx, off + 128),
+                          rx_extract_sign64(tq, off + 128), sC) +
+           sign_score_one(rx_extract_sign64(tx, off + 192),
+                          rx_extract_sign64(tq, off + 192), sD);
+}
+
+static inline int32_t sign_scan_4tmpl(const int16_t* tx, const int16_t* tq,
+                                      int32_t scan_start, int32_t scan_end,
+                                      uint64_t sA, uint64_t sB, uint64_t sC,
+                                      uint64_t sD,
+                                      int64_t* out_best_score) noexcept {
+    int64_t best_score = 0;
+    int32_t best_off = -1;
+
+    for (int32_t off = scan_start; off + 256 <= scan_end; ++off) {
+        const int64_t sc =
+            sign_score_4tmpl_at(tx, tq, off, sA, sB, sC, sD);
+        if (sc > best_score) {
+            best_score = sc;
+            best_off = off;
+        }
+    }
+    if (out_best_score != nullptr) {
+        *out_best_score = best_score;
+    }
+    return best_off;
+}
+
+// Sign threshold (sim seed; tune with T6). Conservative margin vs ~2760 benign.
+#define SIGN_THRESHOLD_INIT 2000
 
 inline int32_t q10_ratio_clamp(int64_t num, int64_t den,
                                int64_t max_q10) noexcept {
