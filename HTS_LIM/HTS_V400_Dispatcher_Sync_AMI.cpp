@@ -655,9 +655,16 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     }
 
     psal_off_ = chip_start;
-    psal_e63_ = static_cast<int32_t>(best_total >> 32);
-    if (psal_e63_ <= 0) {
-        psal_e63_ = static_cast<int32_t>(best_total >> 20);
+    // Phase 2.8.2 Step 1: INNOViD — psal_e63_ Legacy scale matching
+    // Legacy: best_mag2 (|AC|²) >> 32; CMYK: Template A complex-sum mag² >> 32
+    {
+        const int64_t tplA_xI = best_tmpl_xI[0];
+        const int64_t tplA_xQ = best_tmpl_xQ[0];
+        const int64_t tplA_mag2 = tplA_xI * tplA_xI + tplA_xQ * tplA_xQ;
+        psal_e63_ = static_cast<int32_t>(tplA_mag2 >> 32);
+        if (psal_e63_ <= 0) {
+            psal_e63_ = static_cast<int32_t>(tplA_mag2 >> 20);
+        }
     }
     if (psal_e63_ <= 0) {
         psal_e63_ = 1;
