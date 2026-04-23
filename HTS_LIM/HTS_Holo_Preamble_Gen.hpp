@@ -102,9 +102,12 @@ struct GravityCube6 {
 // UTF-16 log; p10/p50/p90). v1.0 시뮬 고정값(A512…F15360)은 CMYK+Q14 경로에
 // 과도 → 실측 완화: A200 B60 C120 D1200 E400 F700 → T6 CMYK=1 합계 100/18400
 // (재현 2회). 추가 공격·오탐 검증은 후속 Phase 권장.
+//
+// Phase 3.M: Sign XC coarse + fine 이후 6면 실측(N≈458k)에서 C median≈105<thr120,
+// B median≈67 vs thr60 여유 얇음 → C 80, B 45로 재튜닝. A/D/E/F 유지.
 #define GRAVITY_THR_A_Q10 200
-#define GRAVITY_THR_B_Q10 60
-#define GRAVITY_THR_C_Q10 120
+#define GRAVITY_THR_B_Q10 45
+#define GRAVITY_THR_C_Q10 80
 #define GRAVITY_THR_D_Q10 1200
 #define GRAVITY_THR_E_Q10 400
 #define GRAVITY_THR_F_Q10 700
