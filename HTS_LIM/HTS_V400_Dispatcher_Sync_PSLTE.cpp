@@ -2180,6 +2180,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             }
 #endif
             pre_phase_ = 0;
+            // P1 실패 후 재동기: 잘못된 chip_start 기준 CFO 가 다음 P0 에 남지 않도록
+            cfo_.Reset();
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
             std::printf(
                 "[P1-EXIT] hdr=NO reason=energy_gate e63_sh=%d e0_sh=%d "
@@ -2287,6 +2289,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             return;
         }
         pre_phase_ = 0;
+        cfo_.Reset();
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
         mf_reset_();
 #endif
