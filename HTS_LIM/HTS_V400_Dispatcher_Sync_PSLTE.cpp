@@ -77,10 +77,35 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         (tx_amp_ > 0) ? static_cast<int32_t>(tx_amp_) : amp_est;
 
     int best_off_ac = -1;
+    int64_t best_pick_mag2 = 0;
     int64_t best_mag2 = 0;
     int64_t best_acI = 0;
     int64_t best_acQ = 0;
     for (int off = 0; off < 64; ++off) {
+        int64_t pickI = 0;
+        int64_t pickQ = 0;
+        for (int blk = 0; blk < 4; ++blk) {
+            const int base = off + (blk << 4);
+            int64_t sI = 0;
+            int64_t sQ = 0;
+            for (int n = 0; n < 16; ++n) {
+                const int32_t r1I =
+                    static_cast<int32_t>(p0_buf128_I_[base + n]);
+                const int32_t r1Q =
+                    static_cast<int32_t>(p0_buf128_Q_[base + n]);
+                const int32_t r2I =
+                    static_cast<int32_t>(p0_buf128_I_[base + n + 16]);
+                const int32_t r2Q =
+                    static_cast<int32_t>(p0_buf128_Q_[base + n + 16]);
+                sI += static_cast<int64_t>(r1I) * r2I +
+                      static_cast<int64_t>(r1Q) * r2Q;
+                sQ += static_cast<int64_t>(r1I) * r2Q -
+                      static_cast<int64_t>(r1Q) * r2I;
+            }
+            pickI += sI;
+            pickQ += sQ;
+        }
+        const int64_t pick_mag2 = pickI * pickI + pickQ * pickQ;
         int64_t acI = 0;
         int64_t acQ = 0;
         for (int n = 0; n < 64; ++n) {
@@ -94,9 +119,10 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
                    static_cast<int64_t>(r1Q) * r2I;
         }
         const int64_t mag2 = acI * acI + acQ * acQ;
-        if (mag2 > best_mag2) {
-            best_mag2 = mag2;
+        if (pick_mag2 > best_pick_mag2) {
+            best_pick_mag2 = pick_mag2;
             best_off_ac = off;
+            best_mag2 = mag2;
             best_acI = acI;
             best_acQ = acQ;
         }
