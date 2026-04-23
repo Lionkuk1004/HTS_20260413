@@ -237,6 +237,14 @@ namespace ProtectedEngine {
         }
         [[nodiscard]] int Get_Preamble_Reps() const noexcept { return pre_reps_; }
 
+#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+        /// Phase 3.N: 현재 RX 세션에서 gravity cube pass가 한 번이라도 true였는지
+        /// (`full_reset_`에서 false로 초기화).
+        [[nodiscard]] bool Get_Cmyk_Gravity_Pass_Ever() const noexcept {
+            return cmyk_gravity_pass_ever_;
+        }
+#endif
+
         void Set_Preamble_Boost(int boost) noexcept {
             pre_boost_ = (boost < 1) ? 1 : (boost > 4) ? 4 : boost;
         }
@@ -650,6 +658,7 @@ namespace ProtectedEngine {
 #if HTS_HOLO_CMYK_MODE
         detail::GravityCube6 cmyk_last_cube_{};
         bool cmyk_last_pass_{ false };
+        bool cmyk_gravity_pass_ever_{ false };
 
         void phase0_scan_cmyk_gravity_cube_pslte_() noexcept;
         void phase0_scan_cmyk_gravity_cube_ami_() noexcept;
