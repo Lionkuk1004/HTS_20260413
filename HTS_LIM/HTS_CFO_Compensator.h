@@ -17,6 +17,9 @@
 #define HTS_CFO_COMPENSATOR_H
 
 #include <cstdint>
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+#include <cstdio>
+#endif
 #ifdef HTS_ALLOW_HOST_BUILD
 #include <cmath>
 #endif
@@ -156,23 +159,53 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble(
     int32_t dI1, int32_t dQ1,
     int32_t block_chips) noexcept
 {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    std::printf(
+        "[EST-IN] dI0=%d dQ0=%d dI1=%d dQ1=%d block=%d\n",
+        static_cast<int>(dI0), static_cast<int>(dQ0), static_cast<int>(dI1),
+        static_cast<int>(dQ1), static_cast<int>(block_chips));
+#endif
     // conj(z0)·z1 역회전용: cos = dI0*dI1+dQ0*dQ1, sin = dQ0*dI1−dI0*dQ1
     const int64_t cos_delta = static_cast<int64_t>(dI0) * dI1 +
                               static_cast<int64_t>(dQ0) * dQ1;
     const int64_t sin_delta = static_cast<int64_t>(dQ0) * dI1 -
                               static_cast<int64_t>(dI0) * dQ1;
 
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    std::printf(
+        "[EST-MID1] cos_delta=%lld sin_delta=%lld\n",
+        static_cast<long long>(cos_delta), static_cast<long long>(sin_delta));
+#endif
+
     const int64_t ac = (cos_delta < 0) ? -cos_delta : cos_delta;
     const int64_t as = (sin_delta < 0) ? -sin_delta : sin_delta;
     const int64_t mag_approx = (ac > as) ? (ac + (as >> 1)) : (as + (ac >> 1));
 
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    std::printf(
+        "[EST-MID2] ac=%lld as=%lld mag_approx=%lld\n",
+        static_cast<long long>(ac), static_cast<long long>(as),
+        static_cast<long long>(mag_approx));
+#endif
+
     if (mag_approx < 1000) {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+        std::printf(
+            "[EST-SKIP] mag_approx=%lld < 1000 -> active=0\n",
+            static_cast<long long>(mag_approx));
+#endif
         active_ = false;
         return;
     }
 
     const int64_t k14 = static_cast<int64_t>(kQ14One);
     const int32_t sin_block = static_cast<int32_t>((sin_delta * k14) / mag_approx);
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    std::printf(
+        "[EST-MID3] sin_block=%d (sin_delta*k14)/mag_approx k14=%lld\n",
+        static_cast<int>(sin_block), static_cast<long long>(k14));
+#endif
 
     if (block_chips == 64) {
         sin_per_chip_ = sin_block >> 6;
@@ -194,6 +227,27 @@ inline void HTS_CFO_Compensator::Estimate_From_Preamble(
             cos_per_chip_ = hts_cfo_int_root_q14(c2);
         }
     }
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+#if defined(HTS_ALLOW_HOST_BUILD)
+    {
+        constexpr double k14d = 16384.0;
+        const double th = std::atan2(
+            static_cast<double>(sin_per_chip_) / k14d,
+            static_cast<double>(cos_per_chip_) / k14d);
+        constexpr double kTwoPi =
+            6.283185307179586476925286766559005768394338798750211;
+        std::printf(
+            "[EST-OUT] sin14=%d cos14=%d hz_est_1Mcps=%.2f (pre-active)\n",
+            static_cast<int>(sin_per_chip_), static_cast<int>(cos_per_chip_),
+            th * 1000000.0 / kTwoPi);
+    }
+#else
+    std::printf("[EST-OUT] sin14=%d cos14=%d (pre-active)\n",
+                static_cast<int>(sin_per_chip_),
+                static_cast<int>(cos_per_chip_));
+#endif
+#endif
 
     cos_acc_ = kQ14One;
     sin_acc_ = 0;

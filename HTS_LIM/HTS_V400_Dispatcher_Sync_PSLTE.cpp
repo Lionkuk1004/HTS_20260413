@@ -133,6 +133,14 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         }
         const int32_t d1I = static_cast<int32_t>(best_acI >> sh);
         const int32_t d1Q = static_cast<int32_t>(best_acQ >> sh);
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+        std::printf(
+            "[CALL-EST] best_off=%d sh=%d acI_full=%lld acQ_full=%lld "
+            "d1I=%d d1Q=%d magsq=%lld\n",
+            best_off_ac, sh, static_cast<long long>(best_acI),
+            static_cast<long long>(best_acQ), static_cast<int>(d1I),
+            static_cast<int>(d1Q), static_cast<long long>(best_mag2));
+#endif
         cfo_.Estimate_From_Preamble(1, 0, d1I, d1Q, 64);
         cfo_.Advance_Phase_Only(192);
     }
