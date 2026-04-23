@@ -7,6 +7,10 @@
 #include "HTS_Secure_Memory.h"
 #if defined(HTS_HOLO_PREAMBLE)
 #include "HTS_Holo_Tensor_4D_Defs.h"
+#include "HTS_Holo_Preamble_Gen.hpp"
+#endif
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+#include <cstdio>
 #endif
 #include <cstdint>
 #include <cstddef>
@@ -213,15 +217,53 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 
     int pos = 0;
 #if defined(HTS_HOLO_PREAMBLE)
+#if HTS_HOLO_CMYK_MODE
+    int16_t holo_pre_A[64];
+    int16_t holo_pre_B[64];
+    int16_t holo_pre_C[64];
+    int16_t holo_pre_D[64];
+    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 0u, pre_amp, holo_pre_A);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 1u, pre_amp, holo_pre_B);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 2u, pre_amp, holo_pre_C);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 3u, pre_amp, holo_pre_D);
+    const int16_t* const holo_tab[4] = {holo_pre_A, holo_pre_B, holo_pre_C,
+                                        holo_pre_D};
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[HOLO-CMYK-TX] mode=%d slot=%u A[0..3]=%d,%d,%d,%d B[0]=%d C[0]=%d "
+        "D[0]=%d\n",
+        HTS_HOLO_CMYK_MODE, static_cast<unsigned>(tx_seq_),
+        static_cast<int>(holo_pre_A[0]), static_cast<int>(holo_pre_A[1]),
+        static_cast<int>(holo_pre_A[2]), static_cast<int>(holo_pre_A[3]),
+        static_cast<int>(holo_pre_B[0]), static_cast<int>(holo_pre_C[0]),
+        static_cast<int>(holo_pre_D[0]));
+    std::fflush(stdout);
+#endif
+#else
     int16_t holo_pre_I[64];
     generate_holo_preamble_(holo_pre_I, pre_amp, holo_lpi_seed_, tx_seq_);
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf("[HOLO-CMYK-TX] mode=%d slot=%u A[0..3]=%d,%d,%d,%d\n",
+                HTS_HOLO_CMYK_MODE, static_cast<unsigned>(tx_seq_),
+                static_cast<int>(holo_pre_I[0]), static_cast<int>(holo_pre_I[1]),
+                static_cast<int>(holo_pre_I[2]),
+                static_cast<int>(holo_pre_I[3]));
+    std::fflush(stdout);
+#endif
+#endif
 #endif
     for (int r = 0; r < pre_reps_; ++r) {
 #if defined(HTS_HOLO_PREAMBLE)
+#if HTS_HOLO_CMYK_MODE
+        const int16_t* const holo_src =
+            holo_tab[static_cast<unsigned>(r) & 3u];
+#else
+        const int16_t* const holo_src = holo_pre_I;
+#endif
         for (int j = 0; j < 64; ++j) {
             int16_t* const di = bp_dst_i(oI, pos + j, okm);
             int16_t* const dq = bp_dst_q(oQ, pos + j, okm);
-            di[0] = holo_pre_I[j];
+            di[0] = holo_src[j];
             dq[0] = 0;
         }
 #else
