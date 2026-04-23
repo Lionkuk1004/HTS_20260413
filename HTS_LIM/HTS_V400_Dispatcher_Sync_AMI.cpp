@@ -143,9 +143,9 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         const int32_t r1Q =
             static_cast<int32_t>(p0_buf128_Q_[bo + n]);
         const int32_t r2I =
-            static_cast<int32_t>(p0_buf128_I_[bo + n + 16]);
+            static_cast<int32_t>(p0_buf128_I_[bo + n + 32]);
         const int32_t r2Q =
-            static_cast<int32_t>(p0_buf128_Q_[bo + n + 16]);
+            static_cast<int32_t>(p0_buf128_Q_[bo + n + 32]);
         cfo_acI += static_cast<int64_t>(r1I) * r2I +
                    static_cast<int64_t>(r1Q) * r2Q;
         cfo_acQ += static_cast<int64_t>(r1I) * r2Q -
@@ -173,12 +173,12 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         const int32_t d1Q = static_cast<int32_t>(est_acQ >> sh);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
-            "[P0-CFO-LAG16] acI=%lld acQ=%lld d1I=%d d1Q=%d sh=%d off=%d\n",
+            "[P0-CFO-LAG32] acI=%lld acQ=%lld d1I=%d d1Q=%d sh=%d off=%d\n",
             static_cast<long long>(cfo_acI),
             static_cast<long long>(cfo_acQ), static_cast<int>(d1I),
             static_cast<int>(d1Q), sh, bo);
 #endif
-        cfo_.Estimate_From_Autocorr(d1I, d1Q, 16);
+        cfo_.Estimate_From_Autocorr(d1I, d1Q, 32);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
             "[POST-EST-ATAN2] sin14=%d hz=%d\n",
@@ -500,9 +500,9 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         const int32_t r1Q =
             static_cast<int32_t>(p0_buf128_Q_[bo + ci]);
         const int32_t r2I =
-            static_cast<int32_t>(p0_buf128_I_[bo + ci + 16]);
+            static_cast<int32_t>(p0_buf128_I_[bo + ci + 32]);
         const int32_t r2Q =
-            static_cast<int32_t>(p0_buf128_Q_[bo + ci + 16]);
+            static_cast<int32_t>(p0_buf128_Q_[bo + ci + 32]);
         cfo_acI += static_cast<int64_t>(r1I) * r2I +
                    static_cast<int64_t>(r1Q) * r2Q;
         cfo_acQ += static_cast<int64_t>(r1I) * r2Q -
@@ -528,7 +528,7 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         }
         const int32_t d1I = static_cast<int32_t>(est_acI >> sh);
         const int32_t d1Q = static_cast<int32_t>(est_acQ >> sh);
-        cfo_.Estimate_From_Autocorr(d1I, d1Q, 16);
+        cfo_.Estimate_From_Autocorr(d1I, d1Q, 32);
         cfo_.Advance_Phase_Only(k_p0_holo_rx_collect_chips_);
     }
 
