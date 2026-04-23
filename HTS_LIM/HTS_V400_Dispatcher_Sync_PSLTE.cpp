@@ -451,11 +451,23 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_pslte_() noexcept {
     gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 3u, 1000, tplD);
 
     const int32_t buf_chips = static_cast<int32_t>(p0_chip_count_);
+
+    // Phase 3.B: INNOViD — Stage 1 Sign XC coarse (Template A full XC 대체).
+    const uint64_t sA = tpl_to_sign64(tplA);
+    const uint64_t sB = tpl_to_sign64(tplB);
+    const uint64_t sC = tpl_to_sign64(tplC);
+    const uint64_t sD = tpl_to_sign64(tplD);
     int64_t coarse_score = 0;
-    const int32_t coarse_best_off = gravity_coarse_timing_scan(
-        p0_buf128_I_, p0_buf128_Q_, 0, buf_chips, tplA, &coarse_score);
+    const int32_t coarse_best_off = sign_scan_4tmpl(
+        p0_buf128_I_, p0_buf128_Q_, 0, buf_chips, sA, sB, sC, sD, &coarse_score);
 
 #if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[CMYK-DIAG-SIGN-COARSE-PSLTE] off=%d score=%lld thr=%d\n",
+        static_cast<int>(coarse_best_off),
+        static_cast<long long>(coarse_score),
+        static_cast<int>(SIGN_THRESHOLD_INIT));
+    std::fflush(stdout);
     std::printf(
         "[CMYK-DIAG-PSLTE] stage=COARSE best_off=%d score=%lld\n",
         static_cast<int>(coarse_best_off),
@@ -463,11 +475,20 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_pslte_() noexcept {
     std::fflush(stdout);
 #endif
 
-    if (coarse_best_off < 0) {
+    if (coarse_best_off < 0 ||
+        coarse_score < static_cast<int64_t>(SIGN_THRESHOLD_INIT)) {
         cmyk_last_pass_ = false;
 #if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
-        std::printf(
-            "[CMYK-DIAG-PSLTE] stage=COARSE_FAIL reason=no_valid_offset\n");
+        if (coarse_best_off < 0) {
+            std::printf(
+                "[CMYK-DIAG-PSLTE] stage=COARSE_FAIL reason=no_valid_offset\n");
+        } else {
+            std::printf(
+                "[CMYK-DIAG-PSLTE] stage=COARSE_FAIL reason=below_sign_thr "
+                "score=%lld thr=%d\n",
+                static_cast<long long>(coarse_score),
+                static_cast<int>(SIGN_THRESHOLD_INIT));
+        }
         std::fflush(stdout);
 #endif
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
