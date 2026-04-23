@@ -275,8 +275,8 @@ static inline int32_t sign_scan_4tmpl(const int16_t* tx, const int16_t* tq,
     return best_off;
 }
 
-// Sign threshold (sim seed; tune with T6). Conservative margin vs ~2760 benign.
-#define SIGN_THRESHOLD_INIT 2000
+// Phase 3.E: INNOViD — Sign coarse gate (T6 실측 scale; was 2000, blocked ~572).
+#define SIGN_THRESHOLD_INIT 300
 
 inline int32_t q10_ratio_clamp(int64_t num, int64_t den,
                                int64_t max_q10) noexcept {
