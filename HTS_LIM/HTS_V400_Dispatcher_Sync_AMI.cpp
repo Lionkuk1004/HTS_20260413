@@ -163,6 +163,12 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
 
     int64_t best_xc = 0;
     int chip_start = best_off_ac;
+    int64_t second_xc = 0;
+    int second_dd = -1;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    int64_t xc_samples[129];
+    int n_xc_samples = 0;
+#endif
     for (int dd = best_off_ac - 64; dd <= best_off_ac + 64; ++dd) {
         if (dd < 0 || dd + 63 >= 192) {
             continue;
@@ -181,11 +187,45 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             }
         }
         const int64_t xm = acc * acc;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+        if (n_xc_samples < 129) {
+            xc_samples[n_xc_samples++] = xm;
+        }
+#endif
         if (xm > best_xc) {
+            second_xc = best_xc;
+            second_dd = chip_start;
             best_xc = xm;
             chip_start = dd;
+        } else if (xm > second_xc) {
+            second_xc = xm;
+            second_dd = dd;
         }
     }
+
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    {
+        int64_t xc_mean_i64 = 0;
+        double peak_ratio = -1.0;
+        if (second_xc > 0) {
+            peak_ratio = static_cast<double>(best_xc) /
+                         static_cast<double>(second_xc);
+        }
+        if (n_xc_samples > 0) {
+            double s = 0.0;
+            for (int k = 0; k < n_xc_samples; ++k) {
+                s += static_cast<double>(xc_samples[k]);
+            }
+            xc_mean_i64 = static_cast<int64_t>(s / static_cast<double>(n_xc_samples));
+        }
+        std::printf(
+            "[XC-DIST] best=%lld dd=%d 2nd=%lld dd2=%d peak_ratio=%.4f "
+            "xc_mean=%lld n=%d ac_ref_off=%d\n",
+            static_cast<long long>(best_xc), chip_start,
+            static_cast<long long>(second_xc), second_dd, peak_ratio,
+            static_cast<long long>(xc_mean_i64), n_xc_samples, best_off_ac);
+    }
+#endif
 
     const int64_t xc_thr =
         (static_cast<int64_t>(amp_thr) * amp_thr * 63LL * 9LL) / 100LL;
