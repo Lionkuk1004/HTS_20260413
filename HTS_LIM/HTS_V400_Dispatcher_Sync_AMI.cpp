@@ -248,6 +248,29 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     }
     psal_commit_align_();
 
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+    {
+        static int s_holo_p0_ok_seq = 0;
+        ++s_holo_p0_ok_seq;
+#if defined(HTS_ALLOW_HOST_BUILD)
+        std::printf(
+            "[P0-HOLO-OFF] seq=%d off_ac=%d chip_start=%d ac_mag2=%lld "
+            "cfo_hz=%.2f sin14=%d cfo_ap=%d\n",
+            s_holo_p0_ok_seq, best_off_ac, chip_start,
+            static_cast<long long>(best_mag2), cfo_.Get_Est_Hz(200000.0),
+            static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+            cfo_.Is_Apply_Active() ? 1 : 0);
+#else
+        std::printf(
+            "[P0-HOLO-OFF] seq=%d off_ac=%d chip_start=%d ac_mag2=%lld "
+            "sin14=%d cfo_ap=%d\n",
+            s_holo_p0_ok_seq, best_off_ac, chip_start,
+            static_cast<long long>(best_mag2),
+            static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+            cfo_.Is_Apply_Active() ? 1 : 0);
+#endif
+    }
+#endif
 #if defined(HTS_DIAG_PRINTF)
     std::printf(
         "[HOLO-PRE] PASS off_ac=%d chip_start=%d ac_mag2=%lld xc=%lld "
@@ -1660,6 +1683,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+    const int16_t before_cfo_I = chip_I;
+    const int16_t before_cfo_Q = chip_Q;
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
         (s_lab_feed_chip_idx % 16) == 0) {
@@ -1673,6 +1698,49 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     // CFO 역회전 적용 (Estimate 완료 시 active, 미완료 시 no-op)
     // 순서: DC → CFO → AGC
     cfo_.Apply(chip_I, chip_Q);
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
+    defined(HTS_DIAG_CFO_EST)
+    {
+        static int s_p1_apply_chip_log = 0;
+        if (pre_phase_ == 0) {
+            s_p1_apply_chip_log = 0;
+        }
+        if (pre_phase_ == 1 && phase_ == RxPhase::WAIT_SYNC &&
+            s_p1_apply_chip_log < 10) {
+            const int64_t r0 =
+                static_cast<int64_t>(before_cfo_I) * chip_I +
+                static_cast<int64_t>(before_cfo_Q) * chip_Q;
+            const int64_t n0 = static_cast<int64_t>(before_cfo_I) * before_cfo_I +
+                               static_cast<int64_t>(before_cfo_Q) * before_cfo_Q;
+            const int64_t n1 = static_cast<int64_t>(chip_I) * chip_I +
+                               static_cast<int64_t>(chip_Q) * chip_Q;
+            int32_t cos_q14_dot = 16384;
+            const int64_t m0 = hts_cfo_int_root_u64(n0);
+            const int64_t m1 = hts_cfo_int_root_u64(n1);
+            if (m0 > 0 && m1 > 0) {
+                const int64_t den = m0 * m1;
+                cos_q14_dot = static_cast<int32_t>(
+                    (r0 * 16384LL + (den >> 1)) / den);
+                if (cos_q14_dot > 16384) {
+                    cos_q14_dot = 16384;
+                }
+                if (cos_q14_dot < -16384) {
+                    cos_q14_dot = -16384;
+                }
+            }
+            std::printf(
+                "[APPLY-P1] chip=%d raw=(%d,%d) apply=(%d,%d) cfo_on=%d "
+                "cos14_dot=%d sin14=%d cos14=%d\n",
+                s_p1_apply_chip_log, static_cast<int>(before_cfo_I),
+                static_cast<int>(before_cfo_Q), static_cast<int>(chip_I),
+                static_cast<int>(chip_Q), cfo_.Is_Apply_Active() ? 1 : 0,
+                static_cast<int>(cos_q14_dot),
+                static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+                static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
+            ++s_p1_apply_chip_log;
+        }
+    }
+#endif
     // 프리앰블 AGC
     pre_agc_.Apply(chip_I, chip_Q);
     apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
@@ -2005,6 +2073,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             }
 #endif
             pre_phase_ = 0;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+            std::printf(
+                "[P1-EXIT] hdr=NO reason=energy_gate e63_sh=%d e0_sh=%d "
+                "max_e=%d kmin=%d est_count=%d cfo_ap=%d\n",
+                e63_sh, e0_sh, max_e_sh, k_P1_MIN_E, est_count_,
+                cfo_.Is_Apply_Active() ? 1 : 0);
+#endif
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
             mf_reset_();
 #endif
@@ -2074,6 +2149,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #if defined(HTS_DIAG_PRINTF)
             std::printf("[P1→HDR] est=(%d,%d) n=%d\n",
                         est_I_, est_Q_, est_count_);
+#endif
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+            std::printf(
+                "[P1-EXIT] hdr=YES est_count=%d e63_sh=%d e0_sh=%d max_e=%d "
+                "k_P1_MIN=%d cfo_ap=%d\n",
+                est_count_, e63_sh, e0_sh, max_e_sh, k_P1_MIN_E,
+                cfo_.Is_Apply_Active() ? 1 : 0);
 #endif
             if (carry_only_full && !p1_rx_in_buf) {
                 buf_I_[0] = chip_I; buf_Q_[0] = chip_Q; buf_idx_ = 1;
