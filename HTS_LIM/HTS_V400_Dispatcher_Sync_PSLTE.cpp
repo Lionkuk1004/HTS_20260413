@@ -140,8 +140,24 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             best_off_ac, sh, static_cast<long long>(best_acI),
             static_cast<long long>(best_acQ), static_cast<int>(d1I),
             static_cast<int>(d1Q), static_cast<long long>(best_mag2));
+        std::printf(
+            "[CALL-EST-OLD] (1, 0, %d, %d, 64) → sin_d=-acQ=-%d\n",
+            static_cast<int>(d1I), static_cast<int>(d1Q),
+            static_cast<int>(d1Q));
+        std::printf(
+            "[CALL-EST-NEW] (%d, %d, 1, 0, 64) → sin_d=+acQ=+%d\n",
+            static_cast<int>(d1I), static_cast<int>(d1Q),
+            static_cast<int>(d1Q));
 #endif
-        cfo_.Estimate_From_Preamble(1, 0, d1I, d1Q, 64);
+        cfo_.Estimate_From_Preamble(d1I, d1Q, 1, 0, 64);
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
+        std::printf(
+            "[POST-EST] sin14=%d hz=%d\n",
+            static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+            static_cast<int>(
+                static_cast<double>(cfo_.Get_Sin_Per_Chip_Q14()) * 1e6 /
+                (2.0 * 3.14159265358979 * 16384.0)));
+#endif
         cfo_.Advance_Phase_Only(192);
     }
 
