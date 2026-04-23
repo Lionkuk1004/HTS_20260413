@@ -54,6 +54,10 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 
 #if defined(HTS_HOLO_PREAMBLE)
 void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
+#if HTS_HOLO_CMYK_MODE
+    phase0_scan_cmyk_gravity_cube_pslte_();
+    return;
+#else
     if (p0_chip_count_ < 192) {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
@@ -394,7 +398,274 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
 #endif
 #endif
+#endif
 }
+
+#if HTS_HOLO_CMYK_MODE
+void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_pslte_() noexcept {
+    using namespace detail;
+
+    if (p0_chip_count_ < k_p0_holo_rx_collect_chips_) {
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
+
+    int32_t amp_est = 0;
+    for (int i = 0; i < k_p0_holo_rx_collect_chips_; ++i) {
+        const int32_t ai = static_cast<int32_t>(p0_buf128_I_[i]);
+        const int32_t sm = ai >> 31;
+        amp_est += (ai ^ sm) - sm;
+    }
+    amp_est /= k_p0_holo_rx_collect_chips_;
+    if (amp_est < 1) {
+        amp_est = 1;
+    }
+    const int32_t amp_thr =
+        (tx_amp_ > 0) ? static_cast<int32_t>(tx_amp_) : amp_est;
+
+    int best_off_ac = -1;
+    int64_t best_mag2 = -1;
+
+    for (int off = 0; off < 64; ++off) {
+        int64_t acI = 0;
+        int64_t acQ = 0;
+        for (int n = 0; n < 64; ++n) {
+            const int32_t r1I =
+                static_cast<int32_t>(p0_buf128_I_[off + n]);
+            const int32_t r1Q =
+                static_cast<int32_t>(p0_buf128_Q_[off + n]);
+            const int32_t r2I =
+                static_cast<int32_t>(p0_buf128_I_[off + n + 64]);
+            const int32_t r2Q =
+                static_cast<int32_t>(p0_buf128_Q_[off + n + 64]);
+            acI += static_cast<int64_t>(r1I) * r2I +
+                   static_cast<int64_t>(r1Q) * r2Q;
+            acQ += static_cast<int64_t>(r1I) * r2Q -
+                   static_cast<int64_t>(r1Q) * r2I;
+        }
+        const int64_t mag2 = acI * acI + acQ * acQ;
+        if (mag2 > best_mag2) {
+            best_mag2 = mag2;
+            best_off_ac = off;
+        }
+    }
+
+    const int64_t ac_thr =
+        (static_cast<int64_t>(amp_thr) * amp_thr * 64LL * 64LL) / 500000LL;
+    if (best_mag2 < ac_thr || best_off_ac < 0) {
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
+
+    int64_t cfo_acI = 0;
+    int64_t cfo_acQ = 0;
+    const int bo = best_off_ac;
+    for (int n = 0; n < 48; ++n) {
+        const int32_t r1I =
+            static_cast<int32_t>(p0_buf128_I_[bo + n]);
+        const int32_t r1Q =
+            static_cast<int32_t>(p0_buf128_Q_[bo + n]);
+        const int32_t r2I =
+            static_cast<int32_t>(p0_buf128_I_[bo + n + 16]);
+        const int32_t r2Q =
+            static_cast<int32_t>(p0_buf128_Q_[bo + n + 16]);
+        cfo_acI += static_cast<int64_t>(r1I) * r2I +
+                   static_cast<int64_t>(r1Q) * r2Q;
+        cfo_acQ += static_cast<int64_t>(r1I) * r2Q -
+                   static_cast<int64_t>(r1Q) * r2I;
+    }
+
+    {
+        int64_t est_acI = cfo_acI;
+        int64_t est_acQ = cfo_acQ;
+        if (cfo_acQ == 0LL && cfo_acI < 0LL) {
+            est_acI = -cfo_acI;
+        }
+
+        int sh = 0;
+        int64_t mx = (est_acI < 0) ? -est_acI : est_acI;
+        const int64_t ax = (est_acQ < 0) ? -est_acQ : est_acQ;
+        if (ax > mx) {
+            mx = ax;
+        }
+        while (mx > 2000000000LL && sh < 28) {
+            mx >>= 1;
+            ++sh;
+        }
+        const int32_t d1I = static_cast<int32_t>(est_acI >> sh);
+        const int32_t d1Q = static_cast<int32_t>(est_acQ >> sh);
+        cfo_.Estimate_From_Autocorr(d1I, d1Q, 16);
+        cfo_.Advance_Phase_Only(k_p0_holo_rx_collect_chips_);
+    }
+
+    int16_t tplA[64];
+    int16_t tplB[64];
+    int16_t tplC[64];
+    int16_t tplD[64];
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 0u, 1000, tplA);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 1u, 1000, tplB);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 2u, 1000, tplC);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 3u, 1000, tplD);
+
+    const int64_t nf_total = gravity_estimate_noise_floor(
+        p0_buf128_I_, p0_buf128_Q_,
+        static_cast<int32_t>(p0_chip_count_), tplA, tplB, tplC, tplD);
+    const int64_t nf_per_tmpl = nf_total >> 2;
+
+    int64_t best_total = -1;
+    int best_off = -1;
+    int64_t best_sub_score[4][4];
+    int64_t best_sub_xI[4][4];
+    int64_t best_sub_xQ[4][4];
+    int64_t best_tmpl_xI[4];
+    int64_t best_tmpl_xQ[4];
+    int64_t best_tmpl_total[4];
+
+    const int scan_end = p0_chip_count_ - 256;
+    if (scan_end < 1) {
+        cmyk_last_pass_ = false;
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
+
+    for (int off = 0; off < scan_end; ++off) {
+        int64_t sub_score[4][4];
+        int64_t sub_xI[4][4];
+        int64_t sub_xQ[4][4];
+        int64_t tmpl_xI[4];
+        int64_t tmpl_xQ[4];
+        int64_t tmpl_total[4];
+        int64_t total = 0;
+
+        gravity_xc_single_offset(
+            p0_buf128_I_, p0_buf128_Q_, static_cast<int32_t>(off), tplA,
+            tplB, tplC, tplD, sub_score, sub_xI, sub_xQ, tmpl_xI, tmpl_xQ,
+            tmpl_total, &total);
+
+        if (total > best_total) {
+            best_total = total;
+            best_off = off;
+            for (int t = 0; t < 4; ++t) {
+                for (int s = 0; s < 4; ++s) {
+                    best_sub_score[t][s] = sub_score[t][s];
+                    best_sub_xI[t][s] = sub_xI[t][s];
+                    best_sub_xQ[t][s] = sub_xQ[t][s];
+                }
+                best_tmpl_xI[t] = tmpl_xI[t];
+                best_tmpl_xQ[t] = tmpl_xQ[t];
+                best_tmpl_total[t] = tmpl_total[t];
+            }
+        }
+    }
+
+    if (best_off < 0 || best_total < 0) {
+        cmyk_last_pass_ = false;
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
+
+    GravityCube6 cube{};
+    cube.best_off = static_cast<int32_t>(best_off);
+    gravity_compute_faces(best_sub_score, best_sub_xI, best_sub_xQ,
+                          best_tmpl_xI, best_tmpl_xQ, best_tmpl_total,
+                          best_total, nf_total, nf_per_tmpl, &cube);
+    for (int t = 0; t < 4; ++t) {
+        cube.tmpl_xI[t] = best_tmpl_xI[t];
+        cube.tmpl_xQ[t] = best_tmpl_xQ[t];
+    }
+
+    const bool pass = gravity_cube_pass(&cube);
+    cmyk_last_cube_ = cube;
+    cmyk_last_pass_ = pass;
+
+    if (!pass) {
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
+
+    int chip_start = best_off;
+    if (chip_start < 0) {
+        chip_start = 0;
+    }
+    if (chip_start > 63) {
+        chip_start = 63;
+    }
+
+    dominant_row_ = 63u;
+
+    int32_t seed_dot_I = 0;
+    int32_t seed_dot_Q = 0;
+    for (int blk = 0; blk < 2; ++blk) {
+        int32_t di = 0;
+        int32_t dq = 0;
+        walsh63_dot_(&p0_buf128_I_[chip_start + (blk << 6)],
+                     &p0_buf128_Q_[chip_start + (blk << 6)], di, dq);
+        seed_dot_I += di;
+        seed_dot_Q += dq;
+    }
+    est_I_ = seed_dot_I;
+    est_Q_ = seed_dot_Q;
+    est_count_ = 2;
+    update_derot_shift_from_est_();
+
+    {
+        int32_t mag_sum = 0;
+        for (int j = 0; j < 64; ++j) {
+            const int32_t ai =
+                static_cast<int32_t>(p0_buf128_I_[chip_start + j]);
+            const int32_t aq =
+                static_cast<int32_t>(p0_buf128_Q_[chip_start + j]);
+            const int32_t si = ai >> 31;
+            mag_sum += (ai ^ si) - si;
+            const int32_t sq = aq >> 31;
+            mag_sum += (aq ^ sq) - sq;
+        }
+        const int32_t peak_avg = mag_sum >> 6;
+        pre_agc_.Set_From_Peak(peak_avg);
+    }
+
+    psal_off_ = chip_start;
+    psal_e63_ = static_cast<int32_t>(best_total >> 32);
+    if (psal_e63_ <= 0) {
+        psal_e63_ = static_cast<int32_t>(best_total >> 20);
+    }
+    if (psal_e63_ <= 0) {
+        psal_e63_ = 1;
+    }
+    psal_commit_align_();
+
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[CMYK-RX-PSLTE] off=%d pass=%d A=%d B=%d C=%d D=%d E=%d F=%d\n",
+        best_off, pass ? 1 : 0, static_cast<int>(cube.face_A_q10),
+        static_cast<int>(cube.face_B_q10), static_cast<int>(cube.face_C_q10),
+        static_cast<int>(cube.face_D_q10), static_cast<int>(cube.face_E_q10),
+        static_cast<int>(cube.face_F_q10));
+    std::fflush(stdout);
+#endif
+}
+#endif
+
 #endif
 
 void HTS_V400_Dispatcher::phase0_scan_() noexcept {
@@ -1900,8 +2171,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p0_buf128_I_[p0_chip_count_] = chip_I;
             p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
+#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+            if (p0_chip_count_ < k_p0_holo_rx_collect_chips_)
+                return;
+#else
             if (p0_chip_count_ < 192)
                 return;
+#endif
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
             {
                 static int s_fullbuf_count = 0;

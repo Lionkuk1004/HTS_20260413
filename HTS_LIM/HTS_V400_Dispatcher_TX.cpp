@@ -124,6 +124,11 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
        전빈 탐색. 페이로드만 2^BPS 제한(cap=true)으로 FEC 심볼 집합과 정합. */
     const int16_t pre_amp =
         static_cast<int16_t>(static_cast<int32_t>(amp) * pre_boost_);
+#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+    if (pre_reps_ < 4) {
+        pre_reps_ = 4;
+    }
+#endif
     // [BUG-FIX-PRE2] 프리앰블 반복 전송 — pre_reps_ × PRE_SYM0 + 1 × PRE_SYM1
     const int pre_chips = (pre_reps_ + 1) * 64;
     const uint32_t il = seed_ ^ (tx_seq_ * 0xA5A5A5A5u);

@@ -1,5 +1,5 @@
 // =============================================================================
-// HTS_Holo_Preamble_Gen.hpp — CMYK holo preamble chip generator (TX, optional)
+// HTS_Holo_Preamble_Gen.hpp — CMYK holo preamble (TX/RX helpers, optional)
 // =============================================================================
 #pragma once
 
@@ -8,6 +8,8 @@
 #if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
 
 #include "HTS_Holo_Tensor_4D_Defs.h"
+#include <climits>
+#include <cstdint>
 
 namespace ProtectedEngine {
 namespace detail {
@@ -75,6 +77,257 @@ inline void gen_holo_sequence_cmyk(const uint32_t seed[4], uint32_t slot,
                        ? amp
                        : static_cast<int16_t>(-static_cast<int32_t>(amp));
     }
+}
+
+// -----------------------------------------------------------------
+// 6-Face Gravity Cube (Q10). INNOViD HOLO_6FACE_FINAL.
+// -----------------------------------------------------------------
+struct GravityCube6 {
+    int32_t face_A_q10 = 0;
+    int32_t face_B_q10 = 0;
+    int32_t face_C_q10 = 0;
+    int32_t face_D_q10 = 0;
+    int32_t face_E_q10 = 0;
+    int32_t face_F_q10 = 0;
+
+    int64_t total_score = 0;
+    int32_t best_off = 0;
+
+    int64_t tmpl_xI[4] = {};
+    int64_t tmpl_xQ[4] = {};
+};
+
+#define GRAVITY_THR_A_Q10 512
+#define GRAVITY_THR_B_Q10 409
+#define GRAVITY_THR_C_Q10 409
+#define GRAVITY_THR_D_Q10 10240
+#define GRAVITY_THR_E_Q10 614
+#define GRAVITY_THR_F_Q10 15360
+
+inline void gravity_xc_single_offset(
+    const int16_t* tx, const int16_t* tq, int32_t off, const int16_t* tplA,
+    const int16_t* tplB, const int16_t* tplC, const int16_t* tplD,
+    int64_t sub_score[4][4], int64_t sub_xI[4][4], int64_t sub_xQ[4][4],
+    int64_t tmpl_xI[4], int64_t tmpl_xQ[4], int64_t tmpl_total[4],
+    int64_t* out_total) noexcept {
+    const int16_t* T[4] = {tplA, tplB, tplC, tplD};
+    int64_t grand = 0;
+    for (int t = 0; t < 4; ++t) {
+        tmpl_xI[t] = 0;
+        tmpl_xQ[t] = 0;
+        tmpl_total[t] = 0;
+        const int base = static_cast<int>(off) + t * 64;
+        for (int s = 0; s < 4; ++s) {
+            int64_t xI = 0;
+            int64_t xQ = 0;
+            for (int k = 0; k < 16; ++k) {
+                const int idx = s * 16 + k;
+                const int sg = (T[t][idx] > 0) ? 1 : -1;
+                xI += static_cast<int64_t>(tx[base + idx]) *
+                      static_cast<int64_t>(sg);
+                xQ += static_cast<int64_t>(tq[base + idx]) *
+                      static_cast<int64_t>(sg);
+            }
+            sub_xI[t][s] = xI;
+            sub_xQ[t][s] = xQ;
+            const int64_t mag2 = xI * xI + xQ * xQ;
+            sub_score[t][s] = mag2;
+            tmpl_xI[t] += xI;
+            tmpl_xQ[t] += xQ;
+            tmpl_total[t] += mag2;
+            grand += mag2;
+        }
+    }
+    *out_total = grand;
+}
+
+inline int32_t q10_ratio_clamp(int64_t num, int64_t den,
+                               int64_t max_q10) noexcept {
+    if (den <= 0) {
+        return 0;
+    }
+    if (num <= 0) {
+        return 0;
+    }
+    const int64_t q = (num << 10) / den;
+    if (q > max_q10) {
+        return static_cast<int32_t>(max_q10);
+    }
+    return static_cast<int32_t>(q);
+}
+
+inline int64_t int_sqrt64(int64_t x) noexcept {
+    if (x <= 0) {
+        return 0;
+    }
+    int64_t y = x;
+    int64_t s = 1;
+    while (s < y) {
+        y >>= 1;
+        s <<= 1;
+    }
+    y = (y + s) >> 1;
+    if (y < 1) {
+        y = 1;
+    }
+    for (int i = 0; i < 6; ++i) {
+        y = (y + x / y) >> 1;
+        if (y < 1) {
+            y = 1;
+            break;
+        }
+    }
+    return y;
+}
+
+inline void gravity_compute_faces(const int64_t sub_score[4][4],
+                                  const int64_t sub_xI[4][4],
+                                  const int64_t sub_xQ[4][4],
+                                  const int64_t tmpl_xI[4],
+                                  const int64_t tmpl_xQ[4],
+                                  const int64_t tmpl_total[4],
+                                  int64_t best_total, int64_t nf_total,
+                                  int64_t nf_per_tmpl,
+                                  GravityCube6* out) noexcept {
+    int64_t A_mn = tmpl_total[0];
+    int64_t A_mx = tmpl_total[0];
+    for (int t = 1; t < 4; ++t) {
+        if (tmpl_total[t] < A_mn) {
+            A_mn = tmpl_total[t];
+        }
+        if (tmpl_total[t] > A_mx) {
+            A_mx = tmpl_total[t];
+        }
+    }
+    out->face_A_q10 = q10_ratio_clamp(A_mn, A_mx, 1024);
+
+    int64_t B_sum = 0;
+    for (int t = 0; t < 4; ++t) {
+        int64_t mn = sub_score[t][0];
+        int64_t mx = sub_score[t][0];
+        for (int s = 1; s < 4; ++s) {
+            if (sub_score[t][s] < mn) {
+                mn = sub_score[t][s];
+            }
+            if (sub_score[t][s] > mx) {
+                mx = sub_score[t][s];
+            }
+        }
+        B_sum += static_cast<int64_t>(q10_ratio_clamp(mn, mx, 1024));
+    }
+    out->face_B_q10 = static_cast<int32_t>(B_sum >> 2);
+
+    int64_t s32[4] = {0, 0, 0, 0};
+    for (int t = 0; t < 4; ++t) {
+        const int64_t xI1 = sub_xI[t][0] + sub_xI[t][1];
+        const int64_t xQ1 = sub_xQ[t][0] + sub_xQ[t][1];
+        const int64_t xI2 = sub_xI[t][2] + sub_xI[t][3];
+        const int64_t xQ2 = sub_xQ[t][2] + sub_xQ[t][3];
+        s32[t] = (xI1 * xI1 + xQ1 * xQ1) + (xI2 * xI2 + xQ2 * xQ2);
+    }
+    int64_t s32_mn = s32[0];
+    int64_t s32_mx = s32[0];
+    for (int t = 1; t < 4; ++t) {
+        if (s32[t] < s32_mn) {
+            s32_mn = s32[t];
+        }
+        if (s32[t] > s32_mx) {
+            s32_mx = s32[t];
+        }
+    }
+    const int32_t C32_q10 = q10_ratio_clamp(s32_mn, s32_mx, 1024);
+    out->face_C_q10 =
+        (C32_q10 < out->face_A_q10) ? C32_q10 : out->face_A_q10;
+
+    constexpr int64_t k_face_d_max_q10 =
+        (static_cast<int64_t>(65535) * 1024LL);
+    out->face_D_q10 =
+        q10_ratio_clamp(best_total, nf_total, k_face_d_max_q10);
+
+    int64_t dI[3];
+    int64_t dQ[3];
+    for (int k = 0; k < 3; ++k) {
+        dI[k] = tmpl_xI[k + 1] * tmpl_xI[k] + tmpl_xQ[k + 1] * tmpl_xQ[k];
+        dQ[k] = tmpl_xQ[k + 1] * tmpl_xI[k] - tmpl_xI[k + 1] * tmpl_xQ[k];
+    }
+    const int64_t sum_dI = dI[0] + dI[1] + dI[2];
+    const int64_t sum_dQ = dQ[0] + dQ[1] + dQ[2];
+    int64_t abs_d_sum = 0;
+    for (int k = 0; k < 3; ++k) {
+        int64_t m2 = dI[k] * dI[k] + dQ[k] * dQ[k];
+        if (m2 < 0) {
+            m2 = INT64_MAX;
+        }
+        abs_d_sum += int_sqrt64(m2);
+    }
+    int64_t mag_sum2 = sum_dI * sum_dI + sum_dQ * sum_dQ;
+    if (mag_sum2 < 0) {
+        mag_sum2 = INT64_MAX;
+    }
+    const int64_t mag_sum = int_sqrt64(mag_sum2);
+    out->face_E_q10 = q10_ratio_clamp(mag_sum, abs_d_sum, 1024);
+
+    int64_t min_tmpl = tmpl_total[0];
+    for (int t = 1; t < 4; ++t) {
+        if (tmpl_total[t] < min_tmpl) {
+            min_tmpl = tmpl_total[t];
+        }
+    }
+    constexpr int64_t k_face_f_max_q10 =
+        (static_cast<int64_t>(65535) * 1024LL);
+    out->face_F_q10 =
+        q10_ratio_clamp(min_tmpl, nf_per_tmpl, k_face_f_max_q10);
+
+    out->total_score = best_total;
+}
+
+inline bool gravity_cube_pass(const GravityCube6* g) noexcept {
+    return g->face_A_q10 >= GRAVITY_THR_A_Q10 &&
+           g->face_B_q10 >= GRAVITY_THR_B_Q10 &&
+           g->face_C_q10 >= GRAVITY_THR_C_Q10 &&
+           g->face_D_q10 >= GRAVITY_THR_D_Q10 &&
+           g->face_E_q10 >= GRAVITY_THR_E_Q10 &&
+           g->face_F_q10 >= GRAVITY_THR_F_Q10;
+}
+
+inline int64_t gravity_estimate_noise_floor(
+    const int16_t* tx, const int16_t* tq, int32_t n, const int16_t* tplA,
+    const int16_t* tplB, const int16_t* tplC, const int16_t* tplD) noexcept {
+    int64_t samples[20];
+    int num = 0;
+
+    for (int off = 16; off + 256 <= n && num < 20; off += 41) {
+        int64_t sub_score[4][4];
+        int64_t sub_xI[4][4];
+        int64_t sub_xQ[4][4];
+        int64_t tmpl_xI[4];
+        int64_t tmpl_xQ[4];
+        int64_t tmpl_total[4];
+        int64_t total = 0;
+
+        gravity_xc_single_offset(tx, tq, static_cast<int32_t>(off), tplA,
+                                 tplB, tplC, tplD, sub_score, sub_xI, sub_xQ,
+                                 tmpl_xI, tmpl_xQ, tmpl_total, &total);
+
+        samples[num++] = total;
+    }
+
+    if (num == 0) {
+        return 1;
+    }
+
+    for (int i = 1; i < num; ++i) {
+        const int64_t key = samples[i];
+        int j = i - 1;
+        while (j >= 0 && samples[j] > key) {
+            samples[j + 1] = samples[j];
+            --j;
+        }
+        samples[j + 1] = key;
+    }
+
+    const int64_t nf = samples[num / 3];
+    return (nf < 1) ? 1 : nf;
 }
 
 } // namespace detail
