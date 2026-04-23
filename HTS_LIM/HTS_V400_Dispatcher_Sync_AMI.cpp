@@ -372,49 +372,35 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         return;
     }
 
-    int32_t amp_est = 0;
-    for (int i = 0; i < k_p0_holo_rx_collect_chips_; ++i) {
-        const int32_t ai = static_cast<int32_t>(p0_buf128_I_[i]);
-        const int32_t sm = ai >> 31;
-        amp_est += (ai ^ sm) - sm;
-    }
-    amp_est /= k_p0_holo_rx_collect_chips_;
-    if (amp_est < 1) {
-        amp_est = 1;
-    }
-    const int32_t amp_thr =
-        (tx_amp_ > 0) ? static_cast<int32_t>(tx_amp_) : amp_est;
+    int16_t tplA[64];
+    int16_t tplB[64];
+    int16_t tplC[64];
+    int16_t tplD[64];
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 0u, 1000, tplA);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 1u, 1000, tplB);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 2u, 1000, tplC);
+    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 3u, 1000, tplD);
 
-    int best_off_ac = -1;
-    int64_t best_mag2 = -1;
+    const int32_t buf_chips = static_cast<int32_t>(p0_chip_count_);
+    int64_t coarse_score = 0;
+    const int32_t coarse_best_off = gravity_coarse_timing_scan(
+        p0_buf128_I_, p0_buf128_Q_, 0, buf_chips, tplA, &coarse_score);
 
-    for (int off = 0; off < 64; ++off) {
-        int64_t acI = 0;
-        int64_t acQ = 0;
-        for (int n = 0; n < 64; ++n) {
-            const int32_t r1I =
-                static_cast<int32_t>(p0_buf128_I_[off + n]);
-            const int32_t r1Q =
-                static_cast<int32_t>(p0_buf128_Q_[off + n]);
-            const int32_t r2I =
-                static_cast<int32_t>(p0_buf128_I_[off + n + 64]);
-            const int32_t r2Q =
-                static_cast<int32_t>(p0_buf128_Q_[off + n + 64]);
-            acI += static_cast<int64_t>(r1I) * r2I +
-                   static_cast<int64_t>(r1Q) * r2Q;
-            acQ += static_cast<int64_t>(r1I) * r2Q -
-                   static_cast<int64_t>(r1Q) * r2I;
-        }
-        const int64_t mag2 = acI * acI + acQ * acQ;
-        if (mag2 > best_mag2) {
-            best_mag2 = mag2;
-            best_off_ac = off;
-        }
-    }
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[CMYK-DIAG-AMI] stage=COARSE best_off=%d score=%lld\n",
+        static_cast<int>(coarse_best_off),
+        static_cast<long long>(coarse_score));
+    std::fflush(stdout);
+#endif
 
-    const int64_t ac_thr =
-        (static_cast<int64_t>(amp_thr) * amp_thr * 64LL * 64LL) / 500000LL;
-    if (best_mag2 < ac_thr || best_off_ac < 0) {
+    if (coarse_best_off < 0) {
+        cmyk_last_pass_ = false;
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+        std::printf(
+            "[CMYK-DIAG-AMI] stage=COARSE_FAIL reason=no_valid_offset\n");
+        std::fflush(stdout);
+#endif
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -425,16 +411,16 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
 
     int64_t cfo_acI = 0;
     int64_t cfo_acQ = 0;
-    const int bo = best_off_ac;
-    for (int n = 0; n < 48; ++n) {
+    const int bo = coarse_best_off;
+    for (int ci = 0; ci < 48; ++ci) {
         const int32_t r1I =
-            static_cast<int32_t>(p0_buf128_I_[bo + n]);
+            static_cast<int32_t>(p0_buf128_I_[bo + ci]);
         const int32_t r1Q =
-            static_cast<int32_t>(p0_buf128_Q_[bo + n]);
+            static_cast<int32_t>(p0_buf128_Q_[bo + ci]);
         const int32_t r2I =
-            static_cast<int32_t>(p0_buf128_I_[bo + n + 16]);
+            static_cast<int32_t>(p0_buf128_I_[bo + ci + 16]);
         const int32_t r2Q =
-            static_cast<int32_t>(p0_buf128_Q_[bo + n + 16]);
+            static_cast<int32_t>(p0_buf128_Q_[bo + ci + 16]);
         cfo_acI += static_cast<int64_t>(r1I) * r2I +
                    static_cast<int64_t>(r1Q) * r2Q;
         cfo_acQ += static_cast<int64_t>(r1I) * r2Q -
@@ -464,19 +450,50 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         cfo_.Advance_Phase_Only(k_p0_holo_rx_collect_chips_);
     }
 
-    int16_t tplA[64];
-    int16_t tplB[64];
-    int16_t tplC[64];
-    int16_t tplD[64];
-    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 0u, 1000, tplA);
-    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 1u, 1000, tplB);
-    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 2u, 1000, tplC);
-    gen_holo_sequence_cmyk(holo_lpi_seed_, rx_seq_, 3u, 1000, tplD);
-
     const int64_t nf_total = gravity_estimate_noise_floor(
-        p0_buf128_I_, p0_buf128_Q_,
-        static_cast<int32_t>(p0_chip_count_), tplA, tplB, tplC, tplD);
+        p0_buf128_I_, p0_buf128_Q_, buf_chips, tplA, tplB, tplC, tplD);
     const int64_t nf_per_tmpl = nf_total >> 2;
+
+    const int32_t max_fine_off = buf_chips - 256;
+    if (max_fine_off < 0) {
+        cmyk_last_pass_ = false;
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+        std::printf(
+            "[CMYK-DIAG-AMI] stage=FINE_FAIL reason=buf_lt_256 buf_chips=%d\n",
+            static_cast<int>(buf_chips));
+        std::fflush(stdout);
+#endif
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
+
+    const int32_t fine_lo =
+        (coarse_best_off > 8) ? (coarse_best_off - 8) : 0;
+    int32_t fine_hi = coarse_best_off + 8;
+    if (fine_hi > max_fine_off) {
+        fine_hi = max_fine_off;
+    }
+    if (fine_lo > fine_hi) {
+        cmyk_last_pass_ = false;
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+        std::printf(
+            "[CMYK-DIAG-AMI] stage=FINE_FAIL reason=empty_window coarse_off=%d "
+            "max_fine=%d\n",
+            static_cast<int>(coarse_best_off),
+            static_cast<int>(max_fine_off));
+        std::fflush(stdout);
+#endif
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+        return;
+    }
 
     int64_t best_total = -1;
     int best_off = -1;
@@ -487,18 +504,7 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     int64_t best_tmpl_xQ[4];
     int64_t best_tmpl_total[4];
 
-    const int scan_end = p0_chip_count_ - 256;
-    if (scan_end < 1) {
-        cmyk_last_pass_ = false;
-        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
-                    static_cast<size_t>(64) * sizeof(int16_t));
-        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
-                    static_cast<size_t>(64) * sizeof(int16_t));
-        p0_chip_count_ = 64;
-        return;
-    }
-
-    for (int off = 0; off < scan_end; ++off) {
+    for (int32_t off = fine_lo; off <= fine_hi; ++off) {
         int64_t sub_score[4][4];
         int64_t sub_xI[4][4];
         int64_t sub_xQ[4][4];
@@ -508,13 +514,13 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         int64_t total = 0;
 
         gravity_xc_single_offset(
-            p0_buf128_I_, p0_buf128_Q_, static_cast<int32_t>(off), tplA,
-            tplB, tplC, tplD, sub_score, sub_xI, sub_xQ, tmpl_xI, tmpl_xQ,
-            tmpl_total, &total);
+            p0_buf128_I_, p0_buf128_Q_, off, tplA, tplB, tplC, tplD,
+            sub_score, sub_xI, sub_xQ, tmpl_xI, tmpl_xQ, tmpl_total,
+            &total);
 
         if (total > best_total) {
             best_total = total;
-            best_off = off;
+            best_off = static_cast<int>(off);
             for (int t = 0; t < 4; ++t) {
                 for (int s = 0; s < 4; ++s) {
                     best_sub_score[t][s] = sub_score[t][s];
@@ -528,8 +534,20 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         }
     }
 
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[CMYK-DIAG-AMI] stage=FINE best_off=%d total=%lld nf=%lld\n",
+        best_off, static_cast<long long>(best_total),
+        static_cast<long long>(nf_total));
+    std::fflush(stdout);
+#endif
+
     if (best_off < 0 || best_total < 0) {
         cmyk_last_pass_ = false;
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+        std::printf("[CMYK-DIAG-AMI] stage=FINE_FAIL reason=no_xc_peak\n");
+        std::fflush(stdout);
+#endif
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -551,6 +569,16 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     const bool pass = gravity_cube_pass(&cube);
     cmyk_last_cube_ = cube;
     cmyk_last_pass_ = pass;
+
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[CMYK-DIAG-AMI] stage=CUBE pass=%d A=%d B=%d C=%d D=%d E=%d F=%d\n",
+        pass ? 1 : 0, static_cast<int>(cube.face_A_q10),
+        static_cast<int>(cube.face_B_q10), static_cast<int>(cube.face_C_q10),
+        static_cast<int>(cube.face_D_q10), static_cast<int>(cube.face_E_q10),
+        static_cast<int>(cube.face_F_q10));
+    std::fflush(stdout);
+#endif
 
     if (!pass) {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,

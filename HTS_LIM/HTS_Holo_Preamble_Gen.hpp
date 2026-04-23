@@ -141,6 +141,53 @@ inline void gravity_xc_single_offset(
     *out_total = grand;
 }
 
+// -----------------------------------------------------------------
+// Stage 1 coarse timing (CMYK): template A only, non-coherent |XC|²
+// summed over 4×16-chip sub-blocks (CFO-resistant). Replaces lag-64
+// autocorrelation timing gate for [A|B|C|D] (lag-64 assumes [A|A|…]).
+// INNOViD HOLO_6FACE_FINAL — Phase 2.5.
+// -----------------------------------------------------------------
+inline int64_t gravity_coarse_xc_A_only(const int16_t* tx, const int16_t* tq,
+                                        int32_t off,
+                                        const int16_t* tplA) noexcept {
+    int64_t total_mag2 = 0;
+    for (int sub = 0; sub < 4; ++sub) {
+        int64_t xI = 0;
+        int64_t xQ = 0;
+        for (int k = 0; k < 16; ++k) {
+            const int idx = sub * 16 + k;
+            const int sg = (tplA[idx] > 0) ? 1 : -1;
+            xI += static_cast<int64_t>(tx[off + idx]) * sg;
+            xQ += static_cast<int64_t>(tq[off + idx]) * sg;
+        }
+        total_mag2 += xI * xI + xQ * xQ;
+    }
+    return total_mag2;
+}
+
+/// Coarse scan: step 1 chip. `buf_len` = RX chip count. Only offsets where a
+/// full 256-chip gravity window fits (`off + 256 <= buf_len`) are candidates,
+/// matching legacy holo P0 gravity scan range. Template A uses the first 64
+/// chips at each candidate. Writes best score (0 if none).
+inline int32_t gravity_coarse_timing_scan(const int16_t* tx, const int16_t* tq,
+                                          int32_t scan_start, int32_t buf_len,
+                                          const int16_t* tplA,
+                                          int64_t* out_best_score) noexcept {
+    int64_t best_score = -1;
+    int32_t best_off = -1;
+    for (int32_t off = scan_start; off + 256 <= buf_len; ++off) {
+        const int64_t score = gravity_coarse_xc_A_only(tx, tq, off, tplA);
+        if (score > best_score) {
+            best_score = score;
+            best_off = off;
+        }
+    }
+    if (out_best_score != nullptr) {
+        *out_best_score = (best_score < 0) ? 0 : best_score;
+    }
+    return best_off;
+}
+
 inline int32_t q10_ratio_clamp(int64_t num, int64_t den,
                                int64_t max_q10) noexcept {
     if (den <= 0) {
