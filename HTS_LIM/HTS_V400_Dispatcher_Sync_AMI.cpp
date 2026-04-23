@@ -644,13 +644,14 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
 
     dominant_row_ = 63u;
 
+    // Phase 3.H: INNOViD — Walsh/peak 는 Gravity peak best_off 기준 (PSLTE 동일).
     int32_t seed_dot_I = 0;
     int32_t seed_dot_Q = 0;
     for (int blk = 0; blk < 2; ++blk) {
         int32_t di = 0;
         int32_t dq = 0;
-        walsh63_dot_(&p0_buf128_I_[chip_start + (blk << 6)],
-                     &p0_buf128_Q_[chip_start + (blk << 6)], di, dq);
+        walsh63_dot_(&p0_buf128_I_[best_off + (blk << 6)],
+                     &p0_buf128_Q_[best_off + (blk << 6)], di, dq);
         seed_dot_I += di;
         seed_dot_Q += dq;
     }
@@ -663,9 +664,9 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         int32_t mag_sum = 0;
         for (int j = 0; j < 64; ++j) {
             const int32_t ai =
-                static_cast<int32_t>(p0_buf128_I_[chip_start + j]);
+                static_cast<int32_t>(p0_buf128_I_[best_off + j]);
             const int32_t aq =
-                static_cast<int32_t>(p0_buf128_Q_[chip_start + j]);
+                static_cast<int32_t>(p0_buf128_Q_[best_off + j]);
             const int32_t si = ai >> 31;
             mag_sum += (ai ^ si) - si;
             const int32_t sq = aq >> 31;
