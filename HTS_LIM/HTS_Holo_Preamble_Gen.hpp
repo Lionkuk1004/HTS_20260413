@@ -97,12 +97,16 @@ struct GravityCube6 {
     int64_t tmpl_xQ[4] = {};
 };
 
-#define GRAVITY_THR_A_Q10 512
-#define GRAVITY_THR_B_Q10 409
-#define GRAVITY_THR_C_Q10 409
-#define GRAVITY_THR_D_Q10 10240
-#define GRAVITY_THR_E_Q10 614
-#define GRAVITY_THR_F_Q10 15360
+// GRAVITY_THR_* (Q10): INNOViD — Phase 2.6 (T6 CMYK DIAG ~846k×CUBE lines,
+// UTF-16 log; p10/p50/p90). v1.0 시뮬 고정값(A512…F15360)은 CMYK+Q14 경로에
+// 과도 → 실측 완화: A200 B60 C120 D1200 E400 F700 → T6 CMYK=1 합계 100/18400
+// (재현 2회). 추가 공격·오탐 검증은 후속 Phase 권장.
+#define GRAVITY_THR_A_Q10 200
+#define GRAVITY_THR_B_Q10 60
+#define GRAVITY_THR_C_Q10 120
+#define GRAVITY_THR_D_Q10 1200
+#define GRAVITY_THR_E_Q10 400
+#define GRAVITY_THR_F_Q10 700
 
 inline void gravity_xc_single_offset(
     const int16_t* tx, const int16_t* tq, int32_t off, const int16_t* tplA,
