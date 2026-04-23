@@ -720,15 +720,15 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_pslte_() noexcept {
     }
 
     psal_off_ = best_off % 64;  // 실험
-    // Phase 2.8.2 Step 1: INNOViD — psal_e63_ Legacy scale matching
-    // Legacy: best_mag2 (|AC|²) >> 32; CMYK: Template A complex-sum mag² >> 32
+    // Phase 3.C: INNOViD — Option C1: psal_e63_ from Full XC peak (best_total>>14)
     {
-        const int64_t tplA_xI = best_tmpl_xI[0];
-        const int64_t tplA_xQ = best_tmpl_xQ[0];
-        const int64_t tplA_mag2 = tplA_xI * tplA_xI + tplA_xQ * tplA_xQ;
-        psal_e63_ = static_cast<int32_t>(tplA_mag2 >> 32);
-        if (psal_e63_ <= 0) {
-            psal_e63_ = static_cast<int32_t>(tplA_mag2 >> 20);
+        const int64_t sh = best_total >> 14;
+        if (sh <= 0) {
+            psal_e63_ = 1;
+        } else if (sh > static_cast<int64_t>(INT_MAX)) {
+            psal_e63_ = INT_MAX;
+        } else {
+            psal_e63_ = static_cast<int32_t>(sh);
         }
     }
     if (psal_e63_ <= 0) {
