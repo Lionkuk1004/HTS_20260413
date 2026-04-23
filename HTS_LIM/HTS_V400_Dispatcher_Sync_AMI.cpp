@@ -324,6 +324,33 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     if (psal_e63_ <= 0) {
         psal_e63_ = 1;
     }
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    {
+        static int s_diag_legacy_state_ami = 0;
+        if (s_diag_legacy_state_ami < 40) {
+            std::printf(
+                "[CMYK-DIAG-LEGACY-STATE-AMI] n=%d "
+                "psal_off=%d psal_e63=%d p0_chip_count=%d pre_phase=%d "
+                "chip_start=%d off_ac=%d best_mag2=%lld best_xc=%lld "
+                "dom=%u estI=%d estQ=%d est_n=%d derot=%d "
+                "agc_sh=%d cfo_sin14=%d cfo_ap=%d\n",
+                s_diag_legacy_state_ami, static_cast<int>(psal_off_),
+                static_cast<int>(psal_e63_),
+                static_cast<int>(p0_chip_count_),
+                static_cast<int>(pre_phase_), chip_start, best_off_ac,
+                static_cast<long long>(best_mag2),
+                static_cast<long long>(best_xc),
+                static_cast<unsigned>(dominant_row_),
+                static_cast<int>(est_I_), static_cast<int>(est_Q_),
+                est_count_, derot_shift_,
+                static_cast<int>(pre_agc_.Get_Shift()),
+                static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+                cfo_.Is_Apply_Active() ? 1 : 0);
+            ++s_diag_legacy_state_ami;
+            std::fflush(stdout);
+        }
+    }
+#endif
     psal_commit_align_();
 
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
@@ -589,12 +616,9 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         return;
     }
 
-    int chip_start = best_off;
+    int chip_start = best_off % 64;
     if (chip_start < 0) {
-        chip_start = 0;
-    }
-    if (chip_start > 63) {
-        chip_start = 63;
+        chip_start += 64;
     }
 
     dominant_row_ = 63u;
@@ -638,6 +662,32 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     if (psal_e63_ <= 0) {
         psal_e63_ = 1;
     }
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    {
+        static int s_diag_cmyk_state_ami = 0;
+        if (s_diag_cmyk_state_ami < 40) {
+            std::printf(
+                "[CMYK-DIAG-CMYK-STATE-AMI] n=%d "
+                "psal_off=%d psal_e63=%d p0_chip_count=%d pre_phase=%d "
+                "best_off=%d chip_start=%d best_total=%lld "
+                "dom=%u estI=%d estQ=%d est_n=%d derot=%d "
+                "agc_sh=%d cfo_sin14=%d cfo_ap=%d\n",
+                s_diag_cmyk_state_ami, static_cast<int>(psal_off_),
+                static_cast<int>(psal_e63_),
+                static_cast<int>(p0_chip_count_),
+                static_cast<int>(pre_phase_), best_off, chip_start,
+                static_cast<long long>(best_total),
+                static_cast<unsigned>(dominant_row_),
+                static_cast<int>(est_I_), static_cast<int>(est_Q_),
+                est_count_, derot_shift_,
+                static_cast<int>(pre_agc_.Get_Shift()),
+                static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
+                cfo_.Is_Apply_Active() ? 1 : 0);
+            ++s_diag_cmyk_state_ami;
+            std::fflush(stdout);
+        }
+    }
+#endif
     psal_commit_align_();
 
 #if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
