@@ -435,6 +435,20 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     const uint64_t sB = tpl_to_sign64(tplB);
     const uint64_t sC = tpl_to_sign64(tplC);
     const uint64_t sD = tpl_to_sign64(tplD);
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    static int rx_tpl_dump_ami = 0;
+    if (rx_tpl_dump_ami < 1) {
+        std::printf(
+            "[CMYK-RX-TPL] tA_sign=0x%llX tB_sign=0x%llX tC_sign=0x%llX "
+            "tD_sign=0x%llX\n",
+            static_cast<unsigned long long>(sA),
+            static_cast<unsigned long long>(sB),
+            static_cast<unsigned long long>(sC),
+            static_cast<unsigned long long>(sD));
+        std::fflush(stdout);
+        ++rx_tpl_dump_ami;
+    }
+#endif
     int64_t coarse_score = 0;
     const int32_t coarse_best_off = sign_scan_4tmpl(
         p0_buf128_I_, p0_buf128_Q_, 0, buf_chips, sA, sB, sC, sD, &coarse_score);
@@ -639,12 +653,41 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     cmyk_last_pass_ = pass;
 
 #if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    const int pA =
+        static_cast<int>(cube.face_A_q10 >= GRAVITY_THR_A_Q10 ? 1 : 0);
+    const int pB =
+        static_cast<int>(cube.face_B_q10 >= GRAVITY_THR_B_Q10 ? 1 : 0);
+    const int pC =
+        static_cast<int>(cube.face_C_q10 >= GRAVITY_THR_C_Q10 ? 1 : 0);
+    const int pD =
+        static_cast<int>(cube.face_D_q10 >= GRAVITY_THR_D_Q10 ? 1 : 0);
+    const int pE =
+        static_cast<int>(cube.face_E_q10 >= GRAVITY_THR_E_Q10 ? 1 : 0);
+    const int pF =
+        static_cast<int>(cube.face_F_q10 >= GRAVITY_THR_F_Q10 ? 1 : 0);
     std::printf(
-        "[CMYK-DIAG-AMI] stage=CUBE pass=%d A=%d B=%d C=%d D=%d E=%d F=%d\n",
-        pass ? 1 : 0, static_cast<int>(cube.face_A_q10),
+        "[CMYK-DIAG-CUBE-AMI] best_off=%d best_total=%lld noise=%lld "
+        "A=%d B=%d C=%d D=%d E=%d F=%d pass=%d\n",
+        best_off, static_cast<long long>(best_total),
+        static_cast<long long>(nf_total), static_cast<int>(cube.face_A_q10),
         static_cast<int>(cube.face_B_q10), static_cast<int>(cube.face_C_q10),
         static_cast<int>(cube.face_D_q10), static_cast<int>(cube.face_E_q10),
-        static_cast<int>(cube.face_F_q10));
+        static_cast<int>(cube.face_F_q10), pass ? 1 : 0);
+    std::printf(
+        "[CUBE-DETAIL-AMI] A:%d/%d(%d) B:%d/%d(%d) C:%d/%d(%d) D:%d/%d(%d) "
+        "E:%d/%d(%d) F:%d/%d(%d)\n",
+        static_cast<int>(cube.face_A_q10),
+        static_cast<int>(GRAVITY_THR_A_Q10), pA,
+        static_cast<int>(cube.face_B_q10),
+        static_cast<int>(GRAVITY_THR_B_Q10), pB,
+        static_cast<int>(cube.face_C_q10),
+        static_cast<int>(GRAVITY_THR_C_Q10), pC,
+        static_cast<int>(cube.face_D_q10),
+        static_cast<int>(GRAVITY_THR_D_Q10), pD,
+        static_cast<int>(cube.face_E_q10),
+        static_cast<int>(GRAVITY_THR_E_Q10), pE,
+        static_cast<int>(cube.face_F_q10),
+        static_cast<int>(GRAVITY_THR_F_Q10), pF);
     std::fflush(stdout);
 #endif
 
@@ -656,6 +699,8 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         p0_chip_count_ = 64;
         return;
     }
+
+    cmyk_gravity_pass_ever_ = true;
 
     int chip_start = best_off % 64;
     if (chip_start < 0) {
@@ -675,8 +720,20 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
         seed_dot_I += di;
         seed_dot_Q += dq;
     }
-    est_I_ = seed_dot_I;
-    est_Q_ = seed_dot_Q;
+    // Phase 3.O: CMYK — walsh63_dot 합은 Walsh 구조가 아니라 방향 추정에 부적합.
+    //   est_I_ = 진폭 대용(|dot_I|+|dot_Q|), est_Q_=0 으로 CFO derot 중립화.
+    {
+        const int64_t aI = (seed_dot_I >= 0) ? static_cast<int64_t>(seed_dot_I)
+                                             : -static_cast<int64_t>(seed_dot_I);
+        const int64_t aQ = (seed_dot_Q >= 0) ? static_cast<int64_t>(seed_dot_Q)
+                                             : -static_cast<int64_t>(seed_dot_Q);
+        const int64_t amp = aI + aQ;
+        est_I_ = static_cast<int32_t>(
+            (amp > static_cast<int64_t>(INT_MAX))
+                ? INT_MAX
+                : static_cast<int32_t>(amp));
+    }
+    est_Q_ = 0;
     est_count_ = 2;
     update_derot_shift_from_est_();
 
@@ -720,9 +777,9 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
     // (Phase 3.F 두 번째 호출 제거 — agc_sh 덮어쓰기 방지)
 
     psal_off_ = chip_start;
-    // Phase 3.C: INNOViD — Option C1: psal_e63_ from Full XC peak (best_total>>14)
+    // Phase 3.O: psal_e63_ — Sign-XC best_total 에 >>14 는 레거리 스케일 대비 과소 → >>10.
     {
-        const int64_t sh = best_total >> 14;
+        const int64_t sh = best_total >> 10;
         if (sh <= 0) {
             psal_e63_ = 1;
         } else if (sh > static_cast<int64_t>(INT_MAX)) {
@@ -759,6 +816,16 @@ void HTS_V400_Dispatcher::phase0_scan_cmyk_gravity_cube_ami_() noexcept {
             std::fflush(stdout);
         }
     }
+#endif
+#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
+    std::printf(
+        "[CMYK-DIAG-CONTRACT-AMI] best_off=%d chip_start=%d "
+        "psal_off=%d psal_e63=%d est_I=%d est_Q=%d agc_sh=%d\n",
+        static_cast<int>(best_off), static_cast<int>(chip_start),
+        static_cast<int>(psal_off_), static_cast<int>(psal_e63_),
+        static_cast<int>(est_I_), static_cast<int>(est_Q_),
+        static_cast<int>(pre_agc_.Get_Shift()));
+    std::fflush(stdout);
 #endif
     psal_commit_align_();
 
