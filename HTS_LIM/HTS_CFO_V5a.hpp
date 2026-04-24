@@ -9,7 +9,7 @@ namespace hts {
 namespace rx_cfo {
 
 #ifndef HTS_CFO_V5A_ENABLE
-#define HTS_CFO_V5A_ENABLE 0
+#define HTS_CFO_V5A_ENABLE 1
 #endif
 
 #ifndef HTS_CFO_RANGE_HZ
@@ -77,12 +77,21 @@ public:
                        int16_t* out_I, int16_t* out_Q, int chips,
                        int32_t cfo_hz) noexcept;
 
+    /// `Feed_Chip` 경로: 칩 1개, `Derotate_impl` 과 동일한 위상 누적.
+    void ResetPayloadDerotatePhase() noexcept;
+    /// P0 스캔 192 chip 구간과 동기: `HTS_CFO_Compensator::Advance_Phase_Only`
+    /// 가 샘플 없이 위상만 n_chips 전진하는 것과 동일한 Q32 위상 누적.
+    void AdvancePayloadDerotatePhase(int n_chips, int32_t cfo_hz) noexcept;
+    void ApplyPayloadChip(int16_t& chipI, int16_t& chipQ,
+                          int32_t cfo_hz) noexcept;
+
 private:
     int32_t last_cfo_hz_;
     bool runtime_enabled_;
     int16_t work_I_[kPreambleChips];
     int16_t work_Q_[kPreambleChips];
     int64_t fine_energies_[32];
+    uint32_t payload_phase_q32_{ 0u };
 };
 
 }  // namespace rx_cfo

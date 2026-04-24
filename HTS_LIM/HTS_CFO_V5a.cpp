@@ -42,23 +42,29 @@ static inline int32_t dot_q14_round(int32_t x, int32_t a_q14, int32_t y,
     return static_cast<int32_t>((p - (1LL << 13)) >> 14);
 }
 
-static void Derotate_impl(const int16_t* rI, const int16_t* rQ, int16_t* oI,
-                          int16_t* oQ, int chips, int32_t cfo_hz) noexcept {
+static inline void Derotate_one_chip(uint32_t& phase_q32, int32_t cfo_hz,
+                                     int16_t inI, int16_t inQ, int16_t& outI,
+                                     int16_t& outQ) noexcept {
     const int64_t phase_inc_s64 =
         (-static_cast<int64_t>(cfo_hz) * 4294967296LL) /
         static_cast<int64_t>(kChipRateHz);
     const uint32_t phase_inc_q32 = static_cast<uint32_t>(phase_inc_s64);
+    const int32_t cos_q14 = static_cast<int32_t>(Lookup_Cos(phase_q32));
+    const int32_t sin_q14 = static_cast<int32_t>(Lookup_Sin(phase_q32));
+    const int32_t x = static_cast<int32_t>(inI);
+    const int32_t y = static_cast<int32_t>(inQ);
+    const int32_t a = dot_q14_round(x, cos_q14, y, -sin_q14);
+    const int32_t b = dot_q14_round(x, sin_q14, y, cos_q14);
+    outI = sat_i32_to_i16(a);
+    outQ = sat_i32_to_i16(b);
+    phase_q32 += phase_inc_q32;
+}
+
+static void Derotate_impl(const int16_t* rI, const int16_t* rQ, int16_t* oI,
+                          int16_t* oQ, int chips, int32_t cfo_hz) noexcept {
     uint32_t phase_q32 = 0u;
     for (int k = 0; k < chips; ++k) {
-        const int32_t cos_q14 = static_cast<int32_t>(Lookup_Cos(phase_q32));
-        const int32_t sin_q14 = static_cast<int32_t>(Lookup_Sin(phase_q32));
-        const int32_t x = static_cast<int32_t>(rI[k]);
-        const int32_t y = static_cast<int32_t>(rQ[k]);
-        const int32_t a = dot_q14_round(x, cos_q14, y, -sin_q14);
-        const int32_t b = dot_q14_round(x, sin_q14, y, cos_q14);
-        oI[k] = sat_i32_to_i16(a);
-        oQ[k] = sat_i32_to_i16(b);
-        phase_q32 += phase_inc_q32;
+        Derotate_one_chip(phase_q32, cfo_hz, rI[k], rQ[k], oI[k], oQ[k]);
     }
 }
 
@@ -237,6 +243,7 @@ void CFO_V5a::Init() noexcept {
     Build_SinCos_Table();
     last_cfo_hz_ = 0;
     runtime_enabled_ = (HTS_CFO_V5A_ENABLE != 0);
+    ResetPayloadDerotatePhase();
 }
 
 CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
@@ -309,6 +316,34 @@ void CFO_V5a::ApplyDerotate(const int16_t* in_I, const int16_t* in_Q,
                             int16_t* out_I, int16_t* out_Q, int chips,
                             int32_t cfo_hz) noexcept {
     Derotate_impl(in_I, in_Q, out_I, out_Q, chips, cfo_hz);
+}
+
+void CFO_V5a::ResetPayloadDerotatePhase() noexcept {
+    payload_phase_q32_ = 0u;
+}
+
+void CFO_V5a::AdvancePayloadDerotatePhase(int n_chips,
+                                          int32_t cfo_hz) noexcept {
+    if (n_chips <= 0) {
+        return;
+    }
+    const int64_t phase_inc_s64 =
+        (-static_cast<int64_t>(cfo_hz) * 4294967296LL) /
+        static_cast<int64_t>(kChipRateHz);
+    const uint32_t phase_inc_q32 = static_cast<uint32_t>(phase_inc_s64);
+    const uint64_t delta =
+        static_cast<uint64_t>(phase_inc_q32) *
+        static_cast<uint32_t>(n_chips);
+    payload_phase_q32_ =
+        static_cast<uint32_t>(static_cast<uint64_t>(payload_phase_q32_) +
+                              delta);
+}
+
+void CFO_V5a::ApplyPayloadChip(int16_t& chipI, int16_t& chipQ,
+                               int32_t cfo_hz) noexcept {
+    const int16_t inI = chipI;
+    const int16_t inQ = chipQ;
+    Derotate_one_chip(payload_phase_q32_, cfo_hz, inI, inQ, chipI, chipQ);
 }
 
 #if defined(HTS_ALLOW_HOST_BUILD)
