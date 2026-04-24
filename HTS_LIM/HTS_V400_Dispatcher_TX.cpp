@@ -7,10 +7,6 @@
 #include "HTS_Secure_Memory.h"
 #if defined(HTS_HOLO_PREAMBLE)
 #include "HTS_Holo_Tensor_4D_Defs.h"
-#include "HTS_Holo_Preamble_Gen.hpp"
-#endif
-#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
-#include <cstdio>
 #endif
 #include <cstdint>
 #include <cstddef>
@@ -219,14 +215,6 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 #if defined(HTS_HOLO_PREAMBLE)
     int16_t holo_pre_I[64];
     generate_holo_preamble_(holo_pre_I, pre_amp, holo_lpi_seed_, tx_seq_);
-#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
-    std::printf("[HOLO-CMYK-TX] mode=%d slot=%u A[0..3]=%d,%d,%d,%d\n",
-                HTS_HOLO_CMYK_MODE, static_cast<unsigned>(tx_seq_),
-                static_cast<int>(holo_pre_I[0]), static_cast<int>(holo_pre_I[1]),
-                static_cast<int>(holo_pre_I[2]),
-                static_cast<int>(holo_pre_I[3]));
-    std::fflush(stdout);
-#endif
 #endif
     for (int r = 0; r < pre_reps_; ++r) {
 #if defined(HTS_HOLO_PREAMBLE)
