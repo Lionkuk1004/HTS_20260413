@@ -1,9 +1,14 @@
 // =============================================================================
 // HTS_CFO_V5a.cpp — INNOViD HTS Rx CFO V5a
 // Phase 1-3: Derotate / Walsh63_Dot / Energy_Multiframe (file-static).
+// Phase 1-4: L&R segment autocorr estimator (Luise & Reggiannini 1995).
 // =============================================================================
 #include "HTS_CFO_V5a.hpp"
 #include "HTS_Rx_CFO_SinCos_Table.hpp"
+
+#if !defined(HTS_PLATFORM_ARM)
+#include <cmath>
+#endif
 
 namespace hts {
 namespace rx_cfo {
@@ -85,6 +90,135 @@ static int64_t Energy_Multiframe_impl(const int16_t* rI,
     return e0 + e1;
 }
 
+// --- L&R: atan2 → phase_q15 (arg(Z) × 32768 / π) ---
+// HTS_CFO_Compensator::atan2_q12 is private; ARM path duplicates the same
+// Q12 mapping (atan2·4096, ±π ≈ ±12868) from HTS_CFO_Compensator.h without
+// modifying that translation unit.
+
+#if defined(HTS_PLATFORM_ARM)
+
+static inline int32_t lr_atan_frac_q12(int32_t y, int32_t x) noexcept {
+    if (x <= 0 || y < 0 || y > x) {
+        return 0;
+    }
+    if (y == 0) {
+        return 0;
+    }
+    static constexpr int16_t kLut[17] = {
+        0,    256,  511,  763,  1018, 1266, 1508, 1741,
+        1965, 2178, 2380, 2571, 2749, 2915, 3068, 3208, 3217};
+    const int64_t ratio_q14 =
+        (static_cast<int64_t>(y) << 14) / static_cast<int64_t>(x);
+    const int64_t scaled = ratio_q14 * 16;
+    int32_t idx = static_cast<int32_t>(scaled >> 14);
+    if (idx >= 16) {
+        return static_cast<int32_t>(kLut[16]);
+    }
+    const int32_t base = static_cast<int32_t>(kLut[idx]);
+    const int32_t next = static_cast<int32_t>(kLut[idx + 1]);
+    const int32_t frac = static_cast<int32_t>(scaled & ((1 << 14) - 1));
+    return base + static_cast<int32_t>(
+               (static_cast<int64_t>(next - base) * frac) >> 14);
+}
+
+static inline int32_t lr_atan2_q12(int32_t y, int32_t x) noexcept {
+    if (x == 0 && y == 0) {
+        return 0;
+    }
+    const int32_t ax = (x < 0) ? -x : x;
+    const int32_t ay = (y < 0) ? -y : y;
+    const bool swap = ay > ax;
+    const int32_t u = swap ? ay : ax;
+    const int32_t v = swap ? ax : ay;
+    if (u == 0) {
+        return (y >= 0) ? 6434 : -6434;
+    }
+    int32_t ang = lr_atan_frac_q12(v, u);
+    if (swap) {
+        ang = 6434 - ang;
+    }
+    if (x < 0) {
+        ang = 12868 - ang;
+    }
+    if (y < 0) {
+        ang = -ang;
+    }
+    return ang;
+}
+
+static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
+    while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
+           (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
+        y >>= 1;
+        x >>= 1;
+    }
+    const int32_t phase_q12 =
+        lr_atan2_q12(static_cast<int32_t>(y), static_cast<int32_t>(x));
+    // Q12 = atan2·4096 (π rad ≈ 12868); Q15 = arg × 32768/π.
+    return static_cast<int32_t>((static_cast<int64_t>(phase_q12) * 32768LL) /
+                                12868LL);
+}
+
+#else
+
+static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
+    const double yd = static_cast<double>(y);
+    const double xd = static_cast<double>(x);
+    const double phase_rad = std::atan2(yd, xd);
+    constexpr double kInvPi = 0.31830988618379067154;
+    const double phase_q15_d = phase_rad * 32768.0 * kInvPi;
+    if (phase_q15_d > 32767.0) {
+        return 32767;
+    }
+    if (phase_q15_d < -32768.0) {
+        return -32768;
+    }
+    return static_cast<int32_t>(std::llround(phase_q15_d));
+}
+
+#endif
+
+// Luise & Reggiannini (1995): Δf = arg(Z) / (π·(M+1)·T_seg)
+//                         = phase_q15 × 10^7 / 26214400  (Hz), M=4, T_seg=16 µs.
+static int32_t LR_Estimate_impl(const int16_t* rI,
+                                const int16_t* rQ) noexcept {
+    int32_t seg_I[kLR_NumSeg];
+    int32_t seg_Q[kLR_NumSeg];
+
+    for (int s = 0; s < kLR_NumSeg; ++s) {
+        int32_t aI = 0;
+        int32_t aQ = 0;
+        const int base = s * kLR_SegSize;
+        for (int k = 0; k < kLR_SegSize; ++k) {
+            const int walsh_idx = (base + k) & (kChipsPerSym - 1);
+            const int8_t w = kWalsh63Row63[walsh_idx];
+            aI += static_cast<int32_t>(rI[base + k]) * static_cast<int32_t>(w);
+            aQ += static_cast<int32_t>(rQ[base + k]) * static_cast<int32_t>(w);
+        }
+        seg_I[s] = aI;
+        seg_Q[s] = aQ;
+    }
+
+    int64_t Z_re = 0;
+    int64_t Z_im = 0;
+
+    for (int lag = 1; lag <= kLR_MaxLag; ++lag) {
+        for (int n = 0; n + lag < kLR_NumSeg; ++n) {
+            const int64_t aI = seg_I[n + lag];
+            const int64_t aQ = seg_Q[n + lag];
+            const int64_t bI = seg_I[n];
+            const int64_t bQ = seg_Q[n];
+            Z_re += aI * bI + aQ * bQ;
+            Z_im += aQ * bI - aI * bQ;
+        }
+    }
+
+    const int32_t phase_q15 = Atan2_To_Q15(Z_im, Z_re);
+    const int64_t cfo_hz_s64 =
+        (static_cast<int64_t>(phase_q15) * 10000000LL) / 26214400LL;
+    return static_cast<int32_t>(cfo_hz_s64);
+}
+
 }  // namespace
 
 CFO_V5a::CFO_V5a() noexcept
@@ -139,6 +273,10 @@ void Walsh63_Dot_Table(const int16_t* rI, const int16_t* rQ, int32_t& dI,
 int64_t Energy_Multiframe_Table(const int16_t* rI,
                                 const int16_t* rQ) noexcept {
     return Energy_Multiframe_impl(rI, rQ);
+}
+
+int32_t LR_Estimate(const int16_t* rI, const int16_t* rQ) noexcept {
+    return LR_Estimate_impl(rI, rQ);
 }
 
 }  // namespace test_export

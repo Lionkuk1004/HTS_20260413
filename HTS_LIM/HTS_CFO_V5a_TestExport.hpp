@@ -20,6 +20,8 @@ void Walsh63_Dot_Table(const int16_t* rI, const int16_t* rQ, int32_t& dI,
 int64_t Energy_Multiframe_Table(const int16_t* rI,
                                 const int16_t* rQ) noexcept;
 
+int32_t LR_Estimate(const int16_t* rI, const int16_t* rQ) noexcept;
+
 }  // namespace test_export
 }  // namespace rx_cfo
 }  // namespace hts
