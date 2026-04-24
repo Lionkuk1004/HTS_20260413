@@ -5,7 +5,7 @@
 
 #include "HTS_Config.h"
 
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
 
 #include "HTS_BitOps.h"
 #include "HTS_Holo_Tensor_4D_Defs.h"
@@ -409,4 +409,4 @@ inline int64_t gravity_estimate_noise_floor(
 } // namespace detail
 } // namespace ProtectedEngine
 
-#endif // HTS_HOLO_PREAMBLE && HTS_HOLO_CMYK_MODE
+#endif // HTS_HOLO_PREAMBLE
