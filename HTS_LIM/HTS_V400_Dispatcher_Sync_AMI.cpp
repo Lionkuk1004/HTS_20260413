@@ -320,7 +320,7 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         }
         const int32_t peak_avg = mag_sum >> 6;
         pre_agc_.Set_From_Peak(peak_avg);
-#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PLATFORM_ARM) && !HTS_HOLO_CMYK_MODE
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PLATFORM_ARM)
         std::printf(
             "[LEGACY-DIAG-PEAK-AMI] chip_start=%d mag_sum=%d peak_avg=%d "
             "mag_max=%d nonzero=%d/64 agc_sh=%d\n",
