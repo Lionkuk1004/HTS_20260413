@@ -91,7 +91,7 @@ struct TrialMetrics {
     bool length_correct;    // data_len == 8
     int  bit_errors;        // 64 bit 중 틀린 수 (0~64)
     int  byte_errors;       // 8 byte 중 틀린 수 (0~8)
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     bool cmyk_gravity_pass_any; ///< RX 세션 중 6면 cube pass ≥1 (Phase 3.N)
 #endif
 };
@@ -213,7 +213,7 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
     m.length_correct = false;
     m.bit_errors = 64;
     m.byte_errors = 8;
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     m.cmyk_gravity_pass_any = false;
 #endif
 
@@ -225,7 +225,7 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
     for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
     for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
 
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     m.cmyk_gravity_pass_any = rx.Get_Cmyk_Gravity_Pass_Ever();
 #endif
 
@@ -270,7 +270,7 @@ static TrialMetrics feed_raw_ext_holo(uint32_t ds, const int16_t* rxI,
     m.length_correct = false;
     m.bit_errors = 64;
     m.byte_errors = 8;
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     m.cmyk_gravity_pass_any = false;
 #endif
 
@@ -283,7 +283,7 @@ static TrialMetrics feed_raw_ext_holo(uint32_t ds, const int16_t* rxI,
     for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
     for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
 
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     m.cmyk_gravity_pass_any = rx.Get_Cmyk_Gravity_Pass_Ever();
 #endif
 
@@ -332,7 +332,7 @@ static TrialMetrics feed_raw_lpi_ext(uint32_t ds, const int16_t* rxI,
     m.length_correct = false;
     m.bit_errors = 64;
     m.byte_errors = 8;
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     m.cmyk_gravity_pass_any = false;
 #endif
 
@@ -346,7 +346,7 @@ static TrialMetrics feed_raw_lpi_ext(uint32_t ds, const int16_t* rxI,
     for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
     rx.Disable_Holo_LPI();
 
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+#if defined(HTS_HOLO_PREAMBLE)
     m.cmyk_gravity_pass_any = rx.Get_Cmyk_Gravity_Pass_Ever();
 #endif
 
@@ -521,7 +521,7 @@ static void test_S1() {
 
         const TrialMetrics m = feed_raw_ext(ds, tx.I, tx.Q, tx.n, tx.info);
 #if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM) && \
-    defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
+    defined(HTS_HOLO_PREAMBLE)
         std::printf(
             "[S1-TRIAL] t=%d pass=%d crc=%d len_ok=%d be=%d grav_any=%d\n",
             t, m.pass ? 1 : 0, m.crc_passed ? 1 : 0, m.length_correct ? 1 : 0,

@@ -119,13 +119,3 @@ namespace ProtectedEngine {
 
 } // namespace ProtectedEngine
 
-// -----------------------------------------------------------------
-// HTS_HOLO_CMYK_MODE
-//   0: 기존 [A|A|A|A] 프리앰블 유지 (default, backward compatible)
-//   1: [A|B|C|D] CMYK 프리앰블 사용 (신규, 6-face Gravity Cube RX 필요)
-//
-// 참조: INNOViD 사내 문서 HOLO_6FACE_FINAL_2026-04-23
-// -----------------------------------------------------------------
-#ifndef HTS_HOLO_CMYK_MODE
-#define HTS_HOLO_CMYK_MODE 0
-#endif
