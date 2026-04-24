@@ -19,6 +19,8 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
    HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
    ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
    ..\..\HTS_LIM\HTS_Preamble_Holographic.cpp ^
+   ..\..\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp ^
+   ..\..\HTS_LIM\HTS_CFO_V5a.cpp ^
    /link /nologo
 
 exit /b %ERRORLEVEL%

@@ -183,6 +183,8 @@
     <ClCompile Include="hmac.c" />
     <ClCompile Include="HTS_Amp_Diag.cpp" />
     <ClCompile Include="HTS_CoAP_Engine.cpp" />
+    <ClCompile Include="HTS_CFO_V5a.cpp" />
+    <ClCompile Include="HTS_Rx_CFO_SinCos_Table.cpp" />
     <ClCompile Include="HTS_CW_Detect_Diag.cpp" />
     <ClCompile Include="HTS_CW_Excision.cpp" />
     <ClCompile Include="HTS_CW_LLR_Weight.cpp" />
@@ -338,6 +340,7 @@
     <ClInclude Include="HTS_Arm_Irq_Mask_Guard.h" />
     <ClInclude Include="HTS_Channel_Physics.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
+    <ClInclude Include="HTS_Rx_CFO_SinCos_Table.hpp" />
     <ClInclude Include="HTS_CW_Detect_Diag.hpp" />
     <ClInclude Include="HTS_CW_Excision.hpp" />
     <ClInclude Include="HTS_CW_LLR_Weight.hpp" />
@@ -380,6 +383,7 @@
     <ClInclude Include="HTS_Console_Manager.h" />
     <ClInclude Include="HTS_Console_Manager_Defs.h" />
     <ClInclude Include="HTS_CFO_Compensator.h" />
+    <ClInclude Include="HTS_CFO_V5a.hpp" />
     <ClInclude Include="HTS_Preamble_AGC.h" />
     <ClInclude Include="HTS_Crypto_KAT.h" />
     <ClInclude Include="HTS_CTR_DRBG.h" />

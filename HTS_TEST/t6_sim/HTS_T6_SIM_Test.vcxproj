@@ -166,6 +166,8 @@
   <ItemGroup>
     <ClCompile Include="HTS_T6_SIM_Test.cpp" />
     <ClCompile Include="HTS_Session_Derive_Stub.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />
