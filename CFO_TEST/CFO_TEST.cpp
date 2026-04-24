@@ -672,7 +672,7 @@ int main() {
             auto bstat = compute(b.cos_acc, b.sin_acc);
             auto vstat = compute(v.cos_acc, v.sin_acc);
             std::printf("  %-10d | %+7.2f° / %+6.2f%%  | %+7.2f° / %+6.3f%%\n",
-                        n, bstat.first, bstat.second, vstat.first,
+                        n, bstat.first, bstat.second, vstat.first, 
                         vstat.second);
         }
         std::printf("\n");
