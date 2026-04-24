@@ -667,7 +667,7 @@ int main() {
                     d -= 2 * M_PI;
                 while (d < -M_PI)
                     d += 2 * M_PI;
-                return std::make_pair(d * 180 / M_PI, (mag - 1) * 100);
+                return std::make_pair(d * 180 / M_PI, (mag - 1) * 100);  
             };
             auto bstat = compute(b.cos_acc, b.sin_acc);
             auto vstat = compute(v.cos_acc, v.sin_acc);
@@ -675,7 +675,7 @@ int main() {
                         n, bstat.first, bstat.second, vstat.first, 
                         vstat.second);
         }
-        std::printf("\n");
+        std::printf("\n");    
     }
     std::printf(
         "============================================================\n");
