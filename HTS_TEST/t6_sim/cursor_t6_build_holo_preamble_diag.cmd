@@ -1,5 +1,5 @@
 @echo off
-REM HOLO preamble (CMYK=0) + HTS_DIAG_HOLO_CMYK — Phase 2.8 LEGACY-STATE 로그
+REM HOLO preamble diagnostic build (extra printf paths)
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
@@ -12,7 +12,6 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
    /DHTS_ALLOW_HOST_BUILD ^
    /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
    /DHTS_HOLO_PREAMBLE ^
-   /DHTS_DIAG_HOLO_CMYK=1 ^
    /DHTS_DIAG_PRINTF ^
    %HOLO_FLAG% ^
    /D_CRT_SECURE_NO_WARNINGS ^
