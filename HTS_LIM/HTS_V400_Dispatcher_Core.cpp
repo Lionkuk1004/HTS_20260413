@@ -98,6 +98,12 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
         (p_metrics_ != nullptr) ? 1 : 0,
         static_cast<int>(tx_amp_));
 #endif
+    cfo_v5a_.Init();
+#if (HTS_CFO_V5A_ENABLE != 0)
+    cfo_v5a_.SetEnabled(true);
+#else
+    cfo_v5a_.SetEnabled(false);
+#endif
 }
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
@@ -342,6 +348,14 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     dc_est_I_ = 0;
     dc_est_Q_ = 0;
     cfo_.Init();
+    cfo_v5a_.Init();
+#if (HTS_CFO_V5A_ENABLE != 0)
+    cfo_v5a_.SetEnabled(true);
+#else
+    cfo_v5a_.SetEnabled(false);
+#endif
+    cfo_v5a_last_cfo_hz_ = 0;
+    cfo_v5a_last_valid_ = false;
     tpc_.Init();
     pre_agc_.Init();
 #if defined(HTS_PHASE0_WALSH_BANK)

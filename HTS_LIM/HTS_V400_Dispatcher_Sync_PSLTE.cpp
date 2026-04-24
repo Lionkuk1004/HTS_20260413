@@ -1459,6 +1459,24 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 // [CFO 4-3] P0 스캔 구간 192 chip 위상 누적 전진
                 //           payload 첫 Apply 시 위상이 스캔 구간 끝과 정합
                 cfo_.Advance_Phase_Only(192);
+#if (HTS_CFO_V5A_ENABLE != 0)
+                if (cfo_v5a_.IsEnabled() &&
+                    best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+                    const int16_t* const pre_I = &p0_buf128_I_[best_off];
+                    const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
+                    const hts::rx_cfo::CFO_Result cfo_res =
+                        cfo_v5a_.Estimate(pre_I, pre_Q);
+                    cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
+                    cfo_v5a_last_valid_ = cfo_res.valid;
+#if defined(HTS_CFO_V5A_DIAG) && defined(HTS_DIAG_PRINTF)
+                    std::printf(
+                        "[CFO_V5a] est=%d Hz peak=%lld valid=%d\n",
+                        static_cast<int>(cfo_res.cfo_hz),
+                        static_cast<long long>(cfo_res.peak_energy),
+                        cfo_res.valid ? 1 : 0);
+#endif
+                }
+#endif
             }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {

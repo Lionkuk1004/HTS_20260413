@@ -241,13 +241,67 @@ void CFO_V5a::Init() noexcept {
 
 CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
                              const int16_t* rx_Q) noexcept {
-    (void)rx_I;
-    (void)rx_Q;
     CFO_Result res{};
     res.cfo_hz = 0;
     res.peak_energy = 0;
     res.valid = false;
     last_cfo_hz_ = 0;
+
+    if (rx_I == nullptr || rx_Q == nullptr) {
+        return res;
+    }
+
+    int32_t cfo_estimate = 0;
+    int64_t final_peak_e = 0;
+
+    for (int pass = 0; pass < kCfoIterPasses; ++pass) {
+        const int32_t coarse_center = cfo_estimate;
+        const int32_t coarse_start = coarse_center - kCfoRangeHz;
+
+        int64_t cb_e = -1;
+        int32_t cb_cfo = coarse_start;
+
+        for (int b = 0; b < kCfoCoarseBanks; ++b) {
+            const int32_t cfo_total = coarse_start + b * kCfoCoarseStep;
+            Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips,
+                          cfo_total);
+            const int64_t e = Energy_Multiframe_impl(work_I_, work_Q_);
+            if (e > cb_e) {
+                cb_e = e;
+                cb_cfo = cfo_total;
+            }
+        }
+
+        int32_t best_cfo = cb_cfo;
+        int64_t best_e = cb_e;
+
+        const int32_t fine_start =
+            cb_cfo - (kCfoFineBanks / 2) * kCfoFineStep;
+
+        for (int f = 0; f < kCfoFineBanks; ++f) {
+            const int32_t cfo = fine_start + f * kCfoFineStep;
+            Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips, cfo);
+            const int64_t e = Energy_Multiframe_impl(work_I_, work_Q_);
+            if (f < 32) {
+                fine_energies_[f] = e;
+            }
+            if (e > best_e) {
+                best_e = e;
+                best_cfo = cfo;
+            }
+        }
+
+        Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips, best_cfo);
+        const int32_t lr_cfo = LR_Estimate_impl(work_I_, work_Q_);
+
+        cfo_estimate = best_cfo + lr_cfo;
+        final_peak_e = best_e;
+    }
+
+    last_cfo_hz_ = cfo_estimate;
+    res.cfo_hz = cfo_estimate;
+    res.peak_energy = final_peak_e;
+    res.valid = true;
     return res;
 }
 
