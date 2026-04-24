@@ -401,9 +401,6 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     }
     holo_lpi_rx_chip_idx_ = 0u;
     holo_lpi_rx_scalars_seq_ = 0xFFFFFFFFu;
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
-    cmyk_gravity_pass_ever_ = false;
-#endif
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
     mf_reset_();
 #endif
