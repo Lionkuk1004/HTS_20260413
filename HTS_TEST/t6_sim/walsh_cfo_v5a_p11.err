@@ -1,0 +1,10 @@
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+
+=== WRC DIAG ===
+  method         = 0
+  call_count_16  = 0
+  call_count_64  = 5642686
+  total_delta    = 0
+================
