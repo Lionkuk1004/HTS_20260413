@@ -1949,13 +1949,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p0_buf128_I_[p0_chip_count_] = chip_I;
             p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
-            if (p0_chip_count_ < k_p0_holo_rx_collect_chips_)
-                return;
-#else
             if (p0_chip_count_ < 192)
                 return;
-#endif
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
             {
                 static int s_fullbuf_count = 0;

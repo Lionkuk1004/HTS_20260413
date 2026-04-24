@@ -78,10 +78,6 @@
 #ifdef HTS_USE_HOLOGRAPHIC_SYNC
 #include "HTS_Preamble_Holographic.h"
 #endif
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
-#include "HTS_Holo_Preamble_Gen.hpp"
-#endif
-
 namespace ProtectedEngine {
 
     /// @brief HTS_RF_Metrics 전방 선언 (적응형 BPS 인수용)
@@ -237,14 +233,6 @@ namespace ProtectedEngine {
         }
         [[nodiscard]] int Get_Preamble_Reps() const noexcept { return pre_reps_; }
 
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
-        /// Phase 3.N: 현재 RX 세션에서 gravity cube pass가 한 번이라도 true였는지
-        /// (`full_reset_`에서 false로 초기화).
-        [[nodiscard]] bool Get_Cmyk_Gravity_Pass_Ever() const noexcept {
-            return cmyk_gravity_pass_ever_;
-        }
-#endif
-
         void Set_Preamble_Boost(int boost) noexcept {
             pre_boost_ = (boost < 1) ? 1 : (boost > 4) ? 4 : boost;
         }
@@ -346,14 +334,8 @@ namespace ProtectedEngine {
         int     wait_sync_count_{ 0 };
 
         // ── Phase 0: 128칩 cross-offset 스캔 ──
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
-        int16_t p0_buf128_I_[384] = {};
-        int16_t p0_buf128_Q_[384] = {};
-        static constexpr int k_p0_holo_rx_collect_chips_ = 320;
-#else
         int16_t p0_buf128_I_[192] = {};
         int16_t p0_buf128_Q_[192] = {};
-#endif
         int     p0_chip_count_    = 0;
         int16_t p0_carry_I_[64]   = {};
         int16_t p0_carry_Q_[64]   = {};
@@ -655,14 +637,6 @@ namespace ProtectedEngine {
         void generate_holo_preamble_(int16_t* out_I, int16_t amp,
                                     const uint32_t seed[4],
                                     uint32_t slot) noexcept;
-#if HTS_HOLO_CMYK_MODE
-        detail::GravityCube6 cmyk_last_cube_{};
-        bool cmyk_last_pass_{ false };
-        bool cmyk_gravity_pass_ever_{ false };
-
-        void phase0_scan_cmyk_gravity_cube_pslte_() noexcept;
-        void phase0_scan_cmyk_gravity_cube_ami_() noexcept;
-#endif
 #endif
 
         /// Holo LPI RX 역스칼라 (Walsh·상관 전, `scalar_time_slot` = `rx_seq_` 또는 Retx용)
