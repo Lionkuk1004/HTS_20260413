@@ -698,6 +698,9 @@
     <ClInclude Include="HTS_CFO_V5a.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_CFO_V5a_TestExport.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Rx_CFO_SinCos_Table.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
