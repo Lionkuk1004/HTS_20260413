@@ -124,11 +124,6 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
        전빈 탐색. 페이로드만 2^BPS 제한(cap=true)으로 FEC 심볼 집합과 정합. */
     const int16_t pre_amp =
         static_cast<int16_t>(static_cast<int32_t>(amp) * pre_boost_);
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE
-    if (pre_reps_ < 4) {
-        pre_reps_ = 4;
-    }
-#endif
     // [BUG-FIX-PRE2] 프리앰블 반복 전송 — pre_reps_ × PRE_SYM0 + 1 × PRE_SYM1
     const int pre_chips = (pre_reps_ + 1) * 64;
     const uint32_t il = seed_ ^ (tx_seq_ * 0xA5A5A5A5u);
@@ -220,66 +215,22 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         -static_cast<std::intptr_t>(go & 1u));
     const int inc = static_cast<int>(go & 1u);
 
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE && \
-    defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
-    static int tx_reps_diag = 0;
-    if (tx_reps_diag < 4 && (go & 1u) != 0u) {
-        std::printf(
-            "[CMYK-TX-REPS] pre_reps=%d pre_amp=%d total_pre_chip=%d "
-            "pre_chips_sym01=%d\n",
-            static_cast<int>(pre_reps_), static_cast<int>(pre_amp),
-            static_cast<int>(pre_reps_ * 64),
-            static_cast<int>(pre_chips));
-        std::fflush(stdout);
-        ++tx_reps_diag;
-    }
-#endif
-
     int pos = 0;
 #if defined(HTS_HOLO_PREAMBLE)
-#if HTS_HOLO_CMYK_MODE
-    int16_t holo_pre_A[64];
-    int16_t holo_pre_B[64];
-    int16_t holo_pre_C[64];
-    int16_t holo_pre_D[64];
-    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 0u, pre_amp, holo_pre_A);
-    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 1u, pre_amp, holo_pre_B);
-    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 2u, pre_amp, holo_pre_C);
-    gen_holo_sequence_cmyk(holo_lpi_seed_, tx_seq_, 3u, pre_amp, holo_pre_D);
-    const int16_t* const holo_tab[4] = {holo_pre_A, holo_pre_B, holo_pre_C,
-                                        holo_pre_D};
-#if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
-    std::printf(
-        "[HOLO-CMYK-TX] mode=%d slot=%u A[0..3]=%d,%d,%d,%d B[0]=%d C[0]=%d "
-        "D[0]=%d\n",
-        HTS_HOLO_CMYK_MODE, static_cast<unsigned>(tx_seq_),
-        static_cast<int>(holo_pre_A[0]), static_cast<int>(holo_pre_A[1]),
-        static_cast<int>(holo_pre_A[2]), static_cast<int>(holo_pre_A[3]),
-        static_cast<int>(holo_pre_B[0]), static_cast<int>(holo_pre_C[0]),
-        static_cast<int>(holo_pre_D[0]));
-    std::fflush(stdout);
-#endif
-#else
     int16_t holo_pre_I[64];
     generate_holo_preamble_(holo_pre_I, pre_amp, holo_lpi_seed_, tx_seq_);
 #if defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
     std::printf("[HOLO-CMYK-TX] mode=%d slot=%u A[0..3]=%d,%d,%d,%d\n",
-                HTS_HOLO_CMYK_MODE, static_cast<unsigned>(tx_seq_),
+                0, static_cast<unsigned>(tx_seq_),
                 static_cast<int>(holo_pre_I[0]), static_cast<int>(holo_pre_I[1]),
                 static_cast<int>(holo_pre_I[2]),
                 static_cast<int>(holo_pre_I[3]));
     std::fflush(stdout);
 #endif
 #endif
-#endif
     for (int r = 0; r < pre_reps_; ++r) {
 #if defined(HTS_HOLO_PREAMBLE)
-#if HTS_HOLO_CMYK_MODE
-        const int16_t* const holo_src =
-            holo_tab[static_cast<unsigned>(r) & 3u];
-#else
         const int16_t* const holo_src = holo_pre_I;
-#endif
         for (int j = 0; j < 64; ++j) {
             int16_t* const di = bp_dst_i(oI, pos + j, okm);
             int16_t* const dq = bp_dst_q(oQ, pos + j, okm);
@@ -292,21 +243,6 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 #endif
         pos += 64 * inc;
     }
-#if defined(HTS_HOLO_PREAMBLE) && HTS_HOLO_CMYK_MODE && \
-    defined(HTS_DIAG_HOLO_CMYK) && !defined(HTS_PLATFORM_ARM)
-    static int tx_cmyk_256_dump = 0;
-    if (tx_cmyk_256_dump < 1 && (go & 1u) != 0u && pre_reps_ >= 4) {
-        for (int block = 0; block < 4; ++block) {
-            std::printf("[CMYK-TX-BLK%d] ", block);
-            for (int c = 0; c < 16; ++c) {
-                std::printf("%d ", static_cast<int>(oI[block * 64 + c]));
-            }
-            std::printf("\n");
-        }
-        std::fflush(stdout);
-        ++tx_cmyk_256_dump;
-    }
-#endif
     walsh_enc(PRE_SYM1, 64, pre_amp, bp_dst_i(oI, pos, okm),
               bp_dst_q(oQ, pos, okm));
     pos += 64 * inc;
