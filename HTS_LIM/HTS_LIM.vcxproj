@@ -341,6 +341,7 @@
     <ClInclude Include="HTS_Channel_Physics.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
     <ClInclude Include="HTS_Rx_CFO_SinCos_Table.hpp" />
+    <ClInclude Include="HTS_Rx_CFO_SinCos_Table_ROM.hpp" />
     <ClInclude Include="HTS_CW_Detect_Diag.hpp" />
     <ClInclude Include="HTS_CW_Excision.hpp" />
     <ClInclude Include="HTS_CW_LLR_Weight.hpp" />

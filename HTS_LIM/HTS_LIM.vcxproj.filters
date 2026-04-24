@@ -701,6 +701,9 @@
     <ClInclude Include="HTS_Rx_CFO_SinCos_Table.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_Rx_CFO_SinCos_Table_ROM.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Preamble_AGC.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
