@@ -64,10 +64,6 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 
 #if defined(HTS_HOLO_PREAMBLE)
 void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
-#if HTS_HOLO_CMYK_MODE
-    phase0_scan_cmyk_gravity_cube_ami_();
-    return;
-#else
     if (p0_chip_count_ < 192) {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
@@ -402,7 +398,6 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         "amp=%d\n",
         best_off_ac, chip_start, static_cast<long long>(best_mag2),
         static_cast<long long>(best_xc), static_cast<int>(amp_thr));
-#endif
 #endif
 }
 
