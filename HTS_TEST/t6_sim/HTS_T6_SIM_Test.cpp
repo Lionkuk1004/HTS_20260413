@@ -105,7 +105,12 @@ struct ScenarioResult {
     long long  total_bit_errors; // 시나리오별 bit error 합
 };
 
+#if defined(HTS_CFO_PRECISION_SWEEP)
+// S5 only: 0..25000 Hz @100 Hz => 251 CFO rows; keep headroom for S5F/S5-HOLO/rest.
+static constexpr int kMaxScenario = 768;
+#else
 static constexpr int kMaxScenario = 128;
+#endif
 static ScenarioResult g_results[kMaxScenario];
 static int g_n_results = 0;
 
@@ -802,7 +807,13 @@ static void test_S5() {
     ProtectedEngine::CWDetectDiag::set_scenario_label(
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
+#if defined(HTS_CFO_PRECISION_SWEEP) && !defined(HTS_DIAG_SINGLE_CFO)
+    hdr("S5", "CFO precision sweep 0-25000 Hz @100Hz (trials=20, S5 only)");
+#elif defined(HTS_DIAG_SINGLE_CFO)
+    hdr("S5", "극한 CFO 추종 (single-CFO diag)");
+#else
     hdr("S5", "극한 CFO 추종 (블라인드)");
+#endif
 #if defined(HTS_DIAG_SINGLE_CFO)
 # ifndef HTS_DIAG_SINGLE_CFO_HZ
 #  define HTS_DIAG_SINGLE_CFO_HZ 5000
@@ -813,6 +824,17 @@ static void test_S5() {
     const double cfos[] = {
         static_cast<double>(HTS_DIAG_SINGLE_CFO_HZ)};
     constexpr int kS5TrialsThisBuild = HTS_DIAG_SINGLE_CFO_TRIALS;
+#elif defined(HTS_CFO_PRECISION_SWEEP)
+    static constexpr int kCfoPrecStartHz = 0;
+    static constexpr int kCfoPrecEndHz = 25000;
+    static constexpr int kCfoPrecStepHz = 100;
+    static constexpr int kCfoPrecPoints =
+        (kCfoPrecEndHz - kCfoPrecStartHz) / kCfoPrecStepHz + 1;
+    static constexpr int kS5TrialsThisBuild = 20;
+    double cfos[kCfoPrecPoints];
+    for (int i = 0; i < kCfoPrecPoints; ++i) {
+        cfos[i] = static_cast<double>(kCfoPrecStartHz + i * kCfoPrecStepHz);
+    }
 #else
     // CFO sweep: 저역 + AMI 한계(2.5~5 kHz) + PS-LTE 상한(7.5~25 kHz), 단일 배열
     const double cfos[] = {
