@@ -1463,17 +1463,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                              d1I, d1Q);
                 cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
                 // [CFO 4-3] P0 스캔 구간 192 chip 위상 누적 전진
-                //           payload 첫 Apply 시 위상이 스캔 구간 끝과 정합
-                if (cfo_.Is_Apply_Active()) {
-                    cfo_v5a_.Set_Apply_SinCosPerChip_Q14(
-                        cfo_.Get_Sin_Per_Chip_Q14(),
-                        cfo_.Get_Cos_Per_Chip_Q14());
-                    cfo_v5a_.Advance_Phase_Only(192);
-                } else {
-                    cfo_v5a_.Set_Apply_Cfo(0);
-                }
-#if (HTS_CFO_V5A_ENABLE != 0)
-                if (cfo_v5a_.IsEnabled() &&
+                // Walsh P0: V5a Estimate → Hz → Set_Apply_Cfo (cfo_ 는 게이트만, Step 5-6 제거)
+                if (cfo_.Is_Apply_Active() &&
                     best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
                     const int16_t* const pre_I = &p0_buf128_I_[best_off];
                     const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
@@ -1481,15 +1472,15 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                         cfo_v5a_.Estimate(pre_I, pre_Q);
                     cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
                     cfo_v5a_last_valid_ = cfo_res.valid;
-#if defined(HTS_CFO_V5A_DIAG) && defined(HTS_DIAG_PRINTF)
-                    std::printf(
-                        "[CFO_V5a] est=%d Hz peak=%lld valid=%d\n",
-                        static_cast<int>(cfo_res.cfo_hz),
-                        static_cast<long long>(cfo_res.peak_energy),
-                        cfo_res.valid ? 1 : 0);
-#endif
+                    if (cfo_res.valid) {
+                        cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+                        cfo_v5a_.Advance_Phase_Only(192);
+                    } else {
+                        cfo_v5a_.Set_Apply_Cfo(0);
+                    }
+                } else {
+                    cfo_v5a_.Set_Apply_Cfo(0);
                 }
-#endif
             }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
