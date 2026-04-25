@@ -2,11 +2,12 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab L: P1 게이트 + Lab I-3 V5a 추정 복구
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab K: V5a 한계 측정 (5k–30k Hz, 격리만)
 //   TX: 0..127 PRE_SYM0 + 128..191 PRE_SYM1 + 192..255 payload
-//   V5a est: Lab I-3(7c43321) 동일 — PRE_SYM1만 64칩(128..191), lag=4; ac_norm 분모 (64-4)/64
+//   V5a est: Lab I-3 동일 — PRE_SYM1만 64칩(128..191), lag=4; ac_norm 분모 (64-4)/64
 //   P1: PS-LTE FWHT + dom=63, sym1_row=63^k_W63_FWHT_ROW_NATURAL, k_P1_MIN_E=1000
-//   Matrix: Lab K CFO 스윕 × SNR {30,20,10}; trial0 [DIAG-LabL]
+//   Matrix: CFO kCfoSweepList × SNR {30,20,10}; V5a OFF / ON(ac_norm_thr=0.95 고정)
+//   DIAG: trial0, CFO {5000,8000,10000,12000,15000,20000} × SNR {30,10} — [DIAG-LabK]
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -142,8 +143,29 @@ static inline int16_t sat_i16(int32_t v) noexcept {
     return static_cast<int16_t>(v);
 }
 
-static bool lab_g_detail_2000_30(int cfo_hz, int snr_db, int trial) noexcept {
-    return trial == 0 && cfo_hz == 2000 && snr_db == 30;
+/// Lab K: 상세 샘플 (CFO × SNR 그리드, trial 0만)
+static bool lab_k_diag_trial0(int cfo_hz, int snr_db, int trial) noexcept {
+    if (trial != 0) {
+        return false;
+    }
+    static constexpr int kDiagCfos[] = {5000, 8000, 10000, 12000, 15000, 20000};
+    static constexpr int kDiagSnrs[] = {30, 10};
+    bool cfo_hit = false;
+    for (int c : kDiagCfos) {
+        if (cfo_hz == c) {
+            cfo_hit = true;
+            break;
+        }
+    }
+    if (!cfo_hit) {
+        return false;
+    }
+    for (int s : kDiagSnrs) {
+        if (snr_db == s) {
+            return true;
+        }
+    }
+    return false;
 }
 
 /// HTS_V400_Dispatcher_Internal.hpp — PS-LTE P1 sym1_row (dom ^ NATURAL)
@@ -461,7 +483,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
         }
 
         const bool want_lab_l = lab_l_diag_trial0(t);
-        const bool want_detail = lab_g_detail_2000_30(cfo_hz, snr_db, t);
+        const bool want_detail = lab_k_diag_trial0(cfo_hz, snr_db, t);
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
             if (want_lab_l) {
@@ -511,24 +533,24 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
         }
 
         if (want_detail) {
-            std::printf("[DIAG-LabG-2000] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
+            std::printf("[DIAG-LabK] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
                         static_cast<int>(corrI[0]), static_cast<int>(corrI[1]), static_cast<int>(corrI[2]),
                         static_cast<int>(corrI[3]), static_cast<int>(corrI[4]), static_cast<int>(corrI[5]),
                         static_cast<int>(corrI[6]), static_cast<int>(corrI[7]));
-            std::printf("[DIAG-LabG-2000] corrI[64..71]= %d %d %d %d %d %d %d %d\n",
+            std::printf("[DIAG-LabK] corrI[64..71]= %d %d %d %d %d %d %d %d\n",
                         static_cast<int>(corrI[64]), static_cast<int>(corrI[65]), static_cast<int>(corrI[66]),
                         static_cast<int>(corrI[67]), static_cast<int>(corrI[68]), static_cast<int>(corrI[69]),
                         static_cast<int>(corrI[70]), static_cast<int>(corrI[71]));
-            std::printf("[DIAG-LabG-2000] corrI[128..135]= %d %d %d %d %d %d %d %d\n",
+            std::printf("[DIAG-LabK] corrI[128..135]= %d %d %d %d %d %d %d %d\n",
                         static_cast<int>(corrI[128]), static_cast<int>(corrI[129]), static_cast<int>(corrI[130]),
                         static_cast<int>(corrI[131]), static_cast<int>(corrI[132]), static_cast<int>(corrI[133]),
                         static_cast<int>(corrI[134]), static_cast<int>(corrI[135]));
-            std::printf("[DIAG-LabG-2000] corrI[192..199]= %d %d %d %d %d %d %d %d\n",
+            std::printf("[DIAG-LabK] corrI[192..199]= %d %d %d %d %d %d %d %d\n",
                         static_cast<int>(corrI[192]), static_cast<int>(corrI[193]), static_cast<int>(corrI[194]),
                         static_cast<int>(corrI[195]), static_cast<int>(corrI[196]), static_cast<int>(corrI[197]),
                         static_cast<int>(corrI[198]), static_cast<int>(corrI[199]));
             const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-            std::printf("[DIAG-LabG-2000] true_cfo_hz=%d est_hz=%.1f |est-true|=%.1f apply_v5a=%d\n", cfo_hz, est_hz,
+            std::printf("[DIAG-LabK] true_cfo_hz=%d est_hz=%.1f |est-true|=%.1f apply_v5a=%d\n", cfo_hz, est_hz,
                         est_err, apply_v5a ? 1 : 0);
             const double f_res_hz =
                 apply_v5a ? (static_cast<double>(cfo_hz) - est_hz) : static_cast<double>(cfo_hz);
@@ -547,7 +569,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
         rx_soft_generate(corrI + ExperimentConfig::kPayloadOffset, corrQ + ExperimentConfig::kPayloadOffset, soft,
                          &mask);
         if (want_detail) {
-            std::printf("[DIAG-LabG-2000] rx_soft[0..7] pre-decode= %d %d %d %d %d %d %d %d\n",
+            std::printf("[DIAG-LabK] rx_soft[0..7] pre-decode= %d %d %d %d %d %d %d %d\n",
                         static_cast<int>(soft[0]), static_cast<int>(soft[1]), static_cast<int>(soft[2]),
                         static_cast<int>(soft[3]), static_cast<int>(soft[4]), static_cast<int>(soft[5]),
                         static_cast<int>(soft[6]), static_cast<int>(soft[7]));
@@ -557,7 +579,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
                             static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
             if (want_detail) {
-                std::printf("[DIAG-LabG-2000] decode_block SECURE_FALSE\n");
+                std::printf("[DIAG-LabK] decode_block SECURE_FALSE\n");
             }
             if (want_lab_l) {
                 if (enable_v5a) {
@@ -604,7 +626,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
         }
 
         if (want_detail) {
-            std::printf("[DIAG-LabG-2000] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
+            std::printf("[DIAG-LabK] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
                         static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
                         static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
                         static_cast<int>(out[2]), static_cast<int>(out[3]));
@@ -639,10 +661,12 @@ static void run_matrix_sweep(bool enable_v5a, double ac_norm_thr) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab L: P1 k_P1_MIN_E=%d, V5a est PRE_SYM1[128..191] 64ch lag=4 (Lab I-3 restore), "
-                "ac_norm_thr=%.2f\n",
+    std::printf("Phase H Lab K: V5a limit (5k–30k Hz), P1 k_P1_MIN_E=%d, PRE_SYM1[128..191] 64ch lag=4, "
+                "ac_norm_thr=%.2f (fixed)\n",
                 static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
-    std::printf("CFO Lab K sweep 14 pts to 30 kHz x SNR {30,20,10} dB; [DIAG-LabL] trial0 per cell\n");
+    std::printf("CFO sweep %d pts x SNR {30,20,10} dB; [DIAG-LabL] trial0/cell; [DIAG-LabK] trial0 for "
+                "CFO{5000,8000,10000,12000,15000,20000}xSNR{30,10}\n",
+                ExperimentConfig::kCfoSweepCount);
     std::printf("P1 gate: FWHT 64 on PRE_SYM0[0..63] dom=63 sym1_row=0 (63^NATURAL)\n\n");
 
     std::printf("===== BASELINE: V5a OFF (ac_thr N/A) =====\n");
