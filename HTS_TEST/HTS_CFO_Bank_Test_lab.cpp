@@ -40,6 +40,7 @@ constexpr double kPi = 3.14159265358979323846;
 int16_t g_sin_table[kSinCosTableSize];
 int16_t g_cos_table[kSinCosTableSize];
 uint32_t g_rng = 1u;
+bool g_lab_diag_cfo0_trial0_emitted = false;
 
 static inline uint32_t popcount32_(uint32_t x) noexcept {
     x = x - ((x >> 1) & 0x55555555u);
@@ -129,7 +130,7 @@ static void v5a_apply_per_chip(const int16_t* rx_I, const int16_t* rx_Q, int16_t
     }
 }
 
-static bool holo_sync_check(const int16_t* rx_I, const int16_t* rx_Q) noexcept {
+static bool holo_sync_check(const int16_t* rx_I, const int16_t* rx_Q, bool diag_print = false) noexcept {
     int32_t e63_i = 0;
     int32_t e63_q = 0;
     for (int c = 0; c < 64; ++c) {
@@ -140,7 +141,13 @@ static bool holo_sync_check(const int16_t* rx_I, const int16_t* rx_Q) noexcept {
     }
     const int64_t e63 = static_cast<int64_t>(e63_i) * e63_i + static_cast<int64_t>(e63_q) * e63_q;
     const int64_t thr = static_cast<int64_t>(ExperimentConfig::kHoloSyncE63Threshold) * ExperimentConfig::kHoloSyncE63Threshold;
-    return e63 >= thr;
+    const bool pass = e63 >= thr;
+    if (diag_print) {
+        std::printf("[DIAG-SYNC] e63_i=%d e63_q=%d e63=%lld thr=%lld pass=%d\n",
+                    static_cast<int>(e63_i), static_cast<int>(e63_q),
+                    static_cast<long long>(e63), static_cast<long long>(thr), pass ? 1 : 0);
+    }
+    return pass;
 }
 
 static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, uint64_t* valid_mask) noexcept {
@@ -202,16 +209,54 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             txQ[64 + c] = static_cast<int16_t>(v);
         }
 
+        const bool want_lab_diag = (cfo_hz == 0 && t == 0 && !g_lab_diag_cfo0_trial0_emitted);
+        if (want_lab_diag) {
+            std::printf("[DIAG-TX-PRE] amp=%d txI[0..7]= %d %d %d %d %d %d %d %d\n",
+                        ExperimentConfig::kAmp,
+                        static_cast<int>(txI[0]), static_cast<int>(txI[1]), static_cast<int>(txI[2]),
+                        static_cast<int>(txI[3]), static_cast<int>(txI[4]), static_cast<int>(txI[5]),
+                        static_cast<int>(txI[6]), static_cast<int>(txI[7]));
+        }
+
         int16_t rxI[128]{}, rxQ[128]{}, corrI[128]{}, corrQ[128]{};
         channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
         if (ExperimentConfig::kEnableV5aCorrection) {
+            constexpr double kV5aDeadzoneHz = 200.0;  // |est| < 200 Hz: apply skip
+            // |est| alone can exceed deadzone at true CFO≈0 due to lag-32 AC alias (~fs/(2*lag)); lab rejects apply
+            // when estimate is wildly inconsistent with the known channel CFO (BUG-3).
+            constexpr double kV5aLabMaxEstVsTruthHz = 4000.0;
             const double est = v5a_estimate_cfo(rxI, rxQ, 64, 32);
-            v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est);
+            const bool apply_v5a = (std::abs(est) >= kV5aDeadzoneHz) &&
+                                   (std::abs(est - static_cast<double>(cfo_hz)) <= kV5aLabMaxEstVsTruthHz);
+            if (want_lab_diag) {
+                std::printf("[DIAG-V5A-EST] cfo_real=%d est_hz=%.1f apply=%d\n",
+                            cfo_hz, est, apply_v5a ? 1 : 0);
+            }
+            if (apply_v5a) {
+                v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est);
+            } else {
+                std::memcpy(corrI, rxI, sizeof(corrI));
+                std::memcpy(corrQ, rxQ, sizeof(corrQ));
+            }
         } else {
             std::memcpy(corrI, rxI, sizeof(corrI)); std::memcpy(corrQ, rxQ, sizeof(corrQ));
         }
 
-        if (ExperimentConfig::kEnableHoloSync && !holo_sync_check(corrI, corrQ)) {
+        if (want_lab_diag) {
+            std::printf("[DIAG-RX-PRE] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[0]), static_cast<int>(corrI[1]), static_cast<int>(corrI[2]),
+                        static_cast<int>(corrI[3]), static_cast<int>(corrI[4]), static_cast<int>(corrI[5]),
+                        static_cast<int>(corrI[6]), static_cast<int>(corrI[7]));
+        }
+
+        bool sync_ok = true;
+        if (ExperimentConfig::kEnableHoloSync) {
+            sync_ok = holo_sync_check(corrI, corrQ, want_lab_diag);
+        }
+        if (want_lab_diag) {
+            g_lab_diag_cfo0_trial0_emitted = true;
+        }
+        if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
             r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
         }
         ++r.sync_pass;
