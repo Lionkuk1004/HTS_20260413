@@ -436,8 +436,10 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     int best_off = -1;
     int64_t sum_all = 0;
     int best_dom_row = 63;
+#if defined(HTS_PHASE0_WALSH_BANK)
     int32_t best_seed_I = 0;
     int32_t best_seed_Q = 0;
+#endif
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     static int s_stage4_scan_idx = 0;
     ++s_stage4_scan_idx;
@@ -612,10 +614,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     for (int off = 0; off < 64; ++off) {
         int32_t accum = 0;
         int max_row = 0;
+#if defined(HTS_PHASE0_WALSH_BANK)
         int32_t seed_I_fwht = 0;
         int32_t seed_Q_fwht = 0;
-        int stage4_b1_row = 0;
-#if defined(HTS_PHASE0_WALSH_BANK)
         // ── Walsh Bank Phase 0 — Full FWHT + Max Row + per-block T 보존 ──
         // 2-block FWHT 결과를 dominant row 에서 coherent 합산 → Phase 1 과
         // 동일 Walsh 도메인 시드 (walsh63_dot_ 재계산 경로와 분리).
@@ -954,7 +955,6 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
 #endif
         max_row = max_row0;
-        stage4_b1_row = max_row1;
 #endif
 #endif
         sum_all += static_cast<int64_t>(accum);
@@ -1069,8 +1069,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             std::printf(
                 "[STAGE4-P0] off=%d r0=%d r1=%d r2=%d xor_legacy=%d accum=%d "
                 "bdr=%d\n",
-                off, max_row, stage4_b1_row, r2,
-                (max_row ^ stage4_b1_row), accum, best_dom_row);
+                off, max_row, max_row1, r2,
+                (max_row ^ max_row1), accum, best_dom_row);
 #endif
 #endif
         } else if (accum > second_e63) {
@@ -1836,8 +1836,6 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
-    const int16_t before_cfo_I = chip_I;
-    const int16_t before_cfo_Q = chip_Q;
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
         (s_lab_feed_chip_idx % 16) == 0) {
@@ -1847,6 +1845,10 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             static_cast<int>(chip_I), static_cast<int>(dc_est_I_),
             static_cast<int>(dc_est_Q_));
     }
+#endif
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF)
+    const int16_t before_cfo_I = chip_I;
+    const int16_t before_cfo_Q = chip_Q;
 #endif
     // CFO 역회전: V5a per-chip apply (Holo P0 + Walsh P0)
     // 순서: DC → CFO → AGC

@@ -1729,8 +1729,8 @@ bool FEC_HARQ::Decode64_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
             }
         }
 #endif
-        int fec_ir_do_fwht_dump = 0;
 #if defined(HTS_DIAG_PRINTF)
+        int fec_ir_do_fwht_dump = 0;
         if (sym == 0 && walsh_shift != 0u &&
             s_fec_ir_fwht_dump_calls < HTS_FEC_IR_FWHT_DUMP_MAX) {
             fec_ir_do_fwht_dump = 1;
@@ -2156,8 +2156,8 @@ bool FEC_HARQ::Decode16_IR(const int16_t *sym_I, const int16_t *sym_Q, int nsym,
         }
         FWHT(fI.data(), nc);
         FWHT(fQ.data(), nc);
-        int fec_ir16_do_fwht_dump = 0;
 #if defined(HTS_DIAG_PRINTF)
+        int fec_ir16_do_fwht_dump = 0;
         if (sym == 0 && walsh_shift != 0u &&
             s_fec_ir16_fwht_dump_calls < HTS_FEC_IR_FWHT_DUMP_MAX) {
             fec_ir16_do_fwht_dump = 1;

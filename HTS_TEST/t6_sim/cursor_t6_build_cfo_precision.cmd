@@ -7,11 +7,10 @@ cd /d "%~dp0"
 set HOLO_FLAG=
 REM set HOLO_FLAG=/DHTS_USE_HOLOGRAPHIC_SYNC
 
-cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
+cl /nologo /O2 /std:c++17 /EHsc /MD /W4 /WX /wd4324 /DNDEBUG ^
    /I"." /I"..\..\HTS_LIM" ^
    /DHTS_ALLOW_HOST_BUILD ^
    /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
-   /DHTS_DIAG_PRINTF ^
    /DHTS_CFO_PRECISION_SWEEP ^
    %HOLO_FLAG% ^
    /D_CRT_SECURE_NO_WARNINGS ^

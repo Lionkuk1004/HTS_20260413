@@ -1,0 +1,17 @@
+# MSVC / Cursor local artifacts (keep scripts + sources tracked)
+*.vcxproj.user
+*.exe
+*.obj
+*.pdb
+*.ilk
+*.iobj
+*.ipdb
+*.exp
+t6_run_commit*.txt
+t6_run*.txt
+# Ephemeral step/phase captures (not the small tracked t6_*.txt baselines)
+t6_phase*.txt
+t6_step*.txt
+t6_pte*.txt
+t6_recover*.txt
+*.log

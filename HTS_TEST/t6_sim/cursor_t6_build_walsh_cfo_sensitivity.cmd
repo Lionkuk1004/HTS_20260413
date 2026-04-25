@@ -4,7 +4,7 @@ call "C:\Program Files\Microsoft Visual Studio\2022\Community\VC\Auxiliary\Build
 if errorlevel 1 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
 
-cl /nologo /O2 /std:c++17 /EHsc /MD /W3 ^
+cl /nologo /O2 /std:c++17 /EHsc /MD /W4 /WX /wd4324 /DNDEBUG ^
    /I"..\..\HTS_LIM" ^
    /DHTS_ALLOW_HOST_BUILD ^
    /D_CRT_SECURE_NO_WARNINGS ^

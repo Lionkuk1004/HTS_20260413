@@ -32,6 +32,7 @@ void print_diag() noexcept {
                  static_cast<unsigned long long>(g_diag.total_delta_sum));
 }
 
+#if HTS_WRC_METHOD != 0
 namespace {
 
 // FWHT N-point (in-place)
@@ -198,6 +199,7 @@ static void method_C_top1_only(int32_t* T, int N) noexcept {
 }
 
 } // namespace
+#endif // HTS_WRC_METHOD != 0
 
 void clean_chips(int16_t* chips, int N) noexcept {
     if (chips == nullptr) {
