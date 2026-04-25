@@ -63,6 +63,11 @@ using ProtectedEngine::PayloadMode;
 extern "C" volatile int g_phase_h_diag_force;
 extern "C" volatile uint32_t g_phase_h_diag_seed;
 #endif
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+static inline void v5a_diag_ctx(const char* tag) {
+    hts::rx_cfo::V5a_Pte_Diag_Set_Context(tag);
+}
+#endif
 
 // ═══════════════════════════════════════════════════════════════
 //  상수
@@ -507,6 +512,9 @@ static void row(const char* label, int pass, int total) {
 //  S1: 완벽한 무결성 (클린 채널)
 // ═══════════════════════════════════════════════════════════════
 static void test_S1() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S1");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -592,6 +600,9 @@ static void test_S1() {
 //  S2: 위상 전수 조사 (사전 보정 금지)
 // ═══════════════════════════════════════════════════════════════
 static void test_S2() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S2");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -664,6 +675,9 @@ static void test_S2() {
 //  S3: 심해 SNR 워터폴 (-30 ~ -10 dB)
 // ═══════════════════════════════════════════════════════════════
 static void test_S3() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S3");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -740,6 +754,9 @@ static void test_S3() {
 //  S4: 비동기 타이밍 오프셋 (양수/음수)
 // ═══════════════════════════════════════════════════════════════
 static void test_S4() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S4");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -809,6 +826,9 @@ static void test_S4() {
 //  S5: 극한 CFO 추종 (Hz 기반, 사전 보정 금지)
 // ═══════════════════════════════════════════════════════════════
 static void test_S5() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S5");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -919,6 +939,9 @@ static void test_S5() {
 //  통계 형식 유지(kTrials). CFO·ch_cfo·feed_raw_ext 경로는 S5 와 동일.
 // ═══════════════════════════════════════════════════════════════
 static void test_S5_seed_fixed() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S5F");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1002,6 +1025,9 @@ static void test_S5_seed_fixed() {
 //  (Step 3 v3: test_S5_seed_fixed 직후 배치)
 // ═══════════════════════════════════════════════════════════════
 static void test_S5_holographic() noexcept {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S5H");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1080,6 +1106,9 @@ static void test_S5_holographic() noexcept {
 //  S6: 다중 경로 (3-tap)
 // ═══════════════════════════════════════════════════════════════
 static void test_S6() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S6");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1155,6 +1184,9 @@ static void test_S6() {
 //  S7: 바라지 재밍 (JSR +10 ~ +30 dB)
 // ═══════════════════════════════════════════════════════════════
 static void test_S7() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S7");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1231,6 +1263,9 @@ static void test_S7() {
 //  S8: CW 톤 재밍
 // ═══════════════════════════════════════════════════════════════
 static void test_S8() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S8");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1310,6 +1345,9 @@ static void test_S8() {
 //  S9: 복합 스트레스 (타이밍 + 위상 + AWGN + CFO 동시)
 // ═══════════════════════════════════════════════════════════════
 static void test_S9() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S9");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1387,6 +1425,9 @@ static void test_S9() {
 //  S10: 내구도 + Holo LPI (10000회 → 메모리 릭 검증)
 // ═══════════════════════════════════════════════════════════════
 static void test_S10() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    v5a_diag_ctx("S10");
+#endif
 #if defined(HTS_SYNC_DIAG)
     ProtectedEngine::SyncDiag::reset_sync_stats();
 #endif
@@ -1498,6 +1539,9 @@ static void test_S10() {
 //  main
 // ═══════════════════════════════════════════════════════════════
 int main() {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    hts::rx_cfo::V5a_Pte_Diag_Reset();
+#endif
     ProtectedEngine::WRC::reset_diag();
 #if defined(HTS_CW_DETECT_DIAG_V2)
     ProtectedEngine::CWDetectDiag::reset_joint_label_accum();
@@ -1553,6 +1597,9 @@ int main() {
     test_S8();
     test_S9();
     test_S10();
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    hts::rx_cfo::V5a_Pte_Diag_Print_Summary();
+#endif
 
 #if defined(HTS_CW_DETECT_DIAG_V2)
     ProtectedEngine::CWDetectDiag::print_joint_by_label_summary();

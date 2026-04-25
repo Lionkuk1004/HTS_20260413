@@ -54,6 +54,12 @@ static_assert(kCfoFineBanks <= 32, "Fine bank count too large");
 static_assert(kLR_NumSeg * kLR_SegSize == kPreambleChips,
               "Segment size mismatch");
 
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+void V5a_Pte_Diag_Reset() noexcept;
+void V5a_Pte_Diag_Set_Context(const char* tag) noexcept;
+void V5a_Pte_Diag_Print_Summary() noexcept;
+#endif
+
 struct CFO_Result {
     int32_t cfo_hz;
     int64_t peak_energy;

@@ -7,10 +7,66 @@
 #include "HTS_Rx_CFO_SinCos_Table.hpp"
 
 #include <cmath>
+#include <cstdio>
+#include <cstring>
 
 namespace hts {
 namespace rx_cfo {
 namespace {
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+struct V5aPteDiagBucket {
+    char tag[12];
+    uint32_t estimate_calls;
+    uint32_t coarse_enter;
+    uint32_t fine_enter;
+    uint32_t coarse_nonzero;
+    uint32_t fine_nonzero;
+    uint64_t coarse_abs_sum_q15;
+    uint64_t fine_abs_sum_q15;
+    uint64_t lr_abs_sum_hz;
+    uint32_t pte_samples;
+    int32_t pte_cfo_min_hz;
+    int32_t pte_cfo_max_hz;
+    int64_t pte_cfo_sum_hz;
+    uint32_t coarse_hist[5];
+    uint32_t fine_hist[5];
+};
+
+static V5aPteDiagBucket g_v5a_pte_diag[16]{};
+static int g_v5a_pte_diag_count = 0;
+static int g_v5a_pte_diag_cur = 0;
+
+static inline uint32_t pte_hist_bin_from_abs_q15(int32_t abs_q15) noexcept {
+    if (abs_q15 == 0) return 0u;
+    if (abs_q15 <= 4096) return 1u;
+    if (abs_q15 <= 8192) return 2u;
+    if (abs_q15 <= 16384) return 3u;
+    return 4u;
+}
+
+static int diag_find_or_add_context_(const char* tag) noexcept {
+    if (tag == nullptr || tag[0] == '\0') {
+        return 0;
+    }
+    for (int i = 0; i < g_v5a_pte_diag_count; ++i) {
+        if (std::strncmp(g_v5a_pte_diag[i].tag, tag,
+                         sizeof(g_v5a_pte_diag[i].tag) - 1) == 0) {
+            return i;
+        }
+    }
+    if (g_v5a_pte_diag_count >= static_cast<int>(sizeof(g_v5a_pte_diag) /
+                                                 sizeof(g_v5a_pte_diag[0]))) {
+        return 0;
+    }
+    V5aPteDiagBucket& b = g_v5a_pte_diag[g_v5a_pte_diag_count];
+    std::memset(&b, 0, sizeof(b));
+    std::strncpy(b.tag, tag, sizeof(b.tag) - 1);
+    b.pte_cfo_min_hz = 2147483647;
+    b.pte_cfo_max_hz = -2147483647 - 1;
+    ++g_v5a_pte_diag_count;
+    return g_v5a_pte_diag_count - 1;
+}
+#endif
 
 // 레거시 preamble/autocorr CFO 경로(정수 구현)와 동일.
 inline constexpr int64_t kPreambleMagApproxThreshold = 1000LL;
@@ -416,6 +472,10 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
 
     int32_t cfo_estimate = 0;
     int64_t final_peak_e = 0;
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+    V5aPteDiagBucket* diag = &g_v5a_pte_diag[g_v5a_pte_diag_cur];
+    diag->estimate_calls++;
+#endif
 
     for (int pass = 0; pass < kCfoIterPasses; ++pass) {
         int64_t coarse_energies[kCfoCoarseBanks]{};
@@ -445,7 +505,21 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
                 parabolic_offset_q15_impl(coarse_energies[cb_best_idx - 1],
                                           coarse_energies[cb_best_idx],
                                           coarse_energies[cb_best_idx + 1]);
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+            diag->coarse_enter++;
+#endif
         }
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+        {
+            const int32_t abs_coarse =
+                (coarse_offset_q15 < 0) ? -coarse_offset_q15 : coarse_offset_q15;
+            if (abs_coarse != 0) {
+                diag->coarse_nonzero++;
+            }
+            diag->coarse_abs_sum_q15 += static_cast<uint64_t>(abs_coarse);
+            diag->coarse_hist[pte_hist_bin_from_abs_q15(abs_coarse)]++;
+        }
+#endif
         const int32_t cb_refined =
             cb_cfo + q15_mul_hz_round(coarse_offset_q15, kCfoCoarseStep);
 
@@ -474,7 +548,21 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
             fine_offset_q15 = parabolic_offset_q15_impl(
                 fine_energies_[fine_best_idx - 1], fine_energies_[fine_best_idx],
                 fine_energies_[fine_best_idx + 1]);
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+            diag->fine_enter++;
+#endif
         }
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+        {
+            const int32_t abs_fine =
+                (fine_offset_q15 < 0) ? -fine_offset_q15 : fine_offset_q15;
+            if (abs_fine != 0) {
+                diag->fine_nonzero++;
+            }
+            diag->fine_abs_sum_q15 += static_cast<uint64_t>(abs_fine);
+            diag->fine_hist[pte_hist_bin_from_abs_q15(abs_fine)]++;
+        }
+#endif
         const int32_t fine_refined =
             best_cfo + q15_mul_hz_round(fine_offset_q15, kCfoFineStep);
 
@@ -483,6 +571,16 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
         const int32_t lr_cfo = LR_Estimate_impl(work_I_, work_Q_);
 
         cfo_estimate = fine_refined + lr_cfo;
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+        {
+            const int32_t lr_abs = (lr_cfo < 0) ? -lr_cfo : lr_cfo;
+            diag->lr_abs_sum_hz += static_cast<uint64_t>(lr_abs);
+            if (fine_refined < diag->pte_cfo_min_hz) diag->pte_cfo_min_hz = fine_refined;
+            if (fine_refined > diag->pte_cfo_max_hz) diag->pte_cfo_max_hz = fine_refined;
+            diag->pte_cfo_sum_hz += static_cast<int64_t>(fine_refined);
+            diag->pte_samples++;
+        }
+#endif
         final_peak_e = best_e;
     }
 
@@ -659,6 +757,68 @@ int32_t Parabolic_Offset_Q15(int64_t em1, int64_t e0, int64_t ep1) noexcept {
 }
 
 }  // namespace test_export
+#endif
+
+#if defined(HTS_CFO_V5A_PTE_DIAG)
+void V5a_Pte_Diag_Reset() noexcept {
+    std::memset(g_v5a_pte_diag, 0, sizeof(g_v5a_pte_diag));
+    g_v5a_pte_diag_count = 1;
+    g_v5a_pte_diag_cur = 0;
+    std::strncpy(g_v5a_pte_diag[0].tag, "GLOBAL",
+                 sizeof(g_v5a_pte_diag[0].tag) - 1);
+    g_v5a_pte_diag[0].pte_cfo_min_hz = 2147483647;
+    g_v5a_pte_diag[0].pte_cfo_max_hz = -2147483647 - 1;
+}
+
+void V5a_Pte_Diag_Set_Context(const char* tag) noexcept {
+    g_v5a_pte_diag_cur = diag_find_or_add_context_(tag);
+}
+
+void V5a_Pte_Diag_Print_Summary() noexcept {
+    std::printf("[V5A-PTE-DIAG] === summary begin ===\n");
+    for (int i = 0; i < g_v5a_pte_diag_count; ++i) {
+        const V5aPteDiagBucket& d = g_v5a_pte_diag[i];
+        if (d.estimate_calls == 0) {
+            continue;
+        }
+        const uint32_t denom = (d.estimate_calls > 0u) ? d.estimate_calls : 1u;
+        const uint32_t coarse_calls = (d.coarse_hist[0] + d.coarse_hist[1] +
+                                       d.coarse_hist[2] + d.coarse_hist[3] +
+                                       d.coarse_hist[4]);
+        const uint32_t fine_calls = (d.fine_hist[0] + d.fine_hist[1] +
+                                     d.fine_hist[2] + d.fine_hist[3] +
+                                     d.fine_hist[4]);
+        const uint64_t coarse_den = (coarse_calls > 0u) ? coarse_calls : 1u;
+        const uint64_t fine_den = (fine_calls > 0u) ? fine_calls : 1u;
+        const uint64_t avg_abs_coarse = d.coarse_abs_sum_q15 / coarse_den;
+        const uint64_t avg_abs_fine = d.fine_abs_sum_q15 / fine_den;
+        const uint64_t avg_lr = d.lr_abs_sum_hz / static_cast<uint64_t>(denom);
+        const uint32_t pte_den = (d.pte_samples > 0u) ? d.pte_samples : 1u;
+        const int64_t avg_pte = d.pte_cfo_sum_hz / static_cast<int64_t>(pte_den);
+        std::printf(
+            "[V5A-PTE-DIAG][%s] est=%u coarse_enter=%u fine_enter=%u coarse_nz=%u fine_nz=%u avg|coarse_q15|=%llu avg|fine_q15|=%llu avg|lr_hz|=%llu pte_cfo[min,max,avg]=[%d,%d,%lld]\n",
+            d.tag, static_cast<unsigned>(d.estimate_calls),
+            static_cast<unsigned>(d.coarse_enter), static_cast<unsigned>(d.fine_enter),
+            static_cast<unsigned>(d.coarse_nonzero), static_cast<unsigned>(d.fine_nonzero),
+            static_cast<unsigned long long>(avg_abs_coarse),
+            static_cast<unsigned long long>(avg_abs_fine),
+            static_cast<unsigned long long>(avg_lr), static_cast<int>(d.pte_cfo_min_hz),
+            static_cast<int>(d.pte_cfo_max_hz), static_cast<long long>(avg_pte));
+        std::printf(
+            "[V5A-PTE-DIAG][%s] coarse_hist=[%u,%u,%u,%u,%u] fine_hist=[%u,%u,%u,%u,%u]\n",
+            d.tag, static_cast<unsigned>(d.coarse_hist[0]),
+            static_cast<unsigned>(d.coarse_hist[1]),
+            static_cast<unsigned>(d.coarse_hist[2]),
+            static_cast<unsigned>(d.coarse_hist[3]),
+            static_cast<unsigned>(d.coarse_hist[4]),
+            static_cast<unsigned>(d.fine_hist[0]),
+            static_cast<unsigned>(d.fine_hist[1]),
+            static_cast<unsigned>(d.fine_hist[2]),
+            static_cast<unsigned>(d.fine_hist[3]),
+            static_cast<unsigned>(d.fine_hist[4]));
+    }
+    std::printf("[V5A-PTE-DIAG] === summary end ===\n");
+}
 #endif
 
 }  // namespace rx_cfo
