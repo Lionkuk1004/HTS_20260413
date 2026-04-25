@@ -7,6 +7,10 @@
 //  외주 업체 통합 가이드
 // ─────────────────────────────────────────────────────────────────────────
 //
+//  [4D Holo tensor] 4D Encode/Decode 는 `HTS_Holo_Dispatcher`(shim) 경로이며,
+//  본 V400 Dispatcher 의 Walsh/FEC 칩 파이프라인과는 별도 계층이다.
+//  (CFO 적용: `HTS_CFO_V5a` — 레거시 `HTS_CFO_Compensator` 비포함)
+//
 //  [설계 목적]
 //  4종 페이로드(VIDEO_1, VIDEO_16, VOICE, DATA)를 자동 판별하여
 //  64칩/16칩/1칩 Walsh 변복조 + FEC-HARQ를 수행합니다.
