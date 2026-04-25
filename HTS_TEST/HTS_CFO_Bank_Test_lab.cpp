@@ -2,10 +2,12 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab K: V5a 한계 cliff (ac_norm_thr=0.95 고정)
-//   TX: PRE_SYM0×2 + PRE_SYM1 + 4D payload; V5a est PRE_SYM1 64칩 lag=4
-//   main: 동일 CFO 스윕으로 V5a OFF 베이스라인 후 V5a ON (게이트 0.95)
-//   DIAG: 고 CFO trial0 × {30,10} dB — est, ac_norm, apply, bits
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab L: 메인트리 정합 (P1 게이트 + preamble 128)
+//   TX: 0..127 PRE_SYM0 (Walsh63 @ chip&63, 128칩 = kPreambleChips) + 128..191 PRE_SYM1
+//       + 192..255 payload (메인 cfo_v5a_.Estimate 128칩 창 정합)
+//   V5a: lag=4 L&R on chips 0..127 (PRE_SYM0); ac_norm_thr=0.95 (Lab K)
+//   P1: PS-LTE FWHT + dom=63, sym1_row=63^k_W63_FWHT_ROW_NATURAL, k_P1_MIN_E=1000
+//   Matrix: CFO {0,100,500,1000,2000,4000} × SNR {30,20,10}; trial0 [DIAG-LabL]
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -18,8 +20,7 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-constexpr int kCfoSweepList[] = {0,     1000,  3000,  5000,  6000,  7000,  8000,  9000,
-                                 10000, 11000, 12000, 15000, 20000, 30000};
+constexpr int kCfoSweepList[] = {0, 100, 500, 1000, 2000, 4000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
@@ -32,13 +33,14 @@ constexpr int kTxTotalChips = 256;
 constexpr int kPayloadOffset = 192;
 /// PRE_SYM0 (Walsh 63) 64칩 × 2
 constexpr int kPreSym0TotalChips = 128;
-/// PRE_SYM1 (Walsh row 0, all +1) 시작 인덱스·길이 — V5a 추정 전용
+/// PRE_SYM1 (Walsh row 0, all +1) 시작 인덱스·길이
 constexpr int kPreSym1Offset = 128;
 constexpr int kPreSym1Chips = 64;
 /// T6 holo Pass1: 메인트리와 동일하게 프리앰블 192칩(0..191)만 사용
 constexpr int kHoloSyncChips = 192;
-constexpr int kV5aEstimateOffset = kPreSym1Offset;
-constexpr int kV5aEstimateChips = kPreSym1Chips;
+/// Lab L: V5a 입력 = chips 0..127 (PRE_SYM0 128), 메인 kPreambleChips=128 정합
+constexpr int kV5aEstimateOffset = 0;
+constexpr int kV5aEstimateChips = 128;
 constexpr bool kEnableHoloSync = true;
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
 /// Lab K: V5a apply 게이트 고정값 (Lab J 캘리브레이션 결과)
@@ -144,21 +146,45 @@ static bool lab_g_detail_2000_30(int cfo_hz, int snr_db, int trial) noexcept {
     return trial == 0 && cfo_hz == 2000 && snr_db == 30;
 }
 
-/// Lab K trial0 [DIAG-LabK]: 고 CFO × {30,10} dB
-static bool lab_k_cell_diag(int cfo_hz, int snr_db, int trial) noexcept {
-    if (trial != 0) {
-        return false;
+/// HTS_V400_Dispatcher_Internal.hpp — PS-LTE P1 sym1_row (dom ^ NATURAL)
+constexpr uint8_t k_W63_FWHT_ROW_NATURAL = 63u;
+/// HTS_V400_Dispatcher_Sync_PSLTE.cpp — PS-LTE coherent 64 (else branch)
+static constexpr int32_t k_P1_MIN_E = 1000;
+
+static bool lab_l_diag_trial0(int trial) noexcept { return trial == 0; }
+
+/// PS-LTE Stage2: FWHT on 64 chips, dom=63, sym1_row = 63 ^ k_W63_FWHT_ROW_NATURAL (=0)
+static bool lab_p1_fwht_energy_gate_pslte(const int16_t* blk_I, const int16_t* blk_Q, int32_t* e63_sh_out,
+                                          int32_t* e0_sh_out, int32_t* max_e_sh_out) noexcept {
+    int32_t T_I[64];
+    int32_t T_Q[64];
+    for (int j = 0; j < 64; ++j) {
+        T_I[j] = static_cast<int32_t>(blk_I[j]);
+        T_Q[j] = static_cast<int32_t>(blk_Q[j]);
     }
-    if (snr_db != 30 && snr_db != 10) {
-        return false;
+    fwht_raw(T_I, 64);
+    fwht_raw(T_Q, 64);
+    const int dom = 63;
+    const int sym1_row = dom ^ static_cast<int>(k_W63_FWHT_ROW_NATURAL);
+    const int32_t dot63_I = T_I[dom];
+    const int32_t dot63_Q = T_Q[dom];
+    const int32_t dot0_I = T_I[sym1_row];
+    const int32_t dot0_Q = T_Q[sym1_row];
+    const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I + static_cast<int64_t>(dot63_Q) * dot63_Q;
+    const int64_t e0_64 = static_cast<int64_t>(dot0_I) * dot0_I + static_cast<int64_t>(dot0_Q) * dot0_Q;
+    const int32_t e63_sh = static_cast<int32_t>(e63_64 >> 16);
+    const int32_t e0_sh = static_cast<int32_t>(e0_64 >> 16);
+    const int32_t max_e_sh = (e63_sh >= e0_sh) ? e63_sh : e0_sh;
+    if (e63_sh_out != nullptr) {
+        *e63_sh_out = e63_sh;
     }
-    constexpr int kList[] = {5000, 8000, 10000, 12000, 15000, 20000};
-    for (int v : kList) {
-        if (cfo_hz == v) {
-            return true;
-        }
+    if (e0_sh_out != nullptr) {
+        *e0_sh_out = e0_sh;
     }
-    return false;
+    if (max_e_sh_out != nullptr) {
+        *max_e_sh_out = max_e_sh;
+    }
+    return max_e_sh >= k_P1_MIN_E;
 }
 
 static double lab_phase_deg(int16_t i, int16_t q) noexcept {
@@ -410,6 +436,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                 sig_pow * (static_cast<double>(ExperimentConfig::kV5aEstimateChips - kV5aLag) /
                            static_cast<double>(ExperimentConfig::kV5aEstimateChips));
             ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
+            // PRE_SYM0 128 + lag=4: Walsh63 alias 가능 (Lab H); 메인 V5a Estimate 동일 한계
             apply_v5a = (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) && (ac_norm >= ac_norm_thr);
             if (apply_v5a) {
                 v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, ExperimentConfig::kTxTotalChips, est_hz);
@@ -434,22 +461,55 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                                           ratio_x10, top4_sum);
         }
 
-        const bool want_k = enable_v5a && lab_k_cell_diag(cfo_hz, snr_db, t);
+        const bool want_lab_l = lab_l_diag_trial0(t);
         const bool want_detail = lab_g_detail_2000_30(cfo_hz, snr_db, t);
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
-            if (want_k) {
-                const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-                std::printf("\n[DIAG-LabK] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
-                            "ac_norm=%.3f apply_v5a=%d holo_sync_pass=0 bits_got= n/a\n",
-                            ac_norm_thr, enable_v5a ? 1 : 0, cfo_hz, snr_db, est_hz, est_err, ac_norm,
-                            apply_v5a ? 1 : 0);
+            if (want_lab_l) {
+                if (enable_v5a) {
+                    const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+                    std::printf(
+                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] lag=4 cfo=%d snr=%d est_hz=%.1f true=%d "
+                        "|est-true|=%.1f ac_norm=%.3f apply_v5a=%d holo_sync=0 P1=n/a decode=SKIP\n",
+                        cfo_hz, snr_db, est_hz, cfo_hz, est_err, ac_norm, apply_v5a ? 1 : 0);
+                } else {
+                    std::printf("\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo_sync=0 P1=n/a decode=SKIP\n",
+                                cfo_hz, snr_db);
+                }
             }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
         }
         ++r.sync_pass;
+
+        int32_t p1_e63_sh = 0;
+        int32_t p1_e0_sh = 0;
+        int32_t p1_max_e_sh = 0;
+        const bool p1_ok =
+            lab_p1_fwht_energy_gate_pslte(corrI, corrQ, &p1_e63_sh, &p1_e0_sh, &p1_max_e_sh);
+        if (!p1_ok) {
+            if (want_lab_l) {
+                if (enable_v5a) {
+                    const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+                    std::printf(
+                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] lag=4 cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                        "ac_norm=%.3f apply_v5a=%d holo_sync=1 P1_FAIL e63_sh=%d e0_sh=%d max_e_sh=%d "
+                        "k_P1_MIN_E=%d (PS-LTE) decode=SKIP (V5a reset)\n",
+                        cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
+                        static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E));
+                } else {
+                    std::printf(
+                        "\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo=1 P1_FAIL e63_sh=%d e0_sh=%d max_e_sh=%d "
+                        "k_P1_MIN_E=%d decode=SKIP\n",
+                        cfo_hz, snr_db, static_cast<int>(p1_e63_sh), static_cast<int>(p1_e0_sh),
+                        static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E));
+                }
+            }
+            r.total_bits += ExperimentConfig::kK;
+            r.total_bit_err += ExperimentConfig::kK;
+            continue;
+        }
 
         if (want_detail) {
             std::printf("[DIAG-LabG-2000] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
@@ -500,25 +560,48 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
             if (want_detail) {
                 std::printf("[DIAG-LabG-2000] decode_block SECURE_FALSE\n");
             }
-            if (want_k) {
-                const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-                std::printf("\n[DIAG-LabK] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
-                            "ac_norm=%.3f apply_v5a=%d holo_sync_pass=1 bits_got= decode_fail\n",
-                            ac_norm_thr, enable_v5a ? 1 : 0, cfo_hz, snr_db, est_hz, est_err, ac_norm,
-                            apply_v5a ? 1 : 0);
+            if (want_lab_l) {
+                if (enable_v5a) {
+                    const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+                    std::printf(
+                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                        "ac_norm=%.3f apply_v5a=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d k_P1_MIN_E=%d "
+                        "decode=FAIL\n",
+                        cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
+                        static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E));
+                } else {
+                    std::printf(
+                        "\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d "
+                        "k_P1_MIN_E=%d decode=FAIL\n",
+                        cfo_hz, snr_db, static_cast<int>(p1_e63_sh), static_cast<int>(p1_e0_sh),
+                        static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E));
+                }
             }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
         }
 
-        if (want_k) {
-            const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-            std::printf("\n[DIAG-LabK] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
-                        "ac_norm=%.3f apply_v5a=%d holo_sync_pass=1 bits_got= %d %d %d %d\n",
-                        ac_norm_thr, enable_v5a ? 1 : 0, cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0,
-                        static_cast<int>(out[0]), static_cast<int>(out[1]), static_cast<int>(out[2]),
-                        static_cast<int>(out[3]));
+        if (want_lab_l) {
+            const int be0 = (out[0] != bits[0]) + (out[1] != bits[1]) + (out[2] != bits[2]) + (out[3] != bits[3]);
+            if (enable_v5a) {
+                const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+                std::printf(
+                    "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                    "ac_norm=%.3f apply_v5a=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d k_P1_MIN_E=%d "
+                    "decode=OK bits0..3_err=%d got %d %d %d %d\n",
+                    cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
+                    static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E), be0,
+                    static_cast<int>(out[0]), static_cast<int>(out[1]), static_cast<int>(out[2]),
+                    static_cast<int>(out[3]));
+            } else {
+                std::printf(
+                    "\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d "
+                    "k_P1_MIN_E=%d decode=OK bits0..3_err=%d got %d %d %d %d\n",
+                    cfo_hz, snr_db, static_cast<int>(p1_e63_sh), static_cast<int>(p1_e0_sh),
+                    static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E), be0, static_cast<int>(out[0]),
+                    static_cast<int>(out[1]), static_cast<int>(out[2]), static_cast<int>(out[3]));
+            }
         }
 
         if (want_detail) {
@@ -557,11 +640,11 @@ static void run_matrix_sweep(bool enable_v5a, double ac_norm_thr) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab K: V5a cliff edge, ac_norm_thr=%.2f (fixed)\n",
-                ExperimentConfig::kV5aAcNormThresholdLabK);
-    std::printf("CFO sweep 14 pts up to 30 kHz x {30,20,10} dB; [DIAG-LabK] trial0 subset\n");
-    std::printf("PRE_SYM1 V5a est chips %d..%d\n\n", ExperimentConfig::kV5aEstimateOffset,
-                ExperimentConfig::kV5aEstimateOffset + ExperimentConfig::kV5aEstimateChips - 1);
+    std::printf("Phase H Lab L: mainline alignment — P1 k_P1_MIN_E=%d, V5a PRE_SYM0[0..127] 128ch lag=4, "
+                "ac_norm_thr=%.2f\n",
+                static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
+    std::printf("CFO sweep {0,100,500,1000,2000,4000} Hz x SNR {30,20,10} dB; [DIAG-LabL] trial0 per cell\n");
+    std::printf("P1 gate: FWHT 64 on PRE_SYM0[0..63] dom=63 sym1_row=0 (63^NATURAL)\n\n");
 
     std::printf("===== BASELINE: V5a OFF (ac_thr N/A) =====\n");
     run_matrix_sweep(false, 0.0);
