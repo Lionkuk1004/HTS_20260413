@@ -77,12 +77,28 @@ public:
                        int16_t* out_I, int16_t* out_Q, int chips,
                        int32_t cfo_hz) noexcept;
 
+    /// Per-chip CFO 역회전 (HTS_CFO_Compensator::Apply 와 동일 Q14 누적·정규화).
+    void Set_Apply_Cfo(int32_t cfo_hz) noexcept;
+    /// Hz 대신 Q14 per-chip 직접 지정 (Estimate 직후 `cfo_.Get_*` 값과 비트 정합).
+    void Set_Apply_SinCosPerChip_Q14(int32_t sin_per_chip_q14,
+                                     int32_t cos_per_chip_q14) noexcept;
+    void Reset_Apply_Phase() noexcept;
+    void Advance_Phase_Only(int chips) noexcept;
+    void Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept;
+
 private:
     int32_t last_cfo_hz_;
     bool runtime_enabled_;
     int16_t work_I_[kPreambleChips];
     int16_t work_Q_[kPreambleChips];
     int64_t fine_energies_[32];
+
+    int32_t apply_cfo_hz_{ 0 };
+    int32_t apply_sin_per_q14_{ 0 };
+    int32_t apply_cos_per_q14_{ 16384 };
+    int32_t apply_cos_acc_q14_{ 16384 };
+    int32_t apply_sin_acc_q14_{ 0 };
+    int32_t apply_chip_counter_{ 0 };
 };
 
 }  // namespace rx_cfo

@@ -42,6 +42,58 @@ static inline int32_t dot_q14_round(int32_t x, int32_t a_q14, int32_t y,
     return static_cast<int32_t>((p - (1LL << 13)) >> 14);
 }
 
+// --- Q14 per-chip path (HTS_CFO_Compensator::Apply / Advance 동일 수식) ---
+static inline int32_t apply_int_root_q14(int64_t c2) noexcept {
+    if (c2 <= 0) {
+        return 0;
+    }
+    int32_t lo = 0;
+    constexpr int32_t kQ14 = 16384;
+    int32_t hi = kQ14;
+    while (lo < hi) {
+        const int32_t mid = (lo + hi + 1) >> 1;
+        if (static_cast<int64_t>(mid) * mid <= c2) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    return lo;
+}
+
+static inline void apply_renorm_q14_accum(int32_t& ca, int32_t& sa) noexcept {
+    const int64_t fc = static_cast<int64_t>(ca);
+    const int64_t fs = static_cast<int64_t>(sa);
+    const int64_t mag2 = fc * fc + fs * fs;
+    if (mag2 <= 0) {
+        return;
+    }
+    int64_t lo = 0;
+    int64_t hi = 3037000499LL;
+    while (lo < hi) {
+        const int64_t mid = (lo + hi + 1) >> 1;
+        if (mid != 0 && mid <= mag2 / mid) {
+            lo = mid;
+        } else {
+            hi = mid - 1;
+        }
+    }
+    const int64_t sm = lo;
+    if (sm == 0) {
+        return;
+    }
+    constexpr int64_t k14 = 16384;
+    ca = static_cast<int32_t>((fc * k14 + (sm >> 1)) / sm);
+    sa = static_cast<int32_t>((fs * k14 + (sm >> 1)) / sm);
+}
+
+static inline uint32_t apply_phase_inc_q32_from_hz(int32_t cfo_hz) noexcept {
+    const int64_t phase_inc_s64 =
+        (-static_cast<int64_t>(cfo_hz) * 4294967296LL) /
+        static_cast<int64_t>(kChipRateHz);
+    return static_cast<uint32_t>(phase_inc_s64);
+}
+
 static void Derotate_impl(const int16_t* rI, const int16_t* rQ, int16_t* oI,
                           int16_t* oQ, int chips, int32_t cfo_hz) noexcept {
     const int64_t phase_inc_s64 =
@@ -237,6 +289,7 @@ void CFO_V5a::Init() noexcept {
     Build_SinCos_Table();
     last_cfo_hz_ = 0;
     runtime_enabled_ = (HTS_CFO_V5A_ENABLE != 0);
+    Set_Apply_Cfo(0);
 }
 
 CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
@@ -309,6 +362,108 @@ void CFO_V5a::ApplyDerotate(const int16_t* in_I, const int16_t* in_Q,
                             int16_t* out_I, int16_t* out_Q, int chips,
                             int32_t cfo_hz) noexcept {
     Derotate_impl(in_I, in_Q, out_I, out_Q, chips, cfo_hz);
+}
+
+void CFO_V5a::Set_Apply_Cfo(int32_t cfo_hz) noexcept {
+    apply_cfo_hz_ = cfo_hz;
+    if (cfo_hz == 0) {
+        apply_sin_per_q14_ = 0;
+        apply_cos_per_q14_ = 16384;
+    } else {
+        const uint32_t inc_q32 = apply_phase_inc_q32_from_hz(cfo_hz);
+        apply_sin_per_q14_ = static_cast<int32_t>(Lookup_Sin(inc_q32));
+        apply_cos_per_q14_ = static_cast<int32_t>(Lookup_Cos(inc_q32));
+        const int64_t sin_sq =
+            static_cast<int64_t>(apply_sin_per_q14_) * apply_sin_per_q14_;
+        constexpr int64_t kOne = 16384;
+        const int64_t q14_sq = kOne * kOne;
+        const int64_t c2 = q14_sq - sin_sq;
+        if (c2 <= 0) {
+            apply_cos_per_q14_ = 0;
+        } else {
+            apply_cos_per_q14_ = apply_int_root_q14(c2);
+        }
+    }
+    Reset_Apply_Phase();
+}
+
+void CFO_V5a::Set_Apply_SinCosPerChip_Q14(int32_t sin_per_chip_q14,
+                                         int32_t cos_per_chip_q14) noexcept {
+    apply_cfo_hz_ = 0;
+    apply_sin_per_q14_ = sin_per_chip_q14;
+    apply_cos_per_q14_ = cos_per_chip_q14;
+    Reset_Apply_Phase();
+}
+
+void CFO_V5a::Reset_Apply_Phase() noexcept {
+    apply_cos_acc_q14_ = 16384;
+    apply_sin_acc_q14_ = 0;
+    apply_chip_counter_ = 0;
+}
+
+void CFO_V5a::Advance_Phase_Only(int chips) noexcept {
+    if (chips <= 0) {
+        return;
+    }
+    for (int k = 0; k < chips; ++k) {
+        const int32_t next_cos = static_cast<int32_t>(
+            (static_cast<int64_t>(apply_cos_acc_q14_) *
+                 static_cast<int64_t>(apply_cos_per_q14_) -
+             static_cast<int64_t>(apply_sin_acc_q14_) *
+                 static_cast<int64_t>(apply_sin_per_q14_)) >>
+            14);
+        const int32_t next_sin = static_cast<int32_t>(
+            (static_cast<int64_t>(apply_cos_acc_q14_) *
+                 static_cast<int64_t>(apply_sin_per_q14_) +
+             static_cast<int64_t>(apply_sin_acc_q14_) *
+                 static_cast<int64_t>(apply_cos_per_q14_)) >>
+            14);
+        apply_cos_acc_q14_ = next_cos;
+        apply_sin_acc_q14_ = next_sin;
+        ++apply_chip_counter_;
+        if ((apply_chip_counter_ & 0x3F) == 0) {
+            apply_renorm_q14_accum(apply_cos_acc_q14_, apply_sin_acc_q14_);
+        }
+    }
+}
+
+void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
+    const int32_t ci = static_cast<int32_t>(chip_I);
+    const int32_t cq = static_cast<int32_t>(chip_Q);
+    int32_t ri = (ci * apply_cos_acc_q14_ + cq * apply_sin_acc_q14_) >> 14;
+    int32_t rq = (cq * apply_cos_acc_q14_ - ci * apply_sin_acc_q14_) >> 14;
+    if (ri > 32767) {
+        ri = 32767;
+    }
+    if (ri < -32768) {
+        ri = -32768;
+    }
+    if (rq > 32767) {
+        rq = 32767;
+    }
+    if (rq < -32768) {
+        rq = -32768;
+    }
+    chip_I = static_cast<int16_t>(ri);
+    chip_Q = static_cast<int16_t>(rq);
+    const int32_t next_cos = static_cast<int32_t>(
+        (static_cast<int64_t>(apply_cos_acc_q14_) *
+             static_cast<int64_t>(apply_cos_per_q14_) -
+         static_cast<int64_t>(apply_sin_acc_q14_) *
+             static_cast<int64_t>(apply_sin_per_q14_)) >>
+        14);
+    const int32_t next_sin = static_cast<int32_t>(
+        (static_cast<int64_t>(apply_cos_acc_q14_) *
+             static_cast<int64_t>(apply_sin_per_q14_) +
+         static_cast<int64_t>(apply_sin_acc_q14_) *
+             static_cast<int64_t>(apply_cos_per_q14_)) >>
+        14);
+    apply_cos_acc_q14_ = next_cos;
+    apply_sin_acc_q14_ = next_sin;
+    ++apply_chip_counter_;
+    if ((apply_chip_counter_ & 0x3F) == 0) {
+        apply_renorm_q14_accum(apply_cos_acc_q14_, apply_sin_acc_q14_);
+    }
 }
 
 #if defined(HTS_ALLOW_HOST_BUILD)
