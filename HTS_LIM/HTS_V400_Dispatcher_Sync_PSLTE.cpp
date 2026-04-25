@@ -1458,7 +1458,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                              &p0_buf128_Q_[best_off + 64],
                              d1I, d1Q);
                 // [CFO 4-3] P0 스캔 구간 192 chip 위상 누적 전진
-                // Walsh P0: Step 6 — cfo_.Estimate_From_Preamble 제거, V5a 단독 + IsApplyAllowed
+                // Walsh P0: legacy preamble CFO 제거, V5a 단독 + IsApplyAllowed
                 if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
                     const int16_t* const pre_I = &p0_buf128_I_[best_off];
                     const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
@@ -1848,9 +1848,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             static_cast<int>(dc_est_Q_));
     }
 #endif
-    // CFO 역회전 적용 (cfo_ Holo 활성 또는 Walsh Step 6 이후 V5a per-chip 구동)
+    // CFO 역회전: V5a per-chip apply (Holo P0 + Walsh P0)
     // 순서: DC → CFO → AGC
-    if (cfo_.Is_Apply_Active() || cfo_v5a_.IsApplyDriveActive()) {
+    if (cfo_v5a_.IsApplyDriveActive()) {
         cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
     }
 #if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
@@ -1884,14 +1884,14 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 }
             }
             std::printf(
-                "[APPLY-P1] chip=%d raw=(%d,%d) apply=(%d,%d) cfo_on=%d "
+                "[APPLY-P1] chip=%d raw=(%d,%d) apply=(%d,%d) v5a_on=%d "
                 "cos14_dot=%d sin14=%d cos14=%d\n",
                 s_p1_apply_chip_log, static_cast<int>(before_cfo_I),
                 static_cast<int>(before_cfo_Q), static_cast<int>(chip_I),
-                static_cast<int>(chip_Q), cfo_.Is_Apply_Active() ? 1 : 0,
+                static_cast<int>(chip_Q), cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
                 static_cast<int>(cos_q14_dot),
-                static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
-                static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
+                static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+                static_cast<int>(cfo_v5a_.Get_Apply_Cos_Per_Chip_Q14()));
             ++s_p1_apply_chip_log;
         }
     }
@@ -1903,13 +1903,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         if (s_apply_diag_n < 10) {
             std::printf(
                 "[DIAG-APPLY] n=%d before=(%d,%d) after=(%d,%d) "
-                "cfo_ap=%d sin14=%d cos14=%d\n",
+                "v5a_ap=%d sin14=%d cos14=%d\n",
                 s_apply_diag_n, static_cast<int>(before_cfo_I),
                 static_cast<int>(before_cfo_Q), static_cast<int>(chip_I),
                 static_cast<int>(chip_Q),
-                cfo_.Is_Apply_Active() ? 1 : 0,
-                static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
-                static_cast<int>(cfo_.Get_Cos_Per_Chip_Q14()));
+                cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+                static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+                static_cast<int>(cfo_v5a_.Get_Apply_Cos_Per_Chip_Q14()));
             ++s_apply_diag_n;
         }
     }
@@ -2167,9 +2167,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 const int sym_gate = (e63_64 >= e0_64) ? 63 : 0;
                 std::printf(
                     "[DIAG-P1] blk_idx=%d e63_sh=%d e0_sh=%d sym_gate=%d "
-                    "dot63_I=%d dot63_Q=%d dot0_I=%d dot0_Q=%d cfo_ap=%d\n",
+                    "dot63_I=%d dot63_Q=%d dot0_I=%d dot0_Q=%d v5a_ap=%d\n",
                     s_diag_p1_blk, e63_sh, e0_sh, sym_gate, dot63_I, dot63_Q,
-                    dot0_I, dot0_Q, cfo_.Is_Apply_Active() ? 1 : 0);
+                    dot0_I, dot0_Q, cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
             }
         }
 #endif
@@ -2263,13 +2263,13 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #endif
             pre_phase_ = 0;
             // P1 실패 후 재동기: 잘못된 chip_start 기준 CFO 가 다음 P0 에 남지 않도록
-            cfo_.Reset();
+            cfo_v5a_.Set_Apply_Cfo(0);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
             std::printf(
                 "[P1-EXIT] hdr=NO reason=energy_gate e63_sh=%d e0_sh=%d "
-                "max_e=%d kmin=%d est_count=%d cfo_ap=%d\n",
+                "max_e=%d kmin=%d est_count=%d v5a_ap=%d\n",
                 e63_sh, e0_sh, max_e_sh, k_P1_MIN_E, est_count_,
-                cfo_.Is_Apply_Active() ? 1 : 0);
+                cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
 #endif
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
             mf_reset_();
@@ -2344,9 +2344,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
             std::printf(
                 "[P1-EXIT] hdr=YES est_count=%d e63_sh=%d e0_sh=%d max_e=%d "
-                "k_P1_MIN=%d cfo_ap=%d\n",
+                "k_P1_MIN=%d v5a_ap=%d\n",
                 est_count_, e63_sh, e0_sh, max_e_sh, k_P1_MIN_E,
-                cfo_.Is_Apply_Active() ? 1 : 0);
+                cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
 #endif
             if (carry_only_full && !p1_rx_in_buf) {
                 buf_I_[0] = chip_I; buf_Q_[0] = chip_Q; buf_idx_ = 1;
@@ -2371,7 +2371,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             return;
         }
         pre_phase_ = 0;
-        cfo_.Reset();
+        cfo_v5a_.Set_Apply_Cfo(0);
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
         mf_reset_();
 #endif

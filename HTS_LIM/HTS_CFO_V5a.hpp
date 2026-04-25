@@ -90,7 +90,7 @@ public:
 
     /// Per-chip CFO 역회전 (HTS_CFO_Compensator::Apply 와 동일 Q14 누적·정규화).
     void Set_Apply_Cfo(int32_t cfo_hz) noexcept;
-    /// Hz 대신 Q14 per-chip 직접 지정 (Estimate 직후 `cfo_.Get_*` 값과 비트 정합).
+    /// Hz 대신 Q14 per-chip 직접 지정 (legacy compensator per-chip Q14 와 비트 정합).
     void Set_Apply_SinCosPerChip_Q14(int32_t sin_per_chip_q14,
                                      int32_t cos_per_chip_q14) noexcept;
     void Reset_Apply_Phase() noexcept;
@@ -102,7 +102,7 @@ public:
     bool IsApplyAllowed() const noexcept;
 
     /// `Set_Apply_Cfo` / `Set_Apply_SinCosPerChip_Q14` 로 비항등 per-chip 이 설정됨
-    /// (Dispatcher 가 `cfo_.Is_Apply_Active()` 없이도 `Apply_Per_Chip` 호출 판단).
+    /// (Dispatcher 가 legacy `Is_Apply_Active` 없이도 `Apply_Per_Chip` 호출 판단).
     bool IsApplyDriveActive() const noexcept;
 
 private:
