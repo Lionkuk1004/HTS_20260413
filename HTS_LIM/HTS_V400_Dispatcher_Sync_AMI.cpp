@@ -174,20 +174,14 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             static_cast<long long>(cfo_acQ), static_cast<int>(d1I),
             static_cast<int>(d1Q), sh, bo);
 #endif
-        cfo_.Estimate_From_Autocorr(d1I, d1Q, 32);
+        cfo_v5a_.Estimate_From_Autocorr(d1I, d1Q, 32);
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
             "[POST-EST-ATAN2] sin14=%d hz=%d\n",
-            static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
-            static_cast<int>(
-                static_cast<double>(cfo_.Get_Sin_Per_Chip_Q14()) * 1e6 /
-                (2.0 * 3.14159265358979 * 16384.0)));
+            static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+            static_cast<int>(cfo_v5a_.GetLastCfoHz()));
 #endif
-        // Holo P0: V5a 경로 활성화 + Apply 는 cfo_ Q14(Taylor) 와 비트 동등 (Step 6 에서 cfo_ 제거 시 V5a 내부 정합)
-        if (cfo_.Is_Apply_Active()) {
-            cfo_v5a_.Estimate_From_Autocorr(d1I, d1Q, 32);
-            cfo_v5a_.Set_Apply_SinCosPerChip_Q14(cfo_.Get_Sin_Per_Chip_Q14(),
-                                                 cfo_.Get_Cos_Per_Chip_Q14());
+        if (cfo_v5a_.IsApplyAllowed()) {
             cfo_v5a_.Advance_Phase_Only(192);
         } else {
             cfo_v5a_.Set_Apply_Cfo(0);
@@ -357,19 +351,19 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
 #if defined(HTS_ALLOW_HOST_BUILD)
         std::printf(
             "[P0-HOLO-OFF] seq=%d off_ac=%d chip_start=%d ac_mag2=%lld "
-            "cfo_hz=%.2f sin14=%d cfo_ap=%d\n",
+            "cfo_hz=%d sin14=%d v5a_ap=%d\n",
             s_holo_p0_ok_seq, best_off_ac, chip_start,
-            static_cast<long long>(best_mag2), cfo_.Get_Est_Hz(200000.0),
-            static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
-            cfo_.Is_Apply_Active() ? 1 : 0);
+            static_cast<long long>(best_mag2), cfo_v5a_.GetLastCfoHz(),
+            static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+            cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
 #else
         std::printf(
             "[P0-HOLO-OFF] seq=%d off_ac=%d chip_start=%d ac_mag2=%lld "
-            "sin14=%d cfo_ap=%d\n",
+            "cfo_hz=%d sin14=%d v5a_ap=%d\n",
             s_holo_p0_ok_seq, best_off_ac, chip_start,
-            static_cast<long long>(best_mag2),
-            static_cast<int>(cfo_.Get_Sin_Per_Chip_Q14()),
-            cfo_.Is_Apply_Active() ? 1 : 0);
+            static_cast<long long>(best_mag2), cfo_v5a_.GetLastCfoHz(),
+            static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+            cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
 #endif
     }
 #endif
