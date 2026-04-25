@@ -29,12 +29,15 @@ REM 컴파일 옵션
 set CL_OPTS=/std:c++17 /O2 /W4 /EHsc /nologo /D_CRT_SECURE_NO_WARNINGS
 set CL_OPTS=%CL_OPTS% /DHTS_USE_HOLO_TENSOR_4D
 set CL_OPTS=%CL_OPTS% /DHTS_ALLOW_HOST_BUILD
+set CL_OPTS=%CL_OPTS% /DHTS_CFO_V5A_ENABLE=1
 set CL_OPTS=%CL_OPTS% /DNOGDI
 set CL_OPTS=%CL_OPTS% /I"%HTS_LIM%"
 
 REM 소스 파일
 set SRCS=
 set SRCS=%SRCS% "%HTS_TEST%\HTS_CFO_Bank_Test_lab.cpp"
+set SRCS=%SRCS% "%HTS_LIM%\HTS_CFO_V5a.cpp"
+set SRCS=%SRCS% "%HTS_LIM%\HTS_Rx_CFO_SinCos_Table.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Holo_Tensor_4D.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Preamble_Holographic.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Secure_Memory.cpp"

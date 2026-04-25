@@ -2,19 +2,19 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab M: HOLO P0 V5a 삽입점 매트릭스 (Pass1/Pass2)
-//   + Lab K/L 유틸 (PRE_SYM1 64ch V5a, P1 FWHT, holo Pass1) 보존
-//   Lab M: Pass2 = PSLTE phase0_scan_holographic_ Pass2 verbatim (Q8 grid + derotate)
-//   패턴 A=삽입 없음, B=Pass1만 128ch lag4 삽입, C=Pass2만, D=B+C (73ff940 형태)
-//   Lab M CFO×SNR: kLabMCfoSweepList × {30,20,10}, 100 trial, [DIAG-LabM] trial0
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab N: 양산 HTS_CFO_V5a::Estimate 연동 (옵션 A)
+//   Lab K: CFO {0,500,5000,12000,30000} × SNR {30,20,10} — V5a OFF / PROD128 / LAB lag4 PRE1
+//   Lab M: Pass2 = PSLTE verbatim; 패턴 A–D; B/C/D = Walsh 동일 CFO_V5a (PSLTE 1462–1474 흐름)
 // ============================================================================
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 
+#include "../HTS_LIM/HTS_CFO_V5a.hpp"
 #include "../HTS_LIM/HTS_Holo_Tensor_4D.h"
 #include "../HTS_LIM/HTS_Preamble_Holographic.h"
+#include "../HTS_LIM/HTS_Rx_CFO_SinCos_Table.hpp"
 
 using namespace ProtectedEngine;
 
@@ -147,7 +147,7 @@ static bool lab_k_diag_trial0(int cfo_hz, int snr_db, int trial) noexcept {
     if (trial != 0) {
         return false;
     }
-    static constexpr int kDiagCfos[] = {5000, 8000, 10000, 12000, 15000, 20000};
+    static constexpr int kDiagCfos[] = {0, 500, 5000, 8000, 10000, 12000, 15000, 20000, 30000};
     static constexpr int kDiagSnrs[] = {30, 10};
     bool cfo_hit = false;
     for (int c : kDiagCfos) {
@@ -516,8 +516,50 @@ enum class HoloV5aPattern : int { A = 0, B = 1, C = 2, D = 3 };
 static constexpr int kLabMCfoSweep[] = {0, 100, 200, 500, 1000, 2000, 5000, 8000, 12000};
 static constexpr int kLabMCfoCount = static_cast<int>(sizeof(kLabMCfoSweep) / sizeof(kLabMCfoSweep[0]));
 
-static constexpr int kInsertPreambleChips = 128;
-static constexpr int kInsertLag = 4;
+/// Lab N: Lab K 재측정 CFO 스윕 (요청 스펙)
+static constexpr int kLabNCfoSweep[] = {0, 500, 5000, 12000, 30000};
+static constexpr int kLabNCfoSweepCount = static_cast<int>(sizeof(kLabNCfoSweep) / sizeof(kLabNCfoSweep[0]));
+
+enum class LabKV5aMode : int { Off = 0, ProdWalsh128 = 1, LegacyPreSym1Lag4 = 2 };
+
+static const char* lab_k_mode_title(LabKV5aMode m) noexcept {
+    switch (m) {
+        case LabKV5aMode::Off:
+            return "V5a OFF";
+        case LabKV5aMode::ProdWalsh128:
+            return "V5a ON (HTS_CFO_V5a::Estimate @ P1 best_off, Apply_Per_Chip)";
+        case LabKV5aMode::LegacyPreSym1Lag4:
+            return "V5a ON (Lab lag4 autocorr PRE_SYM1 64ch + ac_norm_thr)";
+    }
+    return "?";
+}
+
+/// PSLTE 1462–1474: Estimate(pre_I,pre_Q) → valid∧IsApplyAllowed → Set_Apply_Cfo → Advance(192) → 전 chip Apply
+static void lab_prod_v5a_apply_full_buffer(int16_t* corrI, int16_t* corrQ, int total_chips, int best_off_128,
+                                           double& est_hz_out, double& gate_ok_diag, bool& applied_out) noexcept {
+    est_hz_out = 0.0;
+    gate_ok_diag = 0.0;
+    applied_out = false;
+    if (best_off_128 < 0 || best_off_128 + hts::rx_cfo::kPreambleChips > 192) {
+        return;
+    }
+    hts::rx_cfo::CFO_V5a cfo_v5a{};
+    cfo_v5a.Init();
+    const hts::rx_cfo::CFO_Result cfo_res =
+        cfo_v5a.Estimate(corrI + best_off_128, corrQ + best_off_128);
+    est_hz_out = static_cast<double>(cfo_res.cfo_hz);
+    gate_ok_diag = cfo_v5a.IsApplyAllowed() ? 1.0 : 0.0;
+    if (cfo_res.valid && cfo_v5a.IsApplyAllowed()) {
+        cfo_v5a.Set_Apply_Cfo(cfo_res.cfo_hz);
+        cfo_v5a.Advance_Phase_Only(192);
+        for (int k = 0; k < total_chips; ++k) {
+            cfo_v5a.Apply_Per_Chip(corrI[k], corrQ[k]);
+        }
+        applied_out = true;
+    } else {
+        cfo_v5a.Set_Apply_Cfo(0);
+    }
+}
 
 static const char* lab_m_pattern_char(HoloV5aPattern p) noexcept {
     switch (p) {
@@ -531,38 +573,6 @@ static const char* lab_m_pattern_char(HoloV5aPattern p) noexcept {
             return "D";
     }
     return "?";
-}
-
-/// Walsh P0 동등: best_off 기준 128칩 lag=4 추정 + ac_norm_thr 게이트 → 전체 corr 에 per-chip 적용
-static void try_holo_insert_v5a_128(int16_t* corrI, int16_t* corrQ, int total_chips, int best_off,
-                                    double ac_norm_thr, double& est_hz_out, double& ac_norm_out,
-                                    bool& applied_out) noexcept {
-    est_hz_out = 0.0;
-    ac_norm_out = 0.0;
-    applied_out = false;
-    if (best_off < 0 || best_off + kInsertPreambleChips > 192) {
-        return;
-    }
-    double ac_mag = 0.0;
-    double sig_pow = 0.0;
-    double est_hz = v5a_estimate_cfo_with_quality(corrI + best_off, corrQ + best_off, kInsertPreambleChips,
-                                                  kInsertLag, &ac_mag, &sig_pow);
-    est_hz = -est_hz;
-    const double denom =
-        sig_pow * (static_cast<double>(kInsertPreambleChips - kInsertLag) /
-                   static_cast<double>(kInsertPreambleChips));
-    const double ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
-    est_hz_out = est_hz;
-    ac_norm_out = ac_norm;
-    applied_out =
-        (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) && (ac_norm >= ac_norm_thr);
-    if (applied_out) {
-        int16_t tmpI[256];
-        int16_t tmpQ[256];
-        v5a_apply_per_chip(corrI, corrQ, tmpI, tmpQ, total_chips, est_hz);
-        std::memcpy(corrI, tmpI, sizeof(tmpI));
-        std::memcpy(corrQ, tmpQ, sizeof(tmpQ));
-    }
 }
 
 static bool lab_m_diag_trial0(int trial) noexcept { return trial == 0; }
@@ -591,7 +601,7 @@ static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, 
 
 struct TestResult { int sync_pass; int decode_pass; int total_bit_err; int total_bits; };
 
-static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern pattern, double ac_norm_thr) {
+static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern pattern) {
     TestResult r{0, 0, 0, 0};
     HTS_Holo_Tensor_4D tx, rx;
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
@@ -677,12 +687,12 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
 
         if (sync_ok) {
             if ((pattern == HoloV5aPattern::B || pattern == HoloV5aPattern::D) && p1.pass) {
-                try_holo_insert_v5a_128(corrI, corrQ, ExperimentConfig::kTxTotalChips, p1.best_off, ac_norm_thr,
-                                        ins_est_hz, ins_ac_norm, ins_applied);
+                lab_prod_v5a_apply_full_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, p1.best_off,
+                                               ins_est_hz, ins_ac_norm, ins_applied);
             }
             if ((pattern == HoloV5aPattern::C || pattern == HoloV5aPattern::D) && used_p2) {
-                try_holo_insert_v5a_128(corrI, corrQ, ExperimentConfig::kTxTotalChips, p2.best_off_p2, ac_norm_thr,
-                                        ins_est_hz, ins_ac_norm, ins_applied);
+                lab_prod_v5a_apply_full_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, p2.best_off_p2,
+                                               ins_est_hz, ins_ac_norm, ins_applied);
             }
         }
 
@@ -765,15 +775,14 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
     return r;
 }
 
-static void run_lab_m_matrix(HoloV5aPattern pattern, double ac_norm_thr) {
-    std::printf("===== Lab M Pattern %s (ac_norm_thr=%.2f, holo insert 128ch lag=%d) =====\n",
-                lab_m_pattern_char(pattern), ac_norm_thr, kInsertLag);
+static void run_lab_m_matrix(HoloV5aPattern pattern) {
+    std::printf("===== Lab M Pattern %s (HTS_CFO_V5a::Estimate + IsApplyAllowed; PSLTE Apply flow) =====\n",
+                lab_m_pattern_char(pattern));
     for (int ci = 0; ci < kLabMCfoCount; ++ci) {
         const int cfo = kLabMCfoSweep[ci];
         std::printf("cfo=%5d:\n", cfo);
         for (int si = 0; si < ExperimentConfig::kSnrCount; ++si) {
-            const TestResult r =
-                run_one_cfo_lab_m(cfo, ExperimentConfig::kSnrLevels[si], pattern, ac_norm_thr);
+            const TestResult r = run_one_cfo_lab_m(cfo, ExperimentConfig::kSnrLevels[si], pattern);
             const double ber = (r.total_bits > 0) ? static_cast<double>(r.total_bit_err) / r.total_bits : 1.0;
             std::printf(" %ddB S%3d/%3d D%3d/%3d BER=%0.3f", ExperimentConfig::kSnrLevels[si], r.sync_pass,
                         ExperimentConfig::kNumTrials, r.decode_pass, ExperimentConfig::kNumTrials, ber);
@@ -783,7 +792,7 @@ static void run_lab_m_matrix(HoloV5aPattern pattern, double ac_norm_thr) {
     std::printf("\n");
 }
 
-static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac_norm_thr) {
+static TestResult run_one_cfo(int cfo_hz, int snr_db, LabKV5aMode v5a_mode, double ac_norm_thr) {
     TestResult r{0, 0, 0, 0};
     HTS_Holo_Tensor_4D tx, rx;
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
@@ -791,6 +800,9 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
     if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
         tx.Shutdown();
         return r;
+    }
+    if (v5a_mode != LabKV5aMode::LegacyPreSym1Lag4) {
+        (void)ac_norm_thr;
     }
 
     for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
@@ -841,13 +853,24 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
         double ac_norm = 0.0;
         bool apply_v5a = false;
 
-        if (enable_v5a) {
+        std::memcpy(corrI, rxI, sizeof(corrI));
+        std::memcpy(corrQ, rxQ, sizeof(corrQ));
+
+        if (v5a_mode == LabKV5aMode::ProdWalsh128) {
+            HoloPass1T6 p1pre{};
+            holo_pass1_compute_t6(corrI, corrQ, ExperimentConfig::kHoloSyncChips, p1pre);
+            const int bo =
+                (p1pre.best_off >= 0 && p1pre.best_off + hts::rx_cfo::kPreambleChips <= 192) ? p1pre.best_off : 0;
+            double gate_diag = 0.0;
+            lab_prod_v5a_apply_full_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, bo, est_hz, gate_diag,
+                                           apply_v5a);
+            ac_norm = gate_diag;
+        } else if (v5a_mode == LabKV5aMode::LegacyPreSym1Lag4) {
             double ac_mag = 0.0;
             double sig_pow = 0.0;
             est_hz = v5a_estimate_cfo_with_quality(rxI + ExperimentConfig::kV5aEstimateOffset,
-                                                   rxQ + ExperimentConfig::kV5aEstimateOffset,
-                                                   ExperimentConfig::kV5aEstimateChips, kV5aLag, &ac_mag, &sig_pow);
-            // channel_apply() uses +cfo as CCW phase advance; L&R atan2 here yields opposite sign on PRE_SYM1.
+                                                    rxQ + ExperimentConfig::kV5aEstimateOffset,
+                                                    ExperimentConfig::kV5aEstimateChips, kV5aLag, &ac_mag, &sig_pow);
             est_hz = -est_hz;
             const double denom =
                 sig_pow * (static_cast<double>(ExperimentConfig::kV5aEstimateChips - kV5aLag) /
@@ -856,13 +879,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
             apply_v5a = (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) && (ac_norm >= ac_norm_thr);
             if (apply_v5a) {
                 v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, ExperimentConfig::kTxTotalChips, est_hz);
-            } else {
-                std::memcpy(corrI, rxI, sizeof(corrI));
-                std::memcpy(corrQ, rxQ, sizeof(corrQ));
             }
-        } else {
-            std::memcpy(corrI, rxI, sizeof(corrI));
-            std::memcpy(corrQ, rxQ, sizeof(corrQ));
         }
 
         bool l12 = false;
@@ -879,15 +896,19 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
 
         const bool want_lab_l = lab_l_diag_trial0(t);
         const bool want_detail = lab_k_diag_trial0(cfo_hz, snr_db, t);
+        const char* lab_l_v5a_tag =
+            (v5a_mode == LabKV5aMode::ProdWalsh128)
+                ? "PROD128@P1best_off"
+                : (v5a_mode == LabKV5aMode::LegacyPreSym1Lag4 ? "LAB_PRE1_lag4" : "V5a=OFF");
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
             if (want_lab_l) {
-                if (enable_v5a) {
+                if (v5a_mode != LabKV5aMode::Off) {
                     const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                     std::printf(
-                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] 64ch lag=4 cfo=%d snr=%d est_hz=%.1f true=%d "
+                        "\n[DIAG-LabL] trial0 v5a=%s cfo=%d snr=%d est_hz=%.1f true=%d "
                         "|est-true|=%.1f ac_norm=%.3f apply_v5a=%d holo_sync=0 P1=n/a decode=SKIP\n",
-                        cfo_hz, snr_db, est_hz, cfo_hz, est_err, ac_norm, apply_v5a ? 1 : 0);
+                        lab_l_v5a_tag, cfo_hz, snr_db, est_hz, cfo_hz, est_err, ac_norm, apply_v5a ? 1 : 0);
                 } else {
                     std::printf("\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo_sync=0 P1=n/a decode=SKIP\n",
                                 cfo_hz, snr_db);
@@ -906,14 +927,15 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
             lab_p1_fwht_energy_gate_pslte(corrI, corrQ, &p1_e63_sh, &p1_e0_sh, &p1_max_e_sh);
         if (!p1_ok) {
             if (want_lab_l) {
-                if (enable_v5a) {
+                if (v5a_mode != LabKV5aMode::Off) {
                     const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                     std::printf(
-                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] 64ch lag=4 cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                        "\n[DIAG-LabL] trial0 v5a=%s cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                         "ac_norm=%.3f apply_v5a=%d holo_sync=1 P1_FAIL e63_sh=%d e0_sh=%d max_e_sh=%d "
-                        "k_P1_MIN_E=%d (PS-LTE) decode=SKIP (V5a reset)\n",
-                        cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
-                        static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E));
+                        "k_P1_MIN_E=%d (PS-LTE) decode=SKIP\n",
+                        lab_l_v5a_tag, cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0,
+                        static_cast<int>(p1_e63_sh), static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh),
+                        static_cast<int>(k_P1_MIN_E));
                 } else {
                     std::printf(
                         "\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo=1 P1_FAIL e63_sh=%d e0_sh=%d max_e_sh=%d "
@@ -977,14 +999,15 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                 std::printf("[DIAG-LabK] decode_block SECURE_FALSE\n");
             }
             if (want_lab_l) {
-                if (enable_v5a) {
+                if (v5a_mode != LabKV5aMode::Off) {
                     const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                     std::printf(
-                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                        "\n[DIAG-LabL] trial0 v5a=%s cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                         "ac_norm=%.3f apply_v5a=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d k_P1_MIN_E=%d "
                         "decode=FAIL\n",
-                        cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
-                        static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E));
+                        lab_l_v5a_tag, cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0,
+                        static_cast<int>(p1_e63_sh), static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh),
+                        static_cast<int>(k_P1_MIN_E));
                 } else {
                     std::printf(
                         "\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d "
@@ -1000,16 +1023,16 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
 
         if (want_lab_l) {
             const int be0 = (out[0] != bits[0]) + (out[1] != bits[1]) + (out[2] != bits[2]) + (out[3] != bits[3]);
-            if (enable_v5a) {
+            if (v5a_mode != LabKV5aMode::Off) {
                 const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                 std::printf(
-                    "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                    "\n[DIAG-LabL] trial0 v5a=%s cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                     "ac_norm=%.3f apply_v5a=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d k_P1_MIN_E=%d "
                     "decode=OK bits0..3_err=%d got %d %d %d %d\n",
-                    cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
-                    static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh), static_cast<int>(k_P1_MIN_E), be0,
-                    static_cast<int>(out[0]), static_cast<int>(out[1]), static_cast<int>(out[2]),
-                    static_cast<int>(out[3]));
+                    lab_l_v5a_tag, cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0,
+                    static_cast<int>(p1_e63_sh), static_cast<int>(p1_e0_sh), static_cast<int>(p1_max_e_sh),
+                    static_cast<int>(k_P1_MIN_E), be0, static_cast<int>(out[0]), static_cast<int>(out[1]),
+                    static_cast<int>(out[2]), static_cast<int>(out[3]));
             } else {
                 std::printf(
                     "\n[DIAG-LabL] trial0 V5a=OFF cfo=%d snr=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d "
@@ -1038,35 +1061,45 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
     return r;
 }
 
-static void run_matrix_sweep(bool enable_v5a, double ac_norm_thr) {
-    for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
-        const int cfo = ExperimentConfig::kCfoSweepList[ci];
+static void run_lab_k_matrix(LabKV5aMode mode, double ac_norm_thr_lab_legacy_only) {
+    std::printf("===== Lab N %s (ac_norm_thr=%.2f for LAB path only) =====\n", lab_k_mode_title(mode),
+                ac_norm_thr_lab_legacy_only);
+    for (int ci = 0; ci < kLabNCfoSweepCount; ++ci) {
+        const int cfo = kLabNCfoSweep[ci];
         std::printf("cfo=%5d:\n", cfo);
         for (int si = 0; si < ExperimentConfig::kSnrCount; ++si) {
-            const TestResult r = run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si], enable_v5a, ac_norm_thr);
+            const TestResult r =
+                run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si], mode, ac_norm_thr_lab_legacy_only);
             const double ber = (r.total_bits > 0) ? static_cast<double>(r.total_bit_err) / r.total_bits : 1.0;
-            std::printf(" %ddB S%3d/%3d D%3d/%3d BER=%0.3f",
-                        ExperimentConfig::kSnrLevels[si],
-                        r.sync_pass, ExperimentConfig::kNumTrials,
-                        r.decode_pass, ExperimentConfig::kNumTrials, ber);
+            std::printf(" %ddB S%3d/%3d D%3d/%3d BER=%0.3f", ExperimentConfig::kSnrLevels[si], r.sync_pass,
+                        ExperimentConfig::kNumTrials, r.decode_pass, ExperimentConfig::kNumTrials, ber);
         }
         std::printf("\n");
     }
+    std::printf("\n");
 }
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab M: HOLO Pass1+Pass2 (PSLTE verbatim) + 128ch lag4 insert matrix, "
-                "ac_norm_thr=%.2f, k_P1_MIN_E=%d\n",
-                ExperimentConfig::kV5aAcNormThresholdLabK, static_cast<int>(k_P1_MIN_E));
-    std::printf("Patterns: A=no insert, B=Pass1 only, C=Pass2 only, D=B+C (73ff940 shape). ");
-    std::printf("CFO %d pts %s x SNR {30,20,10} dB, %d trials; [DIAG-LabM] trial0/cell\n\n", kLabMCfoCount,
-                "{0,100,200,500,1000,2000,5000,8000,12000}", ExperimentConfig::kNumTrials);
+    hts::rx_cfo::Build_SinCos_Table();
 
-    run_lab_m_matrix(HoloV5aPattern::A, ExperimentConfig::kV5aAcNormThresholdLabK);
-    run_lab_m_matrix(HoloV5aPattern::B, ExperimentConfig::kV5aAcNormThresholdLabK);
-    run_lab_m_matrix(HoloV5aPattern::C, ExperimentConfig::kV5aAcNormThresholdLabK);
-    run_lab_m_matrix(HoloV5aPattern::D, ExperimentConfig::kV5aAcNormThresholdLabK);
+    std::printf(
+        "Phase H Lab N: HTS_CFO_V5a production link + Lab K/M matrices. k_P1_MIN_E=%d, Lab-K ac_norm_thr=%.2f "
+        "(legacy only)\n\n",
+        static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
+
+    run_lab_k_matrix(LabKV5aMode::Off, ExperimentConfig::kV5aAcNormThresholdLabK);
+    run_lab_k_matrix(LabKV5aMode::ProdWalsh128, ExperimentConfig::kV5aAcNormThresholdLabK);
+    run_lab_k_matrix(LabKV5aMode::LegacyPreSym1Lag4, ExperimentConfig::kV5aAcNormThresholdLabK);
+
+    std::printf("Lab M: HOLO Pass1+Pass2 (PSLTE) + 양산 CFO_V5a 삽입. ");
+    std::printf("CFO %d pts {0,100,200,500,1000,2000,5000,8000,12000} x SNR {30,20,10} dB, %d trials\n\n",
+                kLabMCfoCount, ExperimentConfig::kNumTrials);
+
+    run_lab_m_matrix(HoloV5aPattern::A);
+    run_lab_m_matrix(HoloV5aPattern::B);
+    run_lab_m_matrix(HoloV5aPattern::C);
+    run_lab_m_matrix(HoloV5aPattern::D);
 
     return 0;
 }
