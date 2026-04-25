@@ -183,7 +183,9 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
                 static_cast<double>(cfo_.Get_Sin_Per_Chip_Q14()) * 1e6 /
                 (2.0 * 3.14159265358979 * 16384.0)));
 #endif
+        // Holo P0: V5a 경로 활성화 + Apply 는 cfo_ Q14(Taylor) 와 비트 동등 (Step 6 에서 cfo_ 제거 시 V5a 내부 정합)
         if (cfo_.Is_Apply_Active()) {
+            cfo_v5a_.Estimate_From_Autocorr(d1I, d1Q, 32);
             cfo_v5a_.Set_Apply_SinCosPerChip_Q14(cfo_.Get_Sin_Per_Chip_Q14(),
                                                  cfo_.Get_Cos_Per_Chip_Q14());
             cfo_v5a_.Advance_Phase_Only(192);
