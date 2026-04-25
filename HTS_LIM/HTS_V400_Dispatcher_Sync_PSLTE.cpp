@@ -1655,22 +1655,6 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = static_cast<int32_t>(best_e >> 16);
-        if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
-            const int16_t* const pre_I = &p0_buf128_I_[best_off];
-            const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
-            const hts::rx_cfo::CFO_Result cfo_res =
-                cfo_v5a_.Estimate(pre_I, pre_Q);
-            cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
-            cfo_v5a_last_valid_ = cfo_res.valid;
-            if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
-                cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
-                cfo_v5a_.Advance_Phase_Only(192);
-            } else {
-                cfo_v5a_.Set_Apply_Cfo(0);
-            }
-        } else {
-            cfo_v5a_.Set_Apply_Cfo(0);
-        }
         psal_commit_align_();
         return;
     }
@@ -1796,22 +1780,6 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
         }
         psal_off_ = best_off_p2;
         psal_e63_ = static_cast<int32_t>(best_e_p2 >> 16);
-        if (best_off_p2 + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
-            const int16_t* const pre_I = &p0_buf128_I_[best_off_p2];
-            const int16_t* const pre_Q = &p0_buf128_Q_[best_off_p2];
-            const hts::rx_cfo::CFO_Result cfo_res =
-                cfo_v5a_.Estimate(pre_I, pre_Q);
-            cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
-            cfo_v5a_last_valid_ = cfo_res.valid;
-            if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
-                cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
-                cfo_v5a_.Advance_Phase_Only(192);
-            } else {
-                cfo_v5a_.Set_Apply_Cfo(0);
-            }
-        } else {
-            cfo_v5a_.Set_Apply_Cfo(0);
-        }
         psal_commit_align_();
     } else {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
