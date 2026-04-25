@@ -68,7 +68,19 @@ public:
 
     CFO_Result Estimate(const int16_t* rx_I, const int16_t* rx_Q) noexcept;
 
+    /// Holo P0: lag 자기상관 (ac_I + j·ac_Q) 위상 → Hz → Set_Apply_Cfo.
+    /// HTS_CFO_Compensator::Estimate_From_Autocorr 와 동일 Hz 관계 (Dispatcher Step 5).
+    void Estimate_From_Autocorr(int32_t ac_I, int32_t ac_Q,
+                                int32_t lag_chips) noexcept;
+
     int32_t GetLastCfoHz() const noexcept { return last_cfo_hz_; }
+
+    int32_t Get_Apply_Sin_Per_Chip_Q14() const noexcept {
+        return apply_sin_per_q14_;
+    }
+    int32_t Get_Apply_Cos_Per_Chip_Q14() const noexcept {
+        return apply_cos_per_q14_;
+    }
 
     void SetEnabled(bool en) noexcept { runtime_enabled_ = en; }
     bool IsEnabled() const noexcept { return runtime_enabled_; }

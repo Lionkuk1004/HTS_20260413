@@ -358,6 +358,34 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
     return res;
 }
 
+void CFO_V5a::Estimate_From_Autocorr(int32_t ac_I, int32_t ac_Q,
+                                     int32_t lag_chips) noexcept {
+    if (lag_chips <= 0) {
+        last_cfo_hz_ = 0;
+        Set_Apply_Cfo(0);
+        return;
+    }
+    const int64_t mag2 = static_cast<int64_t>(ac_I) * ac_I +
+                         static_cast<int64_t>(ac_Q) * ac_Q;
+    if (mag2 < 1000000LL) {
+        last_cfo_hz_ = 0;
+        Set_Apply_Cfo(0);
+        return;
+    }
+    const int32_t phase_q15 =
+        Atan2_To_Q15(static_cast<int64_t>(ac_Q), static_cast<int64_t>(ac_I));
+    const int64_t num =
+        static_cast<int64_t>(phase_q15) * static_cast<int64_t>(kChipRateHz);
+    const int64_t den = static_cast<int64_t>(lag_chips) * 65536LL;
+    int32_t cfo_hz = 0;
+    if (den != 0) {
+        const int64_t q = (num >= 0) ? (num + den / 2) : (num - den / 2);
+        cfo_hz = static_cast<int32_t>(q / den);
+    }
+    last_cfo_hz_ = cfo_hz;
+    Set_Apply_Cfo(cfo_hz);
+}
+
 void CFO_V5a::ApplyDerotate(const int16_t* in_I, const int16_t* in_Q,
                             int16_t* out_I, int16_t* out_Q, int chips,
                             int32_t cfo_hz) noexcept {
