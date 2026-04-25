@@ -324,8 +324,11 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     const uint32_t split_u =
         static_cast<uint32_t>(static_cast<uint32_t>(!ir_mode_) &
                               iq_ind_u & u3 & (1u - tensor_data_u));
-    const int npairs = ((nsym64_live + 1) / 2) * inc * static_cast<int>(u3);
-    const int nwal = nsym64_live * inc * static_cast<int>(u3);
+    const int npairs =
+        ((nsym64_live + 1) / 2) * inc * static_cast<int>(u3) *
+        static_cast<int>(1u - tensor_data_u);
+    const int nwal = nsym64_live * inc * static_cast<int>(u3) *
+                     static_cast<int>(1u - tensor_data_u);
     const int n_spl = npairs * static_cast<int>(split_u & 1u);
     const int n_sim = nwal * static_cast<int>((split_u ^ 1u) & 1u);
     for (int p = 0; p < n_spl; ++p) {
