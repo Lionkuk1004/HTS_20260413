@@ -14,7 +14,7 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-constexpr int kCfoSweepList[] = {0, 100, 200, 300, 500, 700, 1000, 2000, 5000};
+constexpr int kCfoSweepList[] = {0, 100, 500, 1000, 2000, 3000, 4000, 4500, 5000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
@@ -25,6 +25,9 @@ constexpr int kL = 2;
 constexpr int kAmp = 500;
 constexpr int kDenom = 16;
 constexpr bool kEnableV5aCorrection = true;
+/// V5a 역회전 deadzone: \|추정 CFO\| < ε 이면 적용 생략(항등). ε는 lag-L 자기상관 잡음에 의한
+/// CFO=0 근처 허위 추정 억제와, 저주파(예: 100 Hz) 실제 잔류 추적 사이의 트레이드오프.
+constexpr double kV5aDeadzoneEpsilonHz = 200.0;
 constexpr bool kEnableHoloSync = true;
 constexpr int kHoloSyncE63Threshold = kAmp * 38;
 constexpr double kChipRateHz = 1e6;
@@ -221,13 +224,10 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         int16_t rxI[128]{}, rxQ[128]{}, corrI[128]{}, corrQ[128]{};
         channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
         if (ExperimentConfig::kEnableV5aCorrection) {
-            constexpr double kV5aDeadzoneHz = 200.0;  // |est| < 200 Hz: apply skip
-            // |est| alone can exceed deadzone at true CFO≈0 due to lag-32 AC alias (~fs/(2*lag)); lab rejects apply
-            // when estimate is wildly inconsistent with the known channel CFO (BUG-3).
-            constexpr double kV5aLabMaxEstVsTruthHz = 4000.0;
             const double est = v5a_estimate_cfo(rxI, rxQ, 64, 32);
-            const bool apply_v5a = (std::abs(est) >= kV5aDeadzoneHz) &&
-                                   (std::abs(est - static_cast<double>(cfo_hz)) <= kV5aLabMaxEstVsTruthHz);
+            // 순수 deadzone: 채널 진값(cfo_hz)은 사용하지 않음(양산 경로와 동일한 정보 집합).
+            const bool apply_v5a =
+                std::abs(est) >= ExperimentConfig::kV5aDeadzoneEpsilonHz;
             if (want_lab_diag) {
                 std::printf("[DIAG-V5A-EST] cfo_real=%d est_hz=%.1f apply=%d\n",
                             cfo_hz, est, apply_v5a ? 1 : 0);
@@ -284,9 +284,10 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 int main() {
     build_sincos_table();
     std::printf("Phase H Lab isolated scaffold\n");
-    std::printf("mode=%s, rx_soft=%d, v5a=%d\n",
+    std::printf("mode=%s, rx_soft=%d, v5a=%d, v5a_deadzone_eps_hz=%.1f\n",
                 ExperimentConfig::kEnableHoloSync ? "S5H-like" : "S5-like",
-                ExperimentConfig::kRxSoftMode, ExperimentConfig::kEnableV5aCorrection ? 1 : 0);
+                ExperimentConfig::kRxSoftMode, ExperimentConfig::kEnableV5aCorrection ? 1 : 0,
+                ExperimentConfig::kV5aDeadzoneEpsilonHz);
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];
         std::printf("cfo=%5d:", cfo);
