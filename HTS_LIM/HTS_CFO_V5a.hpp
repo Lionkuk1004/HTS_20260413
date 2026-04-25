@@ -68,8 +68,8 @@ public:
 
     CFO_Result Estimate(const int16_t* rx_I, const int16_t* rx_Q) noexcept;
 
-    /// Holo P0: lag 자기상관 (ac_I + j·ac_Q) 위상 → Hz → Set_Apply_Cfo.
-    /// HTS_CFO_Compensator::Estimate_From_Autocorr 와 동일 Hz 관계 (Dispatcher Step 5).
+    /// Holo P0: lag 자기상관 위상(Q12 LUT→Q15) → Hz → Set_Apply_Cfo.
+    /// lag=32: cfo_hz = (phase_q15×1e6)>>21; 그 외 lag 는 동일식 일반화(2의 거듭제곱 시 시프트).
     void Estimate_From_Autocorr(int32_t ac_I, int32_t ac_Q,
                                 int32_t lag_chips) noexcept;
 

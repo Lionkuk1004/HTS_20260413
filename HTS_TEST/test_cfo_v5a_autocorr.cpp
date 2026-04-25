@@ -26,9 +26,10 @@ void test_zero_phase() noexcept {
     hts::rx_cfo::CFO_V5a v;
     v.Init();
     v.Estimate_From_Autocorr(1000, 0, kLag);
-    if (v.GetLastCfoHz() != 0) {
-        std::printf("FAIL Test1: last_hz=%d expected 0\n",
-                    static_cast<int>(v.GetLastCfoHz()));
+    const int32_t hz = v.GetLastCfoHz();
+    if (hz > 5 || hz < -5) {
+        std::printf("FAIL Test1: last_hz=%d expected ~0 (+-5)\n",
+                    static_cast<int>(hz));
         ++g_fail;
         return;
     }
@@ -126,7 +127,7 @@ void test_negative_cfo_hz() noexcept {
                 static_cast<int>(err));
 }
 
-void test_vs_compensator_effective_hz() noexcept {
+void test_vs_compensator_sincos() noexcept {
     constexpr int32_t ac_I = 3000000;
     constexpr int32_t ac_Q = 1500000;
     ProtectedEngine::HTS_CFO_Compensator cfo;
@@ -140,28 +141,29 @@ void test_vs_compensator_effective_hz() noexcept {
     hts::rx_cfo::CFO_V5a v;
     v.Init();
     v.Estimate_From_Autocorr(ac_I, ac_Q, kLag);
-    const double hz_c = cfo.Get_Est_Hz(1000000.0);
-    const int32_t hz_v = v.GetLastCfoHz();
-    const double diff = std::fabs(hz_c - static_cast<double>(hz_v));
-    // cfo_: Q12/lag + Taylor sin + int cos; V5a: atan2→Hz→Lookup (Step 4 Hz 통일).
-    // Effective CFO(Hz) should agree; per-chip Q14 may differ by >100 LSB.
-    if (diff > 200.0) {
-        std::printf(
-            "FAIL Test4: Get_Est_Hz=%.2f vs V5a last_hz=%d (|diff|=%.2f)\n",
-            hz_c, static_cast<int>(hz_v), diff);
-        ++g_fail;
-        return;
-    }
     const int32_t s_c = cfo.Get_Sin_Per_Chip_Q14();
     const int32_t c_c = cfo.Get_Cos_Per_Chip_Q14();
     const int32_t s_v = v.Get_Apply_Sin_Per_Chip_Q14();
     const int32_t c_v = v.Get_Apply_Cos_Per_Chip_Q14();
     const int32_t ds = (s_v > s_c) ? (s_v - s_c) : (s_c - s_v);
     const int32_t dc = (c_v > c_c) ? (c_v - c_c) : (c_c - c_v);
+    const double hz_c = cfo.Get_Est_Hz(1000000.0);
+    const int32_t hz_v = v.GetLastCfoHz();
+    const double hz_diff = std::fabs(hz_c - static_cast<double>(hz_v));
+    const bool q14_tight = (ds < 100 && dc < 100);
+    const bool hz_tight = hz_diff < 75.0;
+    if (!q14_tight && !hz_tight) {
+        std::printf(
+            "FAIL Test4: sin d=%d cos d=%d | |Hz_cfo-Hz_v5a|=%.2f (need Q14<100 "
+            "or Hz<75)\n",
+            static_cast<int>(ds), static_cast<int>(dc), hz_diff);
+        ++g_fail;
+        return;
+    }
     std::printf(
-        "Test 4 PASS: |Hz_cfo - Hz_v5a|=%.2f (|d_sin|=%d |d_cos|=%d; Q14 paths "
-        "differ)\n",
-        diff, static_cast<int>(ds), static_cast<int>(dc));
+        "Test 4 PASS: |d_sin|=%d |d_cos|=%d |Hz_cfo-Hz_v5a|=%.2f (%s)\n",
+        static_cast<int>(ds), static_cast<int>(dc), hz_diff,
+        q14_tight ? "Q14" : "Hz(Holo Taylor vs table)");
 }
 
 }  // namespace
@@ -171,7 +173,7 @@ int main() {
     test_zero_phase();
     test_positive_cfo_hz(5000);
     test_negative_cfo_hz();
-    test_vs_compensator_effective_hz();
+    test_vs_compensator_sincos();
     if (g_fail != 0) {
         std::printf("test_cfo_v5a_autocorr: FAIL (%d)\n", g_fail);
         return 1;

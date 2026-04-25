@@ -6,9 +6,7 @@
 #include "HTS_CFO_V5a.hpp"
 #include "HTS_Rx_CFO_SinCos_Table.hpp"
 
-#if !defined(HTS_PLATFORM_ARM)
 #include <cmath>
-#endif
 
 namespace hts {
 namespace rx_cfo {
@@ -142,14 +140,8 @@ static int64_t Energy_Multiframe_impl(const int16_t* rI,
     return e0 + e1;
 }
 
-// --- L&R: atan2 → phase_q15 (arg(Z) × 32768 / π) ---
-// HTS_CFO_Compensator::atan2_q12 is private; ARM path duplicates the same
-// Q12 mapping (atan2·4096, ±π ≈ ±12868) from HTS_CFO_Compensator.h without
-// modifying that translation unit.
-
-#if defined(HTS_PLATFORM_ARM)
-
-static inline int32_t lr_atan_frac_q12(int32_t y, int32_t x) noexcept {
+// --- Integer atan2·Q12 (HTS_CFO_Compensator 동일 LUT): ARM L&R + Holo autocorr ---
+static inline int32_t isc_atan_frac_q12(int32_t y, int32_t x) noexcept {
     if (x <= 0 || y < 0 || y > x) {
         return 0;
     }
@@ -173,7 +165,7 @@ static inline int32_t lr_atan_frac_q12(int32_t y, int32_t x) noexcept {
                (static_cast<int64_t>(next - base) * frac) >> 14);
 }
 
-static inline int32_t lr_atan2_q12(int32_t y, int32_t x) noexcept {
+static inline int32_t isc_atan2_q12(int32_t y, int32_t x) noexcept {
     if (x == 0 && y == 0) {
         return 0;
     }
@@ -185,7 +177,7 @@ static inline int32_t lr_atan2_q12(int32_t y, int32_t x) noexcept {
     if (u == 0) {
         return (y >= 0) ? 6434 : -6434;
     }
-    int32_t ang = lr_atan_frac_q12(v, u);
+    int32_t ang = isc_atan_frac_q12(v, u);
     if (swap) {
         ang = 6434 - ang;
     }
@@ -198,6 +190,9 @@ static inline int32_t lr_atan2_q12(int32_t y, int32_t x) noexcept {
     return ang;
 }
 
+// L&R: atan2 → phase_q15 (arg(Z) × 32768 / π)
+#if defined(HTS_PLATFORM_ARM)
+
 static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
     while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
            (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
@@ -205,8 +200,7 @@ static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
         x >>= 1;
     }
     const int32_t phase_q12 =
-        lr_atan2_q12(static_cast<int32_t>(y), static_cast<int32_t>(x));
-    // Q12 = atan2·4096 (π rad ≈ 12868); Q15 = arg × 32768/π.
+        isc_atan2_q12(static_cast<int32_t>(y), static_cast<int32_t>(x));
     return static_cast<int32_t>((static_cast<int64_t>(phase_q12) * 32768LL) /
                                 12868LL);
 }
@@ -229,6 +223,52 @@ static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
 }
 
 #endif
+
+/// Holo lag 자기상관: Q12 LUT→Q15 (Compensator::atan2_q12 와 동일 LUT; PC/ARM 공통).
+static int32_t Autocorr_Phase_Q15(int32_t ac_I, int32_t ac_Q) noexcept {
+    int64_t y = static_cast<int64_t>(ac_Q);
+    int64_t x = static_cast<int64_t>(ac_I);
+    while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
+           (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
+        y >>= 1;
+        x >>= 1;
+    }
+    const int32_t phase_q12 =
+        isc_atan2_q12(static_cast<int32_t>(y), static_cast<int32_t>(x));
+    return static_cast<int32_t>((static_cast<int64_t>(phase_q12) * 32768LL) /
+                                12868LL);
+}
+
+/// cfo_hz = phase_q15×1e6/(lag·65536). lag=2^k →>>(16+k); Holo lag=32 →>>21.
+static int32_t Autocorr_Hz_From_Phase_Q15(int32_t phase_q15,
+                                          int32_t lag_chips) noexcept {
+    if (lag_chips <= 0) {
+        return 0;
+    }
+    const int64_t num =
+        static_cast<int64_t>(phase_q15) * static_cast<int64_t>(kChipRateHz);
+    if (lag_chips == 32) {
+        constexpr int64_t kHalf = (1LL << 20);  // (1<<21) / 2
+        const int64_t r = num + ((num >= 0) ? kHalf : -kHalf);
+        return static_cast<int32_t>(r >> 21);
+    }
+    if ((lag_chips & (lag_chips - 1)) == 0) {
+        int shift = 16;
+        int l = lag_chips;
+        while (l > 1) {
+            ++shift;
+            l >>= 1;
+        }
+        const int64_t half = (1LL << (shift - 1));
+        const int64_t r = num + ((num >= 0) ? half : -half);
+        return static_cast<int32_t>(r >> shift);
+    }
+    const int64_t den =
+        static_cast<int64_t>(lag_chips) * 65536LL;
+    const int64_t q =
+        (num >= 0) ? (num + den / 2) : (num - den / 2);
+    return static_cast<int32_t>(q / den);
+}
 
 // Luise & Reggiannini (1995): Δf = arg(Z) / (π·(M+1)·T_seg)
 //                         = phase_q15 × 10^7 / 26214400  (Hz), M=4, T_seg=16 µs.
@@ -372,16 +412,8 @@ void CFO_V5a::Estimate_From_Autocorr(int32_t ac_I, int32_t ac_Q,
         Set_Apply_Cfo(0);
         return;
     }
-    const int32_t phase_q15 =
-        Atan2_To_Q15(static_cast<int64_t>(ac_Q), static_cast<int64_t>(ac_I));
-    const int64_t num =
-        static_cast<int64_t>(phase_q15) * static_cast<int64_t>(kChipRateHz);
-    const int64_t den = static_cast<int64_t>(lag_chips) * 65536LL;
-    int32_t cfo_hz = 0;
-    if (den != 0) {
-        const int64_t q = (num >= 0) ? (num + den / 2) : (num - den / 2);
-        cfo_hz = static_cast<int32_t>(q / den);
-    }
+    const int32_t phase_q15 = Autocorr_Phase_Q15(ac_I, ac_Q);
+    const int32_t cfo_hz = Autocorr_Hz_From_Phase_Q15(phase_q15, lag_chips);
     last_cfo_hz_ = cfo_hz;
     Set_Apply_Cfo(cfo_hz);
 }
