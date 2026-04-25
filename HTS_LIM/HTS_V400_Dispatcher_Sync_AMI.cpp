@@ -1426,11 +1426,13 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                         cfo_v5a_.Estimate(pre_I, pre_Q);
                     cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
                     cfo_v5a_last_valid_ = cfo_res.valid;
-                    cfo_v5a_.ResetPayloadDerotatePhase();
-                    if (cfo_.Is_Apply_Active()) {
-                        cfo_v5a_.AdvancePayloadDerotatePhase(
-                            192, cfo_res.cfo_hz);
-                    }
+#if defined(HTS_CFO_V5A_DIAG) && defined(HTS_DIAG_PRINTF)
+                    std::printf(
+                        "[CFO_V5a] est=%d Hz peak=%lld valid=%d\n",
+                        static_cast<int>(cfo_res.cfo_hz),
+                        static_cast<long long>(cfo_res.peak_energy),
+                        cfo_res.valid ? 1 : 0);
+#endif
                 }
 #endif
             }
@@ -1809,15 +1811,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #endif
     // CFO 역회전 적용 (Estimate 완료 시 active, 미완료 시 no-op)
     // 순서: DC → CFO → AGC
-#if (HTS_CFO_V5A_ENABLE != 0)
-    if (cfo_v5a_.IsEnabled() && cfo_v5a_last_valid_ &&
-        cfo_.Is_Apply_Active()) {
-        cfo_v5a_.ApplyPayloadChip(chip_I, chip_Q, cfo_v5a_last_cfo_hz_);
-    } else
-#endif
-    {
-        cfo_.Apply(chip_I, chip_Q);
-    }
+    cfo_.Apply(chip_I, chip_Q);
 #if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
     defined(HTS_DIAG_CFO_EST)
     {
