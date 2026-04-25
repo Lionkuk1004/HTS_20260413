@@ -24,7 +24,7 @@ constexpr int kN = 64;
 constexpr int kL = 2;
 constexpr int kAmp = 500;
 constexpr int kDenom = 16;
-constexpr bool kEnableV5aCorrection = false;
+constexpr bool kEnableV5aCorrection = true;
 constexpr bool kEnableHoloSync = true;
 constexpr int kHoloSyncE63Threshold = kAmp * 38;
 constexpr double kChipRateHz = 1e6;
@@ -186,19 +186,27 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
         }
 
-        int16_t txI[64]{}, txQ[64]{};
+        int16_t txI[128]{}, txQ[128]{};
+        for (int c = 0; c < 64; ++c) {
+            const uint32_t x = 63u & static_cast<uint32_t>(c);
+            const int sign = (popcount32_(x) & 1u) ? -1 : 1;
+            const int16_t pre = static_cast<int16_t>(sign * ExperimentConfig::kAmp);
+            txI[c] = pre;
+            txQ[c] = pre;
+        }
         for (int c = 0; c < 64; ++c) {
             const int32_t prod = static_cast<int32_t>(chips[c]) * ExperimentConfig::kAmp;
             const int32_t v = (prod >= 0) ? ((prod + (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom)
                                           : ((prod - (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom);
-            txI[c] = static_cast<int16_t>(v); txQ[c] = static_cast<int16_t>(v);
+            txI[64 + c] = static_cast<int16_t>(v);
+            txQ[64 + c] = static_cast<int16_t>(v);
         }
 
-        int16_t rxI[64]{}, rxQ[64]{}, corrI[64]{}, corrQ[64]{};
-        channel_apply(txI, txQ, rxI, rxQ, 64, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
+        int16_t rxI[128]{}, rxQ[128]{}, corrI[128]{}, corrQ[128]{};
+        channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
         if (ExperimentConfig::kEnableV5aCorrection) {
             const double est = v5a_estimate_cfo(rxI, rxQ, 64, 32);
-            v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 64, est);
+            v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est);
         } else {
             std::memcpy(corrI, rxI, sizeof(corrI)); std::memcpy(corrQ, rxQ, sizeof(corrQ));
         }
@@ -210,7 +218,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
         int16_t soft[64]{};
         uint64_t mask = 0xFFFFFFFFFFFFFFFFull;
-        rx_soft_generate(corrI, corrQ, soft, &mask);
+        rx_soft_generate(corrI + 64, corrQ + 64, soft, &mask);
         int8_t out[16]{};
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
@@ -240,7 +248,10 @@ int main() {
         for (int si = 0; si < ExperimentConfig::kSnrCount; ++si) {
             const TestResult r = run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si]);
             const double ber = (r.total_bits > 0) ? static_cast<double>(r.total_bit_err) / r.total_bits : 1.0;
-            std::printf(" %ddB %3d/%3d BER=%0.3f", ExperimentConfig::kSnrLevels[si], r.decode_pass, ExperimentConfig::kNumTrials, ber);
+            std::printf(" %ddB S%3d/%3d D%3d/%3d BER=%0.3f",
+                        ExperimentConfig::kSnrLevels[si],
+                        r.sync_pass, ExperimentConfig::kNumTrials,
+                        r.decode_pass, ExperimentConfig::kNumTrials, ber);
         }
         std::printf("\n");
     }
