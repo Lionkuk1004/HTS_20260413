@@ -668,7 +668,14 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       ajc_enabled_(true), holo_lpi_en_(HTS_Holo_LPI::SECURE_FALSE),
       holo_lpi_seed_{}, holo_lpi_mix_q8_(128), holo_lpi_scalars_{},
       holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
-      holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{} {}
+      holo_lpi_rx_scalars_seq_(0xFFFFFFFFu), dec_wI_{}, dec_wQ_{} {
+    cfo_v5a_.Init();
+#if (HTS_CFO_V5A_ENABLE != 0)
+    cfo_v5a_.SetEnabled(true);
+#else
+    cfo_v5a_.SetEnabled(false);
+#endif
+}
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
     // 손상. AntiJamEngine: 가상 함수 없음 → Reset 후 스토리지 secureWipe,
@@ -965,7 +972,14 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     cw_ema_Q_ = 0;
     dc_est_I_ = 0;
     dc_est_Q_ = 0;
-    cfo_.Init();
+    cfo_v5a_.Init();
+#if (HTS_CFO_V5A_ENABLE != 0)
+    cfo_v5a_.SetEnabled(true);
+#else
+    cfo_v5a_.SetEnabled(false);
+#endif
+    cfo_v5a_last_cfo_hz_ = 0;
+    cfo_v5a_last_valid_ = false;
     tpc_.Init();
     pre_agc_.Init();
     p0_chip_count_ = 0;
@@ -2213,14 +2227,24 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             // B-2: est seed 확정 직후 mag/recip 즉시 계산
             //   이후 on_sym_ 심볼당 정규화 derotation 사용
             update_derot_shift_from_est_();
-            // CFO 추정: 연속 2블록 위상차
+            // CFO: V5a preamble estimate + 192-chip phase advance (legacy compensator 제거)
             {
-                int32_t d0I = 0, d0Q = 0, d1I = 0, d1Q = 0;
-                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
-                             d0I, d0Q);
-                walsh63_dot_(&p0_buf128_I_[best_off + 64],
-                             &p0_buf128_Q_[best_off + 64], d1I, d1Q);
-                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
+                if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+                    const int16_t* const pre_I = &p0_buf128_I_[best_off];
+                    const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
+                    const hts::rx_cfo::CFO_Result cfo_res =
+                        cfo_v5a_.Estimate(pre_I, pre_Q);
+                    cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
+                    cfo_v5a_last_valid_ = cfo_res.valid;
+                    if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
+                        cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+                        cfo_v5a_.Advance_Phase_Only(192);
+                    } else {
+                        cfo_v5a_.Set_Apply_Cfo(0);
+                    }
+                } else {
+                    cfo_v5a_.Set_Apply_Cfo(0);
+                }
             }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
@@ -2268,8 +2292,10 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
-    // CFO 보정 (DC 제거 후)
-    cfo_.Apply(chip_I, chip_Q);
+    // CFO 보정 (DC 제거 후) — V5a per-chip apply
+    if (cfo_v5a_.IsApplyDriveActive()) {
+        cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
+    }
     // 프리앰블 AGC (DC/CFO 후)
     pre_agc_.Apply(chip_I, chip_Q);
     apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);

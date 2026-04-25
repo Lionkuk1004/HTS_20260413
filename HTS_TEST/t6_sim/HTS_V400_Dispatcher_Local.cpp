@@ -1507,6 +1507,12 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
         (p_metrics_ != nullptr) ? 1 : 0,
         static_cast<int>(tx_amp_));
 #endif
+    cfo_v5a_.Init();
+#if (HTS_CFO_V5A_ENABLE != 0)
+    cfo_v5a_.SetEnabled(true);
+#else
+    cfo_v5a_.SetEnabled(false);
+#endif
 }
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
@@ -1861,7 +1867,14 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     m63_gap_ = 0;
     dc_est_I_ = 0;
     dc_est_Q_ = 0;
-    cfo_.Init();
+    cfo_v5a_.Init();
+#if (HTS_CFO_V5A_ENABLE != 0)
+    cfo_v5a_.SetEnabled(true);
+#else
+    cfo_v5a_.SetEnabled(false);
+#endif
+    cfo_v5a_last_cfo_hz_ = 0;
+    cfo_v5a_last_valid_ = false;
     tpc_.Init();
     pre_agc_.Init();
 #if defined(HTS_PHASE0_WALSH_BANK)
@@ -4357,18 +4370,22 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             // B-2: est seed 확정 직후 mag/recip 즉시 계산
             //   이후 on_sym_ 심볼당 정규화 derotation 사용
             update_derot_shift_from_est_();
-            // Option 2 (Phase3-α v2): 시간도메인 CFO — 기존 HTS_CFO_Compensator API 재배선
-            if (best_off + 128 <= 192) {
-                int32_t cfo_d0i = 0, cfo_d0q = 0, cfo_d1i = 0, cfo_d1q = 0;
-                walsh63_dot_(&p0_buf128_I_[best_off], &p0_buf128_Q_[best_off],
-                             cfo_d0i, cfo_d0q);
-                walsh63_dot_(&p0_buf128_I_[best_off + 64],
-                             &p0_buf128_Q_[best_off + 64], cfo_d1i, cfo_d1q);
-                cfo_.Estimate_From_Preamble(cfo_d0i, cfo_d0q, cfo_d1i, cfo_d1q,
-                                            64);
-                cfo_.Advance_Phase_Only(192);
+            // CFO: V5a preamble estimate + 192-chip phase advance
+            if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+                const int16_t* const pre_I = &p0_buf128_I_[best_off];
+                const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
+                const hts::rx_cfo::CFO_Result cfo_res =
+                    cfo_v5a_.Estimate(pre_I, pre_Q);
+                cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
+                cfo_v5a_last_valid_ = cfo_res.valid;
+                if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
+                    cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+                    cfo_v5a_.Advance_Phase_Only(192);
+                } else {
+                    cfo_v5a_.Set_Apply_Cfo(0);
+                }
             } else {
-                cfo_.Init();
+                cfo_v5a_.Set_Apply_Cfo(0);
             }
             // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
             {
@@ -4524,7 +4541,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #endif
     pre_agc_.Apply(chip_I, chip_Q);
     // Option 2: AGC 이후 RX 역회전 (P0 walsh_dot·버퍼와 동일 도메인)
-    cfo_.Apply(chip_I, chip_Q);
+    if (cfo_v5a_.IsApplyDriveActive()) {
+        cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
+    }
 #if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
     if (cur_mode_ == PayloadMode::DATA && phase_ == RxPhase::READ_PAYLOAD) {
         static thread_local uint32_t s_fwht_agc_ep = 0u;

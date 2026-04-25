@@ -74,7 +74,7 @@
 #include <cstddef>
 #include "HTS_FEC_HARQ.hpp"
 #include "HTS_Walsh_Row_Permuter.hpp"
-#include "HTS_CFO_Compensator.h"
+#include "HTS_CFO_V5a.hpp"
 #include "HTS_TPC_Controller.h"
 #include "HTS_Preamble_AGC.h"
 #include "HTS_RF_Metrics.h"
@@ -86,7 +86,6 @@ namespace ProtectedEngineLocal {
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngine::Walsh_Row_Permuter;
 using ProtectedEngine::HTS_TPC_Controller;
-using ProtectedEngine::HTS_CFO_Compensator;
 using ProtectedEngine::HTS_Preamble_AGC;
 using ProtectedEngine::HTS_RF_Metrics;
 
@@ -421,7 +420,9 @@ using ProtectedEngine::HTS_RF_Metrics;
         int16_t tx_amp_{ 1000 };         ///< TPC 연동 (Set_Tx_Amp / Build_Packet)
         int32_t dc_est_I_{ 0 };          ///< DC IIR 추정값 (Q7 고정소수)
         int32_t dc_est_Q_{ 0 };
-        HTS_CFO_Compensator cfo_;       ///< P0 추정 CFO 역회전 (Q14)
+        hts::rx_cfo::CFO_V5a cfo_v5a_{};
+        int32_t cfo_v5a_last_cfo_hz_{ 0 };
+        bool cfo_v5a_last_valid_{ false };
         HTS_TPC_Controller tpc_;        ///< TPC (페이로드 info[7] 상위 2b 피드백)
         HTS_Preamble_AGC pre_agc_;    ///< P0 피크 기반 디지털 AGC (shift만)
 
