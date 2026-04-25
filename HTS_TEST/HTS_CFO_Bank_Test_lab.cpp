@@ -2,8 +2,9 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab H: V5a 추정 192칩 프리앰블 (길이 확장)
-//   256칩 TX, T6 Pass1 동기, lag=4, N_est=192 로 CFO 추정·ac_norm
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab I: PRE_SYM1 (Walsh row 0) + V5a
+//   TX: PRE_SYM0×2 (0–127) + PRE_SYM1 (128–191) + 4D payload (192–255)
+//   V5a est: PRE_SYM1만 64칩, lag=4 / apply·corr: 256칩 / holo: 0–191칩
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -27,8 +28,15 @@ constexpr int kAmp = 500;
 constexpr int kDenom = 16;
 constexpr int kTxTotalChips = 256;
 constexpr int kPayloadOffset = 192;
-/// V5a CFO 추정에 사용하는 프리앰블 칩 수 (3×64, T6 버퍼 정합)
-constexpr int kV5aEstimateChips = 192;
+/// PRE_SYM0 (Walsh 63) 64칩 × 2
+constexpr int kPreSym0TotalChips = 128;
+/// PRE_SYM1 (Walsh row 0, all +1) 시작 인덱스·길이 — V5a 추정 전용
+constexpr int kPreSym1Offset = 128;
+constexpr int kPreSym1Chips = 64;
+/// T6 holo Pass1: 메인트리와 동일하게 프리앰블 192칩(0..191)만 사용
+constexpr int kHoloSyncChips = 192;
+constexpr int kV5aEstimateOffset = kPreSym1Offset;
+constexpr int kV5aEstimateChips = kPreSym1Chips;
 constexpr bool kEnableHoloSync = true;
 constexpr bool kEnableV5aCorrection = true;
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
@@ -130,14 +138,23 @@ static inline int16_t sat_i16(int32_t v) noexcept {
     return static_cast<int16_t>(v);
 }
 
-static bool lab_g_cell_diag(int trial) noexcept { return trial == 0; }
-
 static bool lab_g_detail_2000_30(int cfo_hz, int snr_db, int trial) noexcept {
     return trial == 0 && cfo_hz == 2000 && snr_db == 30;
 }
 
-static bool lab_h_detail_500_30(int cfo_hz, int snr_db, int trial) noexcept {
-    return trial == 0 && cfo_hz == 500 && snr_db == 30;
+/// Lab I trial0 DIAG: CFO × SNR 매트릭스 (양산 메모리 #6 [A] 정합 검증)
+static bool lab_i_cell_diag(int cfo_hz, int snr_db, int trial) noexcept {
+    (void)snr_db;
+    if (trial != 0) {
+        return false;
+    }
+    constexpr int kList[] = {0, 100, 500, 1000, 2000};
+    for (int v : kList) {
+        if (cfo_hz == v) {
+            return true;
+        }
+    }
+    return false;
 }
 
 static double lab_phase_deg(int16_t i, int16_t q) noexcept {
@@ -345,12 +362,17 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
         int16_t txI[256]{};
         int16_t txQ[256]{};
-        for (int c = 0; c < ExperimentConfig::kPayloadOffset; ++c) {
+        for (int c = 0; c < ExperimentConfig::kPreSym0TotalChips; ++c) {
             const uint32_t x = 63u & static_cast<uint32_t>(c);
             const int sign = (popcount32_(x) & 1u) ? -1 : 1;
             const int16_t pre = static_cast<int16_t>(sign * ExperimentConfig::kAmp);
             txI[c] = pre;
             txQ[c] = pre;
+        }
+        for (int c = 0; c < ExperimentConfig::kPreSym1Chips; ++c) {
+            const int16_t a = static_cast<int16_t>(ExperimentConfig::kAmp);
+            txI[ExperimentConfig::kPreSym1Offset + c] = a;
+            txQ[ExperimentConfig::kPreSym1Offset + c] = a;
         }
         for (int c = 0; c < 64; ++c) {
             const int32_t prod = static_cast<int32_t>(chips[c]) * ExperimentConfig::kAmp;
@@ -375,8 +397,11 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         if (ExperimentConfig::kEnableV5aCorrection) {
             double ac_mag = 0.0;
             double sig_pow = 0.0;
-            est_hz = v5a_estimate_cfo_with_quality(rxI, rxQ, ExperimentConfig::kV5aEstimateChips, kV5aLag, &ac_mag,
-                                                   &sig_pow);
+            est_hz = v5a_estimate_cfo_with_quality(rxI + ExperimentConfig::kV5aEstimateOffset,
+                                                   rxQ + ExperimentConfig::kV5aEstimateOffset,
+                                                   ExperimentConfig::kV5aEstimateChips, kV5aLag, &ac_mag, &sig_pow);
+            // channel_apply() uses +cfo as CCW phase advance; L&R atan2 here yields opposite sign on PRE_SYM1.
+            est_hz = -est_hz;
             const double denom =
                 sig_pow * (static_cast<double>(ExperimentConfig::kV5aEstimateChips - kV5aLag) /
                            static_cast<double>(ExperimentConfig::kV5aEstimateChips));
@@ -402,46 +427,25 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         int64_t top4_sum = 0;
         bool sync_ok = true;
         if (ExperimentConfig::kEnableHoloSync) {
-            sync_ok = holo_sync_check_t6(corrI, corrQ, ExperimentConfig::kTxTotalChips, l12, l5f, l3f, best_e,
+            sync_ok = holo_sync_check_t6(corrI, corrQ, ExperimentConfig::kHoloSyncChips, l12, l5f, l3f, best_e,
                                           ratio_x10, top4_sum);
         }
 
-        const bool want_cell = lab_g_cell_diag(t);
+        const bool want_i = lab_i_cell_diag(cfo_hz, snr_db, t);
         const bool want_detail = lab_g_detail_2000_30(cfo_hz, snr_db, t);
-        const bool want_h500 = lab_h_detail_500_30(cfo_hz, snr_db, t);
-        if (want_cell) {
-            const double ph0 = lab_phase_deg(corrI[0], corrQ[0]);
-            const double ph64 = lab_phase_deg(corrI[64], corrQ[64]);
-            const double ph128 = lab_phase_deg(corrI[128], corrQ[128]);
-            const double ph192 = lab_phase_deg(corrI[192], corrQ[192]);
-            const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-            std::printf("\n[DIAG-LabH] cfo=%d snr=%d holo_sync_pass=%d est_hz=%.1f ac_norm=%.3f |est-true|=%.1f "
-                        "apply_v5a=%d phase_deg ch0=%.1f ch64=%.1f ch128=%.1f ch192=%.1f d_payload_vs_ch0=%.1f\n",
-                        cfo_hz, snr_db, sync_ok ? 1 : 0, est_hz, ac_norm, est_err, apply_v5a ? 1 : 0, ph0, ph64,
-                        ph128, ph192, ph192 - ph0);
-        }
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
-            if (want_cell) {
-                std::printf("[DIAG-LabH] decode_skip (sync_fail) cfo=%d snr=%d\n", cfo_hz, snr_db);
+            if (want_i) {
+                const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+                std::printf("\n[DIAG-LabI] cfo=%d snr=%d est_PRE_SYM1_hz=%.1f |est-true|=%.1f ac_norm=%.3f "
+                            "apply_v5a=%d holo_sync_pass=0 bits[0..3]= n/a\n",
+                            cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0);
             }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
         }
         ++r.sync_pass;
-
-        if (want_h500) {
-            const double est_err_500 = std::abs(est_hz - 500.0);
-            const double f_res =
-                apply_v5a ? (static_cast<double>(cfo_hz) - est_hz) : static_cast<double>(cfo_hz);
-            std::printf("[DIAG-LabH-500] |est-500|=%.1f apply_v5a=%d corrI[192..199]= %d %d %d %d %d %d %d %d\n",
-                        est_err_500, apply_v5a ? 1 : 0, static_cast<int>(corrI[192]), static_cast<int>(corrI[193]),
-                        static_cast<int>(corrI[194]), static_cast<int>(corrI[195]), static_cast<int>(corrI[196]),
-                        static_cast<int>(corrI[197]), static_cast<int>(corrI[198]), static_cast<int>(corrI[199]));
-            std::printf("[DIAG-LabH-500] residual f_res_hz=%.1f phase_deg_ch192=%.1f (corrQ192=%d)\n", f_res,
-                        lab_phase_deg(corrI[192], corrQ[192]), static_cast<int>(corrQ[192]));
-        }
 
         if (want_detail) {
             std::printf("[DIAG-LabG-2000] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
@@ -492,9 +496,25 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             if (want_detail) {
                 std::printf("[DIAG-LabG-2000] decode_block SECURE_FALSE\n");
             }
+            if (want_i) {
+                const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+                std::printf("\n[DIAG-LabI] cfo=%d snr=%d est_PRE_SYM1_hz=%.1f |est-true|=%.1f ac_norm=%.3f "
+                            "apply_v5a=%d holo_sync_pass=1 bits[0..3]= decode_fail\n",
+                            cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0);
+            }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
+        }
+
+        if (want_i) {
+            const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+            std::printf("\n[DIAG-LabI] cfo=%d snr=%d est_PRE_SYM1_hz=%.1f |est-true|=%.1f ac_norm=%.3f "
+                        "apply_v5a=%d holo_sync_pass=1 bits_exp= %d %d %d %d bits_got= %d %d %d %d\n",
+                        cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0,
+                        static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
+                        static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
+                        static_cast<int>(out[2]), static_cast<int>(out[3]));
         }
 
         if (want_detail) {
@@ -517,9 +537,10 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab H: V5a est on %d-chip preamble, lag=4, CFO sweep x SNR {30,20,10}, trial0 DIAG\n",
-                ExperimentConfig::kV5aEstimateChips);
-    std::printf("Detail blocks: cfo=500/30 (|est-500|, payload corr), cfo=2000/30 (full)\n\n");
+    std::printf("Phase H Lab I: PRE_SYM0x2 + PRE_SYM1(Walsh0) + payload; V5a on chips %d..%d; holo 0..191\n",
+                ExperimentConfig::kV5aEstimateOffset,
+                ExperimentConfig::kV5aEstimateOffset + ExperimentConfig::kV5aEstimateChips - 1);
+    std::printf("CFO sweep (matrix): full list; [DIAG-LabI] trial0: {0,100,500,1000,2000}xSNR; detail cfo=2000/30\n\n");
 
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];
