@@ -2,8 +2,8 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab D: Lab B 조건 vs 메인트리 T6 S5H 정합
-//   128칩(프리앰블+페이로드), HOLO 동기, V5a lag=4 + deadzone + ac_norm 게이트
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab F: T6 phase0_scan_holographic_ Pass1
+//   256칩 TX (Walsh63×3 프리앰블 + 64 페이로드), 메인트리 L12/L5/L3 동일 임계
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -11,11 +11,11 @@
 #include <cstring>
 
 #include "../HTS_LIM/HTS_Holo_Tensor_4D.h"
+#include "../HTS_LIM/HTS_Preamble_Holographic.h"
 
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-/// T6 S5H와 동일 스윕 (영준님 메모리 #6: 500 Hz 부근부터 FAIL 기준 비교)
 constexpr int kCfoSweepList[] = {0,   50,   100,  200,  500,  1000, 2000, 2500, 3000,
                                  3500, 4000, 4500, 5000, 7500, 10000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
@@ -26,17 +26,66 @@ constexpr int kK = 16;
 constexpr int kN = 64;
 constexpr int kAmp = 500;
 constexpr int kDenom = 16;
+constexpr int kTxTotalChips = 256;
+constexpr int kPayloadOffset = 192;
 constexpr bool kEnableHoloSync = true;
 constexpr bool kEnableV5aCorrection = true;
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
 constexpr double kV5aAcNormThreshold = 0.5;
-constexpr int kHoloSyncE63Threshold = kAmp * 38;
 constexpr double kChipRateHz = 1e6;
 constexpr int kRxSoftMode = 0;
 constexpr int32_t kChipValidThreshold = 0;
 }  // namespace ExperimentConfig
 
 namespace {
+
+// HTS_V400_Dispatcher_Internal.hpp — fwht_raw(..., 64) 와 동일 (n==64 분기)
+inline void fwht_raw(int32_t* d, int n) noexcept {
+    if (n == 64) {
+        for (int i = 0; i < 64; i += 2) {
+            int32_t u = d[i], v = d[i + 1];
+            d[i] = u + v;
+            d[i + 1] = u - v;
+        }
+        for (int i = 0; i < 64; i += 4) {
+            int32_t u = d[i], v = d[i + 2];
+            d[i] = u + v;
+            d[i + 2] = u - v;
+            u = d[i + 1];
+            v = d[i + 3];
+            d[i + 1] = u + v;
+            d[i + 3] = u - v;
+        }
+        for (int i = 0; i < 64; i += 8) {
+            for (int k = 0; k < 4; ++k) {
+                int32_t u = d[i + k], v = d[i + 4 + k];
+                d[i + k] = u + v;
+                d[i + 4 + k] = u - v;
+            }
+        }
+        for (int i = 0; i < 64; i += 16) {
+            for (int k = 0; k < 8; ++k) {
+                int32_t u = d[i + k], v = d[i + 8 + k];
+                d[i + k] = u + v;
+                d[i + 8 + k] = u - v;
+            }
+        }
+        for (int i = 0; i < 64; i += 32) {
+            for (int k = 0; k < 16; ++k) {
+                int32_t u = d[i + k], v = d[i + 16 + k];
+                d[i + k] = u + v;
+                d[i + 16 + k] = u - v;
+            }
+        }
+        for (int k = 0; k < 32; ++k) {
+            int32_t u = d[k], v = d[k + 32];
+            d[k] = u + v;
+            d[k + 32] = u - v;
+        }
+        return;
+    }
+}
+
 constexpr int kSinCosTableSize = 1024;
 constexpr int kSinCosIndexShift = 22;
 constexpr int32_t kQ14One = 16384;
@@ -78,6 +127,11 @@ static inline int16_t sat_i16(int32_t v) noexcept {
     if (v > 32767) return 32767;
     if (v < -32768) return -32768;
     return static_cast<int16_t>(v);
+}
+
+static bool lab_want_t6_sync_diag(int cfo_hz, int snr_db, int trial) noexcept {
+    if (trial != 0 || snr_db != 30) return false;
+    return cfo_hz == 0 || cfo_hz == 100 || cfo_hz == 500 || cfo_hz == 1000 || cfo_hz == 5000;
 }
 }  // namespace
 
@@ -148,19 +202,87 @@ static void v5a_apply_per_chip(const int16_t* rx_I, const int16_t* rx_Q, int16_t
     }
 }
 
-static bool holo_sync_check(const int16_t* rx_I, const int16_t* rx_Q) noexcept {
-    int32_t e63_i = 0;
-    int32_t e63_q = 0;
-    for (int c = 0; c < 64; ++c) {
-        const uint32_t x = 63u & static_cast<uint32_t>(c);
-        const int sign = (popcount32_(x) & 1u) ? -1 : 1;
-        e63_i += sign * static_cast<int32_t>(rx_I[c]);
-        e63_q += sign * static_cast<int32_t>(rx_Q[c]);
+/// T6 phase0_scan_holographic_() Pass1 (PSLTE 1564–1646) 동등
+static bool holo_sync_check_t6(const int16_t* rx_I, const int16_t* rx_Q, int chip_count, bool& l12, bool& l5,
+                               bool& l3, int64_t& best_e, int& ratio_x10, int64_t& top4_sum) noexcept {
+    using ProtectedEngine::Holographic::holographic_dot_segmented;
+    using ProtectedEngine::Holographic::peak_to_median_ratio_x10;
+
+    l12 = false;
+    l5 = false;
+    l3 = false;
+    best_e = 0;
+    ratio_x10 = 0;
+    top4_sum = 0;
+
+    if (chip_count < 192) {
+        return false;
     }
-    const int64_t e63 = static_cast<int64_t>(e63_i) * e63_i + static_cast<int64_t>(e63_q) * e63_q;
-    const int64_t thr = static_cast<int64_t>(ExperimentConfig::kHoloSyncE63Threshold) *
-                        ExperimentConfig::kHoloSyncE63Threshold;
-    return e63 >= thr;
+
+    int64_t energies[64];
+    for (int off = 0; off < 64; ++off) {
+        if (off + 128 > chip_count) {
+            energies[off] = 0;
+        } else {
+            const int64_t e_block0 = holographic_dot_segmented(&rx_I[off], &rx_Q[off]);
+            const int64_t e_block1 = holographic_dot_segmented(&rx_I[off + 64], &rx_Q[off + 64]);
+            energies[off] = e_block0 + e_block1;
+        }
+    }
+
+    int64_t be = 0;
+    int best_off = -1;
+    for (int off = 0; off < 64; ++off) {
+        if (energies[off] > be) {
+            be = energies[off];
+            best_off = off;
+        }
+    }
+    best_e = be;
+    if (best_off < 0 || be <= 0) {
+        return false;
+    }
+
+    const int64_t amp32 = static_cast<int64_t>(ExperimentConfig::kAmp);
+    const int64_t amp38 = amp32 * 38LL;
+    const int64_t threshold_12 = (amp38 * amp38) / 4LL;
+    const int64_t threshold_3 = (amp38 * amp38 * 3LL) / 10LL;
+
+    ratio_x10 = static_cast<int>(peak_to_median_ratio_x10(energies, 64));
+    l12 = (best_e >= threshold_12);
+    l5 = (ratio_x10 >= 25);
+
+    if (l12 && l5) {
+        int32_t t_I[64];
+        int32_t t_Q[64];
+        for (int i = 0; i < 64; ++i) {
+            const int idx = best_off + i;
+            t_I[i] = static_cast<int32_t>(rx_I[idx]);
+            t_Q[i] = static_cast<int32_t>(rx_Q[idx]);
+        }
+        fwht_raw(t_I, 64);
+        fwht_raw(t_Q, 64);
+        int64_t row_e[64];
+        for (int i = 0; i < 64; ++i) {
+            row_e[i] = static_cast<int64_t>(t_I[i]) * t_I[i] + static_cast<int64_t>(t_Q[i]) * t_Q[i];
+        }
+        int64_t ts = 0;
+        for (int k = 0; k < 4; ++k) {
+            int max_idx = 0;
+            int64_t max_val = row_e[0];
+            for (int i = 1; i < 64; ++i) {
+                if (row_e[i] > max_val) {
+                    max_val = row_e[i];
+                    max_idx = i;
+                }
+            }
+            ts += max_val;
+            row_e[max_idx] = -1;
+        }
+        top4_sum = ts;
+        l3 = (top4_sum >= threshold_3);
+    }
+    return l12 && l5 && l3;
 }
 
 static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, uint64_t* valid_mask) noexcept {
@@ -187,8 +309,6 @@ static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, 
 
 struct TestResult { int sync_pass; int decode_pass; int total_bit_err; int total_bits; };
 
-static bool lab_is_diag_cfo_500_1000(int cfo_hz) noexcept { return cfo_hz == 500 || cfo_hz == 1000; }
-
 static TestResult run_one_cfo(int cfo_hz, int snr_db) {
     TestResult r{0, 0, 0, 0};
     HTS_Holo_Tensor_4D tx, rx;
@@ -213,9 +333,9 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             continue;
         }
 
-        int16_t txI[128]{};
-        int16_t txQ[128]{};
-        for (int c = 0; c < 64; ++c) {
+        int16_t txI[256]{};
+        int16_t txQ[256]{};
+        for (int c = 0; c < ExperimentConfig::kPayloadOffset; ++c) {
             const uint32_t x = 63u & static_cast<uint32_t>(c);
             const int sign = (popcount32_(x) & 1u) ? -1 : 1;
             const int16_t pre = static_cast<int16_t>(sign * ExperimentConfig::kAmp);
@@ -226,15 +346,15 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             const int32_t prod = static_cast<int32_t>(chips[c]) * ExperimentConfig::kAmp;
             const int32_t v = (prod >= 0) ? ((prod + (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom)
                                           : ((prod - (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom);
-            txI[64 + c] = static_cast<int16_t>(v);
-            txQ[64 + c] = static_cast<int16_t>(v);
+            txI[ExperimentConfig::kPayloadOffset + c] = static_cast<int16_t>(v);
+            txQ[ExperimentConfig::kPayloadOffset + c] = static_cast<int16_t>(v);
         }
 
-        int16_t rxI[128]{};
-        int16_t rxQ[128]{};
-        int16_t corrI[128]{};
-        int16_t corrQ[128]{};
-        channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db,
+        int16_t rxI[256]{};
+        int16_t rxQ[256]{};
+        int16_t corrI[256]{};
+        int16_t corrQ[256]{};
+        channel_apply(txI, txQ, rxI, rxQ, ExperimentConfig::kTxTotalChips, static_cast<double>(cfo_hz), snr_db,
                       static_cast<uint32_t>(t * 31u + 19u));
 
         constexpr int kV5aChips = 64;
@@ -253,7 +373,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             apply_v5a = (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) &&
                         (ac_norm >= ExperimentConfig::kV5aAcNormThreshold);
             if (apply_v5a) {
-                v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est_hz);
+                v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, ExperimentConfig::kTxTotalChips, est_hz);
             } else {
                 std::memcpy(corrI, rxI, sizeof(corrI));
                 std::memcpy(corrQ, rxQ, sizeof(corrQ));
@@ -263,20 +383,31 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             std::memcpy(corrQ, rxQ, sizeof(corrQ));
         }
 
-        const bool want_diag =
-            (t == 0 && snr_db == 30 && lab_is_diag_cfo_500_1000(cfo_hz));
+        bool l12 = false;
+        bool l5f = false;
+        bool l3f = false;
+        int64_t best_e = 0;
+        int ratio_x10 = 0;
+        int64_t top4_sum = 0;
         bool sync_ok = true;
         if (ExperimentConfig::kEnableHoloSync) {
-            sync_ok = holo_sync_check(corrI, corrQ);
+            sync_ok = holo_sync_check_t6(corrI, corrQ, ExperimentConfig::kTxTotalChips, l12, l5f, l3f, best_e,
+                                          ratio_x10, top4_sum);
         }
-        if (want_diag) {
-            std::printf("[DIAG-LabD] cfo=%d snr=%d trial=%d est_hz=%.1f ac_norm=%.3f apply=%d sync_pass=%d\n",
-                        cfo_hz, snr_db, t, est_hz, ac_norm, apply_v5a ? 1 : 0, sync_ok ? 1 : 0);
+
+        const bool want_t6_diag = lab_want_t6_sync_diag(cfo_hz, snr_db, t);
+        if (want_t6_diag) {
+            const int pass_all = (l12 && l5f && l3f) ? 1 : 0;
+            std::printf("[DIAG-T6-SYNC] cfo=%d best_e=%lld ratio=%d top4=%lld l12=%d l5=%d l3=%d pass=%d\n",
+                        cfo_hz, static_cast<long long>(best_e), ratio_x10, static_cast<long long>(top4_sum),
+                        l12 ? 1 : 0, l5f ? 1 : 0, l3f ? 1 : 0, pass_all);
+            std::printf("[DIAG-T6-SYNC] est_hz=%.1f ac_norm=%.3f apply_v5a=%d holo_sync_pass=%d\n", est_hz, ac_norm,
+                        apply_v5a ? 1 : 0, sync_ok ? 1 : 0);
         }
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
-            if (want_diag) {
-                std::printf("[DIAG-LabD] decode_skip (sync_fail) bits[0..3] expect %d %d %d %d (no decode)\n",
+            if (want_t6_diag) {
+                std::printf("[DIAG-T6-SYNC] decode_skip bits[0..3] expect %d %d %d %d\n",
                             static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
                             static_cast<int>(bits[3]));
             }
@@ -288,23 +419,22 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
         int16_t soft[64]{};
         uint64_t mask = 0u;
-        rx_soft_generate(corrI + 64, corrQ + 64, soft, &mask);
+        rx_soft_generate(corrI + ExperimentConfig::kPayloadOffset, corrQ + ExperimentConfig::kPayloadOffset, soft,
+                         &mask);
         int8_t out[16]{};
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
                             static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
-            if (want_diag) {
-                std::printf("[DIAG-LabD] decode_block SECURE_FALSE bits[0..3] expect %d %d %d %d\n",
-                            static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
-                            static_cast<int>(bits[3]));
+            if (want_t6_diag) {
+                std::printf("[DIAG-T6-SYNC] decode_block SECURE_FALSE\n");
             }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
         }
 
-        if (want_diag) {
-            std::printf("[DIAG-LabD] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
+        if (want_t6_diag) {
+            std::printf("[DIAG-T6-SYNC] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
                         static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
                         static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
                         static_cast<int>(out[2]), static_cast<int>(out[3]));
@@ -323,13 +453,8 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab D: Lab B path (128ch HOLO+V5a lag=4 eps=200 ac_norm>=0.5) vs T6 S5H CFO sweep\n");
-    std::printf("T6 S5H ref (mem #6): FAIL from ~500 Hz; compare S/D below.\n");
-    std::printf("v5a=%d holo=%d rx_soft=%d eps_hz=%.1f ac_norm_min=%.2f\n\n",
-                ExperimentConfig::kEnableV5aCorrection ? 1 : 0,
-                ExperimentConfig::kEnableHoloSync ? 1 : 0,
-                ExperimentConfig::kRxSoftMode, ExperimentConfig::kV5aDeadzoneEpsilonHz,
-                ExperimentConfig::kV5aAcNormThreshold);
+    std::printf("Phase H Lab F: T6 Pass1 holo (L12/L5/L3), 256ch TX, payload@192, V5a+decode\n");
+    std::printf("DIAG-T6-SYNC @ trial0 SNR30: cfo in {0,100,500,1000,5000}\n\n");
 
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];

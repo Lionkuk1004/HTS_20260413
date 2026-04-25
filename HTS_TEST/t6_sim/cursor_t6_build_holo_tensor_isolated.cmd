@@ -36,6 +36,7 @@ REM 소스 파일
 set SRCS=
 set SRCS=%SRCS% "%HTS_TEST%\HTS_CFO_Bank_Test_lab.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Holo_Tensor_4D.cpp"
+set SRCS=%SRCS% "%HTS_LIM%\HTS_Preamble_Holographic.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Secure_Memory.cpp"
 
 REM 빌드
