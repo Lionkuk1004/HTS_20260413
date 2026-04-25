@@ -14,7 +14,8 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-constexpr int kCfoSweepList[] = {0, 100, 500, 1000, 2000, 3000, 4000, 4500, 5000};
+/// Phase H Lab B: 3~5 kHz cliff + 2.5 kHz·5.5 kHz 앵커
+constexpr int kCfoSweepList[] = {2500, 3000, 3500, 4000, 4500, 5000, 5500};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
@@ -24,7 +25,6 @@ constexpr int kN = 64;
 constexpr int kL = 2;
 constexpr int kAmp = 500;
 constexpr int kDenom = 16;
-constexpr bool kEnableV5aCorrection = true;
 /// V5a 역회전 deadzone: \|추정 CFO\| < ε 이면 적용 생략(항등). ε는 lag-L 자기상관 잡음에 의한
 /// CFO=0 근처 허위 추정 억제와, 저주파(예: 100 Hz) 실제 잔류 추적 사이의 트레이드오프.
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
@@ -194,7 +194,11 @@ static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, 
 
 struct TestResult { int sync_pass; int decode_pass; int total_bit_err; int total_bits; };
 
-static TestResult run_one_cfo(int cfo_hz, int snr_db) {
+static bool lab_is_cliff_diag_cfo(int cfo_hz) noexcept {
+    return cfo_hz == 3000 || cfo_hz == 4000 || cfo_hz == 5000;
+}
+
+static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a) {
     TestResult r{0, 0, 0, 0};
     HTS_Holo_Tensor_4D tx, rx;
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
@@ -240,32 +244,62 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
         int16_t rxI[128]{}, rxQ[128]{}, corrI[128]{}, corrQ[128]{};
         channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
-        if (ExperimentConfig::kEnableV5aCorrection) {
-            constexpr int kV5aChips = 64;
-            // 양산 L&R M=4 정합: 식별 범위 ±fs/(2·lag) ≈ ±125 kHz, lag=32 시 ±15.625 kHz alias 회피.
-            constexpr int kV5aLag = 4;
+
+        constexpr int kV5aChips = 64;
+        constexpr int kV5aLag = 4;
+        double est_hz = 0.0;
+        double ac_norm = 0.0;
+        bool apply_v5a = false;
+
+        if (enable_v5a) {
             double ac_mag = 0.0;
             double sig_pow = 0.0;
-            const double est =
-                v5a_estimate_cfo_with_quality(rxI, rxQ, kV5aChips, kV5aLag, &ac_mag, &sig_pow);
+            est_hz = v5a_estimate_cfo_with_quality(rxI, rxQ, kV5aChips, kV5aLag, &ac_mag, &sig_pow);
             const double denom =
                 sig_pow * (static_cast<double>(kV5aChips - kV5aLag) / static_cast<double>(kV5aChips));
-            const double ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
-            // deadzone + 자기상관 진폭 게이트 (저코히런트·alias 경로 억제).
-            const bool apply_v5a = (std::abs(est) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) &&
-                                   (ac_norm >= ExperimentConfig::kV5aAcNormThreshold);
+            ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
+            apply_v5a = (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) &&
+                        (ac_norm >= ExperimentConfig::kV5aAcNormThreshold);
             if (want_lab_diag) {
                 std::printf("[DIAG-V5A-EST] cfo_real=%d est=%.1f ac_norm=%.3f apply=%d\n",
-                            cfo_hz, est, ac_norm, apply_v5a ? 1 : 0);
+                            cfo_hz, est_hz, ac_norm, apply_v5a ? 1 : 0);
             }
             if (apply_v5a) {
-                v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est);
+                v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est_hz);
             } else {
                 std::memcpy(corrI, rxI, sizeof(corrI));
                 std::memcpy(corrQ, rxQ, sizeof(corrQ));
             }
         } else {
-            std::memcpy(corrI, rxI, sizeof(corrI)); std::memcpy(corrQ, rxQ, sizeof(corrQ));
+            std::memcpy(corrI, rxI, sizeof(corrI));
+            std::memcpy(corrQ, rxQ, sizeof(corrQ));
+        }
+
+        const bool want_cliff_diag =
+            (t == 0 && snr_db == 30 && lab_is_cliff_diag_cfo(cfo_hz));
+        if (want_cliff_diag) {
+            double print_est = est_hz;
+            double print_acn = ac_norm;
+            int print_apply = enable_v5a ? (apply_v5a ? 1 : 0) : 0;
+            if (!enable_v5a) {
+                double ac_mag_d = 0.0;
+                double sig_pow_d = 0.0;
+                print_est =
+                    v5a_estimate_cfo_with_quality(rxI, rxQ, kV5aChips, kV5aLag, &ac_mag_d, &sig_pow_d);
+                const double denom_d =
+                    sig_pow_d * (static_cast<double>(kV5aChips - kV5aLag) / static_cast<double>(kV5aChips));
+                print_acn = (denom_d > 1e-18) ? (ac_mag_d / denom_d) : 0.0;
+            }
+            std::printf("[DIAG-CLIFF] cfo=%d snr=%d v5a_on=%d est_hz=%.1f ac_norm=%.3f apply=%d\n",
+                        cfo_hz, snr_db, enable_v5a ? 1 : 0, print_est, print_acn, print_apply);
+            std::printf("[DIAG-CLIFF] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[0]), static_cast<int>(corrI[1]), static_cast<int>(corrI[2]),
+                        static_cast<int>(corrI[3]), static_cast<int>(corrI[4]), static_cast<int>(corrI[5]),
+                        static_cast<int>(corrI[6]), static_cast<int>(corrI[7]));
+            std::printf("[DIAG-CLIFF] corrI[64..71]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[64]), static_cast<int>(corrI[65]), static_cast<int>(corrI[66]),
+                        static_cast<int>(corrI[67]), static_cast<int>(corrI[68]), static_cast<int>(corrI[69]),
+                        static_cast<int>(corrI[70]), static_cast<int>(corrI[71]));
         }
 
         if (want_lab_diag) {
@@ -283,6 +317,9 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
             g_lab_diag_cfo0_trial0_emitted = true;
         }
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
+            if (want_cliff_diag) {
+                std::printf("[DIAG-CLIFF] decode_skip (sync_fail)\n");
+            }
             r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
         }
         ++r.sync_pass;
@@ -294,7 +331,17 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
                             static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+            if (want_cliff_diag) {
+                std::printf("[DIAG-CLIFF] decode_block returned SECURE_FALSE\n");
+            }
             r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
+        }
+
+        if (want_cliff_diag) {
+            std::printf("[DIAG-CLIFF] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
+                        static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
+                        static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
+                        static_cast<int>(out[2]), static_cast<int>(out[3]));
         }
 
         int be = 0;
@@ -307,18 +354,18 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
     return r;
 }
 
-int main() {
-    build_sincos_table();
-    std::printf("Phase H Lab isolated scaffold\n");
+static void run_sweep_matrix(const char* title, bool enable_v5a) {
+    std::printf("%s\n", title);
     std::printf("mode=%s, rx_soft=%d, v5a=%d, v5a_deadzone_eps_hz=%.1f, v5a_ac_norm_min=%.2f\n",
                 ExperimentConfig::kEnableHoloSync ? "S5H-like" : "S5-like",
-                ExperimentConfig::kRxSoftMode, ExperimentConfig::kEnableV5aCorrection ? 1 : 0,
+                ExperimentConfig::kRxSoftMode, enable_v5a ? 1 : 0,
                 ExperimentConfig::kV5aDeadzoneEpsilonHz, ExperimentConfig::kV5aAcNormThreshold);
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];
         std::printf("cfo=%5d:", cfo);
         for (int si = 0; si < ExperimentConfig::kSnrCount; ++si) {
-            const TestResult r = run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si]);
+            const TestResult r =
+                run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si], enable_v5a);
             const double ber = (r.total_bits > 0) ? static_cast<double>(r.total_bit_err) / r.total_bits : 1.0;
             std::printf(" %ddB S%3d/%3d D%3d/%3d BER=%0.3f",
                         ExperimentConfig::kSnrLevels[si],
@@ -327,6 +374,14 @@ int main() {
         }
         std::printf("\n");
     }
+    std::printf("\n");
+}
+
+int main() {
+    build_sincos_table();
+    std::printf("Phase H Lab B: CFO cliff (3~5.5 kHz), DIAG cfo=3000/4000/5000 trial0 SNR=30dB\n");
+    run_sweep_matrix("--- V5a ON (deadzone + ac_norm gate) ---", true);
+    run_sweep_matrix("--- V5a OFF (no CFO correction) ---", false);
     return 0;
 }
 
