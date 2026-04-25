@@ -15,8 +15,15 @@ namespace {
 constexpr double kPi = 3.14159265358979323846;
 constexpr int32_t kLag = 32;
 constexpr double kFs = 1000000.0;
+constexpr int kChips = 64;
 
 int g_fail = 0;
+
+static constexpr int8_t kWalsh63Row63[64] = {
+    +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1,
+    -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
+    -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
+    +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1};
 
 void make_ac_from_hz(int32_t hz, int32_t& ac_i, int32_t& ac_q) {
     constexpr double kMag = 5000000.0;
@@ -140,6 +147,116 @@ void test_estimate_sign_from_signal(int32_t injected_hz) {
         ac_i, ac_q, hz_c, hz_v);
 }
 
+void test_apply_equivalence() {
+    int16_t src_i[kChips]{};
+    int16_t src_q[kChips]{};
+    int16_t rot_i[kChips]{};
+    int16_t rot_q[kChips]{};
+    constexpr int32_t kHz = 1000;
+
+    for (int n = 0; n < kChips; ++n) {
+        src_i[n] = 1000;
+        src_q[n] = 0;
+        const double ph = 2.0 * kPi * static_cast<double>(kHz) *
+                          static_cast<double>(n) / kFs;
+        rot_i[n] = static_cast<int16_t>(std::llround(1000.0 * std::cos(ph)));
+        rot_q[n] = static_cast<int16_t>(std::llround(1000.0 * std::sin(ph)));
+    }
+
+    int64_t sI = 0;
+    int64_t sQ = 0;
+    for (int n = 0; n + kLag < kChips; ++n) {
+        const int32_t I0 = static_cast<int32_t>(rot_i[n]);
+        const int32_t Q0 = static_cast<int32_t>(rot_q[n]);
+        const int32_t I1 = static_cast<int32_t>(rot_i[n + kLag]);
+        const int32_t Q1 = static_cast<int32_t>(rot_q[n + kLag]);
+        sI += static_cast<int64_t>(I0) * I1 + static_cast<int64_t>(Q0) * Q1;
+        sQ += static_cast<int64_t>(I0) * Q1 - static_cast<int64_t>(Q0) * I1;
+    }
+    const int32_t ac_i = static_cast<int32_t>(sI);
+    const int32_t ac_q = static_cast<int32_t>(sQ);
+
+    ProtectedEngine::HTS_CFO_Compensator cfo{};
+    cfo.Init();
+    cfo.Estimate_From_Autocorr(ac_i, ac_q, kLag);
+    hts::rx_cfo::CFO_V5a v5a{};
+    v5a.Init();
+    v5a.Estimate_From_Autocorr(ac_i, ac_q, kLag);
+
+    int16_t c_i[kChips]{};
+    int16_t c_q[kChips]{};
+    int16_t v_i[kChips]{};
+    int16_t v_q[kChips]{};
+    for (int n = 0; n < kChips; ++n) {
+        c_i[n] = rot_i[n];
+        c_q[n] = rot_q[n];
+        v_i[n] = rot_i[n];
+        v_q[n] = rot_q[n];
+        cfo.Apply(c_i[n], c_q[n]);
+        v5a.Apply_Per_Chip(v_i[n], v_q[n]);
+    }
+
+    int max_err_cfo = 0;
+    int max_err_v5a = 0;
+    int max_diff_cv = 0;
+    for (int n = 0; n < kChips; ++n) {
+        const int ec = std::abs(static_cast<int>(c_i[n]) - static_cast<int>(src_i[n])) +
+                       std::abs(static_cast<int>(c_q[n]) - static_cast<int>(src_q[n]));
+        const int ev = std::abs(static_cast<int>(v_i[n]) - static_cast<int>(src_i[n])) +
+                       std::abs(static_cast<int>(v_q[n]) - static_cast<int>(src_q[n]));
+        const int ed = std::abs(static_cast<int>(c_i[n]) - static_cast<int>(v_i[n])) +
+                       std::abs(static_cast<int>(c_q[n]) - static_cast<int>(v_q[n]));
+        if (ec > max_err_cfo) max_err_cfo = ec;
+        if (ev > max_err_v5a) max_err_v5a = ev;
+        if (ed > max_diff_cv) max_diff_cv = ed;
+    }
+
+    std::printf(
+        "Test4 ApplyEq: ac=(%d,%d) max_err_to_src cfo=%d v5a=%d cfo_vs_v5a=%d\n",
+        ac_i, ac_q, max_err_cfo, max_err_v5a, max_diff_cv);
+}
+
+void test_walsh_vs_holo_path() {
+    constexpr int32_t kHz = 5000;
+    int16_t walsh_i[128]{};
+    int16_t walsh_q[128]{};
+    for (int n = 0; n < 128; ++n) {
+        const int8_t w = kWalsh63Row63[n & 63];
+        const double base_i = static_cast<double>(w) * 1000.0;
+        const double ph = 2.0 * kPi * static_cast<double>(kHz) *
+                          static_cast<double>(n) / kFs;
+        walsh_i[n] = static_cast<int16_t>(
+            std::llround(base_i * std::cos(ph)));
+        walsh_q[n] = static_cast<int16_t>(
+            std::llround(base_i * std::sin(ph)));
+    }
+
+    hts::rx_cfo::CFO_V5a v_walsh{};
+    v_walsh.Init();
+    const auto res = v_walsh.Estimate(walsh_i, walsh_q);
+    v_walsh.Set_Apply_Cfo(res.cfo_hz);
+
+    int64_t sI = 0;
+    int64_t sQ = 0;
+    for (int n = 0; n + kLag < 128; ++n) {
+        const int32_t I0 = static_cast<int32_t>(walsh_i[n]);
+        const int32_t Q0 = static_cast<int32_t>(walsh_q[n]);
+        const int32_t I1 = static_cast<int32_t>(walsh_i[n + kLag]);
+        const int32_t Q1 = static_cast<int32_t>(walsh_q[n + kLag]);
+        sI += static_cast<int64_t>(I0) * I1 + static_cast<int64_t>(Q0) * Q1;
+        sQ += static_cast<int64_t>(I0) * Q1 - static_cast<int64_t>(Q0) * I1;
+    }
+    hts::rx_cfo::CFO_V5a v_holo{};
+    v_holo.Init();
+    v_holo.Estimate_From_Autocorr(static_cast<int32_t>(sI), static_cast<int32_t>(sQ), kLag);
+
+    std::printf(
+        "Test5 Path: walsh_hz=%d sin=%d cos=%d | holo_hz=%d sin=%d cos=%d\n",
+        static_cast<int>(res.cfo_hz), v_walsh.Get_Apply_Sin_Per_Chip_Q14(),
+        v_walsh.Get_Apply_Cos_Per_Chip_Q14(), v_holo.GetLastCfoHz(),
+        v_holo.Get_Apply_Sin_Per_Chip_Q14(), v_holo.Get_Apply_Cos_Per_Chip_Q14());
+}
+
 }  // namespace
 
 int main() {
@@ -156,6 +273,8 @@ int main() {
     test_estimate_sign_from_signal(1000);
     test_estimate_sign_from_signal(-1000);
     test_estimate_sign_from_signal(5000);
+    test_apply_equivalence();
+    test_walsh_vs_holo_path();
 
     if (g_fail != 0) {
         std::printf("test_step7_signs: FAIL (%d)\n", g_fail);
