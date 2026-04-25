@@ -144,6 +144,69 @@ static int64_t Energy_Multiframe_impl(const int16_t* rI,
     return e0 + e1;
 }
 
+static inline int32_t q15_mul_hz_round(int32_t offset_q15,
+                                       int32_t step_hz) noexcept {
+    const int64_t prod =
+        static_cast<int64_t>(offset_q15) * static_cast<int64_t>(step_hz);
+    const int64_t adj = (prod >= 0) ? (1LL << 14) : -(1LL << 14);
+    return static_cast<int32_t>((prod + adj) >> 15);
+}
+
+static inline int32_t parabolic_offset_q15_impl(int64_t em1_s64, int64_t e0_s64,
+                                                int64_t ep1_s64) noexcept {
+    int64_t max_abs = em1_s64;
+    if (max_abs < 0) {
+        max_abs = -max_abs;
+    }
+    int64_t t = e0_s64;
+    if (t < 0) {
+        t = -t;
+    }
+    if (t > max_abs) {
+        max_abs = t;
+    }
+    t = ep1_s64;
+    if (t < 0) {
+        t = -t;
+    }
+    if (t > max_abs) {
+        max_abs = t;
+    }
+
+    int sh = 0;
+    while (max_abs > 0x3FFFFFFFLL) {
+        max_abs >>= 1;
+        ++sh;
+    }
+    const int32_t em1 = static_cast<int32_t>(em1_s64 >> sh);
+    const int32_t e0 = static_cast<int32_t>(e0_s64 >> sh);
+    const int32_t ep1 = static_cast<int32_t>(ep1_s64 >> sh);
+
+    const int32_t denom_signed = em1 - (e0 << 1) + ep1;
+    const int32_t abs_denom_mask = static_cast<int32_t>(denom_signed >> 31);
+    const int32_t abs_denom =
+        static_cast<int32_t>((denom_signed ^ abs_denom_mask) - abs_denom_mask);
+
+    const int64_t safe_diff = static_cast<int64_t>(abs_denom) - 1LL;
+    const int32_t valid_mask = static_cast<int32_t>(~(safe_diff >> 63));
+
+    const int32_t numer = em1 - ep1;
+    const int32_t offset_q15_raw = static_cast<int32_t>(
+        (static_cast<int64_t>(numer) << 14) /
+        static_cast<int64_t>(abs_denom + (1 - (valid_mask & 1))));
+    const int32_t offset_q15_signed =
+        static_cast<int32_t>((offset_q15_raw ^ abs_denom_mask) - abs_denom_mask);
+    int32_t offset_q15 = static_cast<int32_t>(offset_q15_signed & valid_mask);
+
+    if (offset_q15 > 32768) {
+        offset_q15 = 32768;
+    }
+    if (offset_q15 < -32768) {
+        offset_q15 = -32768;
+    }
+    return offset_q15;
+}
+
 // --- Integer atan2·Q12 (레거시 동일 LUT): ARM L&R + Holo autocorr ---
 static inline int32_t isc_atan_frac_q12(int32_t y, int32_t x) noexcept {
     if (x <= 0 || y < 0 || y > x) {
@@ -355,28 +418,43 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
     int64_t final_peak_e = 0;
 
     for (int pass = 0; pass < kCfoIterPasses; ++pass) {
+        int64_t coarse_energies[kCfoCoarseBanks]{};
         const int32_t coarse_center = cfo_estimate;
         const int32_t coarse_start = coarse_center - kCfoRangeHz;
 
         int64_t cb_e = -1;
         int32_t cb_cfo = coarse_start;
+        int cb_best_idx = 0;
 
         for (int b = 0; b < kCfoCoarseBanks; ++b) {
             const int32_t cfo_total = coarse_start + b * kCfoCoarseStep;
             Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips,
                           cfo_total);
             const int64_t e = Energy_Multiframe_impl(work_I_, work_Q_);
+            coarse_energies[b] = e;
             if (e > cb_e) {
                 cb_e = e;
                 cb_cfo = cfo_total;
+                cb_best_idx = b;
             }
         }
 
-        int32_t best_cfo = cb_cfo;
-        int64_t best_e = cb_e;
+        int32_t coarse_offset_q15 = 0;
+        if (cb_best_idx > 0 && cb_best_idx < (kCfoCoarseBanks - 1)) {
+            coarse_offset_q15 =
+                parabolic_offset_q15_impl(coarse_energies[cb_best_idx - 1],
+                                          coarse_energies[cb_best_idx],
+                                          coarse_energies[cb_best_idx + 1]);
+        }
+        const int32_t cb_refined =
+            cb_cfo + q15_mul_hz_round(coarse_offset_q15, kCfoCoarseStep);
+
+        int32_t best_cfo = cb_refined;
+        int64_t best_e = -1;
+        int fine_best_idx = 0;
 
         const int32_t fine_start =
-            cb_cfo - (kCfoFineBanks / 2) * kCfoFineStep;
+            cb_refined - (kCfoFineBanks / 2) * kCfoFineStep;
 
         for (int f = 0; f < kCfoFineBanks; ++f) {
             const int32_t cfo = fine_start + f * kCfoFineStep;
@@ -388,13 +466,23 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
             if (e > best_e) {
                 best_e = e;
                 best_cfo = cfo;
+                fine_best_idx = f;
             }
         }
+        int32_t fine_offset_q15 = 0;
+        if (fine_best_idx > 0 && fine_best_idx < (kCfoFineBanks - 1)) {
+            fine_offset_q15 = parabolic_offset_q15_impl(
+                fine_energies_[fine_best_idx - 1], fine_energies_[fine_best_idx],
+                fine_energies_[fine_best_idx + 1]);
+        }
+        const int32_t fine_refined =
+            best_cfo + q15_mul_hz_round(fine_offset_q15, kCfoFineStep);
 
-        Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips, best_cfo);
+        Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips,
+                      fine_refined);
         const int32_t lr_cfo = LR_Estimate_impl(work_I_, work_Q_);
 
-        cfo_estimate = best_cfo + lr_cfo;
+        cfo_estimate = fine_refined + lr_cfo;
         final_peak_e = best_e;
     }
 
@@ -564,6 +652,10 @@ int64_t Energy_Multiframe_Table(const int16_t* rI,
 
 int32_t LR_Estimate(const int16_t* rI, const int16_t* rQ) noexcept {
     return LR_Estimate_impl(rI, rQ);
+}
+
+int32_t Parabolic_Offset_Q15(int64_t em1, int64_t e0, int64_t ep1) noexcept {
+    return parabolic_offset_q15_impl(em1, e0, ep1);
 }
 
 }  // namespace test_export
