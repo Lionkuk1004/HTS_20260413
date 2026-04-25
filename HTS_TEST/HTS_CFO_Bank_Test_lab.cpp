@@ -2,8 +2,8 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab F: T6 phase0_scan_holographic_ Pass1
-//   256칩 TX (Walsh63×3 프리앰블 + 64 페이로드), 메인트리 L12/L5/L3 동일 임계
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab G: 1–2 kHz cliff pinpointer (T6 Pass1 + DIAG)
+//   256칩 TX, L12/L5/L3, V5a; trial0 전 셀 DIAG + cfo=2000/30dB 상세
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -16,8 +16,7 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-constexpr int kCfoSweepList[] = {0,   50,   100,  200,  500,  1000, 2000, 2500, 3000,
-                                 3500, 4000, 4500, 5000, 7500, 10000};
+constexpr int kCfoSweepList[] = {500, 700, 1000, 1500, 2000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
@@ -129,9 +128,14 @@ static inline int16_t sat_i16(int32_t v) noexcept {
     return static_cast<int16_t>(v);
 }
 
-static bool lab_want_t6_sync_diag(int cfo_hz, int snr_db, int trial) noexcept {
-    if (trial != 0 || snr_db != 30) return false;
-    return cfo_hz == 0 || cfo_hz == 100 || cfo_hz == 500 || cfo_hz == 1000 || cfo_hz == 5000;
+static bool lab_g_cell_diag(int trial) noexcept { return trial == 0; }
+
+static bool lab_g_detail_2000_30(int cfo_hz, int snr_db, int trial) noexcept {
+    return trial == 0 && cfo_hz == 2000 && snr_db == 30;
+}
+
+static double lab_phase_deg(int16_t i, int16_t q) noexcept {
+    return std::atan2(static_cast<double>(q), static_cast<double>(i)) * 180.0 / kPi;
 }
 }  // namespace
 
@@ -395,21 +399,22 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
                                           ratio_x10, top4_sum);
         }
 
-        const bool want_t6_diag = lab_want_t6_sync_diag(cfo_hz, snr_db, t);
-        if (want_t6_diag) {
-            const int pass_all = (l12 && l5f && l3f) ? 1 : 0;
-            std::printf("[DIAG-T6-SYNC] cfo=%d best_e=%lld ratio=%d top4=%lld l12=%d l5=%d l3=%d pass=%d\n",
-                        cfo_hz, static_cast<long long>(best_e), ratio_x10, static_cast<long long>(top4_sum),
-                        l12 ? 1 : 0, l5f ? 1 : 0, l3f ? 1 : 0, pass_all);
-            std::printf("[DIAG-T6-SYNC] est_hz=%.1f ac_norm=%.3f apply_v5a=%d holo_sync_pass=%d\n", est_hz, ac_norm,
-                        apply_v5a ? 1 : 0, sync_ok ? 1 : 0);
+        const bool want_cell = lab_g_cell_diag(t);
+        const bool want_detail = lab_g_detail_2000_30(cfo_hz, snr_db, t);
+        if (want_cell) {
+            const double ph0 = lab_phase_deg(corrI[0], corrQ[0]);
+            const double ph64 = lab_phase_deg(corrI[64], corrQ[64]);
+            const double ph128 = lab_phase_deg(corrI[128], corrQ[128]);
+            const double ph192 = lab_phase_deg(corrI[192], corrQ[192]);
+            std::printf("\n[DIAG-LabG] cfo=%d snr=%d holo_sync_pass=%d est_hz=%.1f apply_v5a=%d "
+                        "phase_deg ch0=%.1f ch64=%.1f ch128=%.1f ch192=%.1f d_payload_vs_ch0=%.1f\n",
+                        cfo_hz, snr_db, sync_ok ? 1 : 0, est_hz, apply_v5a ? 1 : 0, ph0, ph64, ph128, ph192,
+                        ph192 - ph0);
         }
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
-            if (want_t6_diag) {
-                std::printf("[DIAG-T6-SYNC] decode_skip bits[0..3] expect %d %d %d %d\n",
-                            static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
-                            static_cast<int>(bits[3]));
+            if (want_cell) {
+                std::printf("[DIAG-LabG] decode_skip (sync_fail) cfo=%d snr=%d\n", cfo_hz, snr_db);
             }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
@@ -417,24 +422,62 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         }
         ++r.sync_pass;
 
+        if (want_detail) {
+            std::printf("[DIAG-LabG-2000] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[0]), static_cast<int>(corrI[1]), static_cast<int>(corrI[2]),
+                        static_cast<int>(corrI[3]), static_cast<int>(corrI[4]), static_cast<int>(corrI[5]),
+                        static_cast<int>(corrI[6]), static_cast<int>(corrI[7]));
+            std::printf("[DIAG-LabG-2000] corrI[64..71]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[64]), static_cast<int>(corrI[65]), static_cast<int>(corrI[66]),
+                        static_cast<int>(corrI[67]), static_cast<int>(corrI[68]), static_cast<int>(corrI[69]),
+                        static_cast<int>(corrI[70]), static_cast<int>(corrI[71]));
+            std::printf("[DIAG-LabG-2000] corrI[128..135]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[128]), static_cast<int>(corrI[129]), static_cast<int>(corrI[130]),
+                        static_cast<int>(corrI[131]), static_cast<int>(corrI[132]), static_cast<int>(corrI[133]),
+                        static_cast<int>(corrI[134]), static_cast<int>(corrI[135]));
+            std::printf("[DIAG-LabG-2000] corrI[192..199]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(corrI[192]), static_cast<int>(corrI[193]), static_cast<int>(corrI[194]),
+                        static_cast<int>(corrI[195]), static_cast<int>(corrI[196]), static_cast<int>(corrI[197]),
+                        static_cast<int>(corrI[198]), static_cast<int>(corrI[199]));
+            const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
+            std::printf("[DIAG-LabG-2000] true_cfo_hz=%d est_hz=%.1f |est-true|=%.1f apply_v5a=%d\n", cfo_hz, est_hz,
+                        est_err, apply_v5a ? 1 : 0);
+            const double f_res_hz =
+                apply_v5a ? (static_cast<double>(cfo_hz) - est_hz) : static_cast<double>(cfo_hz);
+            for (int i = 0; i < 64; ++i) {
+                const int m = ExperimentConfig::kPayloadOffset + i;
+                const double cum_model_deg =
+                    360.0 * static_cast<double>(m) * f_res_hz / ExperimentConfig::kChipRateHz;
+                const double ph = lab_phase_deg(corrI[m], corrQ[m]);
+                std::printf("[DIAG-PAYLOAD-PHASE] i=%d corr=(%d,%d) phase_deg=%.1f cum_model_deg=%.1f (f_res_hz=%.1f)\n",
+                            i, static_cast<int>(corrI[m]), static_cast<int>(corrQ[m]), ph, cum_model_deg, f_res_hz);
+            }
+        }
+
         int16_t soft[64]{};
         uint64_t mask = 0u;
         rx_soft_generate(corrI + ExperimentConfig::kPayloadOffset, corrQ + ExperimentConfig::kPayloadOffset, soft,
                          &mask);
+        if (want_detail) {
+            std::printf("[DIAG-LabG-2000] rx_soft[0..7] pre-decode= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(soft[0]), static_cast<int>(soft[1]), static_cast<int>(soft[2]),
+                        static_cast<int>(soft[3]), static_cast<int>(soft[4]), static_cast<int>(soft[5]),
+                        static_cast<int>(soft[6]), static_cast<int>(soft[7]));
+        }
         int8_t out[16]{};
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
                             static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
-            if (want_t6_diag) {
-                std::printf("[DIAG-T6-SYNC] decode_block SECURE_FALSE\n");
+            if (want_detail) {
+                std::printf("[DIAG-LabG-2000] decode_block SECURE_FALSE\n");
             }
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
         }
 
-        if (want_t6_diag) {
-            std::printf("[DIAG-T6-SYNC] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
+        if (want_detail) {
+            std::printf("[DIAG-LabG-2000] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
                         static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
                         static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
                         static_cast<int>(out[2]), static_cast<int>(out[3]));
@@ -453,8 +496,8 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab F: T6 Pass1 holo (L12/L5/L3), 256ch TX, payload@192, V5a+decode\n");
-    std::printf("DIAG-T6-SYNC @ trial0 SNR30: cfo in {0,100,500,1000,5000}\n\n");
+    std::printf("Phase H Lab G: cliff 1k-2k Hz, CFO {500,700,1000,1500,2000} x SNR {30,20,10}, trial0 DIAG\n");
+    std::printf("Detail: cfo=2000 snr=30 corr slices + |est-true| + PAYLOAD-PHASE x64\n\n");
 
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];
