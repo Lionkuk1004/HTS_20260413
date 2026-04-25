@@ -12,6 +12,10 @@ namespace hts {
 namespace rx_cfo {
 namespace {
 
+// HTS_CFO_Compensator::Estimate_From_Preamble / Estimate_From_Autocorr 와 동일.
+inline constexpr int64_t kPreambleMagApproxThreshold = 1000LL;
+inline constexpr int64_t kAutocorrMag2Threshold = 1000000LL;
+
 // Same sequence as HTS_V400_Dispatcher_Internal.hpp k_w63 (Walsh-Hadamard row 63).
 static constexpr int8_t kWalsh63Row63[64] = {
     +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1,
@@ -294,8 +298,22 @@ CFO_V5a::CFO_V5a() noexcept
 void CFO_V5a::Init() noexcept {
     Build_SinCos_Table();
     last_cfo_hz_ = 0;
+    last_apply_gate_mag_ = 0;
+    last_apply_gate_autocorr_ = false;
     runtime_enabled_ = (HTS_CFO_V5A_ENABLE != 0);
     Set_Apply_Cfo(0);
+}
+
+bool CFO_V5a::IsApplyAllowed() const noexcept {
+    const int64_t thr = last_apply_gate_autocorr_ ? kAutocorrMag2Threshold
+                                                   : kPreambleMagApproxThreshold;
+    const int64_t diff = last_apply_gate_mag_ - thr;
+    const int32_t mask = static_cast<int32_t>(~(diff >> 63));
+    return mask != 0;
+}
+
+bool CFO_V5a::IsApplyDriveActive() const noexcept {
+    return apply_sin_per_q14_ != 0 || apply_cos_per_q14_ != 16384;
 }
 
 CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
@@ -307,7 +325,30 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
     last_cfo_hz_ = 0;
 
     if (rx_I == nullptr || rx_Q == nullptr) {
+        last_apply_gate_mag_ = 0;
+        last_apply_gate_autocorr_ = false;
         return res;
+    }
+
+    {
+        int32_t d0I = 0;
+        int32_t d0Q = 0;
+        int32_t d1I = 0;
+        int32_t d1Q = 0;
+        Walsh63_Dot_impl(rx_I, rx_Q, d0I, d0Q);
+        Walsh63_Dot_impl(&rx_I[kChipsPerSym], &rx_Q[kChipsPerSym], d1I, d1Q);
+        const int64_t cos_delta = static_cast<int64_t>(d0I) * d1I +
+                                  static_cast<int64_t>(d0Q) * d1Q;
+        const int64_t sin_delta = static_cast<int64_t>(d0Q) * d1I -
+                                  static_cast<int64_t>(d0I) * d1Q;
+        const int64_t ac =
+            (cos_delta < 0) ? -cos_delta : cos_delta;
+        const int64_t as =
+            (sin_delta < 0) ? -sin_delta : sin_delta;
+        const int64_t mag_approx =
+            (ac > as) ? (ac + (as >> 1)) : (as + (ac >> 1));
+        last_apply_gate_mag_ = mag_approx;
+        last_apply_gate_autocorr_ = false;
     }
 
     int32_t cfo_estimate = 0;
@@ -367,13 +408,17 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
 void CFO_V5a::Estimate_From_Autocorr(int32_t ac_I, int32_t ac_Q,
                                      int32_t lag_chips) noexcept {
     if (lag_chips <= 0) {
+        last_apply_gate_mag_ = 0;
+        last_apply_gate_autocorr_ = true;
         last_cfo_hz_ = 0;
         Set_Apply_Cfo(0);
         return;
     }
     const int64_t mag2 = static_cast<int64_t>(ac_I) * ac_I +
                          static_cast<int64_t>(ac_Q) * ac_Q;
-    if (mag2 < 1000000LL) {
+    last_apply_gate_mag_ = mag2;
+    last_apply_gate_autocorr_ = true;
+    if (mag2 < kAutocorrMag2Threshold) {
         last_cfo_hz_ = 0;
         Set_Apply_Cfo(0);
         return;

@@ -97,6 +97,14 @@ public:
     void Advance_Phase_Only(int chips) noexcept;
     void Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept;
 
+    /// 게이트: `Estimate` 직후 Walsh P0 는 mag_approx≥1000,
+    /// `Estimate_From_Autocorr` 직후 Holo 는 |ac|²+|aq|²≥1e6 과 동등 (Compensator).
+    bool IsApplyAllowed() const noexcept;
+
+    /// `Set_Apply_Cfo` / `Set_Apply_SinCosPerChip_Q14` 로 비항등 per-chip 이 설정됨
+    /// (Dispatcher 가 `cfo_.Is_Apply_Active()` 없이도 `Apply_Per_Chip` 호출 판단).
+    bool IsApplyDriveActive() const noexcept;
+
 private:
     int32_t last_cfo_hz_;
     bool runtime_enabled_;
@@ -110,6 +118,12 @@ private:
     int32_t apply_cos_acc_q14_{ 16384 };
     int32_t apply_sin_acc_q14_{ 0 };
     int32_t apply_chip_counter_{ 0 };
+
+    /// `Estimate_From_Autocorr`: ac_I²+ac_Q². `Estimate`: preamble mag_approx
+    /// (HTS_CFO_Compensator::Estimate_From_Preamble 와 동일 식).
+    int64_t last_apply_gate_mag_{ 0 };
+    /// true → 임계 1e6 (autocorr), false → 임계 1000 (preamble mag_approx).
+    bool last_apply_gate_autocorr_{ false };
 };
 
 }  // namespace rx_cfo

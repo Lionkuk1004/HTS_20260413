@@ -1421,18 +1421,16 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 walsh63_dot_(&p0_buf128_I_[best_off + 64],
                              &p0_buf128_Q_[best_off + 64],
                              d1I, d1Q);
-                cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
                 // [CFO 4-3] P0 스캔 구간 192 chip 위상 누적 전진
-                // Walsh P0: V5a Estimate → Hz → Set_Apply_Cfo (cfo_ 는 게이트만, Step 5-6 제거)
-                if (cfo_.Is_Apply_Active() &&
-                    best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+                // Walsh P0: Step 6 — cfo_.Estimate_From_Preamble 제거, V5a 단독 + IsApplyAllowed
+                if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
                     const int16_t* const pre_I = &p0_buf128_I_[best_off];
                     const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
                     const hts::rx_cfo::CFO_Result cfo_res =
                         cfo_v5a_.Estimate(pre_I, pre_Q);
                     cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
                     cfo_v5a_last_valid_ = cfo_res.valid;
-                    if (cfo_res.valid) {
+                    if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
                         cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
                         cfo_v5a_.Advance_Phase_Only(192);
                     } else {
@@ -1815,9 +1813,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             static_cast<int>(dc_est_Q_));
     }
 #endif
-    // CFO 역회전 적용 (Estimate 완료 시 active, 미완료 시 no-op)
+    // CFO 역회전 적용 (cfo_ Holo 활성 또는 Walsh Step 6 이후 V5a per-chip 구동)
     // 순서: DC → CFO → AGC
-    if (cfo_.Is_Apply_Active()) {
+    if (cfo_.Is_Apply_Active() || cfo_v5a_.IsApplyDriveActive()) {
         cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
     }
 #if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
