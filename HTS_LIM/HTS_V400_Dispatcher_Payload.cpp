@@ -16,6 +16,59 @@
 #include <cstddef>
 namespace ProtectedEngine {
 using namespace detail;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+namespace {
+uint16_t bytes_to_bpsk_bits_(const uint8_t* bytes, size_t byte_len,
+                             int8_t* bpsk_bits, uint16_t max_bits) noexcept {
+    if (bpsk_bits == nullptr) {
+        return 0u;
+    }
+    for (uint16_t i = 0; i < max_bits; ++i) {
+        bpsk_bits[i] = static_cast<int8_t>(-1);
+    }
+    if (bytes == nullptr || byte_len == 0u) {
+        return 0u;
+    }
+    uint16_t bit_idx = 0u;
+    for (size_t b = 0u; b < byte_len; ++b) {
+        for (int i = 7; i >= 0; --i) {
+            if (bit_idx >= max_bits) {
+                return bit_idx;
+            }
+            const uint8_t bit = static_cast<uint8_t>((bytes[b] >> i) & 1u);
+            bpsk_bits[bit_idx] =
+                (bit != 0u) ? static_cast<int8_t>(1) : static_cast<int8_t>(-1);
+            ++bit_idx;
+        }
+    }
+    return bit_idx;
+}
+
+size_t bpsk_to_bytes_(const int8_t* bpsk_bits, uint16_t bit_count, uint8_t* bytes,
+                      size_t max_bytes) noexcept {
+    if (bpsk_bits == nullptr || bytes == nullptr) {
+        return 0u;
+    }
+    const size_t byte_count_full =
+        (static_cast<size_t>(bit_count) + 7u) >> 3u;
+    const size_t byte_count =
+        (byte_count_full > max_bytes) ? max_bytes : byte_count_full;
+    std::memset(bytes, 0, byte_count);
+    for (uint16_t i = 0u; i < bit_count; ++i) {
+        const size_t bi = static_cast<size_t>(i >> 3u);
+        if (bi >= byte_count) {
+            break;
+        }
+        if (bpsk_bits[i] > 0) {
+            bytes[bi] = static_cast<uint8_t>(
+                static_cast<uint32_t>(bytes[bi]) |
+                (1u << (7u - (static_cast<uint32_t>(i) & 7u))));
+        }
+    }
+    return byte_count;
+}
+} // namespace
+#endif
 void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
     DecodedPacket& pkt) noexcept {
     // ── P0-FIX-005 Stage 0: TPC feedback 임시 격리 ──
@@ -96,11 +149,22 @@ uint32_t HTS_V400_Dispatcher::parse_hdr_(PayloadMode &mode,
     const uint32_t plen_sym =
         static_cast<uint32_t>(plen == FEC_HARQ::nsym_for_bps(bps));
     const uint32_t data_ok = m3 & bps_ge & bps_le & plen_sym;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    const uint32_t tensor_k =
+        static_cast<uint32_t>(k_holo_profiles[1].block_bits);
+    const uint32_t tensor_ok = m3 & static_cast<uint32_t>(
+                                       static_cast<uint32_t>(plen) == tensor_k);
+#else
+    const uint32_t tensor_ok = 0u;
+#endif
     const uint32_t ok_u = (m0 & plen_ok_v1) | (m1 & plen_ok_v16) |
-                          (m2 & plen_ok_v16) | data_ok;
+                          (m2 & plen_ok_v16) | data_ok | tensor_ok;
     const int d_int = static_cast<int>(data_ok);
     cur_bps64_ =
         (bps * static_cast<int>(data_ok)) + (cur_bps64_ * (1 - d_int));
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    holo_tensor_payload_mode_ = (tensor_ok != 0u);
+#endif
     if (ir_mode_) {
         iq_mode_ = IQ_Mode::IQ_SAME;
         iq_upgrade_count_ = 0u;
@@ -120,6 +184,44 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                cur_mode_ == PayloadMode::VOICE ||
                cur_mode_ == PayloadMode::DATA) {
         const int nc = (cur_mode_ == PayloadMode::DATA) ? 64 : 16;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+        if (cur_mode_ == PayloadMode::DATA && holo_tensor_payload_mode_) {
+            if (sym_idx_ >= pay_total_) {
+                full_reset_();
+                return;
+            }
+            if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                holo_tensor_decode_failed_ = true;
+            } else {
+                (void)holo_tensor4d_.Set_Time_Slot(rx_seq_);
+                int16_t rx_soft[HOLO_CHIP_COUNT];
+                for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
+                    const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
+                                        static_cast<int32_t>(buf_Q_[c]);
+                    rx_soft[c] = static_cast<int16_t>(sum / 2);
+                }
+                const uint32_t dec_ok = holo_tensor4d_.Decode_Block(
+                    rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
+                    holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
+                if (dec_ok != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                    holo_tensor_decode_failed_ = true;
+                } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
+                    const size_t room =
+                        sizeof(holo_tensor_rx_bytes_) - holo_tensor_rx_len_;
+                    const size_t wr = bpsk_to_bytes_(
+                        holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
+                        &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
+                    holo_tensor_rx_len_ = static_cast<uint8_t>(holo_tensor_rx_len_ + wr);
+                }
+            }
+            ++sym_idx_;
+            buf_idx_ = 0;
+            if (pay_recv_ >= pay_total_) {
+                try_decode_();
+            }
+            return;
+        }
+#endif
         /* IR-HARQ: RV마다 송신 파형이 다르므로 칩 도메인 += 금지.
            결합은 FEC Decode*_IR 의 ir_state_(LLR)에서만 수행; 수신 칩은 매 심볼
            덮어쓰기. */
@@ -444,6 +546,27 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             // set_phase_(RxPhase::WAIT_SYNC);
         }
     } else if (cur_mode_ == PayloadMode::DATA) {
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+        if (holo_tensor_payload_mode_) {
+            pkt.harq_k = 1;
+            const uint32_t ok = static_cast<uint32_t>(
+                (holo_tensor_decode_failed_ == false) &
+                (holo_tensor_rx_len_ >= 8u));
+            pkt.success_mask = static_cast<uint32_t>(0u - ok);
+            if (ok != 0u) {
+                std::memcpy(pkt.data, holo_tensor_rx_bytes_, 8u);
+                pkt.data_len = 8;
+            } else {
+                pkt.data_len = 0;
+            }
+            if (on_pkt_ != nullptr) {
+                on_pkt_(pkt);
+            }
+            rx_seq_++;
+            full_reset_();
+            return;
+        }
+#endif
         harq_round_++;
         if (ir_mode_) {
                 const int bps = cur_bps64_;
@@ -665,7 +788,16 @@ void HTS_V400_Dispatcher::Inject_Payload_Phase(PayloadMode mode,
     if (mode == PayloadMode::DATA) {
         cur_bps64_ = FEC_HARQ::bps_clamp_runtime(bps);
         pay_cps_ = 64;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+        if (holo_tensor_payload_mode_) {
+            const int k_bits = static_cast<int>(k_holo_profiles[1].block_bits);
+            pay_total_ = (64 + k_bits - 1) / k_bits;
+        } else {
+            pay_total_ = FEC_HARQ::nsym_for_bps(cur_bps64_);
+        }
+#else
         pay_total_ = FEC_HARQ::nsym_for_bps(cur_bps64_);
+#endif
     } else if (mode == PayloadMode::VOICE || mode == PayloadMode::VIDEO_16) {
         pay_cps_ = 16;
         pay_total_ = FEC_HARQ::NSYM16;

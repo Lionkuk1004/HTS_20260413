@@ -86,6 +86,10 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
       mf_ref_rx_seq_(0xFFFFFFFFu), mf_estimated_offset_q16_(0)
 #endif
 {
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    holo_tensor_profile_ = k_holo_profiles[1];
+    clear_holo_tensor_rx_state_();
+#endif
 #if defined(HTS_DIAG_PRINTF)
     // PROMPT 38: AntiJamEngine 본문은 Step3 제거 — 플래그·대체 경로만 실측
     std::printf(
@@ -105,6 +109,35 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
     cfo_v5a_.SetEnabled(false);
 #endif
 }
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+uint32_t HTS_V400_Dispatcher::ensure_holo_tensor_ready_() noexcept {
+    if (holo_tensor_ready_) {
+        return HTS_Holo_Tensor_4D::SECURE_TRUE;
+    }
+    const uint32_t master_seed[4] = {
+        seed_,
+        seed_ ^ 0x9E3779B9u,
+        seed_ ^ 0xA5A5A5A5u,
+        seed_ ^ 0xC3C3C3C3u,
+    };
+    if (holo_tensor4d_.Initialize(master_seed, nullptr) !=
+        HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        return HTS_Holo_Tensor_4D::SECURE_FALSE;
+    }
+    holo_tensor_ready_ = true;
+    return HTS_Holo_Tensor_4D::SECURE_TRUE;
+}
+
+void HTS_V400_Dispatcher::clear_holo_tensor_rx_state_() noexcept {
+    holo_tensor_payload_mode_ = false;
+    holo_tensor_decode_failed_ = false;
+    holo_tensor_rx_len_ = 0u;
+    SecureMemory::secureWipe(static_cast<void*>(holo_tensor_rx_bits_),
+                             sizeof(holo_tensor_rx_bits_));
+    SecureMemory::secureWipe(static_cast<void*>(holo_tensor_rx_bytes_),
+                             sizeof(holo_tensor_rx_bytes_));
+}
+#endif
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     // [CRIT] sizeof(*this) 통째 wipe 금지 — 멤버 역순 소멸 전 다른 서브객체
     // 손상. 순서: CCM → full_reset_(HARQ/work 버퍼) → 칩/워킹 스크래치 →
@@ -138,7 +171,14 @@ HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
     on_ctrl_ = nullptr;
     p_metrics_ = nullptr;
 }
-void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept { seed_ = s; }
+void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept {
+    seed_ = s;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    holo_tensor4d_.Shutdown();
+    holo_tensor_ready_ = false;
+    clear_holo_tensor_rx_state_();
+#endif
+}
 
 void HTS_V400_Dispatcher::Enable_Holo_LPI(
     const uint32_t lpi_seed[4]) noexcept {
@@ -355,6 +395,9 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
 #endif
     cfo_v5a_last_cfo_hz_ = 0;
     cfo_v5a_last_valid_ = false;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    clear_holo_tensor_rx_state_();
+#endif
     tpc_.Init();
     pre_agc_.Init();
 #if defined(HTS_PHASE0_WALSH_BANK)

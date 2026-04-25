@@ -2653,7 +2653,17 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     pay_cps_ = (mode == PayloadMode::VIDEO_1) ? 1
                                : (mode == PayloadMode::DATA)  ? 64
                                                               : 16;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+                    if (mode == PayloadMode::DATA && holo_tensor_payload_mode_) {
+                        const int k_bits =
+                            static_cast<int>(k_holo_profiles[1].block_bits);
+                        pay_total_ = (64 + k_bits - 1) / k_bits;
+                    } else {
+                        pay_total_ = plen;
+                    }
+#else
                     pay_total_ = plen;
+#endif
                     pay_recv_ = 0;
                     v1_idx_ = 0;
                     sym_idx_ = 0;
@@ -2688,12 +2698,22 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                             SecureMemory::secureWipe(
                                 static_cast<void *>(&g_harq_ccm_union),
                                 sizeof(g_harq_ccm_union));
-                            if (ir_mode_) {
+                            if (
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+                                !holo_tensor_payload_mode_ &&
+#endif
+                                ir_mode_) {
                                 if (ir_state_ != nullptr) {
                                     FEC_HARQ::IR_Init(*ir_state_);
                                 }
                                 ir_rv_ = 0;
-                            } else {
+                            } else if (
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+                                !holo_tensor_payload_mode_
+#else
+                                true
+#endif
+                            ) {
                                 SecureMemory::secureWipe(
                                     static_cast<void *>(rx_.m64_I.aI),
                                     sizeof(rx_.m64_I.aI));

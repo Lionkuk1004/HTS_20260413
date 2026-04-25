@@ -5,6 +5,10 @@
 #include "HTS_V400_Dispatcher_Internal.hpp"
 #include "HTS_Holo_LPI.h"
 #include "HTS_Secure_Memory.h"
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+#include "HTS_Holo_Tensor_4D.h"
+#include "HTS_Holo_Tensor_4D_Defs.h"
+#endif
 #if defined(HTS_HOLO_PREAMBLE)
 #include "HTS_Holo_Tensor_4D_Defs.h"
 #endif
@@ -15,6 +19,34 @@ using namespace detail;
 namespace {
 alignas(64) static int16_t g_bp_sink_i[64];
 alignas(64) static int16_t g_bp_sink_q[64];
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+static uint16_t bytes_to_bpsk_bits_tx_(const uint8_t* bytes, size_t byte_len,
+                                       int8_t* bpsk_bits,
+                                       uint16_t max_bits) noexcept {
+    if (bpsk_bits == nullptr) {
+        return 0u;
+    }
+    for (uint16_t i = 0; i < max_bits; ++i) {
+        bpsk_bits[i] = static_cast<int8_t>(-1);
+    }
+    if (bytes == nullptr || byte_len == 0u) {
+        return 0u;
+    }
+    uint16_t bit_idx = 0u;
+    for (size_t b = 0u; b < byte_len; ++b) {
+        for (int i = 7; i >= 0; --i) {
+            if (bit_idx >= max_bits) {
+                return bit_idx;
+            }
+            const uint8_t bit = static_cast<uint8_t>((bytes[b] >> i) & 1u);
+            bpsk_bits[bit_idx] =
+                (bit != 0u) ? static_cast<int8_t>(1) : static_cast<int8_t>(-1);
+            ++bit_idx;
+        }
+    }
+    return bit_idx;
+}
+#endif
 static inline int16_t *bp_dst_i(int16_t *oI, int pos,
                                 std::uintptr_t okm) noexcept {
     const std::uintptr_t p = reinterpret_cast<std::uintptr_t>(&oI[pos]);
@@ -137,9 +169,26 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     const uint32_t u16 = u1 | u2;
     const uint8_t mb = k_tx_mb[mi];
     const int nsym64_live = cur_nsym64_();
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    const uint32_t tensor_data_u =
+        static_cast<uint32_t>(mode == PayloadMode::DATA);
+    const int tensor_k = static_cast<int>(k_holo_profiles[1].block_bits);
+    const int tensor_n = static_cast<int>(k_holo_profiles[1].chip_count);
+    const int tensor_block_bytes = tensor_k / 8;
+    const int tensor_blocks =
+        (ilen + ((tensor_block_bytes > 0) ? (tensor_block_bytes - 1) : 0)) /
+        ((tensor_block_bytes > 0) ? tensor_block_bytes : 1);
+    const int tensor_psyms = tensor_k;
+#else
+    const uint32_t tensor_data_u = 0u;
+    const int tensor_n = 64;
+    const int tensor_blocks = 0;
+    const int tensor_psyms = 0;
+#endif
     // TPE: header psyms — LUT + DATA runtime nsym64
-    const int psyms =
-        k_tx_psyms[mi] + static_cast<int>(u3) * nsym64_live;
+    const int psyms = k_tx_psyms[mi] + static_cast<int>(u3) * nsym64_live +
+                      static_cast<int>(tensor_data_u) *
+                          (tensor_psyms - nsym64_live);
     const uint32_t ir_hdr_iq_same_u = static_cast<uint32_t>(ir_mode_);
     const uint32_t iq_ind_u =
         static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
@@ -200,7 +249,9 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     // TPE: pay chip budget from masked mode contributions
     int pay_raw = (n_v1 * static_cast<int>(u0)) +
                   (FEC_HARQ::NSYM16 * 16 * static_cast<int>(u16)) +
-                  (nsym64_live * 64 * static_cast<int>(u3));
+                  (nsym64_live * 64 * static_cast<int>(u3)) +
+                  static_cast<int>(tensor_data_u) *
+                      (tensor_blocks * tensor_n - nsym64_live * 64);
     pay_raw &= -static_cast<int>(go_enc & 1u);
     const int total_need = pre_chips + 128 + pay_raw;
     uint32_t go = go_enc;
@@ -272,7 +323,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     // TPE: DATA split path gated by u3 — non-DATA ⇒ 0 Walsh iterations
     const uint32_t split_u =
         static_cast<uint32_t>(static_cast<uint32_t>(!ir_mode_) &
-                              iq_ind_u & u3);
+                              iq_ind_u & u3 & (1u - tensor_data_u));
     const int npairs = ((nsym64_live + 1) / 2) * inc * static_cast<int>(u3);
     const int nwal = nsym64_live * inc * static_cast<int>(u3);
     const int n_spl = npairs * static_cast<int>(split_u & 1u);
@@ -300,6 +351,47 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                   bp_dst_q(oQ, pos, okm));
         pos += 64 * inc;
     }
+
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    if ((tensor_data_u & static_cast<uint32_t>(go & 1u)) != 0u) {
+        if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+            return 0;
+        }
+        (void)holo_tensor4d_.Set_Time_Slot(tx_seq_);
+        const uint32_t lk = static_cast<uint32_t>(holo_tensor_profile_.num_layers) *
+                            static_cast<uint32_t>(holo_tensor_profile_.block_bits);
+        for (int blk = 0; blk < tensor_blocks; ++blk) {
+            int8_t data_bits[HOLO_MAX_BLOCK_BITS];
+            int8_t chip_bpsk[HOLO_CHIP_COUNT];
+            const int byte_off = blk * tensor_block_bytes;
+            const int remain = (ilen > byte_off) ? (ilen - byte_off) : 0;
+            const int use_bytes =
+                (remain > tensor_block_bytes) ? tensor_block_bytes : remain;
+            bytes_to_bpsk_bits_tx_(
+                (use_bytes > 0) ? &info[byte_off] : nullptr,
+                static_cast<size_t>((use_bytes > 0) ? use_bytes : 0), data_bits,
+                static_cast<uint16_t>(tensor_k));
+            if (holo_tensor4d_.Encode_Block(data_bits, holo_tensor_profile_.block_bits,
+                                            chip_bpsk, holo_tensor_profile_.chip_count) !=
+                HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
+                SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
+                return 0;
+            }
+            const int denom = (lk > 0u) ? static_cast<int>(lk) : 32;
+            for (int c = 0; c < tensor_n; ++c) {
+                const int32_t prod =
+                    static_cast<int32_t>(chip_bpsk[c]) * static_cast<int32_t>(amp);
+                const int32_t v = prod / denom;
+                oI[pos] = static_cast<int16_t>(v);
+                oQ[pos] = static_cast<int16_t>(v);
+                ++pos;
+            }
+            SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
+            SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
+        }
+    }
+#endif
     SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));
     SecureMemory::secureWipe(static_cast<void *>(syms64_ir), sizeof(syms64_ir));
     SecureMemory::secureWipe(static_cast<void *>(syms64_pl), sizeof(syms64_pl));

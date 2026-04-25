@@ -173,6 +173,7 @@
     <ClCompile Include="..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Preamble_Holographic.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_Holo_Tensor_4D.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

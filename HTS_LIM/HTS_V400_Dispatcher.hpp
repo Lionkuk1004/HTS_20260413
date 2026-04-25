@@ -76,6 +76,10 @@
 #include "HTS_CFO_V5a.hpp"
 #include "HTS_TPC_Controller.h"
 #include "HTS_Preamble_AGC.h"
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+#include "HTS_Holo_Tensor_4D.h"
+#include "HTS_Holo_Tensor_4D_Defs.h"
+#endif
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
 #include "HTS_Rx_Matched_Filter.h"
 #endif
@@ -648,6 +652,21 @@ namespace ProtectedEngine {
         /// Holo LPI RX 역스칼라 (Walsh·상관 전, `scalar_time_slot` = `rx_seq_` 또는 Retx용)
         void apply_holo_lpi_inverse_rx_chip_(int16_t& chip_I, int16_t& chip_Q,
                                              uint32_t scalar_time_slot) noexcept;
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+        uint32_t ensure_holo_tensor_ready_() noexcept;
+        void clear_holo_tensor_rx_state_() noexcept;
+#endif
+
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+        HTS_Holo_Tensor_4D holo_tensor4d_{};
+        HoloTensor_Profile holo_tensor_profile_{};
+        bool holo_tensor_ready_{ false };
+        bool holo_tensor_payload_mode_{ false };
+        bool holo_tensor_decode_failed_{ false };
+        int8_t holo_tensor_rx_bits_[HOLO_MAX_BLOCK_BITS]{};
+        uint8_t holo_tensor_rx_bytes_[8]{};
+        uint8_t holo_tensor_rx_len_{ 0 };
+#endif
     };
 
     // ── SRAM budget static checks ─────────────────────────────
