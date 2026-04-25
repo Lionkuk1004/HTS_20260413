@@ -15,8 +15,8 @@
 //
 // @warning sizeof(HTS_CFO_Compensator) ≈ 32 bytes
 // =============================================================================
-#ifndef HTS_CFO_COMPENSATOR_H
-#define HTS_CFO_COMPENSATOR_H
+#ifndef HTS_CFO_COMPENSATOR_LEGACY_H
+#define HTS_CFO_COMPENSATOR_LEGACY_H
 
 #include <cstdint>
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
@@ -516,4 +516,4 @@ inline void HTS_CFO_Compensator::Advance_Phase_Only(int32_t n_chips) noexcept {
 
 } // namespace ProtectedEngine
 
-#endif // HTS_CFO_COMPENSATOR_H
+#endif // HTS_CFO_COMPENSATOR_LEGACY_H

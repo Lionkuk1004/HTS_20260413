@@ -1,7 +1,7 @@
 #include <cstdint>
 #include <cstdio>
 
-#include "../HTS_LIM/HTS_CFO_Compensator.h"
+#include "legacy/HTS_CFO_Compensator.h"
 #include "../HTS_LIM/HTS_CFO_V5a.hpp"
 #include "../HTS_LIM/HTS_Rx_CFO_SinCos_Table.hpp"
 

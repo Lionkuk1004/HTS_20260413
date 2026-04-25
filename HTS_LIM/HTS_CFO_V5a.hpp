@@ -88,7 +88,7 @@ public:
                        int16_t* out_I, int16_t* out_Q, int chips,
                        int32_t cfo_hz) noexcept;
 
-    /// Per-chip CFO 역회전 (HTS_CFO_Compensator::Apply 와 동일 Q14 누적·정규화).
+    /// Per-chip CFO 역회전 (레거시 Q14 per-chip 누적·정규화 경로와 동일 수식).
     void Set_Apply_Cfo(int32_t cfo_hz) noexcept;
     /// Hz 대신 Q14 per-chip 직접 지정 (legacy compensator per-chip Q14 와 비트 정합).
     void Set_Apply_SinCosPerChip_Q14(int32_t sin_per_chip_q14,
@@ -120,7 +120,7 @@ private:
     int32_t apply_chip_counter_{ 0 };
 
     /// `Estimate_From_Autocorr`: ac_I²+ac_Q². `Estimate`: preamble mag_approx
-    /// (HTS_CFO_Compensator::Estimate_From_Preamble 와 동일 식).
+    /// (레거시 preamble dot 기반 CFO 추정 식과 동일).
     int64_t last_apply_gate_mag_{ 0 };
     /// true → 임계 1e6 (autocorr), false → 임계 1000 (preamble mag_approx).
     bool last_apply_gate_autocorr_{ false };

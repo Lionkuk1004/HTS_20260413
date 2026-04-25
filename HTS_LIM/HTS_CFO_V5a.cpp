@@ -12,7 +12,7 @@ namespace hts {
 namespace rx_cfo {
 namespace {
 
-// HTS_CFO_Compensator::Estimate_From_Preamble / Estimate_From_Autocorr 와 동일.
+// 레거시 preamble/autocorr CFO 경로(정수 구현)와 동일.
 inline constexpr int64_t kPreambleMagApproxThreshold = 1000LL;
 inline constexpr int64_t kAutocorrMag2Threshold = 1000000LL;
 
@@ -44,7 +44,7 @@ static inline int32_t dot_q14_round(int32_t x, int32_t a_q14, int32_t y,
     return static_cast<int32_t>((p - (1LL << 13)) >> 14);
 }
 
-// --- Q14 per-chip path (HTS_CFO_Compensator::Apply / Advance 동일 수식) ---
+// --- Q14 per-chip path (레거시 Apply/Advance 정수 수식) ---
 static inline int32_t apply_int_root_q14(int64_t c2) noexcept {
     if (c2 <= 0) {
         return 0;
@@ -144,7 +144,7 @@ static int64_t Energy_Multiframe_impl(const int16_t* rI,
     return e0 + e1;
 }
 
-// --- Integer atan2·Q12 (HTS_CFO_Compensator 동일 LUT): ARM L&R + Holo autocorr ---
+// --- Integer atan2·Q12 (레거시 동일 LUT): ARM L&R + Holo autocorr ---
 static inline int32_t isc_atan_frac_q12(int32_t y, int32_t x) noexcept {
     if (x <= 0 || y < 0 || y > x) {
         return 0;
@@ -228,7 +228,7 @@ static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
 
 #endif
 
-/// HTS_CFO_Compensator::Estimate_From_Autocorr 와 동일: block atan2·Q12 후 /lag.
+/// 레거시 autocorr CFO: block atan2·Q12 후 /lag.
 static int32_t Autocorr_Block_Atan2_Q12(int32_t ac_I, int32_t ac_Q) noexcept {
     int64_t y = static_cast<int64_t>(ac_Q);
     int64_t x = static_cast<int64_t>(ac_I);
