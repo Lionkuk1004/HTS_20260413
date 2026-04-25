@@ -28,6 +28,8 @@ constexpr bool kEnableV5aCorrection = true;
 /// V5a 역회전 deadzone: \|추정 CFO\| < ε 이면 적용 생략(항등). ε는 lag-L 자기상관 잡음에 의한
 /// CFO=0 근처 허위 추정 억제와, 저주파(예: 100 Hz) 실제 잔류 추적 사이의 트레이드오프.
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
+/// lag-L 자기상관 진폭 정규화 하한: 프리앰블(Walsh 63) 대역 외·잡음 alias 경로 억제 (lab 전용).
+constexpr double kV5aAcNormThreshold = 0.5;
 constexpr bool kEnableHoloSync = true;
 constexpr int kHoloSyncE63Threshold = kAmp * 38;
 constexpr double kChipRateHz = 1e6;
@@ -106,14 +108,29 @@ static void channel_apply(const int16_t* tx_I, const int16_t* tx_Q, int16_t* rx_
     }
 }
 
-static double v5a_estimate_cfo(const int16_t* rx_I, const int16_t* rx_Q, int chips, int lag) noexcept {
-    double ac_I = 0.0, ac_Q = 0.0;
+static double v5a_estimate_cfo_with_quality(const int16_t* rx_I, const int16_t* rx_Q, int chips, int lag,
+                                            double* ac_mag_out, double* sig_pow_out) noexcept {
+    double ac_I = 0.0, ac_Q = 0.0, sp = 0.0;
     for (int n = 0; n + lag < chips; ++n) {
         ac_I += static_cast<double>(rx_I[n]) * rx_I[n + lag] + static_cast<double>(rx_Q[n]) * rx_Q[n + lag];
         ac_Q += static_cast<double>(rx_Q[n]) * rx_I[n + lag] - static_cast<double>(rx_I[n]) * rx_Q[n + lag];
     }
-    if (std::abs(ac_I) < 1e-6 && std::abs(ac_Q) < 1e-6) return 0.0;
-    return std::atan2(ac_Q, ac_I) * ExperimentConfig::kChipRateHz / (2.0 * kPi * lag);
+    for (int n = 0; n < chips; ++n) {
+        const double ri = static_cast<double>(rx_I[n]);
+        const double rq = static_cast<double>(rx_Q[n]);
+        sp += ri * ri + rq * rq;
+    }
+    const double ac_mag = std::sqrt(ac_I * ac_I + ac_Q * ac_Q);
+    if (ac_mag_out != nullptr) {
+        *ac_mag_out = ac_mag;
+    }
+    if (sig_pow_out != nullptr) {
+        *sig_pow_out = sp;
+    }
+    if (std::abs(ac_I) < 1e-6 && std::abs(ac_Q) < 1e-6) {
+        return 0.0;
+    }
+    return std::atan2(ac_Q, ac_I) * ExperimentConfig::kChipRateHz / (2.0 * kPi * static_cast<double>(lag));
 }
 
 static void v5a_apply_per_chip(const int16_t* rx_I, const int16_t* rx_Q, int16_t* out_I, int16_t* out_Q,
@@ -224,13 +241,21 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         int16_t rxI[128]{}, rxQ[128]{}, corrI[128]{}, corrQ[128]{};
         channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
         if (ExperimentConfig::kEnableV5aCorrection) {
-            const double est = v5a_estimate_cfo(rxI, rxQ, 64, 32);
-            // 순수 deadzone: 채널 진값(cfo_hz)은 사용하지 않음(양산 경로와 동일한 정보 집합).
-            const bool apply_v5a =
-                std::abs(est) >= ExperimentConfig::kV5aDeadzoneEpsilonHz;
+            constexpr int kV5aChips = 64;
+            constexpr int kV5aLag = 32;
+            double ac_mag = 0.0;
+            double sig_pow = 0.0;
+            const double est =
+                v5a_estimate_cfo_with_quality(rxI, rxQ, kV5aChips, kV5aLag, &ac_mag, &sig_pow);
+            const double denom =
+                sig_pow * (static_cast<double>(kV5aChips - kV5aLag) / static_cast<double>(kV5aChips));
+            const double ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
+            // deadzone + 자기상관 진폭 게이트 (저코히런트·alias 경로 억제).
+            const bool apply_v5a = (std::abs(est) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) &&
+                                   (ac_norm >= ExperimentConfig::kV5aAcNormThreshold);
             if (want_lab_diag) {
-                std::printf("[DIAG-V5A-EST] cfo_real=%d est_hz=%.1f apply=%d\n",
-                            cfo_hz, est, apply_v5a ? 1 : 0);
+                std::printf("[DIAG-V5A-EST] cfo_real=%d est=%.1f ac_norm=%.3f apply=%d\n",
+                            cfo_hz, est, ac_norm, apply_v5a ? 1 : 0);
             }
             if (apply_v5a) {
                 v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est);
@@ -284,10 +309,10 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
 int main() {
     build_sincos_table();
     std::printf("Phase H Lab isolated scaffold\n");
-    std::printf("mode=%s, rx_soft=%d, v5a=%d, v5a_deadzone_eps_hz=%.1f\n",
+    std::printf("mode=%s, rx_soft=%d, v5a=%d, v5a_deadzone_eps_hz=%.1f, v5a_ac_norm_min=%.2f\n",
                 ExperimentConfig::kEnableHoloSync ? "S5H-like" : "S5-like",
                 ExperimentConfig::kRxSoftMode, ExperimentConfig::kEnableV5aCorrection ? 1 : 0,
-                ExperimentConfig::kV5aDeadzoneEpsilonHz);
+                ExperimentConfig::kV5aDeadzoneEpsilonHz, ExperimentConfig::kV5aAcNormThreshold);
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];
         std::printf("cfo=%5d:", cfo);
