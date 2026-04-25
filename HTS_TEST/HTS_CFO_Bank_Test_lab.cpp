@@ -2,7 +2,8 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab: isolated cfo sweep scaffold
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab C: Python vs C++ 정합 (BUG-6)
+//   - kEnableHoloSync=false, V5a 없음, 프리앰블 없음, 64-chip 페이로드만, (I+Q)/2 소프트, mask 전부 유효
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -14,55 +15,22 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-/// Phase H Lab B: 3~5 kHz cliff + 2.5 kHz·5.5 kHz 앵커
-constexpr int kCfoSweepList[] = {2500, 3000, 3500, 4000, 4500, 5000, 5500};
+/// Lab C: Python 시뮬 CFO 스윕과 동일 목록
+constexpr int kCfoSweepList[] = {0, 2000, 3000, 4000, 4500, 5000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
 constexpr int kSnrCount = sizeof(kSnrLevels) / sizeof(int);
 constexpr int kK = 16;
 constexpr int kN = 64;
-constexpr int kL = 2;
 constexpr int kAmp = 500;
 constexpr int kDenom = 16;
-/// V5a 역회전 deadzone: \|추정 CFO\| < ε 이면 적용 생략(항등). ε는 lag-L 자기상관 잡음에 의한
-/// CFO=0 근처 허위 추정 억제와, 저주파(예: 100 Hz) 실제 잔류 추적 사이의 트레이드오프.
-constexpr double kV5aDeadzoneEpsilonHz = 200.0;
-/// lag-L 자기상관 진폭 정규화 하한: 프리앰블(Walsh 63) 대역 외·잡음 alias 경로 억제 (lab 전용).
-constexpr double kV5aAcNormThreshold = 0.5;
-constexpr bool kEnableHoloSync = true;
-constexpr int kHoloSyncE63Threshold = kAmp * 38;
 constexpr double kChipRateHz = 1e6;
-constexpr int kRxSoftMode = 0;      // 0:(I+Q)/2, 1:I, 2:Q, 3:dominant, 4:I+Q
-constexpr int32_t kChipValidThreshold = 0;
 }  // namespace ExperimentConfig
 
 namespace {
-constexpr int kSinCosTableSize = 1024;
-constexpr int kSinCosIndexShift = 22;
-constexpr int32_t kQ14One = 16384;
 constexpr double kPi = 3.14159265358979323846;
-int16_t g_sin_table[kSinCosTableSize];
-int16_t g_cos_table[kSinCosTableSize];
 uint32_t g_rng = 1u;
-bool g_lab_diag_cfo0_trial0_emitted = false;
-
-static inline uint32_t popcount32_(uint32_t x) noexcept {
-    x = x - ((x >> 1) & 0x55555555u);
-    x = (x & 0x33333333u) + ((x >> 2) & 0x33333333u);
-    x = (x + (x >> 4)) & 0x0F0F0F0Fu;
-    x = x + (x >> 8);
-    x = x + (x >> 16);
-    return x & 0x3Fu;
-}
-
-static void build_sincos_table() noexcept {
-    for (int i = 0; i < kSinCosTableSize; ++i) {
-        const double angle = 2.0 * kPi * i / kSinCosTableSize;
-        g_sin_table[i] = static_cast<int16_t>(std::sin(angle) * kQ14One);
-        g_cos_table[i] = static_cast<int16_t>(std::cos(angle) * kQ14One);
-    }
-}
 
 static inline void rng_seed(uint32_t seed) noexcept { g_rng = seed ? seed : 1u; }
 static inline uint32_t rng_next() noexcept {
@@ -108,102 +76,27 @@ static void channel_apply(const int16_t* tx_I, const int16_t* tx_Q, int16_t* rx_
     }
 }
 
-static double v5a_estimate_cfo_with_quality(const int16_t* rx_I, const int16_t* rx_Q, int chips, int lag,
-                                            double* ac_mag_out, double* sig_pow_out) noexcept {
-    double ac_I = 0.0, ac_Q = 0.0, sp = 0.0;
-    for (int n = 0; n + lag < chips; ++n) {
-        ac_I += static_cast<double>(rx_I[n]) * rx_I[n + lag] + static_cast<double>(rx_Q[n]) * rx_Q[n + lag];
-        ac_Q += static_cast<double>(rx_Q[n]) * rx_I[n + lag] - static_cast<double>(rx_I[n]) * rx_Q[n + lag];
-    }
-    for (int n = 0; n < chips; ++n) {
-        const double ri = static_cast<double>(rx_I[n]);
-        const double rq = static_cast<double>(rx_Q[n]);
-        sp += ri * ri + rq * rq;
-    }
-    const double ac_mag = std::sqrt(ac_I * ac_I + ac_Q * ac_Q);
-    if (ac_mag_out != nullptr) {
-        *ac_mag_out = ac_mag;
-    }
-    if (sig_pow_out != nullptr) {
-        *sig_pow_out = sp;
-    }
-    if (std::abs(ac_I) < 1e-6 && std::abs(ac_Q) < 1e-6) {
-        return 0.0;
-    }
-    return std::atan2(ac_Q, ac_I) * ExperimentConfig::kChipRateHz / (2.0 * kPi * static_cast<double>(lag));
-}
-
-static void v5a_apply_per_chip(const int16_t* rx_I, const int16_t* rx_Q, int16_t* out_I, int16_t* out_Q,
-                               int chips, double cfo_hz) noexcept {
-    const int64_t phase_inc_q32_s64 = -static_cast<int64_t>((cfo_hz * 4294967296.0) / ExperimentConfig::kChipRateHz);
-    const uint32_t phase_inc_q32 = static_cast<uint32_t>(phase_inc_q32_s64);
-    uint32_t phase_q32 = 0u;
-    for (int k = 0; k < chips; ++k) {
-        const int idx = (phase_q32 >> kSinCosIndexShift) & (kSinCosTableSize - 1);
-        const int32_t cos_q14 = g_cos_table[idx];
-        const int32_t sin_q14 = g_sin_table[idx];
-        const int32_t x = rx_I[k];
-        const int32_t y = rx_Q[k];
-        out_I[k] = sat_i16((x * cos_q14 - y * sin_q14) >> 14);
-        out_Q[k] = sat_i16((x * sin_q14 + y * cos_q14) >> 14);
-        phase_q32 += phase_inc_q32;
-    }
-}
-
-static bool holo_sync_check(const int16_t* rx_I, const int16_t* rx_Q, bool diag_print = false) noexcept {
-    int32_t e63_i = 0;
-    int32_t e63_q = 0;
-    for (int c = 0; c < 64; ++c) {
-        const uint32_t x = 63u & static_cast<uint32_t>(c);
-        const int sign = (popcount32_(x) & 1u) ? -1 : 1;
-        e63_i += sign * static_cast<int32_t>(rx_I[c]);
-        e63_q += sign * static_cast<int32_t>(rx_Q[c]);
-    }
-    const int64_t e63 = static_cast<int64_t>(e63_i) * e63_i + static_cast<int64_t>(e63_q) * e63_q;
-    const int64_t thr = static_cast<int64_t>(ExperimentConfig::kHoloSyncE63Threshold) * ExperimentConfig::kHoloSyncE63Threshold;
-    const bool pass = e63 >= thr;
-    if (diag_print) {
-        std::printf("[DIAG-SYNC] e63_i=%d e63_q=%d e63=%lld thr=%lld pass=%d\n",
-                    static_cast<int>(e63_i), static_cast<int>(e63_q),
-                    static_cast<long long>(e63), static_cast<long long>(thr), pass ? 1 : 0);
-    }
-    return pass;
-}
-
-static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, uint64_t* valid_mask) noexcept {
-    uint64_t mask = 0u;
+/// Python 정합: (I+Q)/2, valid_mask 전 비트 1 (BPTE/마스크 게이트 없음)
+static void rx_soft_lab_c(const int16_t* i, const int16_t* q, int16_t* soft, uint64_t* valid_mask) noexcept {
     for (int c = 0; c < ExperimentConfig::kN; ++c) {
         const int32_t iv = i[c];
         const int32_t qv = q[c];
-        int32_t vchip = -1;
-        if (ExperimentConfig::kChipValidThreshold > 0) {
-            const int32_t mag2 = iv * iv + qv * qv;
-            const int64_t diff = static_cast<int64_t>(mag2) - static_cast<int64_t>(ExperimentConfig::kChipValidThreshold);
-            vchip = static_cast<int32_t>(~(diff >> 63));
-        }
-        int32_t s = (iv + qv) / 2;
-        if (ExperimentConfig::kRxSoftMode == 1) s = iv;
-        if (ExperimentConfig::kRxSoftMode == 2) s = qv;
-        if (ExperimentConfig::kRxSoftMode == 3) s = (std::abs(iv) > std::abs(qv)) ? iv : qv;
-        if (ExperimentConfig::kRxSoftMode == 4) s = iv + qv;
-        soft[c] = static_cast<int16_t>(s & vchip);
-        mask |= (static_cast<uint64_t>(vchip & 1u) << static_cast<uint32_t>(c));
+        soft[c] = static_cast<int16_t>((iv + qv) / 2);
     }
-    *valid_mask = mask;
+    *valid_mask = 0xFFFFFFFFFFFFFFFFull;
 }
 
 struct TestResult { int sync_pass; int decode_pass; int total_bit_err; int total_bits; };
 
-static bool lab_is_cliff_diag_cfo(int cfo_hz) noexcept {
-    return cfo_hz == 3000 || cfo_hz == 4000 || cfo_hz == 5000;
-}
-
-static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a) {
+static TestResult run_one_cfo(int cfo_hz, int snr_db) {
     TestResult r{0, 0, 0, 0};
     HTS_Holo_Tensor_4D tx, rx;
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
     if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) return r;
-    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) { tx.Shutdown(); return r; }
+    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        tx.Shutdown();
+        return r;
+    }
 
     for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
         rng_seed(static_cast<uint32_t>(t * 7919u + 13u));
@@ -214,131 +107,84 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a) {
         (void)tx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (tx.Encode_Block(bits, static_cast<uint16_t>(ExperimentConfig::kK), chips,
                             static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
-            r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
+            r.total_bits += ExperimentConfig::kK;
+            r.total_bit_err += ExperimentConfig::kK;
+            continue;
         }
 
-        int16_t txI[128]{}, txQ[128]{};
-        for (int c = 0; c < 64; ++c) {
-            const uint32_t x = 63u & static_cast<uint32_t>(c);
-            const int sign = (popcount32_(x) & 1u) ? -1 : 1;
-            const int16_t pre = static_cast<int16_t>(sign * ExperimentConfig::kAmp);
-            txI[c] = pre;
-            txQ[c] = pre;
-        }
+        int16_t txI[64]{};
+        int16_t txQ[64]{};
         for (int c = 0; c < 64; ++c) {
             const int32_t prod = static_cast<int32_t>(chips[c]) * ExperimentConfig::kAmp;
             const int32_t v = (prod >= 0) ? ((prod + (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom)
                                           : ((prod - (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom);
-            txI[64 + c] = static_cast<int16_t>(v);
-            txQ[64 + c] = static_cast<int16_t>(v);
+            txI[c] = static_cast<int16_t>(v);
+            txQ[c] = static_cast<int16_t>(v);
         }
 
-        const bool want_lab_diag = (cfo_hz == 0 && t == 0 && !g_lab_diag_cfo0_trial0_emitted);
-        if (want_lab_diag) {
-            std::printf("[DIAG-TX-PRE] amp=%d txI[0..7]= %d %d %d %d %d %d %d %d\n",
-                        ExperimentConfig::kAmp,
+        const bool want_diag =
+            (cfo_hz == 4000 && t == 0 && snr_db == 30);
+        if (want_diag) {
+            std::printf("[DIAG-LabC] cfo=%d snr=%d trial=%d (payload 64ch, no holo/V5a)\n", cfo_hz, snr_db, t);
+            std::printf("[DIAG-LabC] chips[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(chips[0]), static_cast<int>(chips[1]), static_cast<int>(chips[2]),
+                        static_cast<int>(chips[3]), static_cast<int>(chips[4]), static_cast<int>(chips[5]),
+                        static_cast<int>(chips[6]), static_cast<int>(chips[7]));
+            std::printf("[DIAG-LabC] txI[0..7]= %d %d %d %d %d %d %d %d\n",
                         static_cast<int>(txI[0]), static_cast<int>(txI[1]), static_cast<int>(txI[2]),
                         static_cast<int>(txI[3]), static_cast<int>(txI[4]), static_cast<int>(txI[5]),
                         static_cast<int>(txI[6]), static_cast<int>(txI[7]));
+            std::printf("[DIAG-LabC] txQ[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(txQ[0]), static_cast<int>(txQ[1]), static_cast<int>(txQ[2]),
+                        static_cast<int>(txQ[3]), static_cast<int>(txQ[4]), static_cast<int>(txQ[5]),
+                        static_cast<int>(txQ[6]), static_cast<int>(txQ[7]));
         }
 
-        int16_t rxI[128]{}, rxQ[128]{}, corrI[128]{}, corrQ[128]{};
-        channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
+        int16_t rxI[64]{};
+        int16_t rxQ[64]{};
+        channel_apply(txI, txQ, rxI, rxQ, 64, static_cast<double>(cfo_hz), snr_db,
+                      static_cast<uint32_t>(t * 31u + 19u));
 
-        constexpr int kV5aChips = 64;
-        constexpr int kV5aLag = 4;
-        double est_hz = 0.0;
-        double ac_norm = 0.0;
-        bool apply_v5a = false;
-
-        if (enable_v5a) {
-            double ac_mag = 0.0;
-            double sig_pow = 0.0;
-            est_hz = v5a_estimate_cfo_with_quality(rxI, rxQ, kV5aChips, kV5aLag, &ac_mag, &sig_pow);
-            const double denom =
-                sig_pow * (static_cast<double>(kV5aChips - kV5aLag) / static_cast<double>(kV5aChips));
-            ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
-            apply_v5a = (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) &&
-                        (ac_norm >= ExperimentConfig::kV5aAcNormThreshold);
-            if (want_lab_diag) {
-                std::printf("[DIAG-V5A-EST] cfo_real=%d est=%.1f ac_norm=%.3f apply=%d\n",
-                            cfo_hz, est_hz, ac_norm, apply_v5a ? 1 : 0);
-            }
-            if (apply_v5a) {
-                v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, 128, est_hz);
-            } else {
-                std::memcpy(corrI, rxI, sizeof(corrI));
-                std::memcpy(corrQ, rxQ, sizeof(corrQ));
-            }
-        } else {
-            std::memcpy(corrI, rxI, sizeof(corrI));
-            std::memcpy(corrQ, rxQ, sizeof(corrQ));
+        if (want_diag) {
+            std::printf("[DIAG-LabC] rxI[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(rxI[0]), static_cast<int>(rxI[1]), static_cast<int>(rxI[2]),
+                        static_cast<int>(rxI[3]), static_cast<int>(rxI[4]), static_cast<int>(rxI[5]),
+                        static_cast<int>(rxI[6]), static_cast<int>(rxI[7]));
+            std::printf("[DIAG-LabC] rxQ[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(rxQ[0]), static_cast<int>(rxQ[1]), static_cast<int>(rxQ[2]),
+                        static_cast<int>(rxQ[3]), static_cast<int>(rxQ[4]), static_cast<int>(rxQ[5]),
+                        static_cast<int>(rxQ[6]), static_cast<int>(rxQ[7]));
         }
-
-        const bool want_cliff_diag =
-            (t == 0 && snr_db == 30 && lab_is_cliff_diag_cfo(cfo_hz));
-        if (want_cliff_diag) {
-            double print_est = est_hz;
-            double print_acn = ac_norm;
-            int print_apply = enable_v5a ? (apply_v5a ? 1 : 0) : 0;
-            if (!enable_v5a) {
-                double ac_mag_d = 0.0;
-                double sig_pow_d = 0.0;
-                print_est =
-                    v5a_estimate_cfo_with_quality(rxI, rxQ, kV5aChips, kV5aLag, &ac_mag_d, &sig_pow_d);
-                const double denom_d =
-                    sig_pow_d * (static_cast<double>(kV5aChips - kV5aLag) / static_cast<double>(kV5aChips));
-                print_acn = (denom_d > 1e-18) ? (ac_mag_d / denom_d) : 0.0;
-            }
-            std::printf("[DIAG-CLIFF] cfo=%d snr=%d v5a_on=%d est_hz=%.1f ac_norm=%.3f apply=%d\n",
-                        cfo_hz, snr_db, enable_v5a ? 1 : 0, print_est, print_acn, print_apply);
-            std::printf("[DIAG-CLIFF] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
-                        static_cast<int>(corrI[0]), static_cast<int>(corrI[1]), static_cast<int>(corrI[2]),
-                        static_cast<int>(corrI[3]), static_cast<int>(corrI[4]), static_cast<int>(corrI[5]),
-                        static_cast<int>(corrI[6]), static_cast<int>(corrI[7]));
-            std::printf("[DIAG-CLIFF] corrI[64..71]= %d %d %d %d %d %d %d %d\n",
-                        static_cast<int>(corrI[64]), static_cast<int>(corrI[65]), static_cast<int>(corrI[66]),
-                        static_cast<int>(corrI[67]), static_cast<int>(corrI[68]), static_cast<int>(corrI[69]),
-                        static_cast<int>(corrI[70]), static_cast<int>(corrI[71]));
-        }
-
-        if (want_lab_diag) {
-            std::printf("[DIAG-RX-PRE] corrI[0..7]= %d %d %d %d %d %d %d %d\n",
-                        static_cast<int>(corrI[0]), static_cast<int>(corrI[1]), static_cast<int>(corrI[2]),
-                        static_cast<int>(corrI[3]), static_cast<int>(corrI[4]), static_cast<int>(corrI[5]),
-                        static_cast<int>(corrI[6]), static_cast<int>(corrI[7]));
-        }
-
-        bool sync_ok = true;
-        if (ExperimentConfig::kEnableHoloSync) {
-            sync_ok = holo_sync_check(corrI, corrQ, want_lab_diag);
-        }
-        if (want_lab_diag) {
-            g_lab_diag_cfo0_trial0_emitted = true;
-        }
-        if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
-            if (want_cliff_diag) {
-                std::printf("[DIAG-CLIFF] decode_skip (sync_fail)\n");
-            }
-            r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
-        }
-        ++r.sync_pass;
 
         int16_t soft[64]{};
-        uint64_t mask = 0xFFFFFFFFFFFFFFFFull;
-        rx_soft_generate(corrI + 64, corrQ + 64, soft, &mask);
+        uint64_t mask = 0u;
+        rx_soft_lab_c(rxI, rxQ, soft, &mask);
+
+        if (want_diag) {
+            std::printf("[DIAG-LabC] rx_soft[0..7]= %d %d %d %d %d %d %d %d\n",
+                        static_cast<int>(soft[0]), static_cast<int>(soft[1]), static_cast<int>(soft[2]),
+                        static_cast<int>(soft[3]), static_cast<int>(soft[4]), static_cast<int>(soft[5]),
+                        static_cast<int>(soft[6]), static_cast<int>(soft[7]));
+            std::printf("[DIAG-LabC] valid_mask low64=0x%016llx\n",
+                        static_cast<unsigned long long>(mask));
+        }
+
+        ++r.sync_pass;
+
         int8_t out[16]{};
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
                             static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
-            if (want_cliff_diag) {
-                std::printf("[DIAG-CLIFF] decode_block returned SECURE_FALSE\n");
+            if (want_diag) {
+                std::printf("[DIAG-LabC] decode_block SECURE_FALSE\n");
             }
-            r.total_bits += ExperimentConfig::kK; r.total_bit_err += ExperimentConfig::kK; continue;
+            r.total_bits += ExperimentConfig::kK;
+            r.total_bit_err += ExperimentConfig::kK;
+            continue;
         }
 
-        if (want_cliff_diag) {
-            std::printf("[DIAG-CLIFF] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
+        if (want_diag) {
+            std::printf("[DIAG-LabC] bits[0..3] expect %d %d %d %d got %d %d %d %d\n",
                         static_cast<int>(bits[0]), static_cast<int>(bits[1]), static_cast<int>(bits[2]),
                         static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
                         static_cast<int>(out[2]), static_cast<int>(out[3]));
@@ -346,7 +192,8 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a) {
 
         int be = 0;
         for (int i = 0; i < ExperimentConfig::kK; ++i) be += (out[i] != bits[i]) ? 1 : 0;
-        r.total_bit_err += be; r.total_bits += ExperimentConfig::kK;
+        r.total_bit_err += be;
+        r.total_bits += ExperimentConfig::kK;
         if (be == 0) ++r.decode_pass;
     }
     rx.Shutdown();
@@ -354,18 +201,14 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a) {
     return r;
 }
 
-static void run_sweep_matrix(const char* title, bool enable_v5a) {
-    std::printf("%s\n", title);
-    std::printf("mode=%s, rx_soft=%d, v5a=%d, v5a_deadzone_eps_hz=%.1f, v5a_ac_norm_min=%.2f\n",
-                ExperimentConfig::kEnableHoloSync ? "S5H-like" : "S5-like",
-                ExperimentConfig::kRxSoftMode, enable_v5a ? 1 : 0,
-                ExperimentConfig::kV5aDeadzoneEpsilonHz, ExperimentConfig::kV5aAcNormThreshold);
+int main() {
+    std::printf("Phase H Lab C: Python alignment (64-chip payload, no holo/V5a, soft=(I+Q)/2)\n");
+    std::printf("Python ref @30dB (reported): cfo 4000 D~100/100, 4500 D~97/100, 5000 D~76/100\n\n");
     for (int ci = 0; ci < ExperimentConfig::kCfoSweepCount; ++ci) {
         const int cfo = ExperimentConfig::kCfoSweepList[ci];
         std::printf("cfo=%5d:", cfo);
         for (int si = 0; si < ExperimentConfig::kSnrCount; ++si) {
-            const TestResult r =
-                run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si], enable_v5a);
+            const TestResult r = run_one_cfo(cfo, ExperimentConfig::kSnrLevels[si]);
             const double ber = (r.total_bits > 0) ? static_cast<double>(r.total_bit_err) / r.total_bits : 1.0;
             std::printf(" %ddB S%3d/%3d D%3d/%3d BER=%0.3f",
                         ExperimentConfig::kSnrLevels[si],
@@ -374,14 +217,6 @@ static void run_sweep_matrix(const char* title, bool enable_v5a) {
         }
         std::printf("\n");
     }
-    std::printf("\n");
-}
-
-int main() {
-    build_sincos_table();
-    std::printf("Phase H Lab B: CFO cliff (3~5.5 kHz), DIAG cfo=3000/4000/5000 trial0 SNR=30dB\n");
-    run_sweep_matrix("--- V5a ON (deadzone + ac_norm gate) ---", true);
-    run_sweep_matrix("--- V5a OFF (no CFO correction) ---", false);
     return 0;
 }
 
