@@ -2,12 +2,11 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab L: 메인트리 정합 (P1 게이트 + preamble 128)
-//   TX: 0..127 PRE_SYM0 (Walsh63 @ chip&63, 128칩 = kPreambleChips) + 128..191 PRE_SYM1
-//       + 192..255 payload (메인 cfo_v5a_.Estimate 128칩 창 정합)
-//   V5a: lag=4 L&R on chips 0..127 (PRE_SYM0); ac_norm_thr=0.95 (Lab K)
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab L: P1 게이트 + Lab I-3 V5a 추정 복구
+//   TX: 0..127 PRE_SYM0 + 128..191 PRE_SYM1 + 192..255 payload
+//   V5a est: Lab I-3(7c43321) 동일 — PRE_SYM1만 64칩(128..191), lag=4; ac_norm 분모 (64-4)/64
 //   P1: PS-LTE FWHT + dom=63, sym1_row=63^k_W63_FWHT_ROW_NATURAL, k_P1_MIN_E=1000
-//   Matrix: CFO {0,100,500,1000,2000,4000} × SNR {30,20,10}; trial0 [DIAG-LabL]
+//   Matrix: Lab K CFO 스윕 × SNR {30,20,10}; trial0 [DIAG-LabL]
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -20,7 +19,8 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-constexpr int kCfoSweepList[] = {0, 100, 500, 1000, 2000, 4000};
+constexpr int kCfoSweepList[] = {0,     1000,  3000,  5000,  6000,  7000,  8000,  9000,
+                                 10000, 11000, 12000, 15000, 20000, 30000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
@@ -38,9 +38,9 @@ constexpr int kPreSym1Offset = 128;
 constexpr int kPreSym1Chips = 64;
 /// T6 holo Pass1: 메인트리와 동일하게 프리앰블 192칩(0..191)만 사용
 constexpr int kHoloSyncChips = 192;
-/// Lab L: V5a 입력 = chips 0..127 (PRE_SYM0 128), 메인 kPreambleChips=128 정합
-constexpr int kV5aEstimateOffset = 0;
-constexpr int kV5aEstimateChips = 128;
+/// Lab I-3 / Lab K: V5a 추정 = PRE_SYM1 구간만 (128..191), 64칩
+constexpr int kV5aEstimateOffset = kPreSym1Offset;
+constexpr int kV5aEstimateChips = kPreSym1Chips;
 constexpr bool kEnableHoloSync = true;
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
 /// Lab K: V5a apply 게이트 고정값 (Lab J 캘리브레이션 결과)
@@ -436,7 +436,6 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                 sig_pow * (static_cast<double>(ExperimentConfig::kV5aEstimateChips - kV5aLag) /
                            static_cast<double>(ExperimentConfig::kV5aEstimateChips));
             ac_norm = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
-            // PRE_SYM0 128 + lag=4: Walsh63 alias 가능 (Lab H); 메인 V5a Estimate 동일 한계
             apply_v5a = (std::abs(est_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) && (ac_norm >= ac_norm_thr);
             if (apply_v5a) {
                 v5a_apply_per_chip(rxI, rxQ, corrI, corrQ, ExperimentConfig::kTxTotalChips, est_hz);
@@ -469,7 +468,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                 if (enable_v5a) {
                     const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                     std::printf(
-                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] lag=4 cfo=%d snr=%d est_hz=%.1f true=%d "
+                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] 64ch lag=4 cfo=%d snr=%d est_hz=%.1f true=%d "
                         "|est-true|=%.1f ac_norm=%.3f apply_v5a=%d holo_sync=0 P1=n/a decode=SKIP\n",
                         cfo_hz, snr_db, est_hz, cfo_hz, est_err, ac_norm, apply_v5a ? 1 : 0);
                 } else {
@@ -493,7 +492,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                 if (enable_v5a) {
                     const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                     std::printf(
-                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] lag=4 cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] 64ch lag=4 cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                         "ac_norm=%.3f apply_v5a=%d holo_sync=1 P1_FAIL e63_sh=%d e0_sh=%d max_e_sh=%d "
                         "k_P1_MIN_E=%d (PS-LTE) decode=SKIP (V5a reset)\n",
                         cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
@@ -564,7 +563,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                 if (enable_v5a) {
                     const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                     std::printf(
-                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                        "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                         "ac_norm=%.3f apply_v5a=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d k_P1_MIN_E=%d "
                         "decode=FAIL\n",
                         cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
@@ -587,7 +586,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
             if (enable_v5a) {
                 const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
                 std::printf(
-                    "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM0[0..127] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                    "\n[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                     "ac_norm=%.3f apply_v5a=%d holo=1 P1_PASS e63_sh=%d e0_sh=%d max_e_sh=%d k_P1_MIN_E=%d "
                     "decode=OK bits0..3_err=%d got %d %d %d %d\n",
                     cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0, static_cast<int>(p1_e63_sh),
@@ -640,10 +639,10 @@ static void run_matrix_sweep(bool enable_v5a, double ac_norm_thr) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab L: mainline alignment — P1 k_P1_MIN_E=%d, V5a PRE_SYM0[0..127] 128ch lag=4, "
+    std::printf("Phase H Lab L: P1 k_P1_MIN_E=%d, V5a est PRE_SYM1[128..191] 64ch lag=4 (Lab I-3 restore), "
                 "ac_norm_thr=%.2f\n",
                 static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
-    std::printf("CFO sweep {0,100,500,1000,2000,4000} Hz x SNR {30,20,10} dB; [DIAG-LabL] trial0 per cell\n");
+    std::printf("CFO Lab K sweep 14 pts to 30 kHz x SNR {30,20,10} dB; [DIAG-LabL] trial0 per cell\n");
     std::printf("P1 gate: FWHT 64 on PRE_SYM0[0..63] dom=63 sym1_row=0 (63^NATURAL)\n\n");
 
     std::printf("===== BASELINE: V5a OFF (ac_thr N/A) =====\n");
