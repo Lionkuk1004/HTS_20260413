@@ -20,6 +20,8 @@ echo  Phase H Lab Build (격리 환경)
 echo ============================================================
 echo HTS_LIM:  %HTS_LIM%
 echo HTS_TEST: %HTS_TEST%
+echo [build] Lab single-file: "%HTS_TEST%\HTS_CFO_Bank_Test_lab.cpp"
+echo [run]   Capture log: "%SCRIPT_DIR%out_lab\holo_tensor_lab.exe" ^> "%SCRIPT_DIR%out_lab\lab_p_run2.txt" 2^>^&1
 echo.
 
 REM 출력 디렉토리
