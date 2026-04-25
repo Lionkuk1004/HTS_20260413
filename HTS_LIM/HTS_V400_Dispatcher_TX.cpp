@@ -354,10 +354,24 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 
 #if defined(HTS_USE_HOLO_TENSOR_4D)
     if ((tensor_data_u & static_cast<uint32_t>(go & 1u)) != 0u) {
+#if defined(HTS_PHASE_H_DIAG)
+        static uint32_t s_tensor_tx_pkt_diag = 0u;
+        const bool diag_this_pkt = (s_tensor_tx_pkt_diag == 0u);
+#else
+        const bool diag_this_pkt = false;
+#endif
         if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D::SECURE_TRUE) {
             return 0;
         }
         (void)holo_tensor4d_.Set_Time_Slot(tx_seq_);
+        if (diag_this_pkt) {
+            std::printf(
+                "[PHASE-H][TX] tx_seq=%u header_plen=%d blocks=%d profile(K,N,L)=(%u,%u,%u)\n",
+                static_cast<unsigned>(tx_seq_), psyms, tensor_blocks,
+                static_cast<unsigned>(holo_tensor_profile_.block_bits),
+                static_cast<unsigned>(holo_tensor_profile_.chip_count),
+                static_cast<unsigned>(holo_tensor_profile_.num_layers));
+        }
         const uint32_t lk = static_cast<uint32_t>(holo_tensor_profile_.num_layers) *
                             static_cast<uint32_t>(holo_tensor_profile_.block_bits);
         for (int blk = 0; blk < tensor_blocks; ++blk) {
@@ -379,17 +393,41 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                 return 0;
             }
             const int denom = (lk > 0u) ? static_cast<int>(lk) : 32;
+            if (diag_this_pkt && blk == 0) {
+                std::printf("[PHASE-H][TX] time_slot(tx_seq)=%u input_bits16:",
+                            static_cast<unsigned>(tx_seq_));
+                for (int i = 0; i < tensor_k; ++i) {
+                    std::printf(" %d", static_cast<int>(data_bits[i]));
+                }
+                std::printf("\n");
+                std::printf("[PHASE-H][TX] encoded_chip_bpsk64:");
+                for (int i = 0; i < tensor_n; ++i) {
+                    std::printf(" %d", static_cast<int>(chip_bpsk[i]));
+                }
+                std::printf("\n");
+            }
             for (int c = 0; c < tensor_n; ++c) {
                 const int32_t prod =
                     static_cast<int32_t>(chip_bpsk[c]) * static_cast<int32_t>(amp);
                 const int32_t v = prod / denom;
                 oI[pos] = static_cast<int16_t>(v);
                 oQ[pos] = static_cast<int16_t>(v);
+                if (diag_this_pkt && blk == 0) {
+                    std::printf("[PHASE-H][TX] chip[%d]: bpsk=%d modI=%d modQ=%d\n",
+                                c, static_cast<int>(chip_bpsk[c]),
+                                static_cast<int>(oI[pos]),
+                                static_cast<int>(oQ[pos]));
+                }
                 ++pos;
             }
             SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
             SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
         }
+#if defined(HTS_PHASE_H_DIAG)
+        if (diag_this_pkt) {
+            ++s_tensor_tx_pkt_diag;
+        }
+#endif
     }
 #endif
     SecureMemory::secureWipe(static_cast<void *>(syms64), sizeof(syms64));

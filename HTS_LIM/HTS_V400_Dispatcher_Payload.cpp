@@ -164,6 +164,17 @@ uint32_t HTS_V400_Dispatcher::parse_hdr_(PayloadMode &mode,
         (bps * static_cast<int>(data_ok)) + (cur_bps64_ * (1 - d_int));
 #if defined(HTS_USE_HOLO_TENSOR_4D)
     holo_tensor_payload_mode_ = (tensor_ok != 0u);
+#if defined(HTS_PHASE_H_DIAG)
+    static uint32_t s_hdr_diag_count = 0u;
+    if (s_hdr_diag_count < 4u) {
+        ++s_hdr_diag_count;
+        std::printf(
+            "[PHASE-H][RX-HDR] mb=%u plen=%d data_ok=%u tensor_ok=%u payload_mode=%u\n",
+            static_cast<unsigned>(mb), plen, static_cast<unsigned>(data_ok),
+            static_cast<unsigned>(tensor_ok),
+            static_cast<unsigned>(holo_tensor_payload_mode_ ? 1u : 0u));
+    }
+#endif
 #endif
     if (ir_mode_) {
         iq_mode_ = IQ_Mode::IQ_SAME;
@@ -195,10 +206,43 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
             } else {
                 (void)holo_tensor4d_.Set_Time_Slot(rx_seq_);
                 int16_t rx_soft[HOLO_CHIP_COUNT];
+#if defined(HTS_PHASE_H_DIAG)
+                static uint32_t s_tensor_rx_pkt_diag = 0u;
+                const bool diag_this_pkt = (s_tensor_rx_pkt_diag == 0u);
+                if (diag_this_pkt && sym_idx_ == 0) {
+                    std::printf(
+                        "[PHASE-H][RX] rx_seq=%u profile(K,N)=(%u,%u) valid_mask=0x%016llX\n",
+                        static_cast<unsigned>(rx_seq_),
+                        static_cast<unsigned>(holo_tensor_profile_.block_bits),
+                        static_cast<unsigned>(holo_tensor_profile_.chip_count),
+                        static_cast<unsigned long long>(0xFFFFFFFFFFFFFFFFull));
+                    std::printf("[PHASE-H][RX] post-V5a chips first16:");
+                    for (int i = 0; i < 16; ++i) {
+                        std::printf(" (%d,%d)", static_cast<int>(buf_I_[i]),
+                                    static_cast<int>(buf_Q_[i]));
+                    }
+                    std::printf("\n");
+                    std::printf("[PHASE-H][RX] post-V5a chips last16:");
+                    for (int i = 48; i < 64; ++i) {
+                        std::printf(" (%d,%d)", static_cast<int>(buf_I_[i]),
+                                    static_cast<int>(buf_Q_[i]));
+                    }
+                    std::printf("\n");
+                }
+#else
+                const bool diag_this_pkt = false;
+#endif
                 for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
                     const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
                                         static_cast<int32_t>(buf_Q_[c]);
                     rx_soft[c] = static_cast<int16_t>(sum / 2);
+                }
+                if (diag_this_pkt && sym_idx_ == 0) {
+                    std::printf("[PHASE-H][RX] decode_input_rx_soft64:");
+                    for (int i = 0; i < 64; ++i) {
+                        std::printf(" %d", static_cast<int>(rx_soft[i]));
+                    }
+                    std::printf("\n");
                 }
                 const uint32_t dec_ok = holo_tensor4d_.Decode_Block(
                     rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
@@ -206,6 +250,13 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 if (dec_ok != HTS_Holo_Tensor_4D::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
                 } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
+                    if (diag_this_pkt && sym_idx_ == 0) {
+                        std::printf("[PHASE-H][RX] decode_output_bits16:");
+                        for (int i = 0; i < static_cast<int>(holo_tensor_profile_.block_bits); ++i) {
+                            std::printf(" %d", static_cast<int>(holo_tensor_rx_bits_[i]));
+                        }
+                        std::printf("\n");
+                    }
                     const size_t room =
                         sizeof(holo_tensor_rx_bytes_) - holo_tensor_rx_len_;
                     const size_t wr = bpsk_to_bytes_(
@@ -213,6 +264,11 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
                     holo_tensor_rx_len_ = static_cast<uint8_t>(holo_tensor_rx_len_ + wr);
                 }
+#if defined(HTS_PHASE_H_DIAG)
+                if (diag_this_pkt && (pay_recv_ >= pay_total_)) {
+                    ++s_tensor_rx_pkt_diag;
+                }
+#endif
             }
             ++sym_idx_;
             buf_idx_ = 0;

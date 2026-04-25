@@ -120,6 +120,23 @@ uint32_t HTS_V400_Dispatcher::ensure_holo_tensor_ready_() noexcept {
         seed_ ^ 0xA5A5A5A5u,
         seed_ ^ 0xC3C3C3C3u,
     };
+#if defined(HTS_PHASE_H_DIAG)
+    static uint32_t s_diag_init_count = 0u;
+    if (s_diag_init_count < 4u) {
+        ++s_diag_init_count;
+        std::printf(
+            "[PHASE-H][SEED] this=%p seed=0x%08X profile(K,N,L)=(%u,%u,%u) "
+            "master=[0x%08X,0x%08X,0x%08X,0x%08X]\n",
+            static_cast<void*>(this), static_cast<unsigned>(seed_),
+            static_cast<unsigned>(holo_tensor_profile_.block_bits),
+            static_cast<unsigned>(holo_tensor_profile_.chip_count),
+            static_cast<unsigned>(holo_tensor_profile_.num_layers),
+            static_cast<unsigned>(master_seed[0]),
+            static_cast<unsigned>(master_seed[1]),
+            static_cast<unsigned>(master_seed[2]),
+            static_cast<unsigned>(master_seed[3]));
+    }
+#endif
     if (holo_tensor4d_.Initialize(master_seed, nullptr) !=
         HTS_Holo_Tensor_4D::SECURE_TRUE) {
         return HTS_Holo_Tensor_4D::SECURE_FALSE;

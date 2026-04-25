@@ -226,6 +226,38 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
 
     m.crc_passed = (g_last.success_mask == DecodedPacket::DECODE_MASK_OK);
     m.length_correct = (g_last.data_len == 8);
+#if defined(HTS_PHASE_H_DIAG)
+    static int s_phase_h_pkt_diag = 0;
+    if (s_phase_h_pkt_diag < 1 && expected != nullptr) {
+        int8_t exp_bits[16] = {};
+        int8_t got_bits[16] = {};
+        for (int i = 0; i < 16; ++i) {
+            const uint8_t eb = static_cast<uint8_t>(
+                (expected[i >> 3] >> (7 - (i & 7))) & 1u);
+            exp_bits[i] = (eb != 0u) ? 1 : -1;
+            const uint8_t gb = static_cast<uint8_t>(
+                (static_cast<uint8_t>(g_last.data[i >> 3]) >> (7 - (i & 7))) & 1u);
+            got_bits[i] = (gb != 0u) ? 1 : -1;
+        }
+        std::printf("[PHASE-H][T6] expected_bits16:");
+        for (int i = 0; i < 16; ++i) {
+            std::printf(" %d", static_cast<int>(exp_bits[i]));
+        }
+        std::printf("\n");
+        std::printf("[PHASE-H][T6] recovered_bits16:");
+        for (int i = 0; i < 16; ++i) {
+            std::printf(" %d", static_cast<int>(got_bits[i]));
+        }
+        std::printf("\n");
+        int diff = 0;
+        for (int i = 0; i < 16; ++i) {
+            diff += static_cast<int>(exp_bits[i] != got_bits[i]);
+        }
+        std::printf("[PHASE-H][T6] bits16_diff=%d crc_ok=%d len_ok=%d\n", diff,
+                    m.crc_passed ? 1 : 0, m.length_correct ? 1 : 0);
+        ++s_phase_h_pkt_diag;
+    }
+#endif
 
     if (m.crc_passed && m.length_correct) {
         int bit_err = 0;
