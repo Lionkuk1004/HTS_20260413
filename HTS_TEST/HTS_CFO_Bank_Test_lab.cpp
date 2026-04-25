@@ -2,9 +2,25 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab N: 양산 HTS_CFO_V5a::Estimate 연동 (옵션 A)
-//   Lab K: CFO {0,500,5000,12000,30000} × SNR {30,20,10} — V5a OFF / PROD128 / LAB lag4 PRE1
-//   Lab M: Pass2 = PSLTE verbatim; 패턴 A–D; B/C/D = Walsh 동일 CFO_V5a (PSLTE 1462–1474 흐름)
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab O: Apply 위상 부정합 (BUG-8) 추적·교정
+//
+// 메인트리 Walsh P0 (PSLTE) 인용 — phase0_scan_() 성공 분기:
+//   HTS_V400_Dispatcher_Sync_PSLTE.cpp:1465–1471
+//     cfo_res = cfo_v5a_.Estimate(pre_I, pre_Q);
+//     if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
+//         cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+//         cfo_v5a_.Advance_Phase_Only(192);   // P0 192칩 분량 위상 선행
+//     }
+//   이후 psal_commit_align_() (1508–1510) 로 P0 버퍼 정렬·carry; P0 I/Q는 페이로드 경로로
+//   재소비되지 않고 Feed_Chip 스트림이 이어짐.
+// Feed_Chip (동일 파일 1853–1857):
+//   if (cfo_v5a_.IsApplyDriveActive()) { cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q); }
+//   → DC 제거 직후 **들어오는** 칩에만 CFO 역회전. 즉 Advance(192) 후 첫 Apply는 **스트림
+//   절대 칩 인덱스 192**에 해당(프리앰블 192칩을 이미 통과한 것과 동일 위상).
+// Lab BUG-8: Advance(192) 뒤 buf[0..255] 전부 Apply → 칩0에 칩192 위상이 가해져 디코드 붕괴.
+// Lab O: B'/C'/D' 는 kPayloadOffset(192) 이상에만 Apply (Feed_Chip 순서 모사).
+//
+//   Lab K: Lab N 스펙 유지 | Lab O 매트릭스: CFO 7점 × SNR, 패턴 A,B,B',C,C',D,D'
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -511,9 +527,18 @@ static bool holo_sync_check_t6(const int16_t* rx_I, const int16_t* rx_Q, int chi
     return p1.pass;
 }
 
-enum class HoloV5aPattern : int { A = 0, B = 1, C = 2, D = 3 };
+enum class HoloV5aPattern : int {
+    A = 0,
+    B_Full = 1,      ///< 73ff940형: Advance(192) 후 buf 0..255 전체 Apply (BUG-8 재현)
+    B_Payload = 2,   ///< B': 페이로드 192..255 만 Apply
+    C_Full = 3,
+    C_Payload = 4,
+    D_Full = 5,
+    D_Payload = 6,
+};
 
-static constexpr int kLabMCfoSweep[] = {0, 100, 200, 500, 1000, 2000, 5000, 8000, 12000};
+/// Lab O 매트릭스 CFO 스윕 (요청 7점; 8000/12000 제외)
+static constexpr int kLabMCfoSweep[] = {0, 100, 200, 500, 1000, 2000, 5000};
 static constexpr int kLabMCfoCount = static_cast<int>(sizeof(kLabMCfoSweep) / sizeof(kLabMCfoSweep[0]));
 
 /// Lab N: Lab K 재측정 CFO 스윕 (요청 스펙)
@@ -534,9 +559,11 @@ static const char* lab_k_mode_title(LabKV5aMode m) noexcept {
     return "?";
 }
 
-/// PSLTE 1462–1474: Estimate(pre_I,pre_Q) → valid∧IsApplyAllowed → Set_Apply_Cfo → Advance(192) → 전 chip Apply
-static void lab_prod_v5a_apply_full_buffer(int16_t* corrI, int16_t* corrQ, int total_chips, int best_off_128,
-                                           double& est_hz_out, double& gate_ok_diag, bool& applied_out) noexcept {
+/// PSLTE 1465–1471 + Feed_Chip: Estimate → Set_Apply_Cfo → Advance(192); Apply는 페이로드 칩부터만
+/// (`payload_only`=false 는 구 Lab BUG-8 재현용 전버퍼 Apply)
+static void lab_prod_v5a_apply_buffer(int16_t* corrI, int16_t* corrQ, int total_chips, int best_off_128,
+                                      bool payload_only_after_advance, double& est_hz_out, double& gate_ok_diag,
+                                      bool& applied_out) noexcept {
     est_hz_out = 0.0;
     gate_ok_diag = 0.0;
     applied_out = false;
@@ -552,7 +579,8 @@ static void lab_prod_v5a_apply_full_buffer(int16_t* corrI, int16_t* corrQ, int t
     if (cfo_res.valid && cfo_v5a.IsApplyAllowed()) {
         cfo_v5a.Set_Apply_Cfo(cfo_res.cfo_hz);
         cfo_v5a.Advance_Phase_Only(192);
-        for (int k = 0; k < total_chips; ++k) {
+        const int k0 = payload_only_after_advance ? ExperimentConfig::kPayloadOffset : 0;
+        for (int k = k0; k < total_chips; ++k) {
             cfo_v5a.Apply_Per_Chip(corrI[k], corrQ[k]);
         }
         applied_out = true;
@@ -565,12 +593,18 @@ static const char* lab_m_pattern_char(HoloV5aPattern p) noexcept {
     switch (p) {
         case HoloV5aPattern::A:
             return "A";
-        case HoloV5aPattern::B:
+        case HoloV5aPattern::B_Full:
             return "B";
-        case HoloV5aPattern::C:
+        case HoloV5aPattern::B_Payload:
+            return "B'";
+        case HoloV5aPattern::C_Full:
             return "C";
-        case HoloV5aPattern::D:
+        case HoloV5aPattern::C_Payload:
+            return "C'";
+        case HoloV5aPattern::D_Full:
             return "D";
+        case HoloV5aPattern::D_Payload:
+            return "D'";
     }
     return "?";
 }
@@ -681,19 +715,70 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
             }
         }
 
+        const bool pat_b_or_d = (pattern == HoloV5aPattern::B_Full || pattern == HoloV5aPattern::B_Payload ||
+                                 pattern == HoloV5aPattern::D_Full || pattern == HoloV5aPattern::D_Payload);
+        const bool pat_c_or_d = (pattern == HoloV5aPattern::C_Full || pattern == HoloV5aPattern::C_Payload ||
+                                 pattern == HoloV5aPattern::D_Full || pattern == HoloV5aPattern::D_Payload);
+        const bool use_b_ins = sync_ok && p1.pass && pat_b_or_d;
+        const bool b_payload_only =
+            (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::D_Payload);
+        const bool use_c_ins = sync_ok && used_p2 && pat_c_or_d;
+        const bool c_payload_only =
+            (pattern == HoloV5aPattern::C_Payload || pattern == HoloV5aPattern::D_Payload);
+
+        const bool want_bug8_diag =
+            (t == 0 && cfo_hz == 500 && snr_db == 30 && use_b_ins);
+        int16_t bug8_preI[8]{};
+        int16_t bug8_preQ[8]{};
+        if (want_bug8_diag) {
+            for (int i = 0; i < 8; ++i) {
+                bug8_preI[i] = corrI[i];
+                bug8_preQ[i] = corrQ[i];
+            }
+        }
+
         double ins_est_hz = 0.0;
         double ins_ac_norm = 0.0;
         bool ins_applied = false;
 
-        if (sync_ok) {
-            if ((pattern == HoloV5aPattern::B || pattern == HoloV5aPattern::D) && p1.pass) {
-                lab_prod_v5a_apply_full_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, p1.best_off,
-                                               ins_est_hz, ins_ac_norm, ins_applied);
-            }
-            if ((pattern == HoloV5aPattern::C || pattern == HoloV5aPattern::D) && used_p2) {
-                lab_prod_v5a_apply_full_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, p2.best_off_p2,
-                                               ins_est_hz, ins_ac_norm, ins_applied);
-            }
+        if (use_b_ins) {
+            lab_prod_v5a_apply_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, p1.best_off, b_payload_only,
+                                        ins_est_hz, ins_ac_norm, ins_applied);
+        }
+        if (use_c_ins) {
+            double ins_est2 = 0.0;
+            double ins_ac2 = 0.0;
+            bool ins_ap2 = false;
+            lab_prod_v5a_apply_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, p2.best_off_p2, c_payload_only,
+                                      ins_est2, ins_ac2, ins_ap2);
+            ins_est_hz = ins_est2;
+            ins_ac_norm = ins_ac2;
+            ins_applied = ins_ap2;
+        }
+
+        if (want_bug8_diag) {
+            std::printf(
+                "\n[DIAG-LabO-BUG8] P%s cfo=%d snr=%d pre_buf[0..7]_I=%d %d %d %d %d %d %d %d  "
+                "pre_buf[0..7]_Q=%d %d %d %d %d %d %d %d\n",
+                lab_m_pattern_char(pattern), cfo_hz, snr_db, static_cast<int>(bug8_preI[0]),
+                static_cast<int>(bug8_preI[1]), static_cast<int>(bug8_preI[2]), static_cast<int>(bug8_preI[3]),
+                static_cast<int>(bug8_preI[4]), static_cast<int>(bug8_preI[5]), static_cast<int>(bug8_preI[6]),
+                static_cast<int>(bug8_preI[7]), static_cast<int>(bug8_preQ[0]), static_cast<int>(bug8_preQ[1]),
+                static_cast<int>(bug8_preQ[2]), static_cast<int>(bug8_preQ[3]), static_cast<int>(bug8_preQ[4]),
+                static_cast<int>(bug8_preQ[5]), static_cast<int>(bug8_preQ[6]), static_cast<int>(bug8_preQ[7]));
+            std::printf(
+                "[DIAG-LabO-BUG8] P%s post_buf[192..199]_I=%d %d %d %d %d %d %d %d  "
+                "post_buf[192..199]_Q=%d %d %d %d %d %d %d %d\n",
+                lab_m_pattern_char(pattern), static_cast<int>(corrI[192]), static_cast<int>(corrI[193]),
+                static_cast<int>(corrI[194]), static_cast<int>(corrI[195]), static_cast<int>(corrI[196]),
+                static_cast<int>(corrI[197]), static_cast<int>(corrI[198]), static_cast<int>(corrI[199]),
+                static_cast<int>(corrQ[192]), static_cast<int>(corrQ[193]), static_cast<int>(corrQ[194]),
+                static_cast<int>(corrQ[195]), static_cast<int>(corrQ[196]), static_cast<int>(corrQ[197]),
+                static_cast<int>(corrQ[198]), static_cast<int>(corrQ[199]));
+            std::printf(
+                "[DIAG-LabO-BUG8] P%s Advance(192) => CFO_V5a 내부 위상은 **절대칩 192**에 맞춤; "
+                "Feed_Chip은 그 칩부터 Apply. payload_only=%d (1=B'/C'/D' 모사, 0=B/C/D 전버퍼 BUG-8)\n",
+                lab_m_pattern_char(pattern), b_payload_only ? 1 : 0);
         }
 
         const bool want_m = lab_m_diag_trial0(t);
@@ -776,7 +861,7 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
 }
 
 static void run_lab_m_matrix(HoloV5aPattern pattern) {
-    std::printf("===== Lab M Pattern %s (HTS_CFO_V5a::Estimate + IsApplyAllowed; PSLTE Apply flow) =====\n",
+    std::printf("===== Lab O Pattern %s (CFO_V5a; B/C=전buf, B'/C'=payload-only BUG-8 fix) =====\n",
                 lab_m_pattern_char(pattern));
     for (int ci = 0; ci < kLabMCfoCount; ++ci) {
         const int cfo = kLabMCfoSweep[ci];
@@ -862,8 +947,8 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, LabKV5aMode v5a_mode, doub
             const int bo =
                 (p1pre.best_off >= 0 && p1pre.best_off + hts::rx_cfo::kPreambleChips <= 192) ? p1pre.best_off : 0;
             double gate_diag = 0.0;
-            lab_prod_v5a_apply_full_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, bo, est_hz, gate_diag,
-                                           apply_v5a);
+            lab_prod_v5a_apply_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, bo,
+                                      false /* Lab K: 구 전버퍼 경로 유지 */, est_hz, gate_diag, apply_v5a);
             ac_norm = gate_diag;
         } else if (v5a_mode == LabKV5aMode::LegacyPreSym1Lag4) {
             double ac_mag = 0.0;
@@ -1084,22 +1169,24 @@ int main() {
     hts::rx_cfo::Build_SinCos_Table();
 
     std::printf(
-        "Phase H Lab N: HTS_CFO_V5a production link + Lab K/M matrices. k_P1_MIN_E=%d, Lab-K ac_norm_thr=%.2f "
-        "(legacy only)\n\n",
+        "Phase H Lab O: BUG-8 Apply 위상 + Lab K(N). k_P1_MIN_E=%d, Lab-K ac_norm_thr=%.2f (legacy only)\n\n",
         static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
 
     run_lab_k_matrix(LabKV5aMode::Off, ExperimentConfig::kV5aAcNormThresholdLabK);
     run_lab_k_matrix(LabKV5aMode::ProdWalsh128, ExperimentConfig::kV5aAcNormThresholdLabK);
     run_lab_k_matrix(LabKV5aMode::LegacyPreSym1Lag4, ExperimentConfig::kV5aAcNormThresholdLabK);
 
-    std::printf("Lab M: HOLO Pass1+Pass2 (PSLTE) + 양산 CFO_V5a 삽입. ");
-    std::printf("CFO %d pts {0,100,200,500,1000,2000,5000,8000,12000} x SNR {30,20,10} dB, %d trials\n\n",
+    std::printf("Lab O: HOLO Pass1+Pass2 + CFO_V5a 패턴 A,B,B',C,C',D,D'. ");
+    std::printf("CFO %d pts {0,100,200,500,1000,2000,5000} x SNR {30,20,10} dB, %d trials; [DIAG-LabO-BUG8] cfo=500 snr=30 trial0 (B*)\n\n",
                 kLabMCfoCount, ExperimentConfig::kNumTrials);
 
     run_lab_m_matrix(HoloV5aPattern::A);
-    run_lab_m_matrix(HoloV5aPattern::B);
-    run_lab_m_matrix(HoloV5aPattern::C);
-    run_lab_m_matrix(HoloV5aPattern::D);
+    run_lab_m_matrix(HoloV5aPattern::B_Full);
+    run_lab_m_matrix(HoloV5aPattern::B_Payload);
+    run_lab_m_matrix(HoloV5aPattern::C_Full);
+    run_lab_m_matrix(HoloV5aPattern::C_Payload);
+    run_lab_m_matrix(HoloV5aPattern::D_Full);
+    run_lab_m_matrix(HoloV5aPattern::D_Payload);
 
     return 0;
 }
