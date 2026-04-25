@@ -242,7 +242,8 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db) {
         channel_apply(txI, txQ, rxI, rxQ, 128, static_cast<double>(cfo_hz), snr_db, static_cast<uint32_t>(t * 31u + 19u));
         if (ExperimentConfig::kEnableV5aCorrection) {
             constexpr int kV5aChips = 64;
-            constexpr int kV5aLag = 32;
+            // 양산 L&R M=4 정합: 식별 범위 ±fs/(2·lag) ≈ ±125 kHz, lag=32 시 ±15.625 kHz alias 회피.
+            constexpr int kV5aLag = 4;
             double ac_mag = 0.0;
             double sig_pow = 0.0;
             const double est =
