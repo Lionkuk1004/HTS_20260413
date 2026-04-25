@@ -139,7 +139,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClInclude Include="HTS_BitOps.h" />
-    <ClInclude Include="HTS_CFO_Compensator.h" />
+    <ClInclude Include=".\HTS_CFO_Compensator.h" />
     <ClInclude Include="HTS_Clopper_Pearson.hpp" />
     <ClInclude Include="HTS_DWT_Profiler.h" />
     <ClInclude Include="HTS_FEC_HARQ.hpp" />

@@ -179,7 +179,6 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HTS_TPC_Controller.h" />
-    <ClInclude Include="HTS_CFO_Compensator.h" />
     <ClInclude Include="HTS_Preamble_AGC.h" />
     <ClInclude Include="..\HTS_LIM\HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="..\HTS_LIM\HTS_Holo_LPI.h" />

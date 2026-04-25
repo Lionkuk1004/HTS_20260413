@@ -26,7 +26,7 @@
     <ClInclude Include="HTS_BitOps.h">
       <Filter>메인트리_복사본</Filter>
     </ClInclude>
-    <ClInclude Include="HTS_CFO_Compensator.h">
+    <ClInclude Include=".\HTS_CFO_Compensator.h">
       <Filter>메인트리_복사본</Filter>
     </ClInclude>
     <ClInclude Include="HTS_DWT_Profiler.h">

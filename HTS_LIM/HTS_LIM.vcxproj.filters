@@ -692,9 +692,6 @@
     <ClInclude Include="HTS_Console_Manager_Defs.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="HTS_CFO_Compensator.h">
-      <Filter>헤더 파일</Filter>
-    </ClInclude>
     <ClInclude Include="HTS_CFO_V5a.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
