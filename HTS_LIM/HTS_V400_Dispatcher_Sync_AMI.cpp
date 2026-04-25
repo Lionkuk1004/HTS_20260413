@@ -183,7 +183,13 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
                 static_cast<double>(cfo_.Get_Sin_Per_Chip_Q14()) * 1e6 /
                 (2.0 * 3.14159265358979 * 16384.0)));
 #endif
-        cfo_.Advance_Phase_Only(192);
+        if (cfo_.Is_Apply_Active()) {
+            cfo_v5a_.Set_Apply_SinCosPerChip_Q14(cfo_.Get_Sin_Per_Chip_Q14(),
+                                                 cfo_.Get_Cos_Per_Chip_Q14());
+            cfo_v5a_.Advance_Phase_Only(192);
+        } else {
+            cfo_v5a_.Set_Apply_Cfo(0);
+        }
     }
 
     int16_t local_A[64];
@@ -1416,7 +1422,14 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 cfo_.Estimate_From_Preamble(d0I, d0Q, d1I, d1Q, 64);
                 // [CFO 4-3] P0 스캔 구간 192 chip 위상 누적 전진
                 //           payload 첫 Apply 시 위상이 스캔 구간 끝과 정합
-                cfo_.Advance_Phase_Only(192);
+                if (cfo_.Is_Apply_Active()) {
+                    cfo_v5a_.Set_Apply_SinCosPerChip_Q14(
+                        cfo_.Get_Sin_Per_Chip_Q14(),
+                        cfo_.Get_Cos_Per_Chip_Q14());
+                    cfo_v5a_.Advance_Phase_Only(192);
+                } else {
+                    cfo_v5a_.Set_Apply_Cfo(0);
+                }
 #if (HTS_CFO_V5A_ENABLE != 0)
                 if (cfo_v5a_.IsEnabled() &&
                     best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
@@ -1811,7 +1824,9 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #endif
     // CFO 역회전 적용 (Estimate 완료 시 active, 미완료 시 no-op)
     // 순서: DC → CFO → AGC
-    cfo_.Apply(chip_I, chip_Q);
+    if (cfo_.Is_Apply_Active()) {
+        cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
+    }
 #if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
     defined(HTS_DIAG_CFO_EST)
     {
