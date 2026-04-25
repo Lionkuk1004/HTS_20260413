@@ -2,10 +2,10 @@
 #define HTS_CFO_BANK_TEST_LAB_ONCE
 
 // ============================================================================
-// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab J: ac_norm gate calibration (BUG-7)
+// HTS_CFO_Bank_Test_lab.cpp — Phase H Lab K: V5a 한계 cliff (ac_norm_thr=0.95 고정)
 //   TX: PRE_SYM0×2 + PRE_SYM1 + 4D payload; V5a est PRE_SYM1 64칩 lag=4
-//   main: V5a OFF baseline once, then V5a ON × ac_norm_thr {0.50,0.90,0.95,0.97,0.99}
-//   Selection goal: 30 dB D=100 유지, 10 dB 저CFO OFF 대비 회복, 고CFO는 게이트로 차단
+//   main: 동일 CFO 스윕으로 V5a OFF 베이스라인 후 V5a ON (게이트 0.95)
+//   DIAG: 고 CFO trial0 × {30,10} dB — est, ac_norm, apply, bits
 // ============================================================================
 #include <cmath>
 #include <cstdint>
@@ -18,7 +18,8 @@
 using namespace ProtectedEngine;
 
 namespace ExperimentConfig {
-constexpr int kCfoSweepList[] = {0, 500, 1000, 2000, 4000, 5000};
+constexpr int kCfoSweepList[] = {0,     1000,  3000,  5000,  6000,  7000,  8000,  9000,
+                                 10000, 11000, 12000, 15000, 20000, 30000};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 constexpr int kNumTrials = 100;
 constexpr int kSnrLevels[] = {30, 20, 10};
@@ -40,7 +41,8 @@ constexpr int kV5aEstimateOffset = kPreSym1Offset;
 constexpr int kV5aEstimateChips = kPreSym1Chips;
 constexpr bool kEnableHoloSync = true;
 constexpr double kV5aDeadzoneEpsilonHz = 200.0;
-/// Lab J: 임계는 run_one_cfo(..., ac_norm_thr) 인자로만 적용 (기본 스윕 0.50..0.99)
+/// Lab K: V5a apply 게이트 고정값 (Lab J 캘리브레이션 결과)
+constexpr double kV5aAcNormThresholdLabK = 0.95;
 constexpr double kChipRateHz = 1e6;
 constexpr int kRxSoftMode = 0;
 constexpr int32_t kChipValidThreshold = 0;
@@ -142,15 +144,15 @@ static bool lab_g_detail_2000_30(int cfo_hz, int snr_db, int trial) noexcept {
     return trial == 0 && cfo_hz == 2000 && snr_db == 30;
 }
 
-/// Lab J trial0 [DIAG-LabJ]: 임계 스윕별 저·고 CFO, 30/10 dB
-static bool lab_j_cell_diag(int cfo_hz, int snr_db, int trial) noexcept {
+/// Lab K trial0 [DIAG-LabK]: 고 CFO × {30,10} dB
+static bool lab_k_cell_diag(int cfo_hz, int snr_db, int trial) noexcept {
     if (trial != 0) {
         return false;
     }
     if (snr_db != 30 && snr_db != 10) {
         return false;
     }
-    constexpr int kList[] = {0, 500, 5000};
+    constexpr int kList[] = {5000, 8000, 10000, 12000, 15000, 20000};
     for (int v : kList) {
         if (cfo_hz == v) {
             return true;
@@ -432,13 +434,13 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
                                           ratio_x10, top4_sum);
         }
 
-        const bool want_j = enable_v5a && lab_j_cell_diag(cfo_hz, snr_db, t);
+        const bool want_k = enable_v5a && lab_k_cell_diag(cfo_hz, snr_db, t);
         const bool want_detail = lab_g_detail_2000_30(cfo_hz, snr_db, t);
 
         if (ExperimentConfig::kEnableHoloSync && !sync_ok) {
-            if (want_j) {
+            if (want_k) {
                 const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-                std::printf("\n[DIAG-LabJ] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                std::printf("\n[DIAG-LabK] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                             "ac_norm=%.3f apply_v5a=%d holo_sync_pass=0 bits_got= n/a\n",
                             ac_norm_thr, enable_v5a ? 1 : 0, cfo_hz, snr_db, est_hz, est_err, ac_norm,
                             apply_v5a ? 1 : 0);
@@ -498,9 +500,9 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
             if (want_detail) {
                 std::printf("[DIAG-LabG-2000] decode_block SECURE_FALSE\n");
             }
-            if (want_j) {
+            if (want_k) {
                 const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-                std::printf("\n[DIAG-LabJ] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+                std::printf("\n[DIAG-LabK] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                             "ac_norm=%.3f apply_v5a=%d holo_sync_pass=1 bits_got= decode_fail\n",
                             ac_norm_thr, enable_v5a ? 1 : 0, cfo_hz, snr_db, est_hz, est_err, ac_norm,
                             apply_v5a ? 1 : 0);
@@ -510,9 +512,9 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, bool enable_v5a, double ac
             continue;
         }
 
-        if (want_j) {
+        if (want_k) {
             const double est_err = std::abs(est_hz - static_cast<double>(cfo_hz));
-            std::printf("\n[DIAG-LabJ] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
+            std::printf("\n[DIAG-LabK] ac_thr=%.2f v5a_en=%d cfo=%d snr=%d est_hz=%.1f |est-true|=%.1f "
                         "ac_norm=%.3f apply_v5a=%d holo_sync_pass=1 bits_got= %d %d %d %d\n",
                         ac_norm_thr, enable_v5a ? 1 : 0, cfo_hz, snr_db, est_hz, est_err, ac_norm, apply_v5a ? 1 : 0,
                         static_cast<int>(out[0]), static_cast<int>(out[1]), static_cast<int>(out[2]),
@@ -555,20 +557,18 @@ static void run_matrix_sweep(bool enable_v5a, double ac_norm_thr) {
 
 int main() {
     build_sincos_table();
-    std::printf("Phase H Lab J: ac_norm_thr sweep (BUG-7), CFO x SNR matrix + [DIAG-LabJ]\n");
-    std::printf("CFO sweep {0,500,1000,2000,4000,5000} x {30,20,10}; PRE_SYM1 V5a chips %d..%d\n",
-                ExperimentConfig::kV5aEstimateOffset,
+    std::printf("Phase H Lab K: V5a cliff edge, ac_norm_thr=%.2f (fixed)\n",
+                ExperimentConfig::kV5aAcNormThresholdLabK);
+    std::printf("CFO sweep 14 pts up to 30 kHz x {30,20,10} dB; [DIAG-LabK] trial0 subset\n");
+    std::printf("PRE_SYM1 V5a est chips %d..%d\n\n", ExperimentConfig::kV5aEstimateOffset,
                 ExperimentConfig::kV5aEstimateOffset + ExperimentConfig::kV5aEstimateChips - 1);
-    std::printf("[DIAG-LabJ] trial0: cfo {0,500,5000} x snr {30,10}; ac_thr on each line\n\n");
 
     std::printf("===== BASELINE: V5a OFF (ac_thr N/A) =====\n");
     run_matrix_sweep(false, 0.0);
 
-    constexpr double kAcNormThrSweep[] = {0.50, 0.90, 0.95, 0.97, 0.99};
-    for (double thr : kAcNormThrSweep) {
-        std::printf("\n===== MATRIX: V5a ON, ac_norm_thr=%.2f =====\n", thr);
-        run_matrix_sweep(true, thr);
-    }
+    std::printf("\n===== MATRIX: V5a ON, ac_norm_thr=%.2f =====\n",
+                ExperimentConfig::kV5aAcNormThresholdLabK);
+    run_matrix_sweep(true, ExperimentConfig::kV5aAcNormThresholdLabK);
 
     return 0;
 }
