@@ -59,6 +59,10 @@ using ProtectedEngine::DecodedPacket;
 using ProtectedEngine::FEC_HARQ;
 using ProtectedEngine::HTS_V400_Dispatcher;
 using ProtectedEngine::PayloadMode;
+#if defined(HTS_PHASE_H_DIAG)
+extern "C" volatile int g_phase_h_diag_force;
+extern "C" volatile uint32_t g_phase_h_diag_seed;
+#endif
 
 // ═══════════════════════════════════════════════════════════════
 //  상수
@@ -228,7 +232,9 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
     m.length_correct = (g_last.data_len == 8);
 #if defined(HTS_PHASE_H_DIAG)
     static int s_phase_h_pkt_diag = 0;
-    if (s_phase_h_pkt_diag < 1 && expected != nullptr) {
+    const bool force_diag = (g_phase_h_diag_force != 0) &&
+                            (g_phase_h_diag_seed == ds);
+    if ((force_diag || s_phase_h_pkt_diag < 1) && expected != nullptr) {
         int8_t exp_bits[16] = {};
         int8_t got_bits[16] = {};
         for (int i = 0; i < 16; ++i) {
@@ -255,7 +261,9 @@ static TrialMetrics feed_raw_ext(uint32_t ds, const int16_t* rxI,
         }
         std::printf("[PHASE-H][T6] bits16_diff=%d crc_ok=%d len_ok=%d\n", diff,
                     m.crc_passed ? 1 : 0, m.length_correct ? 1 : 0);
-        ++s_phase_h_pkt_diag;
+        if (!force_diag) {
+            ++s_phase_h_pkt_diag;
+        }
     }
 #endif
 
@@ -538,6 +546,21 @@ static void test_S1() {
         } else if (m.crc_passed && m.length_correct) {
             ++crc_only;
         }
+#if defined(HTS_PHASE_H_DIAG)
+        if (!m.pass) {
+            std::printf(
+                "[PHASE-H][S1-FAIL] t=%d seed=0x%08X crc=%d len=%d bit_err=%d byte_err=%d\n",
+                t, static_cast<unsigned>(ds), m.crc_passed ? 1 : 0,
+                m.length_correct ? 1 : 0, m.bit_errors, m.byte_errors);
+            g_phase_h_diag_seed = ds;
+            g_phase_h_diag_force = 1;
+            auto tx_dbg = build_tx(ds, t);
+            if (tx_dbg.n > 0) {
+                (void)feed_raw_ext(ds, tx_dbg.I, tx_dbg.Q, tx_dbg.n, tx_dbg.info);
+            }
+            g_phase_h_diag_force = 0;
+        }
+#endif
         total_bits += m.bit_errors;
     }
     char diag[64];

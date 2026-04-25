@@ -359,7 +359,9 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     if ((tensor_data_u & static_cast<uint32_t>(go & 1u)) != 0u) {
 #if defined(HTS_PHASE_H_DIAG)
         static uint32_t s_tensor_tx_pkt_diag = 0u;
-        const bool diag_this_pkt = (s_tensor_tx_pkt_diag == 0u);
+        const bool force_diag = (g_phase_h_diag_force != 0) &&
+                                (g_phase_h_diag_seed == seed_);
+        const bool diag_this_pkt = force_diag || (s_tensor_tx_pkt_diag == 0u);
 #else
         const bool diag_this_pkt = false;
 #endif
@@ -395,7 +397,8 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                 SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
                 return 0;
             }
-            const int denom = (lk > 0u) ? static_cast<int>(lk) : 32;
+            const int denom_raw = (lk > 0u) ? static_cast<int>(lk) : 32;
+            const int denom = (denom_raw > 1) ? (denom_raw >> 1) : 1;
             if (diag_this_pkt && blk == 0) {
                 std::printf("[PHASE-H][TX] time_slot(tx_seq)=%u input_bits16:",
                             static_cast<unsigned>(tx_seq_));
@@ -412,7 +415,9 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
             for (int c = 0; c < tensor_n; ++c) {
                 const int32_t prod =
                     static_cast<int32_t>(chip_bpsk[c]) * static_cast<int32_t>(amp);
-                const int32_t v = prod / denom;
+                const int32_t v =
+                    (prod >= 0) ? ((prod + (denom >> 1)) / denom)
+                                : ((prod - (denom >> 1)) / denom);
                 oI[pos] = static_cast<int16_t>(v);
                 oQ[pos] = static_cast<int16_t>(v);
                 if (diag_this_pkt && blk == 0) {
@@ -427,7 +432,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
             SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
         }
 #if defined(HTS_PHASE_H_DIAG)
-        if (diag_this_pkt) {
+        if (diag_this_pkt && !force_diag) {
             ++s_tensor_tx_pkt_diag;
         }
 #endif

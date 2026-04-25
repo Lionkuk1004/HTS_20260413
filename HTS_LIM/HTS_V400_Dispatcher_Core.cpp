@@ -10,6 +10,10 @@
 #include <cstring>
 extern "C" volatile int g_hts_ir_diag_chip0 = 0;
 extern "C" volatile int g_hts_ir_diag_feed_idx = -1;
+#if defined(HTS_PHASE_H_DIAG)
+extern "C" volatile int g_phase_h_diag_force = 0;
+extern "C" volatile uint32_t g_phase_h_diag_seed = 0u;
+#endif
 extern "C" void Mock_RF_Synth_Set_Channel(uint8_t channel) noexcept {
     const unsigned ch = static_cast<unsigned>(channel) & 0x7Fu;
     std::printf("[Mock_RF_Synth] ch=%u\n", ch);
@@ -122,7 +126,8 @@ uint32_t HTS_V400_Dispatcher::ensure_holo_tensor_ready_() noexcept {
     };
 #if defined(HTS_PHASE_H_DIAG)
     static uint32_t s_diag_init_count = 0u;
-    if (s_diag_init_count < 4u) {
+    const bool force_diag = (g_phase_h_diag_force != 0);
+    if (force_diag || s_diag_init_count < 4u) {
         ++s_diag_init_count;
         std::printf(
             "[PHASE-H][SEED] this=%p seed=0x%08X profile(K,N,L)=(%u,%u,%u) "

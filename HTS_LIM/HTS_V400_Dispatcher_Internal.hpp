@@ -52,6 +52,10 @@ extern const int16_t k_walsh_dummy_iq_[64];
 extern "C" {
 extern volatile int g_hts_ir_diag_chip0;
 extern volatile int g_hts_ir_diag_feed_idx;
+#if defined(HTS_PHASE_H_DIAG)
+extern volatile int g_phase_h_diag_force;
+extern volatile uint32_t g_phase_h_diag_seed;
+#endif
 }
 
 namespace detail {

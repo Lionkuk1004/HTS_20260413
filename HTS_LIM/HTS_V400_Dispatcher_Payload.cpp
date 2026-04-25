@@ -166,7 +166,9 @@ uint32_t HTS_V400_Dispatcher::parse_hdr_(PayloadMode &mode,
     holo_tensor_payload_mode_ = (tensor_ok != 0u);
 #if defined(HTS_PHASE_H_DIAG)
     static uint32_t s_hdr_diag_count = 0u;
-    if (s_hdr_diag_count < 4u) {
+    const bool force_diag_hdr = (g_phase_h_diag_force != 0) &&
+                                (g_phase_h_diag_seed == seed_);
+    if (force_diag_hdr || s_hdr_diag_count < 4u) {
         ++s_hdr_diag_count;
         std::printf(
             "[PHASE-H][RX-HDR] mb=%u plen=%d data_ok=%u tensor_ok=%u payload_mode=%u\n",
@@ -208,7 +210,9 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 int16_t rx_soft[HOLO_CHIP_COUNT];
 #if defined(HTS_PHASE_H_DIAG)
                 static uint32_t s_tensor_rx_pkt_diag = 0u;
-                const bool diag_this_pkt = (s_tensor_rx_pkt_diag == 0u);
+                const bool force_diag = (g_phase_h_diag_force != 0) &&
+                                        (g_phase_h_diag_seed == seed_);
+                const bool diag_this_pkt = force_diag || (s_tensor_rx_pkt_diag == 0u);
                 if (diag_this_pkt && sym_idx_ == 0) {
                     std::printf(
                         "[PHASE-H][RX] rx_seq=%u profile(K,N)=(%u,%u) valid_mask=0x%016llX\n",
@@ -265,7 +269,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     holo_tensor_rx_len_ = static_cast<uint8_t>(holo_tensor_rx_len_ + wr);
                 }
 #if defined(HTS_PHASE_H_DIAG)
-                if (diag_this_pkt && (pay_recv_ >= pay_total_)) {
+                if (diag_this_pkt && (pay_recv_ >= pay_total_) && !force_diag) {
                     ++s_tensor_rx_pkt_diag;
                 }
 #endif
