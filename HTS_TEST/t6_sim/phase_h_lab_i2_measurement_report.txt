@@ -1,0 +1,51 @@
+Phase H Lab I-2: Full matrix measurement (host, 100 trials/cell)
+Lab I binary: HTS_LIM HEAD (PRE_SYM0x2 + PRE_SYM1 + V5a on chips 128..191)
+Lab H binary: git e09770e worktree (192-chip PRE_SYM0-only V5a est, alias-prone)
+
+=== Lab I matrix: S/100, D/100, BER ===
+CFO_Hz   30dB_S 30dB_D 30dB_ber 20dB_S 20dB_D 20dB_ber 10dB_S 10dB_D 10dB_ber
+0           100    100    0.000    100    100    0.000    100     54    0.162
+100         100    100    0.000    100    100    0.000    100     55    0.164
+500         100    100    0.000    100    100    0.000    100     53    0.166
+1000        100    100    0.000    100    100    0.000    100     47    0.175
+2000        100    100    0.000    100    100    0.000    100     48    0.221
+3000        100    100    0.000    100    100    0.000    100     45    0.209
+4000        100    100    0.000    100    100    0.000    100     49    0.174
+
+=== Lab H matrix (same CFO x SNR) ===
+CFO_Hz   30dB_S 30dB_D 30dB_ber 20dB_S 20dB_D 20dB_ber 10dB_S 10dB_D 10dB_ber
+0           100    100    0.000    100    100    0.000    100     94    0.004
+100         100    100    0.000    100    100    0.000    100     94    0.004
+500         100    100    0.000    100    100    0.000    100     65    0.026
+1000        100     85    0.011    100     10    0.122    100      0    0.352
+2000        100      0    1.000    100      0    1.000    100      0    0.990
+3000        100      0    0.997    100      0    0.987    100      0    0.840
+4000        100    100    0.000    100    100    0.000    100     49    0.046
+
+=== Decode delta (D_I - D_H) at 30 / 20 / 10 dB ===
+CFO_Hz    dD_30dB  dD_20dB  dD_10dB
+0              +0       +0      -40
+100            +0       +0      -39
+500            +0       +0      -12
+1000          +15      +90      +47
+2000         +100     +100      +48
+3000         +100     +100      +45
+4000           +0       +0       +0
+
+Cliff notes (from matrices above):
+- Lab H: first large decode loss at 1000 Hz (30 dB D=85 vs D=100 at 0-500 Hz).
+- Lab H: 2000-3000 Hz essentially zero decodes at 30/20 dB (D=0); sync still passes.
+- Lab I: D=100/100 through 4000 Hz at 30 and 20 dB; 10 dB shows D~45-55 (SNR / 4D soft bottleneck, not CFO sweep cliff).
+- Lab I vs Lab H: PRE_SYM1 + V5a removes the ~1 kHz V5a-alias cliff; residual high-CFO behavior in this host lab is dominated by 10 dB tensor/soft limits rather than a new 4-4.5 kHz decode wall at 30 dB.
+
+Trial0 [DIAG-LabI] for cfo=3000, 4000, 4500:
+- Current Lab I sources emit [DIAG-LabI] only for CFO in {0,100,500,1000,2000} (trial 0). No code change in this measurement pass.
+- CFO=4500 Hz is not in kCfoSweepList; not measured here.
+- CFO=3000/4000: matrix rows above give S/D/BER; est / apply_v5a / bits[0..3] lines are not printed unless lab_i_cell_diag is extended.
+
+Appendix: trial0 [DIAG-LabI] lines captured for CFO=2000 (30/20/10 dB) from same Lab I run
+[DIAG-LabI] cfo=2000 snr=30 est_PRE_SYM1_hz=2044.7 |est-true|=44.7 ac_norm=1.001 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+[DIAG-LabI] cfo=2000 snr=20 est_PRE_SYM1_hz=2109.7 |est-true|=109.7 ac_norm=0.994 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+[DIAG-LabI] cfo=2000 snr=10 est_PRE_SYM1_hz=1973.1 |est-true|=26.9 ac_norm=0.902 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+
+Raw logs (same machine): HTS_TEST/t6_sim/out_lab/lab_i_full_raw.txt, lab_h_full_raw.txt
