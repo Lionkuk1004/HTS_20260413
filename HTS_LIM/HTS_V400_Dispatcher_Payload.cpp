@@ -67,6 +67,23 @@ size_t bpsk_to_bytes_(const int8_t* bpsk_bits, uint16_t bit_count, uint8_t* byte
     }
     return byte_count;
 }
+#if defined(HTS_HOLO_RX_PHASE_B)
+static bool holo_crc_verify_phaseb_callback(
+    const int8_t* bits, uint16_t K, void* ctx) noexcept {
+    (void)ctx;
+    uint8_t tmp[32];
+    const size_t wr = bpsk_to_bytes_(bits, K, tmp, sizeof(tmp));
+    if (wr < 3u) {
+        return false;
+    }
+    const uint16_t calc = FEC_HARQ::CRC16(
+        tmp, static_cast<int>(wr - 2u));
+    const uint16_t rx = static_cast<uint16_t>(
+        static_cast<uint16_t>(tmp[wr - 2u]) |
+        (static_cast<uint16_t>(tmp[wr - 1u]) << 8));
+    return calc == rx;
+}
+#endif
 } // namespace
 #endif
 void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
@@ -207,7 +224,9 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 holo_tensor_decode_failed_ = true;
             } else {
                 (void)holo_rx_.Set_Time_Slot(rx_seq_);
+#if !defined(HTS_HOLO_RX_PHASE_B)
                 int16_t rx_soft[HOLO_CHIP_COUNT];
+#endif
 #if defined(HTS_PHASE_H_DIAG)
                 static uint32_t s_tensor_rx_pkt_diag = 0u;
                 const bool force_diag = (g_phase_h_diag_force != 0) &&
@@ -236,6 +255,17 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
 #else
                 const bool diag_this_pkt = false;
 #endif
+#if defined(HTS_HOLO_RX_PHASE_B)
+                if (diag_this_pkt && sym_idx_ == 0) {
+                    std::printf("[PHASE-H][RX] decode_input_IQ64 (Phase-B path)\n");
+                }
+                const uint32_t dec_ok = holo_rx_.Decode_Block_With_Phase(
+                    buf_I_, buf_Q_,
+                    holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
+                    holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
+                    holo_crc_verify_phaseb_callback,
+                    static_cast<void*>(this));
+#else
                 for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
                     const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
                                         static_cast<int32_t>(buf_Q_[c]);
@@ -251,6 +281,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 const uint32_t dec_ok = holo_rx_.Decode_Block(
                     rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                     holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
+#endif
                 if (dec_ok != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
                 } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
