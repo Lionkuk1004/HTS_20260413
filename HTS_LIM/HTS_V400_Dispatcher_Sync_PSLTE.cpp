@@ -1466,17 +1466,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                         cfo_v5a_.Estimate(pre_I, pre_Q);
                     cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
                     cfo_v5a_last_valid_ = cfo_res.valid;
-                    // Phase H: deadzone — |est| < kHz 는 Apply 생략(4D/누적 위상, BUG-9·저 CFO noise)
-                    // 측정 기반(73ff940 S5H 200 Hz 회귀) · 임계는 승인 후 조정
-                    constexpr int32_t kV5aHoloP0_DeadzoneHz = 1300;
                     if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
-                        if (cfo_res.cfo_hz <= -kV5aHoloP0_DeadzoneHz
-                            || cfo_res.cfo_hz >= kV5aHoloP0_DeadzoneHz) {
-                            cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
-                            cfo_v5a_.Advance_Phase_Only(192);
-                        } else {
-                            cfo_v5a_.Set_Apply_Cfo(0);
-                        }
+                        cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+                        cfo_v5a_.Advance_Phase_Only(192);
                     } else {
                         cfo_v5a_.Set_Apply_Cfo(0);
                     }

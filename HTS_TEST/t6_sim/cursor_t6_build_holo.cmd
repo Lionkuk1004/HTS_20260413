@@ -1,6 +1,5 @@
 @echo off
 REM HTS_T6_SIM_Test_holo.exe — same as cursor_t6_build.cmd + HTS_USE_HOLOGRAPHIC_SYNC (S5-HOLO path)
-REM /DHTS_DIAG_PRINTF + PHASE_H + V5A_PTE: T6 stdout 매우 큼(수십만 줄). 측정 시만 권장.
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
@@ -11,9 +10,6 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W4 /WX /wd4324 /DNDEBUG ^
    /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
    /DHTS_USE_HOLO_TENSOR_4D ^
    /DHTS_USE_HOLOGRAPHIC_SYNC ^
-   /DHTS_DIAG_PRINTF ^
-   /DHTS_PHASE_H_DIAG ^
-   /DHTS_CFO_V5A_PTE_DIAG ^
    /D_CRT_SECURE_NO_WARNINGS ^
    /FeHTS_T6_SIM_Test_holo.exe ^
    HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
