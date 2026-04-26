@@ -282,7 +282,13 @@
     <ClCompile Include="HTS_Power_Manager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Holo_Tensor_4D.cpp">
+    <ClCompile Include="HTS_Holo_Tensor_4D_Common.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Holo_Tensor_4D_TX.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Holo_Tensor_4D_RX.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Holo_Dispatcher.cpp">
@@ -773,7 +779,13 @@
     <ClInclude Include="HTS_Modbus_Gateway_Defs.h">
       <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
-    <ClInclude Include="HTS_Holo_Tensor_4D.h">
+    <ClInclude Include="HTS_Holo_Tensor_4D_Common.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Holo_Tensor_4D_TX.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Holo_Tensor_4D_RX.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Holo_Tensor_4D_Defs.h">

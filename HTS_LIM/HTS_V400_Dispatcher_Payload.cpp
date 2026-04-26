@@ -203,10 +203,10 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 full_reset_();
                 return;
             }
-            if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+            if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
                 holo_tensor_decode_failed_ = true;
             } else {
-                (void)holo_tensor4d_.Set_Time_Slot(rx_seq_);
+                (void)holo_rx_.Set_Time_Slot(rx_seq_);
                 int16_t rx_soft[HOLO_CHIP_COUNT];
 #if defined(HTS_PHASE_H_DIAG)
                 static uint32_t s_tensor_rx_pkt_diag = 0u;
@@ -248,10 +248,10 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                     std::printf("\n");
                 }
-                const uint32_t dec_ok = holo_tensor4d_.Decode_Block(
+                const uint32_t dec_ok = holo_rx_.Decode_Block(
                     rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                     holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
-                if (dec_ok != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                if (dec_ok != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
                 } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
                     if (diag_this_pkt && sym_idx_ == 0) {

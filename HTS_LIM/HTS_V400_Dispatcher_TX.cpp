@@ -6,7 +6,7 @@
 #include "HTS_Holo_LPI.h"
 #include "HTS_Secure_Memory.h"
 #if defined(HTS_USE_HOLO_TENSOR_4D)
-#include "HTS_Holo_Tensor_4D.h"
+#include "HTS_Holo_Tensor_4D_TX.h"
 #include "HTS_Holo_Tensor_4D_Defs.h"
 #endif
 #if defined(HTS_HOLO_PREAMBLE)
@@ -365,10 +365,10 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 #else
         const bool diag_this_pkt = false;
 #endif
-        if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             return 0;
         }
-        (void)holo_tensor4d_.Set_Time_Slot(tx_seq_);
+        (void)holo_tx_.Set_Time_Slot(tx_seq_);
         if (diag_this_pkt) {
             std::printf(
                 "[PHASE-H][TX] tx_seq=%u header_plen=%d blocks=%d profile(K,N,L)=(%u,%u,%u)\n",
@@ -390,9 +390,9 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                 (use_bytes > 0) ? &info[byte_off] : nullptr,
                 static_cast<size_t>((use_bytes > 0) ? use_bytes : 0), data_bits,
                 static_cast<uint16_t>(tensor_k));
-            if (holo_tensor4d_.Encode_Block(data_bits, holo_tensor_profile_.block_bits,
+            if (holo_tx_.Encode_Block(data_bits, holo_tensor_profile_.block_bits,
                                             chip_bpsk, holo_tensor_profile_.chip_count) !=
-                HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
                 SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
                 SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
                 return 0;

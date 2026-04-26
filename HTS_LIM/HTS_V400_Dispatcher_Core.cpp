@@ -116,7 +116,7 @@ HTS_V400_Dispatcher::HTS_V400_Dispatcher() noexcept
 #if defined(HTS_USE_HOLO_TENSOR_4D)
 uint32_t HTS_V400_Dispatcher::ensure_holo_tensor_ready_() noexcept {
     if (holo_tensor_ready_) {
-        return HTS_Holo_Tensor_4D::SECURE_TRUE;
+        return HTS_Holo_Tensor_4D_TX::SECURE_TRUE;
     }
     const uint32_t master_seed[4] = {
         seed_,
@@ -142,12 +142,15 @@ uint32_t HTS_V400_Dispatcher::ensure_holo_tensor_ready_() noexcept {
             static_cast<unsigned>(master_seed[3]));
     }
 #endif
-    if (holo_tensor4d_.Initialize(master_seed, nullptr) !=
-        HTS_Holo_Tensor_4D::SECURE_TRUE) {
-        return HTS_Holo_Tensor_4D::SECURE_FALSE;
+    if (holo_tx_.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        return HTS_Holo_Tensor_4D_TX::SECURE_FALSE;
+    }
+    if (holo_rx_.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+        holo_tx_.Shutdown();
+        return HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
     }
     holo_tensor_ready_ = true;
-    return HTS_Holo_Tensor_4D::SECURE_TRUE;
+    return HTS_Holo_Tensor_4D_TX::SECURE_TRUE;
 }
 
 void HTS_V400_Dispatcher::clear_holo_tensor_rx_state_() noexcept {
@@ -196,7 +199,8 @@ HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
 void HTS_V400_Dispatcher::Set_Seed(uint32_t s) noexcept {
     seed_ = s;
 #if defined(HTS_USE_HOLO_TENSOR_4D)
-    holo_tensor4d_.Shutdown();
+    holo_tx_.Shutdown();
+    holo_rx_.Shutdown();
     holo_tensor_ready_ = false;
     clear_holo_tensor_rx_state_();
 #endif

@@ -77,7 +77,8 @@
 #include "HTS_TPC_Controller.h"
 #include "HTS_Preamble_AGC.h"
 #if defined(HTS_USE_HOLO_TENSOR_4D)
-#include "HTS_Holo_Tensor_4D.h"
+#include "HTS_Holo_Tensor_4D_TX.h"
+#include "HTS_Holo_Tensor_4D_RX.h"
 #include "HTS_Holo_Tensor_4D_Defs.h"
 #endif
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
@@ -658,7 +659,8 @@ namespace ProtectedEngine {
 #endif
 
 #if defined(HTS_USE_HOLO_TENSOR_4D)
-        HTS_Holo_Tensor_4D holo_tensor4d_{};
+        HTS_Holo_Tensor_4D_TX holo_tx_{};
+        HTS_Holo_Tensor_4D_RX holo_rx_{};
         HoloTensor_Profile holo_tensor_profile_{};
         bool holo_tensor_ready_{ false };
         bool holo_tensor_payload_mode_{ false };

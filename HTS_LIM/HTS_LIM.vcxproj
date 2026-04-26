@@ -258,7 +258,9 @@
     <ClCompile Include="HTS_Hardware_Shield.cpp" />
     <ClCompile Include="HTS_HMAC_Bridge.cpp" />
     <ClCompile Include="HTS_Holo_Dispatcher.cpp" />
-    <ClCompile Include="HTS_Holo_Tensor_4D.cpp" />
+    <ClCompile Include="HTS_Holo_Tensor_4D_Common.cpp" />
+    <ClCompile Include="HTS_Holo_Tensor_4D_TX.cpp" />
+    <ClCompile Include="HTS_Holo_Tensor_4D_RX.cpp" />
     <ClCompile Include="HTS_Holo_LPI.cpp" />
     <ClCompile Include="HTS_Holo_Tensor_Engine.cpp" />
     <ClCompile Include="HTS_IoT_Codec.cpp" />
@@ -392,7 +394,9 @@
     <ClInclude Include="HTS_Device_Profile_Defs.h" />
     <ClInclude Include="HTS_Holo_Dispatcher.h" />
     <ClInclude Include="HTS_Holo_Dispatcher_Defs.h" />
-    <ClInclude Include="HTS_Holo_Tensor_4D.h" />
+    <ClInclude Include="HTS_Holo_Tensor_4D_Common.h" />
+    <ClInclude Include="HTS_Holo_Tensor_4D_TX.h" />
+    <ClInclude Include="HTS_Holo_Tensor_4D_RX.h" />
     <ClInclude Include="HTS_Holo_LPI.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_Defs.h" />
     <ClInclude Include="HTS_Sensor_ADC_Guard.h" />

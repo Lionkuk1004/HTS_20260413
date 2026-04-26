@@ -1,7 +1,0 @@
-Stage,Min_ns,Avg_ns,Max_ns,ARM_cyc
-Derotate,1100,1241,24900,208
-Walsh63_dot,0,13,100,2
-Energy_MF,0,45,100,7
-Phase_Gradient,0,90,13800,15
-LR_estimator,100,144,400,24
-Full_V5a,78700,87605,186900,14717

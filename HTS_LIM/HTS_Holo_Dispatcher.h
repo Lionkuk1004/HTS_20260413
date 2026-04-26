@@ -24,7 +24,7 @@
 ///  실제 데이터 흐름:
 ///
 ///    Holo_Dispatcher::Build_Holo_Packet / Decode_Holo_Block
-///        └─▶ HTS_Holo_Tensor_4D::Encode_Block / Decode_Block
+///        └─▶ HTS_Holo_Tensor_4D_TX::Encode_Block / HTS_Holo_Tensor_4D_RX::Decode_Block
 ///
 ///  별도 계층으로, HTS_V400_Dispatcher는 VIDEO/VOICE/DATA 모드에서
 ///  FEC_HARQ(Encode/Decode/Decode_Core_Split 등)를 사용한다 — 홀로 모드와
@@ -59,13 +59,15 @@
 ///   g_holo.Feed_Holo_Block(rxI, rxQ, N, valid_mask, out_data, &out_len);
 ///   @endcode
 ///
-/// @warning sizeof(HTS_Holo_Dispatcher) ~ 1.2KB. 전역/정적 배치 권장.
+/// @warning sizeof(HTS_Holo_Dispatcher) — HTS_Holo_Tensor_4D_TX+RX(각 ≤2048B) 포함,
+///          이전(단일 엔진) 대비 커짐. 전역/정적 배치 권장.
 ///
 /// @author 임영준 (Lim Young-jun)
 /// @copyright INNOViD 2026. All rights reserved.
 
 #include "HTS_Holo_Dispatcher_Defs.h"
-#include "HTS_Holo_Tensor_4D.h"
+#include "HTS_Holo_Tensor_4D_TX.h"
+#include "HTS_Holo_Tensor_4D_RX.h"
 #include "HTS_RF_Metrics.h"
 #include <atomic>
 #include <cstddef>
@@ -92,7 +94,7 @@ namespace ProtectedEngine {
 
     /// @brief 4D 홀로그램 디스패처 연동 모듈
     ///
-    /// @warning sizeof ~ 1.2KB. 전역/정적 배치 권장.
+    /// @warning TX/RX 텐서 객체(각 ≤2048B) 포함 — 전역/정적 배치 권장.
     class HTS_Holo_Dispatcher final {
     public:
         static constexpr uint32_t SECURE_TRUE = 0x5A5A5A5Au;
@@ -172,7 +174,8 @@ namespace ProtectedEngine {
         HTS_Holo_Dispatcher& operator=(HTS_Holo_Dispatcher&&) = delete;
 
     private:
-        HTS_Holo_Tensor_4D engine_;
+        HTS_Holo_Tensor_4D_TX holo_tx_{};
+        HTS_Holo_Tensor_4D_RX holo_rx_{};
         std::atomic<uint8_t> current_mode_{ HoloPayload::DATA_HOLO };
         std::atomic<uint32_t> dispatch_busy_{ LOCK_FREE };
         uint8_t pad_[3] = {};   ///< Alignment padding (C26495 fix)

@@ -1,0 +1,111 @@
+﻿Phase H Lab I: PRE_SYM0x2 + PRE_SYM1(Walsh0) + payload; V5a on chips 128..191; holo 0..191
+CFO sweep (matrix): full list; [DIAG-LabI] trial0: {0,100,500,1000,2000}xSNR; detail cfo=2000/30
+
+cfo=    0:
+[DIAG-LabI] cfo=0 snr=30 est_PRE_SYM1_hz=-16.5 |est-true|=16.5 ac_norm=0.996 apply_v5a=0 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=0 snr=20 est_PRE_SYM1_hz=-90.5 |est-true|=90.5 ac_norm=0.979 apply_v5a=0 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=0 snr=10 est_PRE_SYM1_hz=-667.8 |est-true|=667.8 ac_norm=0.860 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 -1 -1 1
+ 10dB S100/100 D 54/100 BER=0.162
+cfo=  100:
+[DIAG-LabI] cfo=100 snr=30 est_PRE_SYM1_hz=82.9 |est-true|=17.1 ac_norm=0.997 apply_v5a=0 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=100 snr=20 est_PRE_SYM1_hz=9.6 |est-true|=90.4 ac_norm=0.980 apply_v5a=0 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=100 snr=10 est_PRE_SYM1_hz=-561.1 |est-true|=661.1 ac_norm=0.864 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 10dB S100/100 D 55/100 BER=0.164
+cfo=  500:
+[DIAG-LabI] cfo=500 snr=30 est_PRE_SYM1_hz=487.9 |est-true|=12.1 ac_norm=0.998 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=500 snr=20 est_PRE_SYM1_hz=420.5 |est-true|=79.5 ac_norm=0.984 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=500 snr=10 est_PRE_SYM1_hz=-105.0 |est-true|=605.0 ac_norm=0.876 apply_v5a=0 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 10dB S100/100 D 53/100 BER=0.166
+cfo= 1000:
+[DIAG-LabI] cfo=1000 snr=30 est_PRE_SYM1_hz=998.6 |est-true|=1.4 ac_norm=0.999 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=1000 snr=20 est_PRE_SYM1_hz=962.1 |est-true|=37.9 ac_norm=0.988 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=1000 snr=10 est_PRE_SYM1_hz=539.6 |est-true|=460.4 ac_norm=0.890 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 10dB S100/100 D 47/100 BER=0.175
+cfo= 2000:[DIAG-LabG-2000] corrI[0..7]= 533 -479 -520 537 -520 501 485 -492
+[DIAG-LabG-2000] corrI[64..71]= 509 -541 -495 524 -525 542 508 -483
+[DIAG-LabG-2000] corrI[128..135]= 525 516 523 528 553 522 507 497
+[DIAG-LabG-2000] corrI[192..199]= 22 -12 6 71 136 -3 -108 -50
+[DIAG-LabG-2000] true_cfo_hz=2000 est_hz=2044.7 |est-true|=44.7 apply_v5a=1
+[DIAG-PAYLOAD-PHASE] i=0 corr=(22,-31) phase_deg=-54.6 cum_model_deg=-3.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=1 corr=(-12,27) phase_deg=114.0 cum_model_deg=-3.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=2 corr=(6,-2) phase_deg=-18.4 cum_model_deg=-3.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=3 corr=(71,69) phase_deg=44.2 cum_model_deg=-3.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=4 corr=(136,126) phase_deg=42.8 cum_model_deg=-3.2 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=5 corr=(-3,1) phase_deg=161.6 cum_model_deg=-3.2 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=6 corr=(-108,-90) phase_deg=-140.2 cum_model_deg=-3.2 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=7 corr=(-50,-65) phase_deg=-127.6 cum_model_deg=-3.2 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=8 corr=(-160,-123) phase_deg=-142.4 cum_model_deg=-3.2 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=9 corr=(82,90) phase_deg=47.7 cum_model_deg=-3.2 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=10 corr=(-103,-154) phase_deg=-123.8 cum_model_deg=-3.3 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=11 corr=(469,409) phase_deg=41.1 cum_model_deg=-3.3 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=12 corr=(-120,-102) phase_deg=-139.6 cum_model_deg=-3.3 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=13 corr=(-38,-27) phase_deg=-144.6 cum_model_deg=-3.3 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=14 corr=(-194,-199) phase_deg=-134.3 cum_model_deg=-3.3 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=15 corr=(330,254) phase_deg=37.6 cum_model_deg=-3.3 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=16 corr=(-280,-190) phase_deg=-145.8 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=17 corr=(368,295) phase_deg=38.7 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=18 corr=(-107,-98) phase_deg=-137.5 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=19 corr=(-318,-275) phase_deg=-139.1 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=20 corr=(-263,-248) phase_deg=-136.7 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=21 corr=(187,163) phase_deg=41.1 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=22 corr=(25,10) phase_deg=21.8 cum_model_deg=-3.4 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=23 corr=(297,249) phase_deg=40.0 cum_model_deg=-3.5 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=24 corr=(-74,-27) phase_deg=-160.0 cum_model_deg=-3.5 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=25 corr=(55,69) phase_deg=51.4 cum_model_deg=-3.5 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=26 corr=(44,56) phase_deg=51.8 cum_model_deg=-3.5 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=27 corr=(-94,-39) phase_deg=-157.5 cum_model_deg=-3.5 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=28 corr=(-8,14) phase_deg=119.7 cum_model_deg=-3.5 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=29 corr=(85,78) phase_deg=42.5 cum_model_deg=-3.6 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=30 corr=(-57,-43) phase_deg=-143.0 cum_model_deg=-3.6 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=31 corr=(1,0) phase_deg=0.0 cum_model_deg=-3.6 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=32 corr=(43,91) phase_deg=64.7 cum_model_deg=-3.6 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=33 corr=(303,240) phase_deg=38.4 cum_model_deg=-3.6 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=34 corr=(344,303) phase_deg=41.4 cum_model_deg=-3.6 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=35 corr=(-281,-223) phase_deg=-141.6 cum_model_deg=-3.7 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=36 corr=(139,118) phase_deg=40.3 cum_model_deg=-3.7 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=37 corr=(191,191) phase_deg=45.0 cum_model_deg=-3.7 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=38 corr=(-277,-234) phase_deg=-139.8 cum_model_deg=-3.7 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=39 corr=(-409,-372) phase_deg=-137.7 cum_model_deg=-3.7 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=40 corr=(183,167) phase_deg=42.4 cum_model_deg=-3.7 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=41 corr=(-161,-133) phase_deg=-140.4 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=42 corr=(284,248) phase_deg=41.1 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=43 corr=(-42,-57) phase_deg=-126.4 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=44 corr=(-23,21) phase_deg=137.6 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=45 corr=(183,181) phase_deg=44.7 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=46 corr=(142,134) phase_deg=43.3 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=47 corr=(-257,-220) phase_deg=-139.4 cum_model_deg=-3.8 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=48 corr=(108,91) phase_deg=40.1 cum_model_deg=-3.9 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=49 corr=(271,240) phase_deg=41.5 cum_model_deg=-3.9 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=50 corr=(-65,-75) phase_deg=-130.9 cum_model_deg=-3.9 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=51 corr=(180,164) phase_deg=42.3 cum_model_deg=-3.9 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=52 corr=(-65,-42) phase_deg=-147.1 cum_model_deg=-3.9 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=53 corr=(-96,-40) phase_deg=-157.4 cum_model_deg=-3.9 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=54 corr=(-36,8) phase_deg=167.5 cum_model_deg=-4.0 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=55 corr=(351,279) phase_deg=38.5 cum_model_deg=-4.0 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=56 corr=(-221,-198) phase_deg=-138.1 cum_model_deg=-4.0 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=57 corr=(-156,-95) phase_deg=-148.7 cum_model_deg=-4.0 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=58 corr=(-211,-179) phase_deg=-139.7 cum_model_deg=-4.0 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=59 corr=(208,174) phase_deg=39.9 cum_model_deg=-4.0 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=60 corr=(-84,-71) phase_deg=-139.8 cum_model_deg=-4.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=61 corr=(-62,-10) phase_deg=-170.8 cum_model_deg=-4.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=62 corr=(283,165) phase_deg=30.2 cum_model_deg=-4.1 (f_res_hz=-44.7)
+[DIAG-PAYLOAD-PHASE] i=63 corr=(143,134) phase_deg=43.1 cum_model_deg=-4.1 (f_res_hz=-44.7)
+[DIAG-LabG-2000] rx_soft[0..7] pre-decode= -4 7 2 70 131 -1 -99 -57
+
+[DIAG-LabI] cfo=2000 snr=30 est_PRE_SYM1_hz=2044.7 |est-true|=44.7 ac_norm=1.001 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+[DIAG-LabG-2000] bits[0..3] expect -1 1 -1 1 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=2000 snr=20 est_PRE_SYM1_hz=2109.7 |est-true|=109.7 ac_norm=0.994 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabI] cfo=2000 snr=10 est_PRE_SYM1_hz=1973.1 |est-true|=26.9 ac_norm=0.902 apply_v5a=1 holo_sync_pass=1 bits_exp= -1 1 -1 1 bits_got= -1 1 -1 1
+ 10dB S100/100 D 48/100 BER=0.221
+cfo= 3000: 30dB S100/100 D100/100 BER=0.000 20dB S100/100 D100/100 BER=0.000 10dB S100/100 D 45/100 BER=0.209
+cfo= 4000: 30dB S100/100 D100/100 BER=0.000 20dB S100/100 D100/100 BER=0.000 10dB S100/100 D 49/100 BER=0.174

@@ -29,7 +29,8 @@
 #include <cstring>
 
 #include "../HTS_LIM/HTS_CFO_V5a.hpp"
-#include "../HTS_LIM/HTS_Holo_Tensor_4D.h"
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_TX.h"
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_RX.h"
 #include "../HTS_LIM/HTS_Preamble_Holographic.h"
 #include "../HTS_LIM/HTS_Rx_CFO_SinCos_Table.hpp"
 
@@ -285,6 +286,25 @@ static void v5a_apply_per_chip(const int16_t* rx_I, const int16_t* rx_Q, int16_t
     const int64_t phase_inc_q32_s64 = -static_cast<int64_t>((cfo_hz * 4294967296.0) / ExperimentConfig::kChipRateHz);
     const uint32_t phase_inc_q32 = static_cast<uint32_t>(phase_inc_q32_s64);
     uint32_t phase_q32 = 0u;
+    for (int k = 0; k < chips; ++k) {
+        const int idx = (phase_q32 >> kSinCosIndexShift) & (kSinCosTableSize - 1);
+        const int32_t cos_q14 = g_cos_table[idx];
+        const int32_t sin_q14 = g_sin_table[idx];
+        const int32_t x = rx_I[k];
+        const int32_t y = rx_Q[k];
+        out_I[k] = sat_i16((x * cos_q14 - y * sin_q14) >> 14);
+        out_Q[k] = sat_i16((x * sin_q14 + y * cos_q14) >> 14);
+        phase_q32 += phase_inc_q32;
+    }
+}
+
+/// 페이로드만 보정할 때, 스트림 **절대 칩 인덱스** (예: 192) 누적 위상을 초기 q32에 반영
+static void v5a_apply_per_chip_from_abs(const int16_t* rx_I, const int16_t* rx_Q, int16_t* out_I, int16_t* out_Q,
+                                        int chips, double cfo_hz, int first_global_chip_idx) noexcept {
+    const int64_t phase_inc_q32_s64 = -static_cast<int64_t>((cfo_hz * 4294967296.0) / ExperimentConfig::kChipRateHz);
+    const uint32_t phase_inc_q32 = static_cast<uint32_t>(phase_inc_q32_s64);
+    const int64_t ph0 = phase_inc_q32_s64 * static_cast<int64_t>(first_global_chip_idx);
+    uint32_t phase_q32 = static_cast<uint32_t>(ph0);
     for (int k = 0; k < chips; ++k) {
         const int idx = (phase_q32 >> kSinCosIndexShift) & (kSinCosTableSize - 1);
         const int32_t cos_q14 = g_cos_table[idx];
@@ -751,12 +771,13 @@ struct LabP500Trials {
 
 static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern pattern, LabP500Trials* lab_p_trials) {
     TestResult r{0, 0, 0, 0};
-    HTS_Holo_Tensor_4D tx, rx;
+    HTS_Holo_Tensor_4D_TX tx{};
+    HTS_Holo_Tensor_4D_RX rx{};
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
-    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
         return r;
     }
-    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
         tx.Shutdown();
         return r;
     }
@@ -771,7 +792,7 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
         int8_t chips[64]{};
         (void)tx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (tx.Encode_Block(bits, static_cast<uint16_t>(ExperimentConfig::kK), chips,
-                            static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                            static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
@@ -1032,7 +1053,7 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
         int8_t out[16]{};
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
-                            static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                            static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             if (want_m) {
                 std::printf(
                     "\n[DIAG-LabM] P%s cfo=%d snr=%d P1=%d P2=%d sync=1 ins_est=%.1f |est-true|=%.1f ins_ac=%.3f "
@@ -1342,10 +1363,11 @@ static void run_lab_m_matrix(HoloV5aPattern pattern) {
 
 static TestResult run_one_cfo(int cfo_hz, int snr_db, LabKV5aMode v5a_mode, double ac_norm_thr) {
     TestResult r{0, 0, 0, 0};
-    HTS_Holo_Tensor_4D tx, rx;
+    HTS_Holo_Tensor_4D_TX tx{};
+    HTS_Holo_Tensor_4D_RX rx{};
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
-    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) return r;
-    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) return r;
+    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
         tx.Shutdown();
         return r;
     }
@@ -1361,7 +1383,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, LabKV5aMode v5a_mode, doub
         int8_t chips[64]{};
         (void)tx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (tx.Encode_Block(bits, static_cast<uint16_t>(ExperimentConfig::kK), chips,
-                            static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                            static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             r.total_bits += ExperimentConfig::kK;
             r.total_bit_err += ExperimentConfig::kK;
             continue;
@@ -1542,7 +1564,7 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, LabKV5aMode v5a_mode, doub
         int8_t out[16]{};
         (void)rx.Set_Time_Slot(static_cast<uint32_t>(t));
         if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
-                            static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                            static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             if (want_detail) {
                 std::printf("[DIAG-LabK] decode_block SECURE_FALSE\n");
             }
@@ -1656,8 +1678,8 @@ static void lab_r_v5a_prod_lag4_from_rx(const int16_t* rxI, const int16_t* rxQ, 
                              : 0;
 }
 
-static bool lab_r_fill_rx_one_trial(HTS_Holo_Tensor_4D& tx, int t, int cfo_hz, int snr_db, int16_t* rxI,
-                                    int16_t* rxQ) {
+static bool lab_r_fill_rx_one_trial(HTS_Holo_Tensor_4D_TX& tx, int t, int cfo_hz, int snr_db, int16_t* rxI,
+                                    int16_t* rxQ, int8_t* out_bits_16 = nullptr, int8_t* out_chips_64 = nullptr) {
     rng_seed(static_cast<uint32_t>(t * 7919u + 13u));
     int8_t bits[16]{};
     for (int i = 0; i < ExperimentConfig::kK; ++i) {
@@ -1666,7 +1688,7 @@ static bool lab_r_fill_rx_one_trial(HTS_Holo_Tensor_4D& tx, int t, int cfo_hz, i
     int8_t chips[64]{};
     (void)tx.Set_Time_Slot(static_cast<uint32_t>(t));
     if (tx.Encode_Block(bits, static_cast<uint16_t>(ExperimentConfig::kK), chips,
-                        static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+                        static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
         return false;
     }
     int16_t txI[256]{};
@@ -1692,7 +1714,217 @@ static bool lab_r_fill_rx_one_trial(HTS_Holo_Tensor_4D& tx, int t, int cfo_hz, i
     }
     channel_apply(txI, txQ, rxI, rxQ, ExperimentConfig::kTxTotalChips, static_cast<double>(cfo_hz), snr_db,
                   static_cast<uint32_t>(t * 31u + 19u));
+    if (out_chips_64 != nullptr) {
+        std::memcpy(out_chips_64, chips, 64u);
+    }
+    if (out_bits_16 != nullptr) {
+        for (int i = 0; i < ExperimentConfig::kK; ++i) {
+            out_bits_16[static_cast<size_t>(i)] = bits[static_cast<size_t>(i)];
+        }
+    }
     return true;
+}
+
+// ---------------------------------------------------------------------------
+// Lab R' (TS/R&D): 4D RX 비대칭 / 위상-민감 경로 — 입력 전처리만 비교 (4D 엔진·메인트리 비변경)
+//  A: (I+Q)/2  →  Decode_Block  (量産과 동일; BUG-9/π-ambiguity 취약)
+//  B: (I*chip+Q*chip)/2, TX와 동기된 기준(신 시뮬) ref chips
+//  C: I/Q 차분(간이 DBPSK) — cfo 1차 변화·노이즈 2배
+//  D: (|I|+|Q|)·sgn(I+Q) — 위상-크기 혼합(비-동조 프록시; 본질적 Walsh|·|²는 엔진 내부만 가능)
+//  E: (참) true-CFO v5a_apply + (I+Q)/2  — "≤10Hz V5a" 이상·회전 제거+스칼라(연구·상한)
+// ---------------------------------------------------------------------------
+static int lab_tsrx_try_decode(HTS_Holo_Tensor_4D_RX& rx, uint32_t t, const int16_t* playI, const int16_t* playQ,
+                               const int8_t ref_bits[16], int mode, const int8_t* ref_chips) noexcept {
+    int16_t soft[64]{};
+    uint64_t mask = 0u;
+    if (mode == 0) {
+        (void)ref_chips;
+        rx_soft_generate(playI, playQ, soft, &mask);
+    } else if (mode == 1) {
+        if (ref_chips == nullptr) {
+            return ExperimentConfig::kK + 1;
+        }
+        for (int c = 0; c < 64; ++c) {
+            const int32_t s =
+                static_cast<int32_t>(playI[c]) * static_cast<int32_t>(ref_chips[static_cast<size_t>(c)]) +
+                static_cast<int32_t>(playQ[c]) * static_cast<int32_t>(ref_chips[static_cast<size_t>(c)]);
+            soft[c] = sat_i16(s / 2);
+        }
+        mask = 0xFFFFFFFFFFFFFFFFull;
+    } else if (mode == 2) {
+        (void)ref_chips;
+        const int16_t z0 =
+            static_cast<int16_t>((static_cast<int32_t>(playI[0]) + static_cast<int32_t>(playQ[0])) / 2);
+        for (int c = 0; c < 64; ++c) {
+            if (c == 0) {
+                soft[c] = z0;
+            } else {
+                const int32_t p =
+                    static_cast<int32_t>(playI[c]) * playI[c - 1] + static_cast<int32_t>(playQ[c]) * playQ[c - 1];
+                soft[c] = sat_i16(p >> 7);
+            }
+        }
+        mask = 0xFFFFFFFFFFFFFFFFull;
+    } else if (mode == 3) {
+        (void)ref_chips;
+        for (int c = 0; c < 64; ++c) {
+            const int32_t sgn = (static_cast<int32_t>(playI[c]) + static_cast<int32_t>(playQ[c]) >= 0) ? 1 : -1;
+            const double m =
+                std::sqrt(static_cast<double>(playI[c]) * playI[c] + static_cast<double>(playQ[c]) * playQ[c]);
+            soft[c] = sat_i16(static_cast<int32_t>(sgn * (m / 4.0)));
+        }
+        mask = 0xFFFFFFFFFFFFFFFFull;
+    } else {
+        return ExperimentConfig::kK + 1;
+    }
+    (void)rx.Set_Time_Slot(t);
+    int8_t out[16]{};
+    if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
+                        static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        return ExperimentConfig::kK + 1;
+    }
+    int be = 0;
+    for (int i = 0; i < ExperimentConfig::kK; ++i) {
+        be += (out[static_cast<size_t>(i)] != ref_bits[static_cast<size_t>(i)]) ? 1 : 0;
+    }
+    return be;
+}
+
+static int lab_tsrx_try_decode_e_v5a_genie(HTS_Holo_Tensor_4D_RX& rx, uint32_t t, const int16_t* playI,
+                                              const int16_t* playQ, const int8_t ref_bits[16], double cfo_hz) noexcept {
+    int16_t wI[64];
+    int16_t wQ[64];
+    v5a_apply_per_chip_from_abs(playI, playQ, wI, wQ, 64, cfo_hz, ExperimentConfig::kPayloadOffset);
+    int16_t soft[64]{};
+    uint64_t mask = 0u;
+    rx_soft_generate(wI, wQ, soft, &mask);
+    (void)rx.Set_Time_Slot(t);
+    int8_t out[16]{};
+    if (rx.Decode_Block(soft, static_cast<uint16_t>(ExperimentConfig::kN), mask, out,
+                        static_cast<uint16_t>(ExperimentConfig::kK)) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        return ExperimentConfig::kK + 1;
+    }
+    int be = 0;
+    for (int i = 0; i < ExperimentConfig::kK; ++i) {
+        be += (out[static_cast<size_t>(i)] != ref_bits[static_cast<size_t>(i)]) ? 1 : 0;
+    }
+    return be;
+}
+
+static void run_lab_r_tsrx_decode_rd() {
+    static constexpr int kCfoN = 5;
+    static constexpr int kCfo[kCfoN] = {0, 500, 1000, 2000, 5000};
+    static constexpr int kSnrN = 3;
+    static constexpr int kSnr[kSnrN] = {30, 20, 10};
+
+    std::printf("\n");
+    std::printf("================================================================================\n");
+    std::printf(" Phase H Lab R' (TS/R&D): 4D RX 비대칭 — 입력 전처리 A/B/C/D + 참고 E(참 CFO+V5a)\n");
+    std::printf("  Grid: CFO {0,500,1000,2000,5000} x SNR {30,20,10} dB, %d trials; 0 bit err = pass\n",
+                ExperimentConfig::kNumTrials);
+    std::printf("================================================================================\n\n");
+
+    HTS_Holo_Tensor_4D_TX tx{};
+    HTS_Holo_Tensor_4D_RX rx{};
+    uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
+    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        std::printf("[LabR-TS] FATAL: tx init\n");
+        return;
+    }
+    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        tx.Shutdown();
+        std::printf("[LabR-TS] FATAL: rx init\n");
+        return;
+    }
+
+    for (int si = 0; si < kSnrN; ++si) {
+        const int snr = kSnr[si];
+        std::printf("[LabR-TS] SNR=%2d dB  success%% (0 bit err)  A=scalar(I+Q)/2  B=I*ch+Q*ch  C=diff  D=|r|·sgn  "
+                      "E=ref(cfo)\n",
+                      snr);
+        for (int ci = 0; ci < kCfoN; ++ci) {
+            const int cfo = kCfo[ci];
+            int okA = 0, okB = 0, okC = 0, okD = 0, okE = 0;
+            for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+                int16_t rxI[256]{};
+                int16_t rxQ[256]{};
+                int8_t bits[16]{};
+                int8_t chips[64]{};
+                if (!lab_r_fill_rx_one_trial(tx, t, cfo, snr, rxI, rxQ, bits, chips)) {
+                    continue;
+                }
+                const int16_t* playI = rxI + ExperimentConfig::kPayloadOffset;
+                const int16_t* playQ = rxQ + ExperimentConfig::kPayloadOffset;
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 0, chips) == 0) {
+                    ++okA;
+                }
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 1, chips) == 0) {
+                    ++okB;
+                }
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 2, chips) == 0) {
+                    ++okC;
+                }
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 3, chips) == 0) {
+                    ++okD;
+                }
+                if (lab_tsrx_try_decode_e_v5a_genie(rx, static_cast<uint32_t>(t), playI, playQ, bits,
+                                                     static_cast<double>(cfo)) == 0) {
+                    ++okE;
+                }
+            }
+            std::printf(
+                "  cfo=%5d:  A=%3d  B=%3d  C=%3d  D=%3d  E=%3d  ( of %d )\n", cfo, okA, okB, okC, okD, okE,
+                ExperimentConfig::kNumTrials);
+        }
+        std::printf("\n");
+    }
+
+    std::printf(
+        "[LabR-TS] 30dB cfo-sweep (CSV for curves):  cfo_Hz,pctA,pctB,pctC,pctD,pctE\n");
+    {
+        const int snr = 30;
+        for (int ci = 0; ci < kCfoN; ++ci) {
+            const int cfo = kCfo[ci];
+            int okA = 0, okB = 0, okC = 0, okD = 0, okE = 0;
+            for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+                int16_t rxI[256]{};
+                int16_t rxQ[256]{};
+                int8_t bits[16]{};
+                int8_t chips[64]{};
+                if (!lab_r_fill_rx_one_trial(tx, t, cfo, snr, rxI, rxQ, bits, chips)) {
+                    continue;
+                }
+                const int16_t* playI = rxI + ExperimentConfig::kPayloadOffset;
+                const int16_t* playQ = rxQ + ExperimentConfig::kPayloadOffset;
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 0, chips) == 0) {
+                    ++okA;
+                }
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 1, chips) == 0) {
+                    ++okB;
+                }
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 2, chips) == 0) {
+                    ++okC;
+                }
+                if (lab_tsrx_try_decode(rx, static_cast<uint32_t>(t), playI, playQ, bits, 3, chips) == 0) {
+                    ++okD;
+                }
+                if (lab_tsrx_try_decode_e_v5a_genie(rx, static_cast<uint32_t>(t), playI, playQ, bits,
+                                                     static_cast<double>(cfo)) == 0) {
+                    ++okE;
+                }
+            }
+            const int n = ExperimentConfig::kNumTrials;
+            std::printf("  %d,%d,%d,%d,%d,%d\n", cfo, (okA * 100) / n, (okB * 100) / n, (okC * 100) / n,
+                        (okD * 100) / n, (okE * 100) / n);
+        }
+    }
+
+    tx.Shutdown();
+    rx.Shutdown();
+    std::printf("================================================================================\n");
+    std::printf(" [LabR-TS] B는 TX·참 bits/chips(신) 동기 가정(상한). D는 |·|² Walsh 매칭이 아닌 휴리스틱. \n");
+    std::printf(" [LabR-TS] E: true CFO v5a_apply+scalar — '10Hz' 추정 품질·배치 연구는 별도 루트.\n");
+    std::printf("================================================================================\n\n");
 }
 
 static constexpr int kLabRHarshCfo[] = {0,     100,  500,   1000,  2000,  5000,  10000,
@@ -1728,13 +1960,14 @@ static void run_lab_r_verification() {
                 ExperimentConfig::kV5aAcNormThresholdLabK, ExperimentConfig::kV5aDeadzoneEpsilonHz);
     std::printf("================================================================================\n\n");
 
-    HTS_Holo_Tensor_4D tx, rx;
+    HTS_Holo_Tensor_4D_TX tx{};
+    HTS_Holo_Tensor_4D_RX rx{};
     uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
-    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
         std::printf("[LabR] FATAL: tx init\n");
         return;
     }
-    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
         tx.Shutdown();
         std::printf("[LabR] FATAL: rx init\n");
         return;
@@ -1956,7 +2189,7 @@ int main() {
     hts::rx_cfo::Build_SinCos_Table();
 
     std::printf(
-        "Phase H Lab O+P+Q+R: BUG-8 + Lab N(K) + Lab P + Lab Q + Lab R(V5a) + Lab BUG-9. "
+        "Phase H Lab O+P+Q+R+R': BUG-8 + Lab N(K) + Lab P + Lab Q + Lab R + Lab R'(TS/R&D) + Lab BUG-9. "
         "k_P1_MIN_E=%d, Lab-K ac_norm_thr=%.2f (legacy only)\n\n",
         static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
 
@@ -1986,6 +2219,8 @@ int main() {
     run_lab_q_matrix_a_bprime_btripple();
 
     run_lab_r_verification();
+
+    run_lab_r_tsrx_decode_rd();
 
     return 0;
 }

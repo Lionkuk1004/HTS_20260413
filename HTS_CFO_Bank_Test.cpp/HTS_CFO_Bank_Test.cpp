@@ -1,132 +1,96 @@
 // ============================================================================
-// HTS_CFO_Bank_Test.cpp — Stage 5: ±12 kHz Parameter Verification
+// HTS_CFO_Bank_Test.cpp — Phase H Lab: V5a + 4D Tensor Integration
 // ============================================================================
-// 목표:
-//   AMI (900 MHz) + PS-LTE (Band 28, 718~783 MHz) 공통 커버
-//   저가 TCXO (±5 ppm) × 2 = ±10 ppm 최대
-//   + Doppler (KTX 300 km/h 최대) + 온도 마진
-//   → ±12 kHz 공통 Bank 설계
+// 영준님 격리 실험 환경
+// 목적:
+//   - V5a CFO 보정 + HTS_Holo_Tensor_4D 디코딩 통합
+//   - HOLO sync ON/OFF 분기 (S5/S5H 시뮬)
+//   - rx_soft 변환 빠른 실험 ((I+Q)/2 vs I-only vs 기타)
+//   - cfo sweep 측정 → 진짜 FAIL 위치 식별
 //
-// 구조 변경:
-//   V5a 이전 (±30 kHz): Coarse 21 × 3kHz + Fine 11 × 300Hz = 64 derotate
-//   V5a Stage 5 (±12 kHz): Coarse 9 × 3kHz + Fine 11 × 300Hz = 40 derotate
+// 영준님 의도:
+//   Cursor 거치지 않고 VS 에서 직접 빠른 iteration
+//   영준님 코드 직접 인용 (TX I=Q duplicated, RX (I+Q)/2)
+//   메인트리 영향 0 (격리 환경)
 //
-// 검증 항목:
-//   1. Bank 범위 내 CFO 에서 정밀도 유지
-//   2. V9 5 Level 에서 정밀도 비교 (±30 vs ±12)
-//   3. 속도 개선 측정
-//   4. AMI/PS-LTE 실전 CFO 분포 시뮬레이션
-//
-// 이식 전 최종 검증
+// 영준님 메모리 #7, #8, #9 준수:
+//   #7 BPTE: 분기 없는 패턴
+//   #8 측정 기반: 추측 금지
+//   #9 DPTE 양산 도구셋
 // ============================================================================
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
 #include <windows.h>
+// ──────────────────────────────────────────────────────────
+// 영준님 4D 텐서 헤더 (메인트리 그대로 사용)
+// ──────────────────────────────────────────────────────────
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_TX.h"
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_RX.h"
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_Defs.h"
+using namespace ProtectedEngine;
 // ============================================================================
-// HTS CFO Bank Range — 양산 파라미터
+// ★★★ 영준님 수정 가능 영역 (실험 파라미터) ★★★
 // ============================================================================
-#ifndef HTS_CFO_RANGE_HZ
-#define HTS_CFO_RANGE_HZ 12000 // AMI + PS-LTE 공통 (저가 TCXO ±5 ppm)
-#endif
-#ifndef HTS_CFO_COARSE_STEP_HZ
-#define HTS_CFO_COARSE_STEP_HZ 3000
-#endif
-#ifndef HTS_CFO_FINE_STEP_HZ
-#define HTS_CFO_FINE_STEP_HZ 300
-#endif
-#ifndef HTS_CFO_FINE_BANKS
-#define HTS_CFO_FINE_BANKS 11 // ±1500 Hz around coarse winner
-#endif
+namespace ExperimentConfig {
+// CFO sweep 범위 (Hz)
+constexpr int kCfoSweepList[] = {0,   50,   100,  200,  300, 500,
+                                 700, 1000, 2000, 3000, 5000};
+constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
+// 트라이얼 수
+constexpr int kNumTrials = 100;
+// SNR 레벨
+constexpr int kSnrLevels[] = {30, 20, 10};
+constexpr int kSnrCount = sizeof(kSnrLevels) / sizeof(int);
+// 4D 텐서 profile (k_holo_profiles[1] DATA default 와 일치)
+constexpr int kK = 16;     // block_bits
+constexpr int kN = 64;     // chip_count
+constexpr int kL = 2;      // num_layers
+constexpr int kAmp = 500;  // amplitude
+constexpr int kDenom = 16; // (L*K)/2 = 32/2 (영준님 TX 코드)
+// V5a 보정 ON/OFF
+constexpr bool kEnableV5aCorrection = true;
+// HOLO sync 모드 (S5 vs S5H 시뮬)
+//   false: S5 (일반 동기, 동기 자동 통과)
+//   true:  S5H (HOLO 동기 시뮬, threshold 검증)
+constexpr bool kEnableHoloSync = false; // ★ 영준님 변경 가능
+// HOLO sync threshold (영준님 메모리 #6 [B]: e63_min=amp×38)
+constexpr int kHoloSyncE63Threshold = kAmp * 38;
+// Channel chip rate
+constexpr double kChipRateHz = 1e6;
+// rx_soft 변환 모드
+//   0: (I+Q)/2 (현재 메인트리, 학계 MRC)
+//   1: I 만
+//   2: Q 만 (테스트)
+//   3: |I| > |Q| 시 I, 아니면 Q (dominant)
+//   4: I + Q (단순 합)
+constexpr int kRxSoftMode = 0; // ★ 영준님 변경 가능
+// BPTE chip validity threshold (0 = 모두 valid)
+constexpr int32_t kChipValidThreshold = 0; // ★ 영준님 변경 가능
+} // namespace ExperimentConfig
+// ============================================================================
+// Sin/Cos LUT (Q14)
+// ============================================================================
 namespace {
-constexpr int kChipsPerSym = 64;
-constexpr int kPreambleChips = 128;
-constexpr int kChipRateHz = 1000000;
-// Bank 파라미터 (매크로로부터 계산)
-constexpr int kCfoMin = -HTS_CFO_RANGE_HZ;
-constexpr int kCfoMax = +HTS_CFO_RANGE_HZ;
-constexpr int kCoarseStep = HTS_CFO_COARSE_STEP_HZ;
-constexpr int kCoarseBankCount = (kCfoMax - kCfoMin) / kCoarseStep + 1;
-constexpr int kFineStep = HTS_CFO_FINE_STEP_HZ;
-constexpr int kFineBankCount = HTS_CFO_FINE_BANKS;
-// 테스트 CFO 범위 (Bank 범위 내)
-constexpr int kTestCfoMin = -HTS_CFO_RANGE_HZ;
-constexpr int kTestCfoMax = +HTS_CFO_RANGE_HZ;
-constexpr int kTestCfoStep = 1000;
-constexpr int kTestCfoCount = (kTestCfoMax - kTestCfoMin) / kTestCfoStep + 1;
-constexpr int kTrialsPerPoint = 200;
-constexpr int8_t kW63[kChipsPerSym] = {
-    1,  -1, -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, 1,  -1, -1, 1,
-    -1, 1,  1,  -1, 1,  -1, -1, 1,  1,  -1, -1, 1,  -1, 1,  1,  -1,
-    -1, 1,  1,  -1, 1,  -1, -1, 1,  1,  -1, -1, 1,  -1, 1,  1,  -1,
-    1,  -1, -1, 1,  -1, 1,  1,  -1, -1, 1,  1,  -1, 1,  -1, -1, 1};
-constexpr int16_t kTxAmp = 2000;
-constexpr int32_t kQ14One = 16384;
-constexpr double kPi = 3.14159265358979323846;
-// Sin/Cos Table (Stage 2)
 constexpr int kSinCosTableSize = 1024;
 constexpr int kSinCosIndexShift = 22;
+constexpr int32_t kQ14One = 16384;
+constexpr double kPi = 3.14159265358979323846;
 int16_t g_sin_table[kSinCosTableSize];
 int16_t g_cos_table[kSinCosTableSize];
-// L&R 파라미터
-constexpr int kLR_SegSize = 16;
-constexpr int kLR_NumSeg = 8;
-constexpr int kLR_MaxLag = 4;
-// V9 Difficulty Levels
-enum DifficultyLevel {
-    LVL1_NORMAL,
-    LVL2_URBAN,
-    LVL3_INDUSTRIAL,
-    LVL4_MILITARY,
-    LVL5_EXTREME
-};
-struct RandomEnv {
-    int snr_db;
-    double init_phase;
-    double cfo_drift_hz_per_chip;
-    int n_path;
-    int mp_delay[4];
-    double mp_gain[4];
-    double mp_phase[4];
-    int n_cw;
-    double cw_freq[3];
-    double cw_phase[3];
-    double cw_amp[3];
-    bool sweep_enable;
-    double sweep_start_hz;
-    double sweep_rate_hz_per_chip;
-    double sweep_amp;
-    double impulse_prob;
-    double impulse_amp;
-    double agc_scale;
-    double dc_I, dc_Q;
-};
-} // anonymous namespace
-// ============================================================================
-// Timer
-// ============================================================================
-static LARGE_INTEGER g_freq_timer;
-static inline void timer_init() noexcept {
-    QueryPerformanceFrequency(&g_freq_timer);
+static void build_sincos_table() noexcept {
+    for (int i = 0; i < kSinCosTableSize; ++i) {
+        const double angle = 2.0 * kPi * i / kSinCosTableSize;
+        g_sin_table[i] = static_cast<int16_t>(std::sin(angle) * kQ14One);
+        g_cos_table[i] = static_cast<int16_t>(std::cos(angle) * kQ14One);
+    }
 }
-static inline int64_t timer_now() noexcept {
-    LARGE_INTEGER now;
-    QueryPerformanceCounter(&now);
-    return now.QuadPart;
-}
-static inline double timer_ns(int64_t diff) noexcept {
-    return static_cast<double>(diff) * 1e9 /
-           static_cast<double>(g_freq_timer.QuadPart);
-}
+} // namespace
 // ============================================================================
-// 유틸
+// 난수 생성기
 // ============================================================================
-static inline void q14_sincos_double(double a, int32_t &s,
-                                     int32_t &c) noexcept {
-    s = static_cast<int32_t>(std::sin(a) * kQ14One);
-    c = static_cast<int32_t>(std::cos(a) * kQ14One);
-}
+namespace {
 static uint32_t g_rng = 1u;
 static inline void rng_seed(uint32_t seed) noexcept {
     g_rng = seed ? seed : 1u;
@@ -138,15 +102,6 @@ static inline uint32_t rng_next() noexcept {
 static inline double rng_uniform() noexcept {
     return static_cast<double>(rng_next()) / 4294967296.0;
 }
-static inline double rng_uniform_signed() noexcept {
-    return rng_uniform() * 2.0 - 1.0;
-}
-static inline int rng_range_int(int lo, int hi) noexcept {
-    return lo + static_cast<int>(rng_uniform() * (hi - lo + 1));
-}
-static inline double rng_range(double lo, double hi) noexcept {
-    return lo + rng_uniform() * (hi - lo);
-}
 static inline double rng_gauss() noexcept {
     double u1 = rng_uniform();
     double u2 = rng_uniform();
@@ -154,23 +109,81 @@ static inline double rng_gauss() noexcept {
         u1 = 1e-10;
     return std::sqrt(-2.0 * std::log(u1)) * std::cos(2.0 * kPi * u2);
 }
+} // namespace
 // ============================================================================
-// Sin/Cos Table 생성
+// Channel: CFO 회전 + AWGN
 // ============================================================================
-static void build_sincos_table() noexcept {
-    for (int i = 0; i < kSinCosTableSize; ++i) {
-        const double angle = 2.0 * kPi * i / kSinCosTableSize;
-        g_sin_table[i] = static_cast<int16_t>(std::sin(angle) * kQ14One);
-        g_cos_table[i] = static_cast<int16_t>(std::cos(angle) * kQ14One);
+static void channel_apply(const int16_t *tx_I, const int16_t *tx_Q,
+                          int16_t *rx_I, int16_t *rx_Q, int chips,
+                          double cfo_hz, int snr_db,
+                          uint32_t ch_seed) noexcept {
+    rng_seed(ch_seed);
+    // 신호 전력 계산
+    double sig_pow = 0.0;
+    for (int k = 0; k < chips; ++k) {
+        sig_pow += static_cast<double>(tx_I[k]) * tx_I[k];
+        sig_pow += static_cast<double>(tx_Q[k]) * tx_Q[k];
+    }
+    sig_pow /= chips;
+    const double noise_sigma =
+        (sig_pow > 0.0) ? std::sqrt(sig_pow / std::pow(10.0, snr_db / 10.0))
+                        : 0.0;
+    const double phase_inc = 2.0 * kPi * cfo_hz / ExperimentConfig::kChipRateHz;
+    double phase = 0.0;
+    for (int k = 0; k < chips; ++k) {
+        const double cs = std::cos(phase);
+        const double sn = std::sin(phase);
+        double rotI = tx_I[k] * cs - tx_Q[k] * sn;
+        double rotQ = tx_I[k] * sn + tx_Q[k] * cs;
+        rotI += rng_gauss() * noise_sigma;
+        rotQ += rng_gauss() * noise_sigma;
+        int32_t fI = static_cast<int32_t>(rotI);
+        int32_t fQ = static_cast<int32_t>(rotQ);
+        if (fI > 32767)
+            fI = 32767;
+        if (fI < -32768)
+            fI = -32768;
+        if (fQ > 32767)
+            fQ = 32767;
+        if (fQ < -32768)
+            fQ = -32768;
+        rx_I[k] = static_cast<int16_t>(fI);
+        rx_Q[k] = static_cast<int16_t>(fQ);
+        phase += phase_inc;
     }
 }
 // ============================================================================
-// Derotate (Table + Phase Precompute)
+// V5a 단순 CFO 추정 + 보정 (autocorr lag-32)
 // ============================================================================
-static void derotate(const int16_t *rI, const int16_t *rQ, int16_t *oI,
-                     int16_t *oQ, int chips, int cfo_hz) noexcept {
+//   영준님 V5a 의 단순 모델
+//   autocorr ac = Σ I[n]·I[n+32] + Q[n]·Q[n+32]
+//                  Σ Q[n]·I[n+32] - I[n]·Q[n+32]
+//   atan2 → cfo_hz
+static double v5a_estimate_cfo(const int16_t *rx_I, const int16_t *rx_Q,
+                               int chips, int lag) noexcept {
+    double ac_I = 0.0;
+    double ac_Q = 0.0;
+    for (int n = 0; n + lag < chips; ++n) {
+        ac_I += static_cast<double>(rx_I[n]) * rx_I[n + lag] +
+                static_cast<double>(rx_Q[n]) * rx_Q[n + lag];
+        ac_Q += static_cast<double>(rx_Q[n]) * rx_I[n + lag] -
+                static_cast<double>(rx_I[n]) * rx_Q[n + lag];
+    }
+    if (std::abs(ac_I) < 1e-6 && std::abs(ac_Q) < 1e-6) {
+        return 0.0;
+    }
+    const double phase = std::atan2(ac_Q, ac_I);
+    const double cfo_hz =
+        phase * ExperimentConfig::kChipRateHz / (2.0 * kPi * lag);
+    return cfo_hz;
+}
+// V5a per-chip CFO 보정 (LUT 기반, 양산 V5a 와 유사)
+static void v5a_apply_per_chip(const int16_t *rx_I, const int16_t *rx_Q,
+                               int16_t *out_I, int16_t *out_Q, int chips,
+                               double cfo_hz) noexcept {
     const int64_t phase_inc_q32_s64 =
-        -(static_cast<int64_t>(cfo_hz) * 4294967296LL) / kChipRateHz;
+        -(static_cast<int64_t>(cfo_hz * 4294967296.0) /
+          static_cast<int64_t>(ExperimentConfig::kChipRateHz));
     const uint32_t phase_inc_q32 = static_cast<uint32_t>(phase_inc_q32_s64);
     uint32_t phase_q32 = 0;
     for (int k = 0; k < chips; ++k) {
@@ -178,8 +191,8 @@ static void derotate(const int16_t *rI, const int16_t *rQ, int16_t *oI,
             (phase_q32 >> kSinCosIndexShift) & (kSinCosTableSize - 1);
         const int32_t cos_q14 = g_cos_table[idx];
         const int32_t sin_q14 = g_sin_table[idx];
-        const int32_t x = rI[k];
-        const int32_t y = rQ[k];
+        const int32_t x = rx_I[k];
+        const int32_t y = rx_Q[k];
         int32_t a = (x * cos_q14 - y * sin_q14) >> 14;
         int32_t b = (x * sin_q14 + y * cos_q14) >> 14;
         if (a > 32767)
@@ -190,507 +203,364 @@ static void derotate(const int16_t *rI, const int16_t *rQ, int16_t *oI,
             b = 32767;
         if (b < -32768)
             b = -32768;
-        oI[k] = static_cast<int16_t>(a);
-        oQ[k] = static_cast<int16_t>(b);
+        out_I[k] = static_cast<int16_t>(a);
+        out_Q[k] = static_cast<int16_t>(b);
         phase_q32 += phase_inc_q32;
     }
 }
 // ============================================================================
-// Walsh / Energy / L&R
+// HOLO 동기 시뮬 (영준님 메모리 #6 [B])
+//   - PRE_SYM0 = 0x3F (Walsh row 63)
+//   - threshold: e63_min = amp × 38
+//   - 단순 FWHT 기반 sync 임계 검증
 // ============================================================================
-static inline void walsh63_dot(const int16_t *rI, const int16_t *rQ,
-                               int32_t &dI, int32_t &dQ) noexcept {
-    int32_t aI = 0, aQ = 0;
-    for (int k = 0; k < kChipsPerSym; ++k) {
-        const int8_t w = kW63[k];
-        aI += static_cast<int32_t>(rI[k]) * w;
-        aQ += static_cast<int32_t>(rQ[k]) * w;
-    }
-    dI = aI;
-    dQ = aQ;
-}
-static inline int64_t energy_multiframe(const int16_t *rI,
-                                        const int16_t *rQ) noexcept {
-    int32_t d0I, d0Q, d1I, d1Q;
-    walsh63_dot(&rI[0], &rQ[0], d0I, d0Q);
-    walsh63_dot(&rI[kChipsPerSym], &rQ[kChipsPerSym], d1I, d1Q);
-    return (int64_t)d0I * d0I + (int64_t)d0Q * d0Q + (int64_t)d1I * d1I +
-           (int64_t)d1Q * d1Q;
-}
-struct LR_Result {
-    double cfo_hz;
-};
-static LR_Result lr_estimator(const int16_t *rI, const int16_t *rQ) noexcept {
-    LR_Result r;
-    int32_t seg_I[kLR_NumSeg];
-    int32_t seg_Q[kLR_NumSeg];
-    for (int s = 0; s < kLR_NumSeg; ++s) {
-        int32_t aI = 0, aQ = 0;
-        const int base = s * kLR_SegSize;
-        for (int k = 0; k < kLR_SegSize; ++k) {
-            const int walsh_idx = (base + k) % kChipsPerSym;
-            const int8_t w = kW63[walsh_idx];
-            aI += (int32_t)rI[base + k] * w;
-            aQ += (int32_t)rQ[base + k] * w;
-        }
-        seg_I[s] = aI;
-        seg_Q[s] = aQ;
-    }
-    double accu_re = 0.0;
-    double accu_im = 0.0;
-    for (int lag = 1; lag <= kLR_MaxLag; ++lag) {
-        int64_t R_re = 0;
-        int64_t R_im = 0;
-        for (int n = 0; n + lag < kLR_NumSeg; ++n) {
-            const int64_t aI = seg_I[n + lag];
-            const int64_t aQ = seg_Q[n + lag];
-            const int64_t bI = seg_I[n];
-            const int64_t bQ = seg_Q[n];
-            R_re += aI * bI + aQ * bQ;
-            R_im += aQ * bI - aI * bQ;
-        }
-        accu_re += (double)R_re;
-        accu_im += (double)R_im;
-    }
-    const double phase = std::atan2(accu_im, accu_re);
-    const double M_mean = (kLR_MaxLag + 1) / 2.0;
-    const double T_seg_sec = kLR_SegSize / (double)kChipRateHz;
-    r.cfo_hz = phase / (2.0 * kPi * M_mean * T_seg_sec);
-    return r;
-}
-// ============================================================================
-// V5a Detect
-// ============================================================================
-struct DetectResult {
-    bool pass;
-    int32_t cfo_hz;
-};
-static DetectResult detect_v5a(const int16_t *rx_I,
-                               const int16_t *rx_Q) noexcept {
-    DetectResult res = {};
-    int16_t tI[kPreambleChips], tQ[kPreambleChips];
-    int32_t cfo_estimate = 0;
-    for (int pass = 0; pass < 2; ++pass) {
-        // Stage 1: Coarse
-        int32_t cb_cfo = 0;
-        int64_t cb_e = 0;
-        for (int b = 0; b < kCoarseBankCount; ++b) {
-            const int cfo_total = cfo_estimate + (kCfoMin + b * kCoarseStep);
-            derotate(rx_I, rx_Q, tI, tQ, kPreambleChips, cfo_total);
-            const int64_t e = energy_multiframe(tI, tQ);
-            if (e > cb_e) {
-                cb_e = e;
-                cb_cfo = cfo_total;
+static void fwht_64(int32_t *data) noexcept {
+    int h = 1;
+    while (h < 64) {
+        for (int i = 0; i < 64; i += h * 2) {
+            for (int j = i; j < i + h; ++j) {
+                const int32_t x = data[j];
+                const int32_t y = data[j + h];
+                data[j] = x + y;
+                data[j + h] = x - y;
             }
         }
-        // Stage 2: Fine
-        int32_t best_cfo = cb_cfo;
-        int64_t best_e = cb_e;
-        for (int f = 0; f < kFineBankCount; ++f) {
-            const int cfo =
-                cb_cfo - (kFineBankCount / 2) * kFineStep + f * kFineStep;
-            derotate(rx_I, rx_Q, tI, tQ, kPreambleChips, cfo);
-            const int64_t e = energy_multiframe(tI, tQ);
-            if (e > best_e) {
-                best_e = e;
-                best_cfo = cfo;
-            }
-        }
-        // Stage 3: L&R
-        derotate(rx_I, rx_Q, tI, tQ, kPreambleChips, best_cfo);
-        LR_Result lr = lr_estimator(tI, tQ);
-        cfo_estimate = best_cfo + (int32_t)lr.cfo_hz;
-        if (pass == 0) {
-            const int64_t thr = (int64_t)kTxAmp * 38;
-            const int64_t thr_sq = thr * thr;
-            res.pass = (best_e >= thr_sq);
-        }
+        h *= 2;
     }
-    res.cfo_hz = cfo_estimate;
+}
+static bool holo_sync_check(const int16_t *rx_I, const int16_t *rx_Q) noexcept {
+    int32_t wI[64], wQ[64];
+    for (int k = 0; k < 64; ++k) {
+        wI[k] = rx_I[k];
+        wQ[k] = rx_Q[k];
+    }
+    fwht_64(wI);
+    fwht_64(wQ);
+    // bin 63 의 에너지 (PRE_SYM0=0x3F)
+    const int64_t e63 = static_cast<int64_t>(wI[63]) * wI[63] +
+                        static_cast<int64_t>(wQ[63]) * wQ[63];
+    const int64_t thr =
+        static_cast<int64_t>(ExperimentConfig::kHoloSyncE63Threshold) *
+        ExperimentConfig::kHoloSyncE63Threshold;
+    return e63 >= thr;
+}
+// HOLO preamble 생성 (TX 측, 영준님 코드의 walsh_enc 패턴)
+static void generate_holo_preamble(int16_t *tx_I, int16_t *tx_Q,
+                                   int amp) noexcept {
+    // PRE_SYM0 = 0x3F = Walsh row 63
+    const uint8_t row = 63;
+    for (int c = 0; c < 64; ++c) {
+        uint32_t x = row & static_cast<uint32_t>(c);
+        const int parity = __builtin_popcount(x) & 1;
+        // chip = amp × (-1)^parity
+        tx_I[c] = static_cast<int16_t>(parity ? -amp : amp);
+        tx_Q[c] = 0;
+    }
+}
+// ============================================================================
+// rx_soft 생성 (★ 영준님 수정 가능)
+// ============================================================================
+static void rx_soft_generate(const int16_t *buf_I, const int16_t *buf_Q,
+                             int16_t *rx_soft, int N,
+                             uint64_t *out_valid_mask) noexcept {
+    uint64_t valid_mask = 0u;
+    for (int c = 0; c < N; ++c) {
+        const int32_t i_val = static_cast<int32_t>(buf_I[c]);
+        const int32_t q_val = static_cast<int32_t>(buf_Q[c]);
+        // BPTE chip validity (영준님 메모리 #7)
+        int32_t valid_chip;
+        if (ExperimentConfig::kChipValidThreshold > 0) {
+            const int32_t mag_sq = i_val * i_val + q_val * q_val;
+            const int64_t diff =
+                static_cast<int64_t>(mag_sq) -
+                static_cast<int64_t>(ExperimentConfig::kChipValidThreshold);
+            valid_chip = static_cast<int32_t>(~(diff >> 63));
+        } else {
+            valid_chip = -1; // all 1s (모두 valid)
+        }
+        // rx_soft 변환 (모드 별)
+        int32_t soft;
+        switch (ExperimentConfig::kRxSoftMode) {
+        case 0: // (I+Q)/2 — 메인트리 현재
+            soft = (i_val + q_val) / 2;
+            break;
+        case 1: // I 만
+            soft = i_val;
+            break;
+        case 2: // Q 만
+            soft = q_val;
+            break;
+        case 3: { // dominant (|I| > |Q| 시 I)
+            const int32_t abs_i = (i_val < 0) ? -i_val : i_val;
+            const int32_t abs_q = (q_val < 0) ? -q_val : q_val;
+            soft = (abs_i > abs_q) ? i_val : q_val;
+            break;
+        }
+        case 4: // I + Q
+            soft = i_val + q_val;
+            break;
+        default:
+            soft = (i_val + q_val) / 2;
+            break;
+        }
+        // BPTE invalidation
+        rx_soft[c] = static_cast<int16_t>(soft & valid_chip);
+        // valid_mask 갱신
+        valid_mask |= (static_cast<uint64_t>(valid_chip & 1u)
+                       << static_cast<uint32_t>(c));
+    }
+    *out_valid_mask = valid_mask;
+}
+// ============================================================================
+// TX (영준님 Build_Packet 의 4D 텐서 분기 직접 포팅)
+// ============================================================================
+static int tx_build_tensor(HTS_Holo_Tensor_4D_TX &tensor, const int8_t *data_bits,
+                           int16_t *tx_I, int16_t *tx_Q, int amp) noexcept {
+    int8_t chip_bpsk[64];
+    if (tensor.Encode_Block(
+            data_bits, static_cast<uint16_t>(ExperimentConfig::kK), chip_bpsk,
+            static_cast<uint16_t>(ExperimentConfig::kN)) !=
+        HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        return 0;
+    }
+    // 영준님 코드:
+    //   prod = chip_bpsk[c] × amp
+    //   v = (prod >= 0) ? ((prod + denom/2) / denom)
+    //                   : ((prod - denom/2) / denom)
+    //   oI[pos] = v;
+    //   oQ[pos] = v;  ← I = Q duplicated
+    const int denom = ExperimentConfig::kDenom;
+    const int half_denom = denom >> 1;
+    for (int c = 0; c < ExperimentConfig::kN; ++c) {
+        const int32_t prod = static_cast<int32_t>(chip_bpsk[c]) * amp;
+        const int32_t v = (prod >= 0) ? ((prod + half_denom) / denom)
+                                      : ((prod - half_denom) / denom);
+        tx_I[c] = static_cast<int16_t>(v);
+        tx_Q[c] = static_cast<int16_t>(v);
+    }
+    return ExperimentConfig::kN;
+}
+// ============================================================================
+// 시나리오 결과
+// ============================================================================
+struct TestResult {
+    int sync_pass;
+    int decode_pass;
+    int total_bit_err;
+    int total_bits;
+};
+// ============================================================================
+// CFO Sweep 측정 (한 SNR)
+// ============================================================================
+static TestResult run_one_cfo(int cfo_hz, int snr_db, int num_trials) {
+    TestResult res = {0, 0, 0, 0};
+    HTS_Holo_Tensor_4D_TX tx_tensor;
+    HTS_Holo_Tensor_4D_RX rx_tensor;
+    uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u,
+                               0xC3D3C3C3u};
+    if (tx_tensor.Initialize(master_seed, nullptr) !=
+        HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        return res;
+    }
+    if (rx_tensor.Initialize(master_seed, nullptr) !=
+        HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+        tx_tensor.Shutdown();
+        return res;
+    }
+    for (int trial = 0; trial < num_trials; ++trial) {
+        // 데이터 생성 (랜덤)
+        rng_seed(static_cast<uint32_t>(trial * 7919u + 13u));
+        int8_t data_bits[16];
+        for (int i = 0; i < ExperimentConfig::kK; ++i) {
+            data_bits[i] = (rng_next() & 1u) ? 1 : -1;
+        }
+        // TX: 4D 텐서 + I=Q 변조
+        tx_tensor.Set_Time_Slot(static_cast<uint32_t>(trial));
+        int16_t tx_I[64], tx_Q[64];
+        if (tx_build_tensor(tx_tensor, data_bits, tx_I, tx_Q,
+                            ExperimentConfig::kAmp) == 0) {
+            continue;
+        }
+        // HOLO sync 모드: preamble 추가 송신 (시뮬은 동기 단계만)
+        bool sync_ok = true;
+        if (ExperimentConfig::kEnableHoloSync) {
+            int16_t pre_I[64], pre_Q[64];
+            generate_holo_preamble(pre_I, pre_Q, ExperimentConfig::kAmp);
+            // 채널 적용
+            int16_t pre_rx_I[64], pre_rx_Q[64];
+            const uint32_t pre_seed = static_cast<uint32_t>(trial * 31u + 7u);
+            channel_apply(pre_I, pre_Q, pre_rx_I, pre_rx_Q, 64,
+                          static_cast<double>(cfo_hz), snr_db, pre_seed);
+            // V5a 보정 (preamble 도)
+            int16_t pre_corr_I[64], pre_corr_Q[64];
+            if (ExperimentConfig::kEnableV5aCorrection) {
+                const double cfo_est =
+                    v5a_estimate_cfo(pre_rx_I, pre_rx_Q, 64, 32);
+                v5a_apply_per_chip(pre_rx_I, pre_rx_Q, pre_corr_I, pre_corr_Q,
+                                   64, cfo_est);
+            } else {
+                std::memcpy(pre_corr_I, pre_rx_I, sizeof(pre_corr_I));
+                std::memcpy(pre_corr_Q, pre_rx_Q, sizeof(pre_corr_Q));
+            }
+            // HOLO sync 임계 검증
+            sync_ok = holo_sync_check(pre_corr_I, pre_corr_Q);
+        }
+        if (sync_ok) {
+            ++res.sync_pass;
+        } else {
+            // sync 실패 = decode 시도 안 함 (S5H FAIL 시뮬)
+            res.total_bits += ExperimentConfig::kK;
+            res.total_bit_err += ExperimentConfig::kK; // worst case
+            continue;
+        }
+        // 채널: payload chip
+        int16_t rx_I[64], rx_Q[64];
+        const uint32_t ch_seed = static_cast<uint32_t>(trial * 31u + 19u);
+        channel_apply(tx_I, tx_Q, rx_I, rx_Q, ExperimentConfig::kN,
+                      static_cast<double>(cfo_hz), snr_db, ch_seed);
+        // V5a CFO 보정
+        int16_t corr_I[64], corr_Q[64];
+        if (ExperimentConfig::kEnableV5aCorrection) {
+            const double cfo_est =
+                v5a_estimate_cfo(rx_I, rx_Q, ExperimentConfig::kN, 32);
+            v5a_apply_per_chip(rx_I, rx_Q, corr_I, corr_Q, ExperimentConfig::kN,
+                               cfo_est);
+        } else {
+            std::memcpy(corr_I, rx_I, sizeof(corr_I));
+            std::memcpy(corr_Q, rx_Q, sizeof(corr_Q));
+        }
+        // RX rx_soft 생성 (★ 영준님 수정 가능 영역)
+        int16_t rx_soft[64];
+        uint64_t valid_mask = 0xFFFFFFFFFFFFFFFFull;
+        rx_soft_generate(corr_I, corr_Q, rx_soft, ExperimentConfig::kN,
+                         &valid_mask);
+        // 4D 텐서 디코딩
+        rx_tensor.Set_Time_Slot(static_cast<uint32_t>(trial));
+        int8_t output_bits[16];
+        if (rx_tensor.Decode_Block(
+                rx_soft, static_cast<uint16_t>(ExperimentConfig::kN),
+                valid_mask, output_bits,
+                static_cast<uint16_t>(ExperimentConfig::kK)) !=
+            HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+            res.total_bits += ExperimentConfig::kK;
+            res.total_bit_err += ExperimentConfig::kK;
+            continue;
+        }
+        // 검증
+        int bit_err = 0;
+        for (int i = 0; i < ExperimentConfig::kK; ++i) {
+            if (output_bits[i] != data_bits[i])
+                ++bit_err;
+        }
+        res.total_bit_err += bit_err;
+        res.total_bits += ExperimentConfig::kK;
+        if (bit_err == 0)
+            ++res.decode_pass;
+    }
+    rx_tensor.Shutdown();
+    tx_tensor.Shutdown();
     return res;
 }
 // ============================================================================
-// 채널 (V9 축약)
+// rx_soft 모드 이름
 // ============================================================================
-static void generate_preamble(int16_t *tx_I, int16_t *tx_Q,
-                              int16_t amp) noexcept {
-    for (int k = 0; k < kChipsPerSym; ++k) {
-        tx_I[k] = static_cast<int16_t>(kW63[k] * amp);
-        tx_Q[k] = 0;
-    }
-    for (int k = 0; k < kChipsPerSym; ++k) {
-        tx_I[kChipsPerSym + k] = static_cast<int16_t>(kW63[k] * amp);
-        tx_Q[kChipsPerSym + k] = 0;
-    }
-}
-static RandomEnv generate_env(DifficultyLevel lvl, uint32_t env_seed) noexcept {
-    rng_seed(env_seed);
-    RandomEnv e = {};
-    e.init_phase = rng_uniform() * 2.0 * kPi;
-    e.agc_scale = rng_range(0.9, 1.1);
-    switch (lvl) {
-    case LVL1_NORMAL:
-        e.snr_db = rng_range_int(10, 25);
-        e.n_path = rng_range_int(0, 1);
-        e.n_cw = 0;
-        e.sweep_enable = false;
-        e.impulse_prob = 0;
-        e.dc_I = rng_uniform_signed() * 0.02 * kTxAmp;
-        e.dc_Q = rng_uniform_signed() * 0.02 * kTxAmp;
-        break;
-    case LVL2_URBAN:
-        e.snr_db = rng_range_int(5, 20);
-        e.cfo_drift_hz_per_chip = rng_range(0, 0.3);
-        e.n_path = rng_range_int(1, 3);
-        e.n_cw = rng_range_int(0, 1);
-        e.impulse_prob = rng_range(0, 0.005);
-        e.agc_scale = rng_range(0.85, 1.15);
-        e.dc_I = rng_uniform_signed() * 0.04 * kTxAmp;
-        e.dc_Q = rng_uniform_signed() * 0.04 * kTxAmp;
-        break;
-    case LVL3_INDUSTRIAL:
-        e.snr_db = rng_range_int(0, 15);
-        e.cfo_drift_hz_per_chip = rng_range(0, 0.5);
-        e.n_path = rng_range_int(1, 3);
-        e.n_cw = rng_range_int(1, 2);
-        e.impulse_prob = rng_range(0.005, 0.02);
-        e.agc_scale = rng_range(0.8, 1.2);
-        e.dc_I = rng_uniform_signed() * 0.05 * kTxAmp;
-        e.dc_Q = rng_uniform_signed() * 0.05 * kTxAmp;
-        break;
-    case LVL4_MILITARY:
-        e.snr_db = rng_range_int(-5, 10);
-        e.cfo_drift_hz_per_chip = rng_range(0.2, 0.8);
-        e.n_path = rng_range_int(2, 4);
-        e.n_cw = rng_range_int(1, 3);
-        e.sweep_enable = (rng_uniform() > 0.5);
-        e.impulse_prob = rng_range(0.01, 0.03);
-        e.agc_scale = rng_range(0.75, 1.25);
-        e.dc_I = rng_uniform_signed() * 0.06 * kTxAmp;
-        e.dc_Q = rng_uniform_signed() * 0.06 * kTxAmp;
-        break;
-    case LVL5_EXTREME:
-        e.snr_db = rng_range_int(-20, 5);
-        e.cfo_drift_hz_per_chip = rng_range(0.5, 1.5);
-        e.n_path = rng_range_int(2, 4);
-        e.n_cw = 3;
-        e.sweep_enable = (rng_uniform() > 0.3);
-        e.impulse_prob = rng_range(0.02, 0.05);
-        e.agc_scale = rng_range(0.7, 1.3);
-        e.dc_I = rng_uniform_signed() * 0.07 * kTxAmp;
-        e.dc_Q = rng_uniform_signed() * 0.07 * kTxAmp;
-        break;
+static const char *rx_soft_mode_name(int mode) {
+    switch (mode) {
+    case 0:
+        return "(I+Q)/2";
+    case 1:
+        return "I only";
+    case 2:
+        return "Q only";
+    case 3:
+        return "dominant";
+    case 4:
+        return "I+Q";
     default:
-        break;
-    }
-    for (int i = 0; i < e.n_path; ++i) {
-        e.mp_delay[i] = rng_range_int(1, 8);
-        e.mp_gain[i] = rng_range(0.2, 0.8);
-        e.mp_phase[i] = rng_uniform() * 2.0 * kPi;
-    }
-    const double jsr_min = (lvl == LVL4_MILITARY)  ? 5.0
-                           : (lvl == LVL5_EXTREME) ? 10.0
-                                                   : 0.0;
-    const double jsr_max = (lvl == LVL4_MILITARY)  ? 15.0
-                           : (lvl == LVL5_EXTREME) ? 30.0
-                                                   : 5.0;
-    for (int i = 0; i < e.n_cw; ++i) {
-        // CW 재밍도 Bank 범위 근처로 제한 (실제 환경 모사)
-        e.cw_freq[i] = rng_uniform_signed() * 8000.0; // ±8 kHz 내
-        e.cw_phase[i] = rng_uniform() * 2.0 * kPi;
-        const double jsr = rng_range(jsr_min, jsr_max);
-        e.cw_amp[i] = kTxAmp * std::pow(10.0, jsr / 20.0);
-    }
-    if (e.sweep_enable) {
-        e.sweep_start_hz = rng_uniform_signed() * 5000.0;
-        e.sweep_rate_hz_per_chip = rng_range(-300, 300);
-        const double sj_jsr = rng_range(jsr_min, jsr_max);
-        e.sweep_amp = kTxAmp * std::pow(10.0, sj_jsr / 20.0);
-    }
-    e.impulse_amp = kTxAmp * rng_range(5.0, 15.0);
-    return e;
-}
-static void apply_random_channel(const int16_t *tx_I, const int16_t *tx_Q,
-                                 int16_t *rx_I, int16_t *rx_Q, int chips,
-                                 int cfo_hz, const RandomEnv &env,
-                                 uint32_t ch_seed) noexcept {
-    rng_seed(ch_seed);
-    double phase = env.init_phase;
-    const double base_phase_inc = 2.0 * kPi * cfo_hz / kChipRateHz;
-    const double noise_sigma = kTxAmp * std::pow(10.0, -env.snr_db / 20.0);
-    double cw_phase_state[3];
-    for (int i = 0; i < 3; ++i)
-        cw_phase_state[i] = env.cw_phase[i];
-    double sweep_phase = 0.0;
-    double sweep_freq = env.sweep_start_hz;
-    for (int k = 0; k < chips; ++k) {
-        const double drift = base_phase_inc + 2.0 * kPi *
-                                                  env.cfo_drift_hz_per_chip *
-                                                  k / kChipRateHz;
-        int32_t sin_q14, cos_q14;
-        q14_sincos_double(phase, sin_q14, cos_q14);
-        double rotI = (double)(tx_I[k] * cos_q14 - tx_Q[k] * sin_q14) / kQ14One;
-        double rotQ = (double)(tx_I[k] * sin_q14 + tx_Q[k] * cos_q14) / kQ14One;
-        rotI *= env.agc_scale;
-        rotQ *= env.agc_scale;
-        for (int p = 0; p < env.n_path; ++p) {
-            if (k >= env.mp_delay[p]) {
-                const double mp_ph =
-                    phase - base_phase_inc * env.mp_delay[p] + env.mp_phase[p];
-                int32_t ms, mc;
-                q14_sincos_double(mp_ph, ms, mc);
-                const int32_t mI = tx_I[k - env.mp_delay[p]];
-                const int32_t mQ = tx_Q[k - env.mp_delay[p]];
-                rotI += env.mp_gain[p] * (double)(mI * mc - mQ * ms) / kQ14One;
-                rotQ += env.mp_gain[p] * (double)(mI * ms + mQ * mc) / kQ14One;
-            }
-        }
-        for (int i = 0; i < env.n_cw; ++i) {
-            rotI += env.cw_amp[i] * std::cos(cw_phase_state[i]);
-            rotQ += env.cw_amp[i] * std::sin(cw_phase_state[i]);
-            cw_phase_state[i] += 2.0 * kPi * env.cw_freq[i] / kChipRateHz;
-        }
-        if (env.sweep_enable) {
-            rotI += env.sweep_amp * std::cos(sweep_phase);
-            rotQ += env.sweep_amp * std::sin(sweep_phase);
-            sweep_phase += 2.0 * kPi * sweep_freq / kChipRateHz;
-            sweep_freq += env.sweep_rate_hz_per_chip;
-        }
-        rotI += rng_gauss() * noise_sigma;
-        rotQ += rng_gauss() * noise_sigma;
-        if (rng_uniform() < env.impulse_prob) {
-            rotI += rng_gauss() * env.impulse_amp;
-            rotQ += rng_gauss() * env.impulse_amp;
-        }
-        rotI += env.dc_I;
-        rotQ += env.dc_Q;
-        int32_t fI = (int32_t)rotI;
-        int32_t fQ = (int32_t)rotQ;
-        if (fI > 32767)
-            fI = 32767;
-        if (fI < -32768)
-            fI = -32768;
-        if (fQ > 32767)
-            fQ = 32767;
-        if (fQ < -32768)
-            fQ = -32768;
-        rx_I[k] = (int16_t)fI;
-        rx_Q[k] = (int16_t)fQ;
-        phase += drift;
+        return "unknown";
     }
 }
 // ============================================================================
-// AMI / PS-LTE 실전 CFO 분포 모사
+// 메인 (test_holo_tensor_cfo_sweep)
 // ============================================================================
-// 저가 TCXO ±5 ppm × 2 = ±10 ppm
-// AMI 900 MHz: ±9 kHz
-// PS-LTE 718~783 MHz: ±7.8 kHz
-// + 온도 마진 30%
-// → Gaussian 분포 (σ = 3 kHz, 99% 내)
-static int sample_realistic_cfo(uint32_t seed) noexcept {
-    rng_seed(seed);
-    const double sigma = 3000.0; // ppm drift 평균
-    double cfo = rng_gauss() * sigma;
-    // Clamp to ±10 kHz (realistic max)
-    if (cfo > 10000.0)
-        cfo = 10000.0;
-    if (cfo < -10000.0)
-        cfo = -10000.0;
-    return (int)cfo;
+void test_holo_tensor_cfo_sweep() {
+    build_sincos_table();
+    std::printf("\n");
+    std::printf(
+        "============================================================\n");
+    std::printf(
+        "  Phase H Lab: V5a + 4D Tensor CFO Sweep (영준님 격리 환경)\n");
+    std::printf(
+        "============================================================\n");
+    std::printf("Profile: K=%d, N=%d, L=%d (영준님 4D 텐서 default)\n",
+                ExperimentConfig::kK, ExperimentConfig::kN,
+                ExperimentConfig::kL);
+    std::printf("Trials per (cfo, SNR): %d\n", ExperimentConfig::kNumTrials);
+    std::printf("Chip rate: %.0f Hz (1 MHz 가정)\n",
+                ExperimentConfig::kChipRateHz);
+    std::printf("V5a correction: %s\n",
+                ExperimentConfig::kEnableV5aCorrection ? "ON" : "OFF");
+    std::printf("HOLO sync: %s (S%s sim)\n",
+                ExperimentConfig::kEnableHoloSync ? "ON" : "OFF",
+                ExperimentConfig::kEnableHoloSync ? "5H" : "5");
+    std::printf("rx_soft mode: %d (%s)\n", ExperimentConfig::kRxSoftMode,
+                rx_soft_mode_name(ExperimentConfig::kRxSoftMode));
+    std::printf("ChipValidThreshold: %d %s\n",
+                static_cast<int>(ExperimentConfig::kChipValidThreshold),
+                ExperimentConfig::kChipValidThreshold == 0 ? "(all valid)"
+                                                           : "");
+    std::printf(
+        "============================================================\n\n");
+    // 헤더
+    std::printf("%-8s", "cfo Hz");
+    for (int s = 0; s < ExperimentConfig::kSnrCount; ++s) {
+        char buf[32];
+        std::snprintf(buf, sizeof(buf), " %dB sync/dec/BER",
+                      ExperimentConfig::kSnrLevels[s]);
+        std::printf(" %-22s", buf);
+    }
+    std::printf("\n");
+    std::printf(
+        "------------------------------------------------------------\n");
+    for (int c = 0; c < ExperimentConfig::kCfoSweepCount; ++c) {
+        const int cfo_hz = ExperimentConfig::kCfoSweepList[c];
+        std::printf("%-8d", cfo_hz);
+        for (int s = 0; s < ExperimentConfig::kSnrCount; ++s) {
+            const int snr_db = ExperimentConfig::kSnrLevels[s];
+            const TestResult r =
+                run_one_cfo(cfo_hz, snr_db, ExperimentConfig::kNumTrials);
+            const double ber =
+                (r.total_bits > 0)
+                    ? static_cast<double>(r.total_bit_err) / r.total_bits
+                    : 0.0;
+            std::printf(
+                "  %3d/%3d/%4.2f  %-4s", r.sync_pass, r.decode_pass, ber,
+                (r.decode_pass >= ExperimentConfig::kNumTrials * 95 / 100)
+                    ? "OK"
+                    : "");
+        }
+        std::printf("\n");
+    }
+    std::printf("\n");
+    std::printf("Notes:\n");
+    std::printf("  sync = HOLO sync 통과 수 (HOLO sync OFF 시 N/N)\n");
+    std::printf("  dec  = 디코딩 100%% 성공 수\n");
+    std::printf("  BER  = Bit Error Rate\n");
+    std::printf("  OK   = decode >= 95%%\n");
+    std::printf("\n");
+    std::printf("영준님 실험:\n");
+    std::printf("  1. kEnableHoloSync = false → S5 시뮬\n");
+    std::printf("  2. kEnableHoloSync = true  → S5H 시뮬\n");
+    std::printf("  3. kRxSoftMode 변경 (0~4)\n");
+    std::printf("  4. kChipValidThreshold 변경\n");
+    std::printf("  5. F5 빠른 재실행\n");
+    std::printf(
+        "============================================================\n");
 }
 // ============================================================================
-// 메인
+// main 진입점
 // ============================================================================
 int main() {
-    timer_init();
-    build_sincos_table();
-    std::printf(
-        "=============================================================\n");
-    std::printf("  HTS V5a — Stage 5: ±%d kHz Bank Verification\n",
-                HTS_CFO_RANGE_HZ / 1000);
-    std::printf(
-        "=============================================================\n\n");
-    std::printf("타겟 응용:\n");
-    std::printf("  AMI 스마트미터링 (900 MHz 대): ±9 kHz max\n");
-    std::printf("  PS-LTE 재난망 (718~783 MHz):   ±7.8 kHz max\n");
-    std::printf("  저가 TCXO ±5 ppm × 2 = ±10 ppm\n");
-    std::printf("  + 온도/Doppler 마진 → ±12 kHz 공통 Bank\n\n");
-    std::printf("Bank 구성:\n");
-    std::printf("  CFO range:    ±%d Hz\n", HTS_CFO_RANGE_HZ);
-    std::printf("  Coarse banks: %d × %d Hz = ±%d Hz\n", kCoarseBankCount,
-                kCoarseStep, (kCoarseBankCount - 1) * kCoarseStep / 2);
-    std::printf("  Fine banks:   %d × %d Hz\n", kFineBankCount, kFineStep);
-    std::printf("  Total derotate: %d × 2 pass = %d calls\n",
-                kCoarseBankCount + kFineBankCount,
-                (kCoarseBankCount + kFineBankCount) * 2);
-    std::printf("\n");
-    std::printf("  (이전 ±30 kHz: 21+11 = 32 × 2 = 64 calls)\n");
-    std::printf("  (현재 ±12 kHz: %d+%d = %d × 2 = %d calls)\n",
-                kCoarseBankCount, kFineBankCount,
-                kCoarseBankCount + kFineBankCount,
-                (kCoarseBankCount + kFineBankCount) * 2);
-    std::printf("  (감소율: %.1f%%)\n",
-                100.0 *
-                    (1.0 - (double)(kCoarseBankCount + kFineBankCount) / 32.0));
-    std::printf("\n");
-    int16_t tx_I[kPreambleChips], tx_Q[kPreambleChips];
-    generate_preamble(tx_I, tx_Q, kTxAmp);
-    // === 1. Bank 범위 내 CFO Sweep ===
-    std::printf("=== 1. Bank 범위 내 CFO 정밀도 ===\n");
-    std::printf("CFO sweep: %+d ~ %+d Hz, step %d\n", kTestCfoMin, kTestCfoMax,
-                kTestCfoStep);
-    std::printf("Trials per point: %d\n\n", kTrialsPerPoint);
-    DifficultyLevel levels[] = {LVL1_NORMAL, LVL2_URBAN, LVL3_INDUSTRIAL,
-                                LVL4_MILITARY, LVL5_EXTREME};
-    const char *level_names[] = {"LVL1_NORMAL    ", "LVL2_URBAN     ",
-                                 "LVL3_INDUSTRIAL", "LVL4_MILITARY  ",
-                                 "LVL5_EXTREME   "};
-    std::printf("Level           | PASS%%  | Avg Err  | Max Err  | Comment\n");
-    std::printf("----------------+--------+----------+----------+----------\n");
-    FILE *fcsv = nullptr;
-    fopen_s(&fcsv, "stage5_results.csv", "w");
-    if (fcsv) {
-        std::fprintf(fcsv, "Level,PASS_pct,Avg_Err_Hz,Max_Err_Hz\n");
-    }
-    double lvl_errs[5];
-    double lvl_pass[5];
-    for (int l = 0; l < 5; ++l) {
-        int64_t err_sum = 0;
-        int64_t err_max = 0;
-        int pass_count = 0;
-        int total_count = 0;
-        for (int c = 0; c < kTestCfoCount; ++c) {
-            const int cfo_hz = kTestCfoMin + c * kTestCfoStep;
-            for (int t = 0; t < kTrialsPerPoint; ++t) {
-                const uint32_t env_seed = static_cast<uint32_t>(
-                    (l + 1) * 1000003u + (c + 1) * 9901u + (t + 1) * 97u);
-                const uint32_t ch_seed = env_seed ^ 0xDEADBEEFu;
-                RandomEnv env = generate_env(levels[l], env_seed);
-                int16_t rI[kPreambleChips], rQ[kPreambleChips];
-                apply_random_channel(tx_I, tx_Q, rI, rQ, kPreambleChips, cfo_hz,
-                                     env, ch_seed);
-                DetectResult r = detect_v5a(rI, rQ);
-                ++total_count;
-                if (r.pass) {
-                    ++pass_count;
-                    const int32_t e = r.cfo_hz - cfo_hz;
-                    const int64_t abs_e = (e < 0) ? -e : e;
-                    err_sum += abs_e;
-                    if (abs_e > err_max)
-                        err_max = abs_e;
-                }
-            }
-        }
-        const double pass_pct = 100.0 * pass_count / total_count;
-        const double avg_err =
-            (pass_count > 0) ? (double)err_sum / pass_count : 0.0;
-        const char *comment = "";
-        if (l == 0)
-            comment = "AMI/PS-LTE 정상";
-        else if (l == 1)
-            comment = "도시 환경";
-        else if (l == 2)
-            comment = "산업 EMI";
-        else if (l == 3)
-            comment = "재밍 대응";
-        else
-            comment = "극한 (한계)";
-        std::printf("%s | %5.1f%% | %7.0f Hz | %7.0f Hz | %s\n", level_names[l],
-                    pass_pct, avg_err, (double)err_max, comment);
-        if (fcsv) {
-            std::fprintf(fcsv, "%s,%.1f,%.0f,%.0f\n", level_names[l], pass_pct,
-                         avg_err, (double)err_max);
-        }
-        lvl_errs[l] = avg_err;
-        lvl_pass[l] = pass_pct;
-    }
-    if (fcsv)
-        std::fclose(fcsv);
-    std::printf("\n");
-    // === 2. 속도 측정 ===
-    std::printf("=== 2. 속도 측정 (Full V5a) ===\n");
-    int16_t rx_I[kPreambleChips], rx_Q[kPreambleChips];
-    RandomEnv env = generate_env(LVL2_URBAN, 42);
-    apply_random_channel(tx_I, tx_Q, rx_I, rx_Q, kPreambleChips, 5000, env,
-                         123);
-    // Warm-up
-    for (int i = 0; i < 1000; ++i) {
-        DetectResult r = detect_v5a(rx_I, rx_Q);
-        (void)r;
-    }
-    constexpr int kSpeedTrials = 5000;
-    const int64_t t0 = timer_now();
-    for (int t = 0; t < kSpeedTrials; ++t) {
-        DetectResult r = detect_v5a(rx_I, rx_Q);
-        (void)r;
-    }
-    const int64_t t1 = timer_now();
-    const double full_us = timer_ns(t1 - t0) / kSpeedTrials / 1000.0;
-    std::printf("  V5a ±12 kHz: %.2f us/call\n", full_us);
-    std::printf("  V5a ±30 kHz: 16.13 us/call (이전 기준)\n");
-    std::printf("  개선:        %.1f%%\n", 100.0 * (1.0 - full_us / 16.13));
-    std::printf("\n");
-    // === 3. AMI/PS-LTE 실전 CFO 분포 ===
-    std::printf("=== 3. AMI/PS-LTE 실전 CFO 분포 (Gaussian σ=3kHz) ===\n");
-    int ami_pass = 0;
-    int ami_total = 0;
-    int64_t ami_err = 0;
-    for (int t = 0; t < 10000; ++t) {
-        const uint32_t cfo_seed = static_cast<uint32_t>(t * 37u + 1);
-        const uint32_t env_seed = static_cast<uint32_t>(t * 53u + 17);
-        const uint32_t ch_seed = env_seed ^ 0xABCD1234u;
-        const int cfo_hz = sample_realistic_cfo(cfo_seed);
-        // LVL2 (도시 환경) 가장 흔함
-        RandomEnv e = generate_env(LVL2_URBAN, env_seed);
-        int16_t rI[kPreambleChips], rQ[kPreambleChips];
-        apply_random_channel(tx_I, tx_Q, rI, rQ, kPreambleChips, cfo_hz, e,
-                             ch_seed);
-        DetectResult r = detect_v5a(rI, rQ);
-        ++ami_total;
-        if (r.pass) {
-            ++ami_pass;
-            const int32_t err = r.cfo_hz - cfo_hz;
-            ami_err += (err < 0) ? -err : err;
-        }
-    }
-    const double ami_pass_pct = 100.0 * ami_pass / ami_total;
-    const double ami_avg_err =
-        (ami_pass > 0) ? (double)ami_err / ami_pass : 0.0;
-    std::printf("  Trials:  %d (LVL2_URBAN, realistic CFO)\n", ami_total);
-    std::printf("  PASS:    %.1f%%\n", ami_pass_pct);
-    std::printf("  Avg Err: %.0f Hz\n", ami_avg_err);
-    std::printf("\n");
-    // === 4. 최종 판정 ===
-    std::printf("=== 4. Stage 5 판정 ===\n");
-    const bool pass_lvl1 = (lvl_pass[0] >= 99.0);
-    const bool pass_lvl2 = (lvl_pass[1] >= 95.0);
-    const bool pass_lvl3 = (lvl_pass[2] >= 90.0);
-    const bool fast_enough = (full_us < 12.0);
-    if (pass_lvl1 && pass_lvl2 && pass_lvl3 && fast_enough) {
-        std::printf("  ✅ ±12 kHz Bank 양산 적합\n");
-        std::printf("     - LVL1 PASS: %.1f%%\n", lvl_pass[0]);
-        std::printf("     - LVL2 PASS: %.1f%%\n", lvl_pass[1]);
-        std::printf("     - LVL3 PASS: %.1f%%\n", lvl_pass[2]);
-        std::printf("     - Full V5a: %.2f us (목표 <12 us)\n", full_us);
-        std::printf("     - AMI/PS-LTE 실전: PASS %.1f%%, Err %.0f Hz\n",
-                    ami_pass_pct, ami_avg_err);
-        std::printf("\n");
-        std::printf("  → 양산 이식 준비 완료\n");
-    } else {
-        std::printf("  주의: 조건 미달\n");
-        if (!pass_lvl1)
-            std::printf("     LVL1 PASS 낮음: %.1f%%\n", lvl_pass[0]);
-        if (!pass_lvl2)
-            std::printf("     LVL2 PASS 낮음: %.1f%%\n", lvl_pass[1]);
-        if (!pass_lvl3)
-            std::printf("     LVL3 PASS 낮음: %.1f%%\n", lvl_pass[2]);
-        if (!fast_enough)
-            std::printf("     속도 느림: %.2f us\n", full_us);
-    }
-    std::printf("\n");
-    std::printf("참고:\n");
-    std::printf("  [1] AMI ISM 900 MHz: ±9 kHz @ TCXO ±5 ppm\n");
-    std::printf("  [2] PS-LTE Band 28 (718~783 MHz): ±7.8 kHz\n");
-    std::printf("  [3] 저가 TCXO BOM 비중: ~12%%\n");
+    test_holo_tensor_cfo_sweep();
     return 0;
 }

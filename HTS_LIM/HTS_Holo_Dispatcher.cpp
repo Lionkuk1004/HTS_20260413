@@ -121,7 +121,8 @@ namespace ProtectedEngine {
     // ============================================================
 
     HTS_Holo_Dispatcher::HTS_Holo_Dispatcher() noexcept
-        : engine_()
+        : holo_tx_()
+        , holo_rx_()
         , current_mode_(HoloPayload::DATA_HOLO)
         , pad_{}
     {
@@ -130,7 +131,8 @@ namespace ProtectedEngine {
     HTS_Holo_Dispatcher::~HTS_Holo_Dispatcher() noexcept
     {
         // Shutdown() 경유 금지 — try-lock 실패 시 파쇄 누락 방지(락과 무관 강제 소거)
-        engine_.Shutdown();
+        holo_tx_.Shutdown();
+        holo_rx_.Shutdown();
         current_mode_.store(HoloPayload::DATA_HOLO, std::memory_order_release);
     }
 
@@ -143,15 +145,22 @@ namespace ProtectedEngine {
         // Initialize with default DATA profile
         const HoloTensor_Profile prof =
             Holo_Mode_To_Profile_HNS(HoloPayload::DATA_HOLO);
-        return (engine_.Initialize(master_seed, &prof) == HTS_Holo_Tensor_4D::SECURE_TRUE)
-            ? SECURE_TRUE : SECURE_FALSE;
+        if (holo_tx_.Initialize(master_seed, &prof) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
+        if (holo_rx_.Initialize(master_seed, &prof) != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+            holo_tx_.Shutdown();
+            return SECURE_FALSE;
+        }
+        return SECURE_TRUE;
     }
 
     uint32_t HTS_Holo_Dispatcher::Shutdown() noexcept
     {
         Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
         if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
-        engine_.Shutdown();
+        holo_tx_.Shutdown();
+        holo_rx_.Shutdown();
         current_mode_.store(HoloPayload::DATA_HOLO, std::memory_order_release);
         return SECURE_TRUE;
     }
@@ -161,7 +170,8 @@ namespace ProtectedEngine {
         if (new_seed == nullptr) { return SECURE_FALSE; }
         Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
         if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
-        engine_.Rotate_Seed(new_seed);
+        holo_tx_.Rotate_Seed(new_seed);
+        holo_rx_.Rotate_Seed(new_seed);
         return SECURE_TRUE;
     }
 
@@ -202,7 +212,7 @@ namespace ProtectedEngine {
 
         // Get profile for this mode
         const HoloTensor_Profile prof = Holo_Mode_To_Profile_HNS(mode);
-        if (engine_.Set_Profile(&prof) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        if (holo_tx_.Set_Profile(&prof) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             return 0u;
         }
         const uint16_t K = prof.block_bits;
@@ -251,7 +261,7 @@ namespace ProtectedEngine {
 
             // 4D Holographic encode
             int8_t chip_bpsk[HOLO_CHIP_COUNT];
-            if (engine_.Encode_Block(data_bits, K, chip_bpsk, N) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+            if (holo_tx_.Encode_Block(data_bits, K, chip_bpsk, N) != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
                 SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
                 SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
                 return 0u;
@@ -310,7 +320,7 @@ namespace ProtectedEngine {
 
         const HoloTensor_Profile prof = Holo_Mode_To_Profile_HNS(
             current_mode_.load(std::memory_order_acquire));
-        if (engine_.Set_Profile(&prof) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        if (holo_rx_.Set_Profile(&prof) != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
             return SECURE_FALSE;
         }
         const uint16_t K = prof.block_bits;
@@ -364,7 +374,7 @@ namespace ProtectedEngine {
 
             // Decode
             int8_t recovered_bits[HOLO_MAX_BLOCK_BITS];
-            if (engine_.Decode_Block(rx_soft, N, valid_mask, recovered_bits, K) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+            if (holo_rx_.Decode_Block(rx_soft, N, valid_mask, recovered_bits, K) != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                 SecureMemory::secureWipe(static_cast<void*>(static_cast<int16_t*>(rx_soft)), sizeof(rx_soft));
                 SecureMemory::secureWipe(static_cast<void*>(static_cast<int8_t*>(recovered_bits)), sizeof(recovered_bits));
                 return SECURE_FALSE;
@@ -398,14 +408,18 @@ namespace ProtectedEngine {
     {
         Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
         if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
-        return engine_.Advance_Time_Slot();
+        const uint32_t a = holo_tx_.Advance_Time_Slot();
+        const uint32_t b = holo_rx_.Advance_Time_Slot();
+        return (a == SECURE_TRUE && b == SECURE_TRUE) ? SECURE_TRUE : SECURE_FALSE;
     }
 
     uint32_t HTS_Holo_Dispatcher::Sync_Time_Slot(uint32_t frame_no) noexcept
     {
         Holo_Dispatch_Busy_Guard guard(dispatch_busy_);
         if (guard.locked != SECURE_TRUE) { return SECURE_FALSE; }
-        return engine_.Set_Time_Slot(frame_no);
+        const uint32_t a = holo_tx_.Set_Time_Slot(frame_no);
+        const uint32_t b = holo_rx_.Set_Time_Slot(frame_no);
+        return (a == SECURE_TRUE && b == SECURE_TRUE) ? SECURE_TRUE : SECURE_FALSE;
     }
 
     uint8_t HTS_Holo_Dispatcher::Get_Current_Mode() const noexcept

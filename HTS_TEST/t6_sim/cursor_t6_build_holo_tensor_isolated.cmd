@@ -40,7 +40,9 @@ set SRCS=
 set SRCS=%SRCS% "%HTS_TEST%\HTS_CFO_Bank_Test_lab.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_CFO_V5a.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Rx_CFO_SinCos_Table.cpp"
-set SRCS=%SRCS% "%HTS_LIM%\HTS_Holo_Tensor_4D.cpp"
+set SRCS=%SRCS% "%HTS_LIM%\HTS_Holo_Tensor_4D_Common.cpp"
+set SRCS=%SRCS% "%HTS_LIM%\HTS_Holo_Tensor_4D_TX.cpp"
+set SRCS=%SRCS% "%HTS_LIM%\HTS_Holo_Tensor_4D_RX.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Preamble_Holographic.cpp"
 set SRCS=%SRCS% "%HTS_LIM%\HTS_Secure_Memory.cpp"
 

@@ -266,7 +266,9 @@ if(MSVC)
     "${HTS_LIM_CORE_DIR}/HTS_Rx_Matched_Filter.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Dynamic_Config.cpp"
     "${CMAKE_CURRENT_SOURCE_DIR}/HTS_AntiJam_Engine.cpp"
-    "${HTS_LIM_CORE_DIR}/HTS_Holo_Tensor_4D.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Holo_Tensor_4D_Common.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Holo_Tensor_4D_TX.cpp"
+    "${HTS_LIM_CORE_DIR}/HTS_Holo_Tensor_4D_RX.cpp"
     "${HTS_LIM_CORE_DIR}/HTS_Sparse_Recovery.cpp"
   )
   target_include_directories(HTS_Layer6789_Sequential_Audit_Run PRIVATE

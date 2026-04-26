@@ -5,7 +5,7 @@
 // Layer 6 — 안티디버그·글리치·포인터 인증 (AntiGlitch / PAC / AntiDebug poll)
 // Layer 7 — 로거·동적 설정 (SecureLogger / HTS_Dynamic_Config)
 // Layer 8 — DSP/PHY (Rx_Matched_Filter / AntiJam_Engine)
-// Layer 9 — 텐서 엔진 (HTS_Holo_Tensor_4D / Sparse_Recovery)
+// Layer 9 — 텐서 엔진 (HTS_Holo_Tensor_4D_TX / Sparse_Recovery)
 //
 // [PC 빌드 주의]
 //  · HTS_Anti_Debug.cpp 는 비-ARM에서 MSVC일 때만 컴파일 허용됨 — 본 타깃은 MSVC x64 권장.
@@ -22,7 +22,7 @@
 #include "HTS_Anti_Glitch.h"
 #include "HTS_AntiJam_Engine.h"
 #include "HTS_Dynamic_Config.h"
-#include "HTS_Holo_Tensor_4D.h"
+#include "HTS_Holo_Tensor_4D_TX.h"
 #include "HTS_Pointer_Auth.hpp"
 #include "HTS_Rx_Matched_Filter.h"
 #include "HTS_Secure_Logger.h"
@@ -141,9 +141,9 @@ static bool L8_8_AntiJam_Identical_IQ_Process()
 // ── Layer 9 — Holo 텐서: 미초기화·널 데이터 인코딩 거부 ────────────────
 static bool L9_9_Holo_Encode_Null_Data()
 {
-    HTS_Holo_Tensor_4D holo;
+    HTS_Holo_Tensor_4D_TX holo;
     const uint32_t r = holo.Encode_Block(nullptr, 8, g_holo_chips, 64);
-    return r == HTS_Holo_Tensor_4D::SECURE_FALSE;
+    return r == HTS_Holo_Tensor_4D_TX::SECURE_FALSE;
 }
 
 // ── Layer 9 — Sparse Recovery: nullptr 입력 → false ─────────────────────

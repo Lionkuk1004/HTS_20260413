@@ -1,0 +1,247 @@
+============================================================
+ Phase H Lab Build (격리 환경)
+============================================================
+HTS_LIM:  D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\..\..\HTS_LIM
+HTS_TEST: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\..
+
+HTS_CFO_Bank_Test_lab.cpp
+HTS_Holo_Tensor_4D.cpp
+HTS_Preamble_Holographic.cpp
+HTS_Secure_Memory.cpp
+코드를 생성하고 있습니다...
+
+============================================================
+ Build OK. 실행:
+============================================================
+
+Phase H Lab L: P1 k_P1_MIN_E=1000, V5a est PRE_SYM1[128..191] 64ch lag=4 (Lab I-3 restore), ac_norm_thr=0.95
+CFO Lab K sweep 14 pts to 30 kHz x SNR {30,20,10} dB; [DIAG-LabL] trial0 per cell
+P1 gate: FWHT 64 on PRE_SYM0[0..63] dom=63 sym1_row=0 (63^NATURAL)
+
+===== BASELINE: V5a OFF (ac_thr N/A) =====
+cfo=    0:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=0 snr=30 holo=1 P1_PASS e63_sh=31406 e0_sh=0 max_e_sh=31406 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 V5a=OFF cfo=0 snr=20 holo=1 P1_PASS e63_sh=31899 e0_sh=0 max_e_sh=31899 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 V5a=OFF cfo=0 snr=10 holo=1 P1_PASS e63_sh=33465 e0_sh=6 max_e_sh=33465 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 10dB S100/100 D 94/100 BER=0.004
+cfo= 1000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=1000 snr=30 holo=1 P1_PASS e63_sh=30947 e0_sh=0 max_e_sh=30947 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D 85/100 BER=0.011
+[DIAG-LabL] trial0 V5a=OFF cfo=1000 snr=20 holo=1 P1_PASS e63_sh=31336 e0_sh=0 max_e_sh=31336 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D 10/100 BER=0.122
+[DIAG-LabL] trial0 V5a=OFF cfo=1000 snr=10 holo=1 P1_PASS e63_sh=32610 e0_sh=6 max_e_sh=32610 k_P1_MIN_E=1000 decode=OK bits0..3_err=1 got -1 1 1 1
+ 10dB S100/100 D  0/100 BER=0.352
+cfo= 3000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=3000 snr=30 holo=1 P1_PASS e63_sh=27662 e0_sh=0 max_e_sh=27662 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 30dB S100/100 D  0/100 BER=0.997
+[DIAG-LabL] trial0 V5a=OFF cfo=3000 snr=20 holo=1 P1_PASS e63_sh=27822 e0_sh=0 max_e_sh=27822 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 20dB S100/100 D  0/100 BER=0.987
+[DIAG-LabL] trial0 V5a=OFF cfo=3000 snr=10 holo=1 P1_PASS e63_sh=28356 e0_sh=6 max_e_sh=28356 k_P1_MIN_E=1000 decode=OK bits0..3_err=3 got 1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.840
+cfo= 5000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=5000 snr=30 holo=1 P1_PASS e63_sh=21972 e0_sh=0 max_e_sh=21972 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 V5a=OFF cfo=5000 snr=20 holo=1 P1_PASS e63_sh=21899 e0_sh=0 max_e_sh=21899 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D 95/100 BER=0.003
+[DIAG-LabL] trial0 V5a=OFF cfo=5000 snr=10 holo=1 P1_PASS e63_sh=21715 e0_sh=6 max_e_sh=21715 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 10dB S100/100 D 25/100 BER=0.083
+cfo= 6000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=6000 snr=30 holo=1 P1_PASS e63_sh=18636 e0_sh=0 max_e_sh=18636 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 30dB S100/100 D  0/100 BER=0.943
+[DIAG-LabL] trial0 V5a=OFF cfo=6000 snr=20 holo=1 P1_PASS e63_sh=18477 e0_sh=0 max_e_sh=18477 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 20dB S100/100 D  0/100 BER=0.925
+[DIAG-LabL] trial0 V5a=OFF cfo=6000 snr=10 holo=1 P1_PASS e63_sh=18021 e0_sh=6 max_e_sh=18021 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 10dB S100/100 D  0/100 BER=0.816
+cfo= 7000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=7000 snr=30 holo=1 P1_PASS e63_sh=15226 e0_sh=0 max_e_sh=15226 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 30dB S100/100 D  0/100 BER=1.000
+[DIAG-LabL] trial0 V5a=OFF cfo=7000 snr=20 holo=1 P1_PASS e63_sh=15004 e0_sh=0 max_e_sh=15004 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 20dB S100/100 D  0/100 BER=1.000
+[DIAG-LabL] trial0 V5a=OFF cfo=7000 snr=10 holo=1 P1_PASS e63_sh=14345 e0_sh=6 max_e_sh=14345 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 10dB S100/100 D  0/100 BER=0.926
+cfo= 8000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=8000 snr=30 holo=1 P1_PASS e63_sh=11920 e0_sh=0 max_e_sh=11920 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D  2/100 BER=0.303
+[DIAG-LabL] trial0 V5a=OFF cfo=8000 snr=20 holo=1 P1_PASS e63_sh=11663 e0_sh=0 max_e_sh=11663 k_P1_MIN_E=1000 decode=OK bits0..3_err=1 got -1 1 1 1
+ 20dB S100/100 D  4/100 BER=0.311
+[DIAG-LabL] trial0 V5a=OFF cfo=8000 snr=10 holo=1 P1_PASS e63_sh=10874 e0_sh=6 max_e_sh=10874 k_P1_MIN_E=1000 decode=OK bits0..3_err=1 got -1 1 1 1
+ 10dB S100/100 D  1/100 BER=0.363
+cfo= 9000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=9000 snr=30 holo=1 P1_PASS e63_sh=8869 e0_sh=0 max_e_sh=8869 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D 96/100 BER=0.003
+[DIAG-LabL] trial0 V5a=OFF cfo=9000 snr=20 holo=1 P1_PASS e63_sh=8600 e0_sh=0 max_e_sh=8600 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D 88/100 BER=0.009
+[DIAG-LabL] trial0 V5a=OFF cfo=9000 snr=10 holo=1 P1_PASS e63_sh=7785 e0_sh=6 max_e_sh=7785 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 10dB S100/100 D 16/100 BER=0.122
+cfo=10000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=10000 snr=30 holo=1 P1_PASS e63_sh=6199 e0_sh=0 max_e_sh=6199 k_P1_MIN_E=1000 decode=OK bits0..3_err=3 got 1 -1 -1 -1
+ 30dB S100/100 D  0/100 BER=0.483
+[DIAG-LabL] trial0 V5a=OFF cfo=10000 snr=20 holo=1 P1_PASS e63_sh=5944 e0_sh=0 max_e_sh=5944 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got 1 -1 -1 1
+ 20dB S100/100 D  0/100 BER=0.485
+[DIAG-LabL] trial0 V5a=OFF cfo=10000 snr=10 holo=1 P1_PASS e63_sh=5182 e0_sh=6 max_e_sh=5182 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.496
+cfo=11000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=11000 snr=30 holo=1 P1_PASS e63_sh=3995 e0_sh=0 max_e_sh=3995 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 30dB S100/100 D  0/100 BER=0.899
+[DIAG-LabL] trial0 V5a=OFF cfo=11000 snr=20 holo=1 P1_PASS e63_sh=3775 e0_sh=0 max_e_sh=3775 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 20dB S100/100 D  0/100 BER=0.885
+[DIAG-LabL] trial0 V5a=OFF cfo=11000 snr=10 holo=1 P1_PASS e63_sh=3127 e0_sh=6 max_e_sh=3127 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.771
+cfo=12000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=12000 snr=30 holo=1 P1_PASS e63_sh=2297 e0_sh=0 max_e_sh=2297 k_P1_MIN_E=1000 decode=OK bits0..3_err=3 got -1 -1 1 -1
+ 30dB S100/100 D  0/100 BER=0.604
+[DIAG-LabL] trial0 V5a=OFF cfo=12000 snr=20 holo=1 P1_PASS e63_sh=2125 e0_sh=0 max_e_sh=2125 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 20dB S100/100 D  0/100 BER=0.599
+[DIAG-LabL] trial0 V5a=OFF cfo=12000 snr=10 holo=1 P1_PASS e63_sh=1632 e0_sh=6 max_e_sh=1632 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.578
+cfo=15000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=15000 snr=30 holo=1 P1_FAIL e63_sh=44 e0_sh=0 max_e_sh=44 k_P1_MIN_E=1000 decode=SKIP
+ 30dB S100/100 D  0/100 BER=1.000
+[DIAG-LabL] trial0 V5a=OFF cfo=15000 snr=20 holo=1 P1_FAIL e63_sh=28 e0_sh=0 max_e_sh=28 k_P1_MIN_E=1000 decode=SKIP
+ 20dB S100/100 D  0/100 BER=1.000
+[DIAG-LabL] trial0 V5a=OFF cfo=15000 snr=10 holo=1 P1_FAIL e63_sh=19 e0_sh=6 max_e_sh=19 k_P1_MIN_E=1000 decode=SKIP
+ 10dB S100/100 D  0/100 BER=1.000
+cfo=20000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=20000 snr=30 holo=1 P1_PASS e63_sh=1148 e0_sh=0 max_e_sh=1148 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 30dB S100/100 D  2/100 BER=0.296
+[DIAG-LabL] trial0 V5a=OFF cfo=20000 snr=20 holo=1 P1_PASS e63_sh=1159 e0_sh=0 max_e_sh=1159 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 20dB S100/100 D  1/100 BER=0.367
+[DIAG-LabL] trial0 V5a=OFF cfo=20000 snr=10 holo=1 P1_PASS e63_sh=1233 e0_sh=5 max_e_sh=1233 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.555
+cfo=30000:
+
+[DIAG-LabL] trial0 V5a=OFF cfo=30000 snr=30 holo=1 P1_FAIL e63_sh=42 e0_sh=0 max_e_sh=42 k_P1_MIN_E=1000 decode=SKIP
+ 30dB S100/100 D  0/100 BER=1.000
+[DIAG-LabL] trial0 V5a=OFF cfo=30000 snr=20 holo=1 P1_FAIL e63_sh=24 e0_sh=0 max_e_sh=24 k_P1_MIN_E=1000 decode=SKIP
+ 20dB S100/100 D  0/100 BER=1.000
+[DIAG-LabL] trial0 V5a=OFF cfo=30000 snr=10 holo=1 P1_FAIL e63_sh=9 e0_sh=6 max_e_sh=9 k_P1_MIN_E=1000 decode=SKIP
+ 10dB S100/100 D  0/100 BER=1.000
+
+===== MATRIX: V5a ON, ac_norm_thr=0.95 =====
+cfo=    0:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=0 snr=30 est_hz=-16.5 |est-true|=16.5 ac_norm=0.996 apply_v5a=0 holo=1 P1_PASS e63_sh=31406 e0_sh=0 max_e_sh=31406 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=0 snr=20 est_hz=-90.5 |est-true|=90.5 ac_norm=0.979 apply_v5a=0 holo=1 P1_PASS e63_sh=31899 e0_sh=0 max_e_sh=31899 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=0 snr=10 est_hz=-667.8 |est-true|=667.8 ac_norm=0.860 apply_v5a=0 holo=1 P1_PASS e63_sh=33465 e0_sh=6 max_e_sh=33465 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 10dB S100/100 D 94/100 BER=0.004
+cfo= 1000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=1000 snr=30 est_hz=998.6 |est-true|=1.4 ac_norm=0.999 apply_v5a=1 holo=1 P1_PASS e63_sh=31379 e0_sh=0 max_e_sh=31379 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=1000 snr=20 est_hz=962.1 |est-true|=37.9 ac_norm=0.988 apply_v5a=1 holo=1 P1_PASS e63_sh=31802 e0_sh=1 max_e_sh=31802 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=1000 snr=10 est_hz=539.6 |est-true|=460.4 ac_norm=0.890 apply_v5a=0 holo=1 P1_PASS e63_sh=32610 e0_sh=6 max_e_sh=32610 k_P1_MIN_E=1000 decode=OK bits0..3_err=1 got -1 1 1 1
+ 10dB S100/100 D  0/100 BER=0.352
+cfo= 3000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=3000 snr=30 est_hz=3066.3 |est-true|=66.3 ac_norm=1.001 apply_v5a=1 holo=1 P1_PASS e63_sh=31339 e0_sh=0 max_e_sh=31339 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=3000 snr=20 est_hz=3165.7 |est-true|=165.7 ac_norm=0.992 apply_v5a=1 holo=1 P1_PASS e63_sh=31662 e0_sh=3 max_e_sh=31662 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=3000 snr=10 est_hz=3139.3 |est-true|=139.3 ac_norm=0.889 apply_v5a=0 holo=1 P1_PASS e63_sh=28356 e0_sh=6 max_e_sh=28356 k_P1_MIN_E=1000 decode=OK bits0..3_err=3 got 1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.840
+cfo= 5000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=5000 snr=30 est_hz=4910.0 |est-true|=90.0 ac_norm=0.997 apply_v5a=1 holo=1 P1_PASS e63_sh=31301 e0_sh=0 max_e_sh=31301 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=5000 snr=20 est_hz=4670.4 |est-true|=329.6 ac_norm=0.981 apply_v5a=1 holo=1 P1_PASS e63_sh=31480 e0_sh=5 max_e_sh=31480 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=5000 snr=10 est_hz=3481.4 |est-true|=1518.6 ac_norm=0.851 apply_v5a=0 holo=1 P1_PASS e63_sh=21715 e0_sh=6 max_e_sh=21715 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 10dB S100/100 D 25/100 BER=0.083
+cfo= 6000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=6000 snr=30 est_hz=5881.5 |est-true|=118.5 ac_norm=0.998 apply_v5a=1 holo=1 P1_PASS e63_sh=31295 e0_sh=0 max_e_sh=31295 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=6000 snr=20 est_hz=5592.8 |est-true|=407.2 ac_norm=0.982 apply_v5a=1 holo=1 P1_PASS e63_sh=31427 e0_sh=6 max_e_sh=31427 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=6000 snr=10 est_hz=4304.4 |est-true|=1695.6 ac_norm=0.861 apply_v5a=0 holo=1 P1_PASS e63_sh=18021 e0_sh=6 max_e_sh=18021 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 10dB S100/100 D  0/100 BER=0.816
+cfo= 7000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=7000 snr=30 est_hz=6968.1 |est-true|=31.9 ac_norm=0.999 apply_v5a=1 holo=1 P1_PASS e63_sh=31292 e0_sh=0 max_e_sh=31292 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=7000 snr=20 est_hz=6858.9 |est-true|=141.1 ac_norm=0.986 apply_v5a=1 holo=1 P1_PASS e63_sh=31516 e0_sh=7 max_e_sh=31516 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=7000 snr=10 est_hz=6210.8 |est-true|=789.2 ac_norm=0.875 apply_v5a=0 holo=1 P1_PASS e63_sh=14345 e0_sh=6 max_e_sh=14345 k_P1_MIN_E=1000 decode=OK bits0..3_err=4 got 1 -1 1 -1
+ 10dB S100/100 D  0/100 BER=0.926
+cfo= 8000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=8000 snr=30 est_hz=8078.2 |est-true|=78.2 ac_norm=0.999 apply_v5a=1 holo=1 P1_PASS e63_sh=31299 e0_sh=0 max_e_sh=31299 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=8000 snr=20 est_hz=8211.2 |est-true|=211.2 ac_norm=0.986 apply_v5a=1 holo=1 P1_PASS e63_sh=31550 e0_sh=7 max_e_sh=31550 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=8000 snr=10 est_hz=8319.9 |est-true|=319.9 ac_norm=0.879 apply_v5a=0 holo=1 P1_PASS e63_sh=10874 e0_sh=6 max_e_sh=10874 k_P1_MIN_E=1000 decode=OK bits0..3_err=1 got -1 1 1 1
+ 10dB S100/100 D  1/100 BER=0.363
+cfo= 9000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=9000 snr=30 est_hz=9112.3 |est-true|=112.3 ac_norm=0.998 apply_v5a=1 holo=1 P1_PASS e63_sh=31281 e0_sh=0 max_e_sh=31281 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=9000 snr=20 est_hz=9317.5 |est-true|=317.5 ac_norm=0.985 apply_v5a=1 holo=1 P1_PASS e63_sh=31499 e0_sh=6 max_e_sh=31499 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=9000 snr=10 est_hz=9648.3 |est-true|=648.3 ac_norm=0.874 apply_v5a=0 holo=1 P1_PASS e63_sh=7785 e0_sh=6 max_e_sh=7785 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 10dB S100/100 D 16/100 BER=0.122
+cfo=10000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=10000 snr=30 est_hz=10034.3 |est-true|=34.3 ac_norm=0.998 apply_v5a=1 holo=1 P1_PASS e63_sh=31262 e0_sh=0 max_e_sh=31262 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=10000 snr=20 est_hz=10081.7 |est-true|=81.7 ac_norm=0.985 apply_v5a=1 holo=1 P1_PASS e63_sh=31437 e0_sh=5 max_e_sh=31437 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=10000 snr=10 est_hz=9936.5 |est-true|=63.5 ac_norm=0.870 apply_v5a=0 holo=1 P1_PASS e63_sh=5182 e0_sh=6 max_e_sh=5182 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.496
+cfo=11000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=11000 snr=30 est_hz=10942.7 |est-true|=57.3 ac_norm=0.999 apply_v5a=1 holo=1 P1_PASS e63_sh=31224 e0_sh=0 max_e_sh=31224 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=11000 snr=20 est_hz=10775.2 |est-true|=224.8 ac_norm=0.988 apply_v5a=1 holo=1 P1_PASS e63_sh=31271 e0_sh=5 max_e_sh=31271 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=11000 snr=10 est_hz=9921.4 |est-true|=1078.6 ac_norm=0.874 apply_v5a=0 holo=1 P1_PASS e63_sh=3127 e0_sh=6 max_e_sh=3127 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.771
+cfo=12000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=12000 snr=30 est_hz=11910.4 |est-true|=89.6 ac_norm=1.000 apply_v5a=1 holo=1 P1_PASS e63_sh=31180 e0_sh=0 max_e_sh=31180 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=12000 snr=20 est_hz=11680.6 |est-true|=319.4 ac_norm=0.991 apply_v5a=1 holo=1 P1_PASS e63_sh=31103 e0_sh=5 max_e_sh=31103 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=12000 snr=10 est_hz=10607.2 |est-true|=1392.8 ac_norm=0.879 apply_v5a=0 holo=1 P1_PASS e63_sh=1632 e0_sh=6 max_e_sh=1632 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.578
+cfo=15000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=15000 snr=30 est_hz=15020.6 |est-true|=20.6 ac_norm=0.996 apply_v5a=1 holo=1 P1_PASS e63_sh=31000 e0_sh=0 max_e_sh=31000 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=15000 snr=20 est_hz=15026.6 |est-true|=26.6 ac_norm=0.978 apply_v5a=1 holo=1 P1_PASS e63_sh=30605 e0_sh=3 max_e_sh=30605 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] 64ch lag=4 cfo=15000 snr=10 est_hz=14795.4 |est-true|=204.6 ac_norm=0.855 apply_v5a=0 holo_sync=1 P1_FAIL e63_sh=19 e0_sh=6 max_e_sh=19 k_P1_MIN_E=1000 (PS-LTE) decode=SKIP (V5a reset)
+ 10dB S100/100 D  0/100 BER=1.000
+cfo=20000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=20000 snr=30 est_hz=19974.7 |est-true|=25.3 ac_norm=0.998 apply_v5a=1 holo=1 P1_PASS e63_sh=30709 e0_sh=0 max_e_sh=30709 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=20000 snr=20 est_hz=19895.0 |est-true|=105.0 ac_norm=0.982 apply_v5a=1 holo=1 P1_PASS e63_sh=29674 e0_sh=4 max_e_sh=29674 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=20000 snr=10 est_hz=19382.4 |est-true|=617.6 ac_norm=0.853 apply_v5a=0 holo=1 P1_PASS e63_sh=1233 e0_sh=5 max_e_sh=1233 k_P1_MIN_E=1000 decode=OK bits0..3_err=2 got -1 -1 1 1
+ 10dB S100/100 D  0/100 BER=0.555
+cfo=30000:
+
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=30000 snr=30 est_hz=30040.4 |est-true|=40.4 ac_norm=0.997 apply_v5a=1 holo=1 P1_PASS e63_sh=31030 e0_sh=0 max_e_sh=31030 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 30dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] cfo=30000 snr=20 est_hz=30112.6 |est-true|=112.6 ac_norm=0.982 apply_v5a=1 holo=1 P1_PASS e63_sh=30685 e0_sh=5 max_e_sh=30685 k_P1_MIN_E=1000 decode=OK bits0..3_err=0 got -1 1 -1 1
+ 20dB S100/100 D100/100 BER=0.000
+[DIAG-LabL] trial0 v5a_in=PRE_SYM1[128..191] 64ch lag=4 cfo=30000 snr=10 est_hz=30206.2 |est-true|=206.2 ac_norm=0.869 apply_v5a=0 holo_sync=1 P1_FAIL e63_sh=9 e0_sh=6 max_e_sh=9 k_P1_MIN_E=1000 (PS-LTE) decode=SKIP (V5a reset)
+ 10dB S100/100 D  0/100 BER=1.000

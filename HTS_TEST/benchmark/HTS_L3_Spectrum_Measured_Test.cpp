@@ -628,5 +628,7 @@ int main() {
 }
 
 #include "../../HTS_LIM/HTS_Holo_Dispatcher.cpp"
-#include "../../HTS_LIM/HTS_Holo_Tensor_4D.cpp"
+#include "../../HTS_LIM/HTS_Holo_Tensor_4D_Common.cpp"
+#include "../../HTS_LIM/HTS_Holo_Tensor_4D_TX.cpp"
+#include "../../HTS_LIM/HTS_Holo_Tensor_4D_RX.cpp"
 #include "../../HTS_LIM/HTS_Gaussian_Pulse.cpp"
