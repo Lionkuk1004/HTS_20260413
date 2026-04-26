@@ -1,6 +1,5 @@
 @echo off
-REM HTS_T6_SIM_Test_holo_optB_step1.exe — Phase B + HTS_HOLO_RX_PHASE_REF (extract only).
-REM Step 2 decode wiring: add /DHTS_HOLO_RX_PHASE_REF_APPLY → use cursor_t6_build_holo_optB.cmd
+REM HTS_T6_SIM_Test_holo_optB.exe — Phase B + PRE_SYM1 phase ref (extract + decode apply)
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
@@ -13,8 +12,9 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W4 /WX /wd4324 /DNDEBUG ^
    /DHTS_USE_HOLOGRAPHIC_SYNC ^
    /DHTS_HOLO_RX_PHASE_B ^
    /DHTS_HOLO_RX_PHASE_REF ^
+   /DHTS_HOLO_RX_PHASE_REF_APPLY ^
    /D_CRT_SECURE_NO_WARNINGS ^
-   /FeHTS_T6_SIM_Test_holo_optB_step1.exe ^
+   /FeHTS_T6_SIM_Test_holo_optB.exe ^
    HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
    ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
    ..\..\HTS_LIM\HTS_Preamble_Holographic.cpp ^

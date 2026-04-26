@@ -45,6 +45,30 @@ namespace ProtectedEngine {
             int8_t*                 output_bits_cand1,
             uint16_t                K) noexcept;
 
+#if defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+        /// PRE_SYM1 등 외부 Q16 위상 reference 로 π 후보 라벨 정렬 (I/Q 경로).
+        uint32_t Decode_Block_Two_Candidates_With_PhaseRef(
+            const int16_t*        rx_I,
+            const int16_t*        rx_Q,
+            uint16_t                N,
+            uint64_t                valid_mask,
+            int8_t*                 output_bits_cand0,
+            int8_t*                 output_bits_cand1,
+            uint16_t                K,
+            int32_t                 phase_ref_q16,
+            bool                    phase_ref_valid) noexcept;
+
+        /// 외부 위상 reference (PRE_SYM1 등). @a phase_ref_valid 가 false 이면 Decode_Block.
+        uint32_t Decode_Block_With_PhaseRef(
+            const int16_t*        rx_chips,
+            uint16_t                N,
+            uint64_t                valid_mask,
+            int8_t*                 output_bits,
+            uint16_t                K,
+            int32_t                 phase_ref_q16,
+            bool                    phase_ref_valid) noexcept;
+#endif
+
         /// Two_Candidates 후 CRC 콜백으로 단일 출력 선택(레거시·단위 테스트용).
         uint32_t Decode_Block_With_Phase(
             const int16_t*        rx_I,
@@ -79,7 +103,9 @@ namespace ProtectedEngine {
             uint64_t valid_mask,
             int8_t* output_bits_cand0,
             int8_t* output_bits_cand1,
-            uint16_t K) noexcept;
+            uint16_t K,
+            bool phase_ref_valid,
+            int32_t phase_ref_q16) noexcept;
         alignas(4) uint8_t  impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
         mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;

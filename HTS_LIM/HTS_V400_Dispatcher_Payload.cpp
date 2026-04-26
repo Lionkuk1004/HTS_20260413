@@ -252,11 +252,21 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 if (diag_this_pkt && sym_idx_ == 0) {
                     std::printf("[PHASE-H][RX] decode_input_IQ64 (Phase-B path)\n");
                 }
+#if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+                const uint32_t dec_ok =
+                    holo_rx_.Decode_Block_Two_Candidates_With_PhaseRef(
+                        buf_I_, buf_Q_,
+                        holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
+                        holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
+                        holo_tensor_profile_.block_bits,
+                        holo_rx_phase_ref_q16_, holo_rx_phase_ref_valid_);
+#else
                 const uint32_t dec_ok = holo_rx_.Decode_Block_Two_Candidates(
                     buf_I_, buf_Q_,
                     holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                     holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
                     holo_tensor_profile_.block_bits);
+#endif
 #else
                 for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
                     const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
@@ -270,9 +280,16 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                     std::printf("\n");
                 }
+#if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+                const uint32_t dec_ok = holo_rx_.Decode_Block_With_PhaseRef(
+                    rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
+                    holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
+                    holo_rx_phase_ref_q16_, holo_rx_phase_ref_valid_);
+#else
                 const uint32_t dec_ok = holo_rx_.Decode_Block(
                     rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                     holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
+#endif
 #endif
                 if (dec_ok != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
