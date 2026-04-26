@@ -5,7 +5,7 @@
 #include "HTS_Secure_Memory.h"
 #include <new>
 #include <cstring>
-#if defined(HTS_CFO_V5A_S5H_STEPD_RX)
+#if defined(HTS_CFO_V5A_S5H_STEPD_RX) || defined(HTS_HOLO_RX_DECODE_AUDIT)
 #include <cstdio>
 #endif
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
@@ -104,6 +104,30 @@ namespace ProtectedEngine {
             const uint16_t N_eff = static_cast<uint16_t>(N32d * valid);
             const uint16_t K_eff = static_cast<uint16_t>(K32d * valid);
 
+#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+            {
+                std::printf("[AUDIT-IN] rx_chips[0..7]=");
+                for (uint16_t c = 0u; c < 8u && c < N; ++c) {
+                    std::printf("%d ", static_cast<int>(rx_chips[static_cast<size_t>(c)]));
+                }
+                std::printf("\n");
+                std::printf("[AUDIT-IN] rx_chips[56..63]=");
+                {
+                    const uint16_t c0 = (N >= 8u) ? static_cast<uint16_t>(N - 8u) : 0u;
+                    for (uint16_t c = c0; c < N; ++c) {
+                        std::printf("%d ", static_cast<int>(rx_chips[static_cast<size_t>(c)]));
+                    }
+                }
+                std::printf("\n");
+                std::printf(
+                    "[AUDIT-IN] N=%u K=%u L=%u valid_mask=%016llX\n",
+                    static_cast<unsigned>(N),
+                    static_cast<unsigned>(K),
+                    static_cast<unsigned>(o.profile_.num_layers),
+                    static_cast<unsigned long long>(valid_mask));
+            }
+#endif
+
             Holo4D_Generate_Partitioned_Params(
                 o.master_seed_, o.time_slot_,
                 scratch_rows, scratch_perm, K_eff, N_eff, L);
@@ -160,6 +184,21 @@ namespace ProtectedEngine {
                     static_cast<int16_t>(rx_val * ms);
             }
 
+#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+            {
+                std::printf("[AUDIT-SCR] scratch_rx[0..15]=");
+                for (uint16_t i = 0u; i < 16u && i < N_eff; ++i) {
+                    std::printf("%d ", static_cast<int>(scratch_rx[static_cast<size_t>(i)]));
+                }
+                std::printf("\n");
+                std::printf("[AUDIT-SCR] scratch_rx[16..31]=");
+                for (uint16_t i = 16u; i < 32u && i < N_eff; ++i) {
+                    std::printf("%d ", static_cast<int>(scratch_rx[static_cast<size_t>(i)]));
+                }
+                std::printf("\n");
+            }
+#endif
+
             std::memset(accum, 0, static_cast<size_t>(K_eff) * sizeof(int32_t));
 
             for (uint16_t k = 0u; k < K_eff; ++k) {
@@ -207,12 +246,32 @@ namespace ProtectedEngine {
                 accum[static_cast<size_t>(k)] += sumL;
             }
 
+#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+            {
+                std::printf("[AUDIT-ACC] accum[0..K-1]=");
+                for (uint16_t k = 0u; k < K_eff; ++k) {
+                    std::printf("%lld ",
+                        static_cast<long long>(accum[static_cast<size_t>(k)]));
+                }
+                std::printf("\n");
+            }
+#endif
+
             for (uint16_t k = 0u; k < K_eff; ++k) {
                 const uint32_t sign_bit =
                     static_cast<uint32_t>(accum[static_cast<size_t>(k)]) >> 31u;
                 output_bits[static_cast<size_t>(k)] = static_cast<int8_t>(
                     1 - 2 * static_cast<int32_t>(sign_bit));
             }
+#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+            {
+                std::printf("[AUDIT-OUT] bits=");
+                for (uint16_t k = 0u; k < K_eff; ++k) {
+                    std::printf("%d ", static_cast<int>(output_bits[static_cast<size_t>(k)]));
+                }
+                std::printf("\n");
+            }
+#endif
             Wipe_Sensitive();
             return (HTS_Holo_Tensor_4D_RX::SECURE_TRUE & (0u - valid)) |
                 (HTS_Holo_Tensor_4D_RX::SECURE_FALSE & (0u - (valid ^ 1u)));

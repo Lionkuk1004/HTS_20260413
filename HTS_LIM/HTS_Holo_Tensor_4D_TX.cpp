@@ -5,6 +5,10 @@
 #include "HTS_Secure_Memory.h"
 #include <new>
 #include <cstring>
+#if defined(HTS_CFO_V5A_S5H_ENCODE_DIAG) || defined(HTS_CFO_V5A_S5H_STEPC_FULL) || \
+    defined(HTS_CFO_V5A_S5H_STEPD_TX) || defined(HTS_HOLO_TX_ENCODE_AUDIT)
+#include <cstdio>
+#endif
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
 #include <intrin.h>
 #endif
@@ -107,6 +111,40 @@ namespace ProtectedEngine {
             const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
                 o.master_seed_, o.time_slot_);
 
+#if defined(HTS_CFO_V5A_S5H_STEPD_TX)
+            std::printf(
+                "[TX-SYNC] seed=[%08X,%08X,%08X,%08X] tslot=%u L=%u K=%u N=%u "
+                "profK=%u profN=%u\n",
+                o.master_seed_[0], o.master_seed_[1], o.master_seed_[2],
+                o.master_seed_[3], static_cast<unsigned>(o.time_slot_),
+                static_cast<unsigned>(L), static_cast<unsigned>(K_eff),
+                static_cast<unsigned>(N_eff),
+                static_cast<unsigned>(o.profile_.block_bits),
+                static_cast<unsigned>(o.profile_.chip_count));
+            std::printf("[TX-MASK] %016llX\n",
+                        static_cast<unsigned long long>(mask_bits));
+            std::printf(
+                "[TX-PERM] %d,%d,%d,%d,%d,%d,%d,%d (first 8)\n",
+                static_cast<int>(scratch_perm[0]),
+                static_cast<int>(scratch_perm[1]),
+                static_cast<int>(scratch_perm[2]),
+                static_cast<int>(scratch_perm[3]),
+                static_cast<int>(scratch_perm[4]),
+                static_cast<int>(scratch_perm[5]),
+                static_cast<int>(scratch_perm[6]),
+                static_cast<int>(scratch_perm[7]));
+            std::printf(
+                "[TX-ROWS] %d,%d,%d,%d,%d,%d,%d,%d (first 8 of L*K)\n",
+                static_cast<int>(scratch_rows[0]),
+                static_cast<int>(scratch_rows[1]),
+                static_cast<int>(scratch_rows[2]),
+                static_cast<int>(scratch_rows[3]),
+                static_cast<int>(scratch_rows[4]),
+                static_cast<int>(scratch_rows[5]),
+                static_cast<int>(scratch_rows[6]),
+                static_cast<int>(scratch_rows[7]));
+#endif
+
             std::memset(accum, 0, static_cast<size_t>(N_eff) * sizeof(int32_t));
 
             for (uint16_t i = 0u; i < N_eff; ++i) {
@@ -175,6 +213,15 @@ namespace ProtectedEngine {
                     (127 & mhi) | (-127 & mlo) | (v & ~mhi & ~mlo));
 #endif
             }
+#if defined(HTS_HOLO_TX_ENCODE_AUDIT)
+            {
+                std::printf("[AUDIT-TX-CHIP] chips[0..7]=");
+                for (uint16_t i = 0u; i < 8u && i < N_eff; ++i) {
+                    std::printf("%d ", static_cast<int>(chips[static_cast<size_t>(i)]));
+                }
+                std::printf("\n");
+            }
+#endif
             Wipe_Sensitive();
             return (HTS_Holo_Tensor_4D_TX::SECURE_TRUE & (0u - valid)) |
                 (HTS_Holo_Tensor_4D_TX::SECURE_FALSE & (0u - (valid ^ 1u)));
@@ -330,7 +377,26 @@ namespace ProtectedEngine {
         }
         const uint32_t ok = im->Encode(*this, data_bits, K, output_chips, N);
         Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
-        if (ok == SECURE_TRUE) { ++im->encode_count; }
+        if (ok == SECURE_TRUE) {
+            ++im->encode_count;
+#if defined(HTS_CFO_V5A_S5H_ENCODE_DIAG)
+            if (N >= 64) {
+                std::printf(
+                    "[ENC] chip[0]=%d chip[31]=%d chip[63]=%d\n",
+                    static_cast<int>(output_chips[0]),
+                    static_cast<int>(output_chips[31]),
+                    static_cast<int>(output_chips[63]));
+#if defined(HTS_CFO_V5A_S5H_STEPC_FULL)
+                for (uint16_t ci = 0; ci < 64 && ci < N; ++ci) {
+                    std::printf(
+                        "[ENC-CHIP] k=%u v=%d\n",
+                        static_cast<unsigned>(ci),
+                        static_cast<int>(output_chips[ci]));
+                }
+#endif
+            }
+#endif
+        }
         return ok;
     }
 
