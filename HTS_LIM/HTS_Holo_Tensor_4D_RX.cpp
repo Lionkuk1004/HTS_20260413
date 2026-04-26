@@ -5,6 +5,9 @@
 #include "HTS_Secure_Memory.h"
 #include <new>
 #include <cstring>
+#if defined(HTS_CFO_V5A_S5H_STEPD_RX)
+#include <cstdio>
+#endif
 #if defined(_MSC_VER) && (defined(_M_X64) || defined(_M_IX86))
 #include <intrin.h>
 #endif
@@ -108,6 +111,40 @@ namespace ProtectedEngine {
             const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
                 o.master_seed_, o.time_slot_);
 
+#if defined(HTS_CFO_V5A_S5H_STEPD_RX)
+            std::printf(
+                "[RX-SYNC] seed=[%08X,%08X,%08X,%08X] tslot=%u L=%u K=%u N=%u "
+                "profK=%u profN=%u\n",
+                o.master_seed_[0], o.master_seed_[1], o.master_seed_[2],
+                o.master_seed_[3], static_cast<unsigned>(o.time_slot_),
+                static_cast<unsigned>(L), static_cast<unsigned>(K_eff),
+                static_cast<unsigned>(N_eff),
+                static_cast<unsigned>(o.profile_.block_bits),
+                static_cast<unsigned>(o.profile_.chip_count));
+            std::printf("[RX-MASK] %016llX\n",
+                        static_cast<unsigned long long>(mask_bits));
+            std::printf(
+                "[RX-PERM] %d,%d,%d,%d,%d,%d,%d,%d (first 8)\n",
+                static_cast<int>(scratch_perm[0]),
+                static_cast<int>(scratch_perm[1]),
+                static_cast<int>(scratch_perm[2]),
+                static_cast<int>(scratch_perm[3]),
+                static_cast<int>(scratch_perm[4]),
+                static_cast<int>(scratch_perm[5]),
+                static_cast<int>(scratch_perm[6]),
+                static_cast<int>(scratch_perm[7]));
+            std::printf(
+                "[RX-ROWS] %d,%d,%d,%d,%d,%d,%d,%d (first 8 of L*K)\n",
+                static_cast<int>(scratch_rows[0]),
+                static_cast<int>(scratch_rows[1]),
+                static_cast<int>(scratch_rows[2]),
+                static_cast<int>(scratch_rows[3]),
+                static_cast<int>(scratch_rows[4]),
+                static_cast<int>(scratch_rows[5]),
+                static_cast<int>(scratch_rows[6]),
+                static_cast<int>(scratch_rows[7]));
+#endif
+
             std::memset(scratch_rx, 0, static_cast<size_t>(N_eff) * sizeof(int16_t));
             for (uint16_t i = 0u; i < N_eff; ++i) {
                 const uint16_t phys = scratch_perm[static_cast<size_t>(i)];
@@ -181,6 +218,287 @@ namespace ProtectedEngine {
                 (HTS_Holo_Tensor_4D_RX::SECURE_FALSE & (0u - (valid ^ 1u)));
         }
     };
+
+    namespace {
+        /// Q16 한 바퀴=65536, π=32768. Cordic vectoring atan2(y,x), x>0 전제 후 보정.
+        static int32_t holo4d_atan2_q16(int32_t y, int32_t x) noexcept
+        {
+            if (x == 0 && y == 0) { return 0; }
+            if (x == 0) {
+                return (y > 0) ? 16384 : -16384;
+            }
+            int64_t X = static_cast<int64_t>(x);
+            int64_t Y = static_cast<int64_t>(y);
+            int32_t Z = 0;
+            if (X < 0) {
+                if (Y >= 0) {
+                    Z += 32768;
+                    X = -X;
+                    Y = -Y;
+                } else {
+                    Z -= 32768;
+                    X = -X;
+                    Y = -Y;
+                }
+            }
+            if (Y == 0) { return Z; }
+            static constexpr int32_t k_at_q16[16] = {
+                8192, 4839, 2555, 1292, 651, 326, 163, 82,
+                41, 20, 10, 5, 3, 1, 1, 0
+            };
+            for (int i = 0; i < 16; ++i) {
+                const int64_t xi = X;
+                const int64_t yi = Y;
+                if (yi < 0) {
+                    X = xi - (yi >> i);
+                    Y = yi + (xi >> i);
+                    Z -= k_at_q16[i];
+                } else {
+                    X = xi + (yi >> i);
+                    Y = yi - (xi >> i);
+                    Z += k_at_q16[i];
+                }
+            }
+            return Z;
+        }
+
+        /// 인접 칩 lag=1 복소 상관 누적 → 블록 평균 잔여 dφ(Q16/칩).
+        /// (제곱 위상 추정은 저 CFO에서 과회전을 유발할 수 있어 선형 누적 사용.)
+        static int32_t holo4d_estimate_residual_dphi_q16(
+            const int16_t* rx_I, const int16_t* rx_Q, uint16_t N) noexcept
+        {
+            if (N < 2u) { return 0; }
+            int64_t sum_I = 0;
+            int64_t sum_Q = 0;
+            for (uint16_t c = 0u; c + 1u < N; ++c) {
+                const int32_t i0 = static_cast<int32_t>(rx_I[static_cast<size_t>(c)]);
+                const int32_t q0 = static_cast<int32_t>(rx_Q[static_cast<size_t>(c)]);
+                const int32_t i1 = static_cast<int32_t>(rx_I[static_cast<size_t>(c + 1u)]);
+                const int32_t q1 = static_cast<int32_t>(rx_Q[static_cast<size_t>(c + 1u)]);
+                const int64_t c_I = static_cast<int64_t>(i1) * i0 +
+                    static_cast<int64_t>(q1) * q0;
+                const int64_t c_Q = static_cast<int64_t>(q1) * i0 -
+                    static_cast<int64_t>(i1) * q0;
+                sum_I += c_I >> 8;
+                sum_Q += c_Q >> 8;
+            }
+            const int32_t total_q16 = holo4d_atan2_q16(
+                static_cast<int32_t>(sum_Q >> 16),
+                static_cast<int32_t>(sum_I >> 16));
+            const int32_t denom = static_cast<int32_t>(static_cast<uint16_t>(N - 1u));
+            if (denom <= 0) { return 0; }
+            int32_t dphi = total_q16 / denom;
+            if (dphi > 4096) { dphi = 4096; }
+            else if (dphi < -4096) { dphi = -4096; }
+            return dphi;
+        }
+
+        static void holo4d_chip_derotate_q15(
+            const int16_t* rx_I, const int16_t* rx_Q,
+            int32_t dphi_q16, uint16_t N,
+            int16_t* out_I, int16_t* out_Q) noexcept
+        {
+            int32_t phi_q16 = 0;
+            for (uint16_t c = 0u; c < N; ++c) {
+                const uint16_t phi_lut = static_cast<uint16_t>(
+                    static_cast<uint32_t>(phi_q16));
+                const int32_t cos_q15 = static_cast<int32_t>(Cos_Q15(phi_lut));
+                const int32_t sin_q15 = static_cast<int32_t>(Sin_Q15(phi_lut));
+                const int32_t I = static_cast<int32_t>(rx_I[static_cast<size_t>(c)]);
+                const int32_t Q = static_cast<int32_t>(rx_Q[static_cast<size_t>(c)]);
+                int32_t Ip = (I * cos_q15 + Q * sin_q15) >> 15;
+                int32_t Qp = (Q * cos_q15 - I * sin_q15) >> 15;
+                if (Ip > 32767) { Ip = 32767; }
+                else if (Ip < -32768) { Ip = -32768; }
+                if (Qp > 32767) { Qp = 32767; }
+                else if (Qp < -32768) { Qp = -32768; }
+                out_I[static_cast<size_t>(c)] = static_cast<int16_t>(Ip);
+                out_Q[static_cast<size_t>(c)] = static_cast<int16_t>(Qp);
+                phi_q16 += dphi_q16;
+            }
+        }
+
+    } // namespace
+
+    uint32_t detail_holo4d_decode_with_phase(
+        HTS_Holo_Tensor_4D_RX& o,
+        HTS_Holo_Tensor_4D_RX::Impl* im,
+        const int16_t* rx_I, const int16_t* rx_Q,
+        uint16_t N, uint64_t valid_mask,
+        int8_t* output_bits, uint16_t K,
+        HTS_Holo_Tensor_4D_RX::CrcVerifyFn crc_fn,
+        void* crc_ctx) noexcept
+    {
+            const uint8_t L = o.profile_.num_layers;
+            const uint32_t L32d = static_cast<uint32_t>(L);
+            const uint32_t K32d = static_cast<uint32_t>(K);
+            const uint32_t N32d = static_cast<uint32_t>(N);
+            const uint32_t valid =
+                static_cast<uint32_t>(N <= HOLO_CHIP_COUNT) &
+                static_cast<uint32_t>(K <= HOLO_MAX_BLOCK_BITS) &
+                static_cast<uint32_t>(K <= N) &
+                static_cast<uint32_t>(N != 0u) &
+                static_cast<uint32_t>((N & static_cast<uint16_t>(N - 1u)) == 0u) &
+                static_cast<uint32_t>(L32d * K32d <= N32d);
+            const uint16_t N_eff = static_cast<uint16_t>(N32d * valid);
+            const uint16_t K_eff = static_cast<uint16_t>(K32d * valid);
+
+            Holo4D_Generate_Partitioned_Params(
+                o.master_seed_, o.time_slot_,
+                im->scratch_rows, im->scratch_perm, K_eff, N_eff, L);
+
+            const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
+                o.master_seed_, o.time_slot_);
+
+#if defined(HTS_CFO_V5A_S5H_STEPD_RX)
+            std::printf(
+                "[RX-SYNC-PH] seed=[%08X,%08X,%08X,%08X] tslot=%u L=%u K=%u N=%u\n",
+                o.master_seed_[0], o.master_seed_[1], o.master_seed_[2],
+                o.master_seed_[3], static_cast<unsigned>(o.time_slot_),
+                static_cast<unsigned>(L), static_cast<unsigned>(K_eff),
+                static_cast<unsigned>(N_eff));
+#endif
+
+            int16_t der_I[HOLO_CHIP_COUNT];
+            int16_t der_Q[HOLO_CHIP_COUNT];
+            int8_t bits_cand0[HOLO_MAX_BLOCK_BITS];
+            int8_t bits_cand1[HOLO_MAX_BLOCK_BITS];
+
+            const int32_t dphi_est =
+                holo4d_estimate_residual_dphi_q16(rx_I, rx_Q, N_eff);
+#if defined(HTS_HOLO_RX_PHASE_B_DEROTATE)
+            const int32_t dphi_q16 = dphi_est;
+#else
+            const int32_t dphi_q16 = 0;
+            (void)dphi_est;
+#endif
+            holo4d_chip_derotate_q15(
+                rx_I, rx_Q, dphi_q16, N_eff, der_I, der_Q);
+
+            int16_t rx_comb_phys[HOLO_CHIP_COUNT];
+            for (uint16_t c = 0u; c < N_eff; ++c) {
+                const int32_t s = static_cast<int32_t>(der_I[static_cast<size_t>(c)]) +
+                    static_cast<int32_t>(der_Q[static_cast<size_t>(c)]);
+                rx_comb_phys[static_cast<size_t>(c)] = static_cast<int16_t>(s / 2);
+            }
+
+            std::memset(im->scratch_rx, 0, static_cast<size_t>(N_eff) * sizeof(int16_t));
+            for (uint16_t i = 0u; i < N_eff; ++i) {
+                const uint16_t phys = im->scratch_perm[static_cast<size_t>(i)];
+                const uint32_t phys_u = static_cast<uint32_t>(phys) & 63u;
+                const uint32_t vbit = static_cast<uint32_t>(
+                    (valid_mask >> phys_u) & 1ull);
+                const int32_t chip_valid = -static_cast<int32_t>(vbit);
+                int32_t rx_val = static_cast<int32_t>(
+                    rx_comb_phys[static_cast<size_t>(phys_u)]) & chip_valid;
+                const int32_t ms = 1 - (static_cast<int32_t>(
+                    (mask_bits >> static_cast<uint64_t>(i)) & 1ull) << 1);
+                im->scratch_rx[static_cast<size_t>(i)] =
+                    static_cast<int16_t>(rx_val * ms);
+            }
+
+            std::memset(im->accum, 0, static_cast<size_t>(K_eff) * sizeof(int32_t));
+
+            for (uint16_t k = 0u; k < K_eff; ++k) {
+                int32_t sumL = 0;
+                for (uint8_t layer = 0u; layer < L; ++layer) {
+                    const uint16_t row_offset = static_cast<uint16_t>(
+                        static_cast<uint32_t>(layer) * K32d);
+                    const uint16_t* row_sel =
+                        &im->scratch_rows[static_cast<size_t>(row_offset)];
+                    const uint32_t row_k =
+                        static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]);
+                    int32_t acc = 0;
+                    uint16_t ii = 0u;
+                    for (; ii + 3u < N_eff; ii += 4u) {
+                        const uint32_t i0 = static_cast<uint32_t>(ii);
+                        const uint32_t i1 = static_cast<uint32_t>(ii + 1u);
+                        const uint32_t i2 = static_cast<uint32_t>(ii + 2u);
+                        const uint32_t i3 = static_cast<uint32_t>(ii + 3u);
+                        const int32_t w0 =
+                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i0));
+                        const int32_t w1 =
+                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i1));
+                        const int32_t w2 =
+                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i2));
+                        const int32_t w3 =
+                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i3));
+                        const int32_t r0 =
+                            static_cast<int32_t>(im->scratch_rx[static_cast<size_t>(ii)]);
+                        const int32_t r1 =
+                            static_cast<int32_t>(im->scratch_rx[static_cast<size_t>(ii + 1u)]);
+                        const int32_t r2 =
+                            static_cast<int32_t>(im->scratch_rx[static_cast<size_t>(ii + 2u)]);
+                        const int32_t r3 =
+                            static_cast<int32_t>(im->scratch_rx[static_cast<size_t>(ii + 3u)]);
+                        acc += r0 * w0 + r1 * w1 + r2 * w2 + r3 * w3;
+                    }
+                    for (; ii < N_eff; ++ii) {
+                        const int8_t w = Holo4D_Walsh_Code(
+                            row_k, static_cast<uint32_t>(ii));
+                        acc += static_cast<int32_t>(
+                            im->scratch_rx[static_cast<size_t>(ii)]) *
+                            static_cast<int32_t>(w);
+                    }
+                    sumL += acc;
+                }
+                im->accum[static_cast<size_t>(k)] += sumL;
+            }
+
+            for (uint16_t k = 0u; k < K_eff; ++k) {
+                const uint32_t sign_bit =
+                    static_cast<uint32_t>(im->accum[static_cast<size_t>(k)]) >> 31u;
+                bits_cand0[static_cast<size_t>(k)] = static_cast<int8_t>(
+                    1 - 2 * static_cast<int32_t>(sign_bit));
+                bits_cand1[static_cast<size_t>(k)] = static_cast<int8_t>(
+                    -bits_cand0[static_cast<size_t>(k)]);
+            }
+
+            int64_t m0 = 0;
+            int64_t m1 = 0;
+            for (uint16_t k = 0u; k < K_eff; ++k) {
+                const int32_t a = im->accum[static_cast<size_t>(k)];
+                const int32_t b0 = static_cast<int32_t>(bits_cand0[static_cast<size_t>(k)]);
+                const int32_t b1 = static_cast<int32_t>(bits_cand1[static_cast<size_t>(k)]);
+                m0 += static_cast<int64_t>(a) * b0;
+                m1 += static_cast<int64_t>(a) * b1;
+            }
+
+            uint32_t mask_use_cand1 = 0u;
+            if (crc_fn != nullptr) {
+                const bool crc0 = crc_fn(bits_cand0, K_eff, crc_ctx);
+                const bool crc1 = crc_fn(bits_cand1, K_eff, crc_ctx);
+                if (crc1 && !crc0) {
+                    mask_use_cand1 = 0xFFFFFFFFu;
+                } else if (!crc1 && crc0) {
+                    mask_use_cand1 = 0u;
+                } else if (!crc0 && !crc1) {
+                    mask_use_cand1 = (m1 > m0) ? 0xFFFFFFFFu : 0u;
+                } else {
+                    mask_use_cand1 = 0u;
+                }
+            } else {
+                mask_use_cand1 = (m1 > m0) ? 0xFFFFFFFFu : 0u;
+            }
+
+            for (uint16_t k = 0u; k < K_eff; ++k) {
+                const int32_t b0 = static_cast<int32_t>(bits_cand0[static_cast<size_t>(k)]);
+                const int32_t b1 = static_cast<int32_t>(bits_cand1[static_cast<size_t>(k)]);
+                output_bits[static_cast<size_t>(k)] = static_cast<int8_t>(
+                    (b0 & ~static_cast<int32_t>(mask_use_cand1)) |
+                    (b1 & static_cast<int32_t>(mask_use_cand1)));
+            }
+
+            SecureMemory::secureWipe(static_cast<void*>(der_I), sizeof(der_I));
+            SecureMemory::secureWipe(static_cast<void*>(der_Q), sizeof(der_Q));
+            SecureMemory::secureWipe(
+                static_cast<void*>(rx_comb_phys), sizeof(rx_comb_phys));
+            SecureMemory::secureWipe(static_cast<void*>(bits_cand0), sizeof(bits_cand0));
+            SecureMemory::secureWipe(static_cast<void*>(bits_cand1), sizeof(bits_cand1));
+        im->Wipe_Sensitive();
+        return (HTS_Holo_Tensor_4D_RX::SECURE_TRUE & (0u - valid)) |
+            (HTS_Holo_Tensor_4D_RX::SECURE_FALSE & (0u - (valid ^ 1u)));
+    }
 
     HTS_Holo_Tensor_4D_RX::HTS_Holo_Tensor_4D_RX() noexcept
         : initialized_{ false }
@@ -332,6 +650,30 @@ namespace ProtectedEngine {
         }
         const uint32_t ok = im->Decode(
             *this, rx_chips, N, valid_mask, output_bits, K);
+        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        if (ok == SECURE_TRUE) { ++im->decode_count; }
+        return ok;
+    }
+
+    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_With_Phase(
+        const int16_t* rx_I, const int16_t* rx_Q,
+        uint16_t N, uint64_t valid_mask,
+        int8_t* output_bits, uint16_t K,
+        CrcVerifyFn crc_fn, void* crc_ctx) noexcept
+    {
+        if (rx_I == nullptr) { return SECURE_FALSE; }
+        if (rx_Q == nullptr) { return SECURE_FALSE; }
+        if (output_bits == nullptr) { return SECURE_FALSE; }
+        Holo4D_RX_Busy_Guard g(op_busy_);
+        if (!g.locked) { return SECURE_FALSE; }
+        if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
+        Impl* im = reinterpret_cast<Impl*>(impl_buf_);
+        if (Holo4D_Cfi_Transition(
+            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
+        const uint32_t ok = detail_holo4d_decode_with_phase(
+            *this, im, rx_I, rx_Q, N, valid_mask, output_bits, K, crc_fn, crc_ctx);
         Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;
