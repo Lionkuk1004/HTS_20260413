@@ -316,6 +316,7 @@
     <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher_Sync_PSLTE.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_PaCD.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_Decode.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_Voice_Codec_Bridge.cpp" />
@@ -492,6 +493,7 @@
     <ClInclude Include="HTS_Unified_Scheduler.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher_Internal.hpp" />
+    <ClInclude Include="HTS_V400_Dispatcher_PaCD.hpp" />
     <ClInclude Include="HTS_V400_FWHT_Int16Scale.hpp" />
     <ClInclude Include="HTS_Voice_Codec_Bridge.h" />
     <ClInclude Include="HTS_Voice_Codec_Bridge_Defs.h" />

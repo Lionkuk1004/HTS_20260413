@@ -177,6 +177,7 @@
     <ClCompile Include="..\..\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_V400_Dispatcher_PaCD.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets" />

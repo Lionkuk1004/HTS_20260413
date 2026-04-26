@@ -2,6 +2,10 @@
 // HTS_CFO_V5a.cpp — INNOViD HTS Rx CFO V5a
 // Phase 1-3: Derotate / Walsh63_Dot / Energy_Multiframe (file-static).
 // Phase 1-4: L&R segment autocorr estimator (Luise & Reggiannini 1995).
+// Lab 전용: `/DHTS_V5A_DISABLE_PTE` 시 coarse/fine PTE(parabolic) 오프셋을 0으로
+// 고정(미정의 시 기존과 동일).
+// Lab 전용: `/DHTS_V5A_DISABLE_LR` 시 Estimate 루프에서 L&R(LR_Estimate_impl) 보정 0.
+// Lab 전용: `/DHTS_LR_DIAG` 시 `g_lr_diag` 에 L&R 단계 스냅샷(세그먼트·R·Z·lag별 Hz).
 // =============================================================================
 #include "HTS_CFO_V5a.hpp"
 #include "HTS_Rx_CFO_SinCos_Table.hpp"
@@ -288,6 +292,77 @@ static inline int32_t isc_atan_frac_q12(int32_t y, int32_t x) noexcept {
                (static_cast<int64_t>(next - base) * frac) >> 14);
 }
 
+// --- atan primary branch [0, π/4): PTE on legacy kLut (BPTE idx clamp, linear 동일 idx) ---
+static inline int32_t isc_atan_frac_pte_q12(int32_t v, int32_t u) noexcept {
+    static constexpr int16_t kLut[17] = {
+        0,    256,  511,  763,  1018, 1266, 1508, 1741,
+        1965, 2178, 2380, 2571, 2749, 2915, 3068, 3208, 3217};
+    const int64_t ratio_q14 =
+        (static_cast<int64_t>(v) << 14) / static_cast<int64_t>(u);
+    const int64_t scaled = ratio_q14 * 16;
+    int32_t idx = static_cast<int32_t>(scaled >> 14);
+    const int32_t t_hi = (16 - idx) >> 31;
+    idx = (idx & ~t_hi) | (16 & t_hi);
+    const int32_t dz = idx ^ 16;
+    const int32_t is_lut16 = ~((dz | -dz) >> 31);
+    const int32_t t_lo = (idx - 1) >> 31;
+    const int32_t lo_i = (idx - 1) & ~t_lo;
+    const int32_t sum = idx + 1;
+    const int32_t ov2 = (16 - sum) >> 31;
+    const int32_t hi_i = (sum & ~ov2) | (16 & ov2);
+    const int32_t y_lo = static_cast<int32_t>(kLut[lo_i]);
+    const int32_t y_md = static_cast<int32_t>(kLut[idx]);
+    const int32_t y_hi = static_cast<int32_t>(kLut[hi_i]);
+    const int32_t frac = static_cast<int32_t>(scaled & ((1 << 14) - 1));
+    const int32_t a2 = y_hi - y_lo;
+    const int32_t b2 = y_hi - (y_md << 1) + y_lo;
+    const int64_t t1 = (static_cast<int64_t>(a2) * static_cast<int64_t>(frac)) >> 14;
+    const int64_t x_sq =
+        (static_cast<int64_t>(frac) * static_cast<int64_t>(frac)) >> 14;
+    const int64_t t2 = (static_cast<int64_t>(b2) * x_sq) >> 14;
+    const int32_t pte =
+        y_md + static_cast<int32_t>(t1 + t2);
+    return (pte & ~is_lut16) |
+           (static_cast<int32_t>(kLut[16]) & is_lut16);
+}
+
+// --- Full-plane atan2 Q12: BPTE masks only (no if/else/?:) ---
+static inline int32_t isc_atan2_q12_dpte(int32_t y, int32_t x) noexcept {
+    const int32_t nz = static_cast<int32_t>(
+        ((static_cast<int64_t>(x) | static_cast<int64_t>(y)) |
+         (-(static_cast<int64_t>(x) | static_cast<int64_t>(y)))) >>
+        63);
+    const int32_t x_mask = x >> 31;
+    const int32_t y_mask = y >> 31;
+    const int32_t ax = (x ^ x_mask) - x_mask;
+    const int32_t ay = (y ^ y_mask) - y_mask;
+    const int32_t swap_gt = (ax - ay) >> 31;
+    const int32_t u = (ax & ~swap_gt) | (ay & swap_gt);
+    const int32_t v = (ay & ~swap_gt) | (ax & swap_gt);
+    const int32_t uz_m = (u | -u) >> 31;
+    const int32_t u_safe = u + 1 + uz_m;
+    const int32_t sgn_y = y >> 31;
+    const int32_t ret_u0 = (6434 ^ sgn_y) - sgn_y;
+    const int32_t ang_pte = isc_atan_frac_pte_q12(v, u_safe);
+    const int32_t ang_core = (ang_pte & uz_m) | (ret_u0 & ~uz_m);
+    const int32_t ang_sw = (ang_core & ~swap_gt) | ((6434 - ang_core) & swap_gt);
+    const int32_t ang_x = (ang_sw & ~x_mask) | ((12868 - ang_sw) & x_mask);
+    const int32_t ang_y = (ang_x & ~y_mask) | ((-ang_x) & y_mask);
+    return ang_y & nz;
+}
+
+static inline int32_t atan2_dpte_q15(int64_t y, int64_t x) noexcept {
+    while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
+           (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
+        y >>= 1;
+        x >>= 1;
+    }
+    const int32_t phase_q12 =
+        isc_atan2_q12_dpte(static_cast<int32_t>(y), static_cast<int32_t>(x));
+    return static_cast<int32_t>((static_cast<int64_t>(phase_q12) * 32768LL) /
+                                12868LL);
+}
+
 static inline int32_t isc_atan2_q12(int32_t y, int32_t x) noexcept {
     if (x == 0 && y == 0) {
         return 0;
@@ -380,31 +455,145 @@ static int32_t LR_Estimate_impl(const int16_t* rI,
         seg_Q[s] = aQ;
     }
 
+#if defined(HTS_LR_DIAG)
+    for (int s = 0; s < kLR_NumSeg; ++s) {
+        g_lr_diag.seg_I[s] = static_cast<int64_t>(seg_I[s]);
+        g_lr_diag.seg_Q[s] = static_cast<int64_t>(seg_Q[s]);
+    }
+    int64_t R_re_lag[kLR_MaxLag]{};
+    int64_t R_im_lag[kLR_MaxLag]{};
+#endif
+
     int64_t Z_re = 0;
     int64_t Z_im = 0;
 
     for (int lag = 1; lag <= kLR_MaxLag; ++lag) {
+        int64_t acc_re = 0;
+        int64_t acc_im = 0;
         for (int n = 0; n + lag < kLR_NumSeg; ++n) {
             const int64_t aI = seg_I[n + lag];
             const int64_t aQ = seg_Q[n + lag];
             const int64_t bI = seg_I[n];
             const int64_t bQ = seg_Q[n];
-            Z_re += aI * bI + aQ * bQ;
-            Z_im += aQ * bI - aI * bQ;
+            const int64_t cr = aI * bI + aQ * bQ;
+            const int64_t ci = aQ * bI - aI * bQ;
+            acc_re += cr;
+            acc_im += ci;
+            Z_re += cr;
+            Z_im += ci;
         }
+#if defined(HTS_LR_DIAG)
+        R_re_lag[lag - 1] = acc_re;
+        R_im_lag[lag - 1] = acc_im;
+#endif
     }
 
     const int32_t phase_q15 = Atan2_To_Q15(Z_im, Z_re);
-    const int64_t cfo_hz_s64 =
-        (static_cast<int64_t>(phase_q15) * 10000000LL) / 26214400LL;
-    return static_cast<int32_t>(cfo_hz_s64);
+    const int32_t lr_hz = static_cast<int32_t>(
+        (static_cast<int64_t>(phase_q15) * 10000000LL) / 26214400LL);
+
+#if defined(HTS_LR_DIAG)
+    for (int d = 0; d < kLR_MaxLag; ++d) {
+        g_lr_diag.R_re[d] = R_re_lag[d];
+        g_lr_diag.R_im[d] = R_im_lag[d];
+        const int32_t ph_d = Atan2_To_Q15(R_im_lag[d], R_re_lag[d]);
+        g_lr_diag.lag_cfo_hz[d] = static_cast<int32_t>(
+            (static_cast<int64_t>(ph_d) * 10000000LL) / 26214400LL);
+    }
+    g_lr_diag.Z_re = Z_re;
+    g_lr_diag.Z_im = Z_im;
+    g_lr_diag.Z_phase_q15 = phase_q15;
+    g_lr_diag.lr_cfo_hz = lr_hz;
+#endif
+
+    return lr_hz;
 }
+
+#if defined(HTS_USE_MNM_WALSH)
+// M&M (1997) style weights Q15, M=16 chip lags (constexpr table).
+#define HTS_MNM_W_ROW(d_) \
+    static_cast<int32_t>( \
+        (3LL * (256LL - static_cast<int64_t>(16 - (d_)) * \
+                            static_cast<int64_t>(16 - (d_))) * \
+         32768LL) / \
+        4096LL)
+static constexpr int32_t kMnM_W_Q15[16] = {
+    HTS_MNM_W_ROW(1),  HTS_MNM_W_ROW(2),  HTS_MNM_W_ROW(3),
+    HTS_MNM_W_ROW(4),  HTS_MNM_W_ROW(5),  HTS_MNM_W_ROW(6),
+    HTS_MNM_W_ROW(7),  HTS_MNM_W_ROW(8),  HTS_MNM_W_ROW(9),
+    HTS_MNM_W_ROW(10), HTS_MNM_W_ROW(11), HTS_MNM_W_ROW(12),
+    HTS_MNM_W_ROW(13), HTS_MNM_W_ROW(14), HTS_MNM_W_ROW(15),
+    HTS_MNM_W_ROW(16)};
+#undef HTS_MNM_W_ROW
+
+// Walsh-aware chip-domain M&M + atan2 DPTE (parallel to LR_Estimate_impl).
+static int32_t MnM_Walsh_Estimate_dpte_impl(const int16_t* rI,
+                                            const int16_t* rQ) noexcept {
+    int32_t pure_I[kPreambleChips];
+    int32_t pure_Q[kPreambleChips];
+    for (int n = 0; n < kPreambleChips; ++n) {
+        const int32_t sym0_m = static_cast<int32_t>(n - 64) >> 31;
+        const int32_t w_raw =
+            static_cast<int32_t>(kWalsh63Row63[static_cast<size_t>(n) & 63u]);
+        const int32_t w_eff = (w_raw & sym0_m) | (1 & ~sym0_m);
+        const int32_t sm_eff = (w_eff >> 31) & sym0_m;
+        const int32_t ri = static_cast<int32_t>(rI[n]);
+        const int32_t rq = static_cast<int32_t>(rQ[n]);
+        pure_I[n] = (ri ^ sm_eff) - sm_eff;
+        pure_Q[n] = (rq ^ sm_eff) - sm_eff;
+    }
+    int64_t R_re[16]{};
+    int64_t R_im[16]{};
+    for (int d = 1; d <= 16; ++d) {
+        int64_t acc_re = 0;
+        int64_t acc_im = 0;
+        const int n_max = kPreambleChips - d;
+        for (int n = 0; n < n_max; ++n) {
+            const int64_t aI = static_cast<int64_t>(pure_I[n + d]);
+            const int64_t aQ = static_cast<int64_t>(pure_Q[n + d]);
+            const int64_t bI = static_cast<int64_t>(pure_I[n]);
+            const int64_t bQ = static_cast<int64_t>(pure_Q[n]);
+            acc_re += aI * bI + aQ * bQ;
+            acc_im += aQ * bI - aI * bQ;
+        }
+        R_re[d - 1] = acc_re;
+        R_im[d - 1] = acc_im;
+    }
+    int64_t Z_re = 0;
+    int64_t Z_im = 0;
+    for (int d = 0; d < 16; ++d) {
+        const int32_t rr = static_cast<int32_t>(R_re[d] >> 16);
+        const int32_t ri = static_cast<int32_t>(R_im[d] >> 16);
+        Z_re += static_cast<int64_t>(rr) * static_cast<int64_t>(kMnM_W_Q15[d]);
+        Z_im += static_cast<int64_t>(ri) * static_cast<int64_t>(kMnM_W_Q15[d]);
+    }
+    const int32_t phase_q15 = atan2_dpte_q15(Z_im, Z_re);
+    return static_cast<int32_t>(
+        (static_cast<int64_t>(phase_q15) * 10000000LL) / 26214400LL);
+}
+#endif
 
 }  // namespace
 
+#if defined(HTS_USE_PACD)
+int32_t Atan2_Correlation_Dpte_Q15(int64_t y, int64_t x) noexcept {
+    return atan2_dpte_q15(y, x);
+}
+#endif
+
+#if defined(HTS_LR_DIAG)
+LrDiagSnapshot g_lr_diag{};
+#endif
+
 CFO_V5a::CFO_V5a() noexcept
     : last_cfo_hz_(0),
-      runtime_enabled_(false) {
+      runtime_enabled_(false)
+#if defined(HTS_V5A_TESTONLY)
+      ,
+      last_cb_bin_(-1),
+      last_fb_bin_(-1)
+#endif
+{
     for (int i = 0; i < kPreambleChips; ++i) {
         work_I_[i] = 0;
         work_Q_[i] = 0;
@@ -419,6 +608,10 @@ void CFO_V5a::Init() noexcept {
     last_cfo_hz_ = 0;
     last_apply_gate_mag_ = 0;
     last_apply_gate_autocorr_ = false;
+#if defined(HTS_V5A_TESTONLY)
+    last_cb_bin_ = -1;
+    last_fb_bin_ = -1;
+#endif
     runtime_enabled_ = (HTS_CFO_V5A_ENABLE != 0);
     Set_Apply_Cfo(0);
 }
@@ -446,6 +639,10 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
     if (rx_I == nullptr || rx_Q == nullptr) {
         last_apply_gate_mag_ = 0;
         last_apply_gate_autocorr_ = false;
+#if defined(HTS_V5A_TESTONLY)
+        last_cb_bin_ = -1;
+        last_fb_bin_ = -1;
+#endif
         return res;
     }
 
@@ -501,10 +698,14 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
 
         int32_t coarse_offset_q15 = 0;
         if (cb_best_idx > 0 && cb_best_idx < (kCfoCoarseBanks - 1)) {
+#if defined(HTS_V5A_DISABLE_PTE)
+            coarse_offset_q15 = 0;
+#else
             coarse_offset_q15 =
                 parabolic_offset_q15_impl(coarse_energies[cb_best_idx - 1],
                                           coarse_energies[cb_best_idx],
                                           coarse_energies[cb_best_idx + 1]);
+#endif
 #if defined(HTS_CFO_V5A_PTE_DIAG)
             diag->coarse_enter++;
 #endif
@@ -545,9 +746,13 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
         }
         int32_t fine_offset_q15 = 0;
         if (fine_best_idx > 0 && fine_best_idx < (kCfoFineBanks - 1)) {
+#if defined(HTS_V5A_DISABLE_PTE)
+            fine_offset_q15 = 0;
+#else
             fine_offset_q15 = parabolic_offset_q15_impl(
                 fine_energies_[fine_best_idx - 1], fine_energies_[fine_best_idx],
                 fine_energies_[fine_best_idx + 1]);
+#endif
 #if defined(HTS_CFO_V5A_PTE_DIAG)
             diag->fine_enter++;
 #endif
@@ -568,9 +773,22 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
 
         Derotate_impl(rx_I, rx_Q, work_I_, work_Q_, kPreambleChips,
                       fine_refined);
+#if defined(HTS_V5A_DISABLE_LR)
+        const int32_t lr_cfo = 0;
+#else
+#if defined(HTS_USE_MNM_WALSH)
+        const int32_t lr_cfo = MnM_Walsh_Estimate_dpte_impl(work_I_, work_Q_);
+#else
         const int32_t lr_cfo = LR_Estimate_impl(work_I_, work_Q_);
+#endif
+#endif
 
         cfo_estimate = fine_refined + lr_cfo;
+#if defined(HTS_LR_DIAG)
+        g_lr_diag.cb_cfo = cb_cfo;
+        g_lr_diag.fine_refined = fine_refined;
+        g_lr_diag.cfo_estimate_hz = cfo_estimate;
+#endif
 #if defined(HTS_CFO_V5A_PTE_DIAG)
         {
             const int32_t lr_abs = (lr_cfo < 0) ? -lr_cfo : lr_cfo;
@@ -582,6 +800,10 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
         }
 #endif
         final_peak_e = best_e;
+#if defined(HTS_V5A_TESTONLY)
+        last_cb_bin_ = cb_best_idx;
+        last_fb_bin_ = fine_best_idx;
+#endif
     }
 
     last_cfo_hz_ = cfo_estimate;
@@ -751,6 +973,17 @@ int64_t Energy_Multiframe_Table(const int16_t* rI,
 int32_t LR_Estimate(const int16_t* rI, const int16_t* rQ) noexcept {
     return LR_Estimate_impl(rI, rQ);
 }
+
+#if defined(HTS_USE_MNM_WALSH)
+int32_t MnM_Walsh_Estimate_Dpte_Table(const int16_t* rI,
+                                    const int16_t* rQ) noexcept {
+    return MnM_Walsh_Estimate_dpte_impl(rI, rQ);
+}
+
+int32_t Atan2_Dpte_Q15_Table(int64_t y, int64_t x) noexcept {
+    return atan2_dpte_q15(y, x);
+}
+#endif
 
 int32_t Parabolic_Offset_Q15(int64_t em1, int64_t e0, int64_t ep1) noexcept {
     return parabolic_offset_q15_impl(em1, e0, ep1);
