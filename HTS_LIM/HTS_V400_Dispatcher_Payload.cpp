@@ -4,6 +4,9 @@
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
 #include "HTS_Secure_Memory.h"
+#if defined(HTS_USE_PACD)
+#include "HTS_V400_Dispatcher_PaCD.hpp"
+#endif
 #if defined(HTS_HARQ_DIAG)
 #include "HTS_HARQ_Diag.hpp"
 #endif
@@ -330,6 +333,28 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 holo_tensor_decode_failed_ = true;
             } else {
                 (void)holo_rx_.Set_Time_Slot(rx_seq_);
+#if defined(HTS_USE_PACD)
+                // on_sym_ 시점 p0_buf128_* 는 T6에서 비어 있는 경우가 많음 → 비영 IQ 있을 때만 PaCD.
+                {
+                    const int pre_off = psal_off_;
+                    bool p0_live = false;
+                    if (pre_off >= 0 && pre_off + 128 <= 192) {
+                        for (int i = 0; i < 128; ++i) {
+                            if (p0_buf128_I_[pre_off + i] != 0 ||
+                                p0_buf128_Q_[pre_off + i] != 0) {
+                                p0_live = true;
+                                break;
+                            }
+                        }
+                    }
+                    if (p0_live) {
+                        ::detail::pacd_apply_payload(
+                            &p0_buf128_I_[pre_off], &p0_buf128_Q_[pre_off],
+                            ::detail::pacd_tx_preamble128_I(),
+                            ::detail::pacd_tx_preamble128_Q(), buf_I_, buf_Q_);
+                    }
+                }
+#endif  // HTS_USE_PACD
 #if !defined(HTS_HOLO_RX_PHASE_B)
 #if !defined(HTS_USE_4D_DIVERSITY)
                 int16_t rx_soft[HOLO_CHIP_COUNT];
