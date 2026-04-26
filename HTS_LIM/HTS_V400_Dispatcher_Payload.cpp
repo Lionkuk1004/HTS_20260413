@@ -67,6 +67,119 @@ size_t bpsk_to_bytes_(const int8_t* bpsk_bits, uint16_t bit_count, uint8_t* byte
     }
     return byte_count;
 }
+#if defined(HTS_USE_4D_DIVERSITY)
+/// B' RX: ts_I = rx_slot, ts_Q = rx_slot ^ 1 — int64 metric 합 + BPTE 부호.
+/// Step 2-3e: 호출은 A2' 로 전환; 본 함수는 보존. T6 단일 TU /WX C4505 방지.
+#if defined(_MSC_VER)
+#pragma warning(push)
+#pragma warning(disable : 4505)
+#endif
+static uint32_t holo_tensor_decode_4d_diversity_slots_(
+    HTS_Holo_Tensor_4D_RX& holo_rx,
+    uint32_t rx_slot,
+    const int16_t* buf_I,
+    const int16_t* buf_Q,
+    uint16_t N_chip,
+    uint16_t K_bits,
+    int8_t* out_sym0,
+    int8_t* out_sym1) noexcept
+{
+    int8_t cand0_I[HOLO_MAX_BLOCK_BITS];
+    int8_t cand1_I[HOLO_MAX_BLOCK_BITS];
+    int32_t metric_I[HOLO_MAX_BLOCK_BITS];
+    int8_t cand0_Q[HOLO_MAX_BLOCK_BITS];
+    int8_t cand1_Q[HOLO_MAX_BLOCK_BITS];
+    int32_t metric_Q[HOLO_MAX_BLOCK_BITS];
+
+    (void)holo_rx.Set_Time_Slot(rx_slot);
+    const uint32_t ok_I = holo_rx.Decode_Block_Two_Candidates_With_Metric(
+        buf_I, buf_Q, N_chip, 0xFFFFFFFFFFFFFFFFull, cand0_I, cand1_I, metric_I,
+        K_bits);
+    (void)holo_rx.Set_Time_Slot(rx_slot ^ 1u);
+    const uint32_t ok_Q = holo_rx.Decode_Block_Two_Candidates_With_Metric(
+        buf_I, buf_Q, N_chip, 0xFFFFFFFFFFFFFFFFull, cand0_Q, cand1_Q, metric_Q,
+        K_bits);
+    (void)holo_rx.Set_Time_Slot(rx_slot);
+
+    if (ok_I != HTS_Holo_Tensor_4D_RX::SECURE_TRUE ||
+        ok_Q != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+        SecureMemory::secureWipe(static_cast<void*>(metric_I), sizeof(metric_I));
+        SecureMemory::secureWipe(static_cast<void*>(metric_Q), sizeof(metric_Q));
+        SecureMemory::secureWipe(static_cast<void*>(cand0_I), sizeof(cand0_I));
+        SecureMemory::secureWipe(static_cast<void*>(cand1_I), sizeof(cand1_I));
+        SecureMemory::secureWipe(static_cast<void*>(cand0_Q), sizeof(cand0_Q));
+        SecureMemory::secureWipe(static_cast<void*>(cand1_Q), sizeof(cand1_Q));
+        return HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
+    }
+
+    for (uint16_t k = 0u; k < K_bits; ++k) {
+        const int64_t llr = static_cast<int64_t>(metric_I[static_cast<size_t>(k)]) +
+                            static_cast<int64_t>(metric_Q[static_cast<size_t>(k)]);
+        const uint64_t sign_u =
+            static_cast<uint64_t>(static_cast<uint64_t>(llr) >> 63u);
+        const int8_t cand0 =
+            static_cast<int8_t>(1 - 2 * static_cast<int32_t>(sign_u));
+        out_sym0[static_cast<size_t>(k)] = cand0;
+        out_sym1[static_cast<size_t>(k)] = static_cast<int8_t>(-cand0);
+    }
+
+    SecureMemory::secureWipe(static_cast<void*>(metric_I), sizeof(metric_I));
+    SecureMemory::secureWipe(static_cast<void*>(metric_Q), sizeof(metric_Q));
+    SecureMemory::secureWipe(static_cast<void*>(cand0_I), sizeof(cand0_I));
+    SecureMemory::secureWipe(static_cast<void*>(cand1_I), sizeof(cand1_I));
+    SecureMemory::secureWipe(static_cast<void*>(cand0_Q), sizeof(cand0_Q));
+    SecureMemory::secureWipe(static_cast<void*>(cand1_Q), sizeof(cand1_Q));
+    return HTS_Holo_Tensor_4D_RX::SECURE_TRUE;
+}
+#if defined(_MSC_VER)
+#pragma warning(pop)
+#endif
+
+/// A2' RX (Step 2-3e): I/Q 각각 `Decode_Block`(단일 칩열, (I+Q)/2 없음) 후 비트 합 BPTE.
+/// B' 헬퍼(`holo_tensor_decode_4d_diversity_slots_`)는 보존; 호출만 A2' 로 전환.
+static uint32_t holo_tensor_decode_4d_a2_prime_(
+    HTS_Holo_Tensor_4D_RX& holo_rx,
+    uint32_t rx_slot,
+    const int16_t* buf_I,
+    const int16_t* buf_Q,
+    uint16_t N_chip,
+    uint16_t K_bits,
+    int8_t* out_sym0,
+    int8_t* out_sym1) noexcept
+{
+    int8_t bits_I[HOLO_MAX_BLOCK_BITS];
+    int8_t bits_Q[HOLO_MAX_BLOCK_BITS];
+
+    (void)holo_rx.Set_Time_Slot(rx_slot);
+    const uint32_t ok_I = holo_rx.Decode_Block(
+        buf_I, N_chip, 0xFFFFFFFFFFFFFFFFull, bits_I, K_bits);
+    (void)holo_rx.Set_Time_Slot(rx_slot ^ 1u);
+    const uint32_t ok_Q = holo_rx.Decode_Block(
+        buf_Q, N_chip, 0xFFFFFFFFFFFFFFFFull, bits_Q, K_bits);
+    (void)holo_rx.Set_Time_Slot(rx_slot);
+
+    if (ok_I != HTS_Holo_Tensor_4D_RX::SECURE_TRUE ||
+        ok_Q != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+        SecureMemory::secureWipe(static_cast<void*>(bits_I), sizeof(bits_I));
+        SecureMemory::secureWipe(static_cast<void*>(bits_Q), sizeof(bits_Q));
+        return HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
+    }
+
+    for (uint16_t k = 0u; k < K_bits; ++k) {
+        const int32_t sum = static_cast<int32_t>(bits_I[static_cast<size_t>(k)]) +
+                            static_cast<int32_t>(bits_Q[static_cast<size_t>(k)]);
+        const uint32_t sign_u = static_cast<uint32_t>(sum) >> 31u;
+        const int8_t cand0 =
+            static_cast<int8_t>(1 - 2 * static_cast<int32_t>(sign_u));
+        out_sym0[static_cast<size_t>(k)] = cand0;
+        out_sym1[static_cast<size_t>(k)] = static_cast<int8_t>(-cand0);
+    }
+
+    SecureMemory::secureWipe(static_cast<void*>(bits_I), sizeof(bits_I));
+    SecureMemory::secureWipe(static_cast<void*>(bits_Q), sizeof(bits_Q));
+    return HTS_Holo_Tensor_4D_RX::SECURE_TRUE;
+}
+#endif
 #if defined(HTS_HOLO_RX_PHASE_B)
 /// 8바이트 페이로드: 앞 6바이트 CRC-16/CCITT, 리틀엔디안 CRC at [6],[7]
 static bool holo_tensor_packet_crc16_ok_8(const uint8_t* p) noexcept {
@@ -218,7 +331,9 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
             } else {
                 (void)holo_rx_.Set_Time_Slot(rx_seq_);
 #if !defined(HTS_HOLO_RX_PHASE_B)
+#if !defined(HTS_USE_4D_DIVERSITY)
                 int16_t rx_soft[HOLO_CHIP_COUNT];
+#endif
 #endif
 #if defined(HTS_PHASE_H_DIAG)
                 static uint32_t s_tensor_rx_pkt_diag = 0u;
@@ -283,12 +398,27 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         holo_tensor_rx_bits_,
                         holo_tensor_profile_.block_bits);
                 } else {
+#if defined(HTS_USE_4D_DIVERSITY)
+                    dec_ok = holo_tensor_decode_4d_a2_prime_(
+                        holo_rx_, rx_seq_, buf_I_, buf_Q_,
+                        holo_tensor_profile_.chip_count,
+                        holo_tensor_profile_.block_bits,
+                        holo_tensor_sym_bits0_, holo_tensor_sym_bits1_);
+#else
                     dec_ok = holo_rx_.Decode_Block_Two_Candidates(
                         buf_I_, buf_Q_,
                         holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                         holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
                         holo_tensor_profile_.block_bits);
+#endif
                 }
+#else
+#if defined(HTS_USE_4D_DIVERSITY)
+                const uint32_t dec_ok = holo_tensor_decode_4d_a2_prime_(
+                    holo_rx_, rx_seq_, buf_I_, buf_Q_,
+                    holo_tensor_profile_.chip_count,
+                    holo_tensor_profile_.block_bits,
+                    holo_tensor_sym_bits0_, holo_tensor_sym_bits1_);
 #else
                 const uint32_t dec_ok = holo_rx_.Decode_Block_Two_Candidates(
                     buf_I_, buf_Q_,
@@ -296,6 +426,14 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
                     holo_tensor_profile_.block_bits);
 #endif
+#endif
+#else
+#if defined(HTS_USE_4D_DIVERSITY)
+                const uint32_t dec_ok = holo_tensor_decode_4d_a2_prime_(
+                    holo_rx_, rx_seq_, buf_I_, buf_Q_,
+                    holo_tensor_profile_.chip_count,
+                    holo_tensor_profile_.block_bits,
+                    holo_tensor_sym_bits0_, holo_tensor_sym_bits1_);
 #else
                 for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
                     const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
@@ -349,9 +487,16 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
 #endif
 #endif
+#endif
                 if (dec_ok != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
                 } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
+#if defined(HTS_USE_4D_DIVERSITY) && !defined(HTS_HOLO_RX_PHASE_B)
+                    std::memcpy(
+                        holo_tensor_rx_bits_, holo_tensor_sym_bits0_,
+                        static_cast<size_t>(holo_tensor_profile_.block_bits) *
+                            sizeof(int8_t));
+#endif
 #if defined(HTS_HOLO_RX_PHASE_B)
 #if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
                     if (!(holo_rx_phase_ref_valid_ && !use_holographic_sync_)) {
