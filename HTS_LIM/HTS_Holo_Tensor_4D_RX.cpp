@@ -320,15 +320,18 @@ namespace ProtectedEngine {
 
     } // namespace
 
-    uint32_t detail_holo4d_decode_with_phase(
+    uint32_t detail_holo4d_decode_two_candidates(
         HTS_Holo_Tensor_4D_RX& o,
         HTS_Holo_Tensor_4D_RX::Impl* im,
         const int16_t* rx_I, const int16_t* rx_Q,
         uint16_t N, uint64_t valid_mask,
-        int8_t* output_bits, uint16_t K,
-        HTS_Holo_Tensor_4D_RX::CrcVerifyFn crc_fn,
-        void* crc_ctx) noexcept
+        int8_t* output_bits_cand0,
+        int8_t* output_bits_cand1,
+        uint16_t K) noexcept
     {
+            if (output_bits_cand0 == nullptr || output_bits_cand1 == nullptr) {
+                return HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
+            }
             const uint8_t L = o.profile_.num_layers;
             const uint32_t L32d = static_cast<uint32_t>(L);
             const uint32_t K32d = static_cast<uint32_t>(K);
@@ -361,8 +364,6 @@ namespace ProtectedEngine {
 
             int16_t der_I[HOLO_CHIP_COUNT];
             int16_t der_Q[HOLO_CHIP_COUNT];
-            int8_t bits_cand0[HOLO_MAX_BLOCK_BITS];
-            int8_t bits_cand1[HOLO_MAX_BLOCK_BITS];
 
             const int32_t dphi_est =
                 holo4d_estimate_residual_dphi_q16(rx_I, rx_Q, N_eff);
@@ -448,53 +449,16 @@ namespace ProtectedEngine {
             for (uint16_t k = 0u; k < K_eff; ++k) {
                 const uint32_t sign_bit =
                     static_cast<uint32_t>(im->accum[static_cast<size_t>(k)]) >> 31u;
-                bits_cand0[static_cast<size_t>(k)] = static_cast<int8_t>(
+                const int8_t b0 = static_cast<int8_t>(
                     1 - 2 * static_cast<int32_t>(sign_bit));
-                bits_cand1[static_cast<size_t>(k)] = static_cast<int8_t>(
-                    -bits_cand0[static_cast<size_t>(k)]);
-            }
-
-            int64_t m0 = 0;
-            int64_t m1 = 0;
-            for (uint16_t k = 0u; k < K_eff; ++k) {
-                const int32_t a = im->accum[static_cast<size_t>(k)];
-                const int32_t b0 = static_cast<int32_t>(bits_cand0[static_cast<size_t>(k)]);
-                const int32_t b1 = static_cast<int32_t>(bits_cand1[static_cast<size_t>(k)]);
-                m0 += static_cast<int64_t>(a) * b0;
-                m1 += static_cast<int64_t>(a) * b1;
-            }
-
-            uint32_t mask_use_cand1 = 0u;
-            if (crc_fn != nullptr) {
-                const bool crc0 = crc_fn(bits_cand0, K_eff, crc_ctx);
-                const bool crc1 = crc_fn(bits_cand1, K_eff, crc_ctx);
-                if (crc1 && !crc0) {
-                    mask_use_cand1 = 0xFFFFFFFFu;
-                } else if (!crc1 && crc0) {
-                    mask_use_cand1 = 0u;
-                } else if (!crc0 && !crc1) {
-                    mask_use_cand1 = (m1 > m0) ? 0xFFFFFFFFu : 0u;
-                } else {
-                    mask_use_cand1 = 0u;
-                }
-            } else {
-                mask_use_cand1 = (m1 > m0) ? 0xFFFFFFFFu : 0u;
-            }
-
-            for (uint16_t k = 0u; k < K_eff; ++k) {
-                const int32_t b0 = static_cast<int32_t>(bits_cand0[static_cast<size_t>(k)]);
-                const int32_t b1 = static_cast<int32_t>(bits_cand1[static_cast<size_t>(k)]);
-                output_bits[static_cast<size_t>(k)] = static_cast<int8_t>(
-                    (b0 & ~static_cast<int32_t>(mask_use_cand1)) |
-                    (b1 & static_cast<int32_t>(mask_use_cand1)));
+                output_bits_cand0[static_cast<size_t>(k)] = b0;
+                output_bits_cand1[static_cast<size_t>(k)] = static_cast<int8_t>(-b0);
             }
 
             SecureMemory::secureWipe(static_cast<void*>(der_I), sizeof(der_I));
             SecureMemory::secureWipe(static_cast<void*>(der_Q), sizeof(der_Q));
             SecureMemory::secureWipe(
                 static_cast<void*>(rx_comb_phys), sizeof(rx_comb_phys));
-            SecureMemory::secureWipe(static_cast<void*>(bits_cand0), sizeof(bits_cand0));
-            SecureMemory::secureWipe(static_cast<void*>(bits_cand1), sizeof(bits_cand1));
         im->Wipe_Sensitive();
         return (HTS_Holo_Tensor_4D_RX::SECURE_TRUE & (0u - valid)) |
             (HTS_Holo_Tensor_4D_RX::SECURE_FALSE & (0u - (valid ^ 1u)));
@@ -655,6 +619,32 @@ namespace ProtectedEngine {
         return ok;
     }
 
+    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_Two_Candidates(
+        const int16_t* rx_I, const int16_t* rx_Q,
+        uint16_t N, uint64_t valid_mask,
+        int8_t* output_bits_cand0,
+        int8_t* output_bits_cand1,
+        uint16_t K) noexcept
+    {
+        if (rx_I == nullptr) { return SECURE_FALSE; }
+        if (rx_Q == nullptr) { return SECURE_FALSE; }
+        if (output_bits_cand0 == nullptr) { return SECURE_FALSE; }
+        if (output_bits_cand1 == nullptr) { return SECURE_FALSE; }
+        Holo4D_RX_Busy_Guard g(op_busy_);
+        if (!g.locked) { return SECURE_FALSE; }
+        if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
+        Impl* im = reinterpret_cast<Impl*>(impl_buf_);
+        if (Holo4D_Cfi_Transition(
+            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
+        const uint32_t ok = detail_holo4d_decode_two_candidates(
+            *this, im, rx_I, rx_Q, N, valid_mask, output_bits_cand0, output_bits_cand1, K);
+        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        if (ok == SECURE_TRUE) { ++im->decode_count; }
+        return ok;
+    }
+
     uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_With_Phase(
         const int16_t* rx_I, const int16_t* rx_Q,
         uint16_t N, uint64_t valid_mask,
@@ -672,8 +662,37 @@ namespace ProtectedEngine {
             im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
             return SECURE_FALSE;
         }
-        const uint32_t ok = detail_holo4d_decode_with_phase(
-            *this, im, rx_I, rx_Q, N, valid_mask, output_bits, K, crc_fn, crc_ctx);
+        int8_t b0[HOLO_MAX_BLOCK_BITS];
+        int8_t b1[HOLO_MAX_BLOCK_BITS];
+        const uint32_t ok = detail_holo4d_decode_two_candidates(
+            *this, im, rx_I, rx_Q, N, valid_mask, b0, b1, K);
+        if (ok != SECURE_TRUE) {
+            Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+            return ok;
+        }
+        uint32_t mask_use_cand1 = 0u;
+        if (crc_fn != nullptr) {
+            const bool crc0 = crc_fn(b0, K, crc_ctx);
+            const bool crc1 = crc_fn(b1, K, crc_ctx);
+            if (crc1 && !crc0) {
+                mask_use_cand1 = 0xFFFFFFFFu;
+            } else if (!crc1 && crc0) {
+                mask_use_cand1 = 0u;
+            } else if (!crc0 && !crc1) {
+                mask_use_cand1 = 0u;
+            } else {
+                mask_use_cand1 = 0u;
+            }
+        }
+        for (uint16_t k = 0u; k < K; ++k) {
+            const int32_t v0 = static_cast<int32_t>(b0[static_cast<size_t>(k)]);
+            const int32_t v1 = static_cast<int32_t>(b1[static_cast<size_t>(k)]);
+            output_bits[static_cast<size_t>(k)] = static_cast<int8_t>(
+                (v0 & ~static_cast<int32_t>(mask_use_cand1)) |
+                (v1 & static_cast<int32_t>(mask_use_cand1)));
+        }
+        SecureMemory::secureWipe(static_cast<void*>(b0), sizeof(b0));
+        SecureMemory::secureWipe(static_cast<void*>(b1), sizeof(b1));
         Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;

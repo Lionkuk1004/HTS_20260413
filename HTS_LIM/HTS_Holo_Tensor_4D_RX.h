@@ -34,10 +34,18 @@ namespace ProtectedEngine {
         /// CRC 검증 콜백 — bits[k] ∈ {+1,-1}, K 비트; true=PASS
         using CrcVerifyFn = bool (*)(const int8_t* bits, uint16_t K, void* ctx);
 
-        /// I/Q 입력 → (선택) 칩별 derotate → (I'+Q')/2 로 TX 동일 스칼라 Walsh 경로 +
-        ///   전역 π 후보(비트 전체 부호 반전) + CRC/ML 선택.
-        /// 잔여 dφ 적용: 빌드에 `HTS_HOLO_RX_PHASE_B_DEROTATE` 정의 시 lag-1 추정 사용(실험).
-        /// crc_fn==nullptr 이면 π 분기는 상관 ML(실질적으로 후보0).
+        /// I/Q → (선택) derotate → (I'+Q')/2 → Walsh; φ 및 φ+π 후보를 동시 반환.
+        /// 패킷 단위 CRC는 호출측(Dispatcher)에서 조립 후 검증.
+        uint32_t Decode_Block_Two_Candidates(
+            const int16_t*        rx_I,
+            const int16_t*        rx_Q,
+            uint16_t                N,
+            uint64_t                valid_mask,
+            int8_t*                 output_bits_cand0,
+            int8_t*                 output_bits_cand1,
+            uint16_t                K) noexcept;
+
+        /// Two_Candidates 후 CRC 콜백으로 단일 출력 선택(레거시·단위 테스트용).
         uint32_t Decode_Block_With_Phase(
             const int16_t*        rx_I,
             const int16_t*        rx_Q,
@@ -62,17 +70,16 @@ namespace ProtectedEngine {
 
     private:
         struct Impl;
-        friend uint32_t detail_holo4d_decode_with_phase(
+        friend uint32_t detail_holo4d_decode_two_candidates(
             HTS_Holo_Tensor_4D_RX& o,
             Impl* im,
             const int16_t* rx_I,
             const int16_t* rx_Q,
             uint16_t N,
             uint64_t valid_mask,
-            int8_t* output_bits,
-            uint16_t K,
-            CrcVerifyFn crc_fn,
-            void* crc_ctx) noexcept;
+            int8_t* output_bits_cand0,
+            int8_t* output_bits_cand1,
+            uint16_t K) noexcept;
         alignas(4) uint8_t  impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
         mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;

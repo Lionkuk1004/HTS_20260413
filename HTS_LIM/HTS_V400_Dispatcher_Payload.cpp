@@ -68,19 +68,12 @@ size_t bpsk_to_bytes_(const int8_t* bpsk_bits, uint16_t bit_count, uint8_t* byte
     return byte_count;
 }
 #if defined(HTS_HOLO_RX_PHASE_B)
-static bool holo_crc_verify_phaseb_callback(
-    const int8_t* bits, uint16_t K, void* ctx) noexcept {
-    (void)ctx;
-    uint8_t tmp[32];
-    const size_t wr = bpsk_to_bytes_(bits, K, tmp, sizeof(tmp));
-    if (wr < 3u) {
-        return false;
-    }
-    const uint16_t calc = FEC_HARQ::CRC16(
-        tmp, static_cast<int>(wr - 2u));
+/// 8바이트 페이로드: 앞 6바이트 CRC-16/CCITT, 리틀엔디안 CRC at [6],[7]
+static bool holo_tensor_packet_crc16_ok_8(const uint8_t* p) noexcept {
+    const uint16_t calc = FEC_HARQ::CRC16(p, 6);
     const uint16_t rx = static_cast<uint16_t>(
-        static_cast<uint16_t>(tmp[wr - 2u]) |
-        (static_cast<uint16_t>(tmp[wr - 1u]) << 8));
+        static_cast<uint16_t>(p[6]) |
+        (static_cast<uint16_t>(p[7]) << 8));
     return calc == rx;
 }
 #endif
@@ -259,12 +252,11 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 if (diag_this_pkt && sym_idx_ == 0) {
                     std::printf("[PHASE-H][RX] decode_input_IQ64 (Phase-B path)\n");
                 }
-                const uint32_t dec_ok = holo_rx_.Decode_Block_With_Phase(
+                const uint32_t dec_ok = holo_rx_.Decode_Block_Two_Candidates(
                     buf_I_, buf_Q_,
                     holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
-                    holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
-                    holo_crc_verify_phaseb_callback,
-                    static_cast<void*>(this));
+                    holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
+                    holo_tensor_profile_.block_bits);
 #else
                 for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
                     const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
@@ -285,6 +277,12 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 if (dec_ok != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
                 } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
+#if defined(HTS_HOLO_RX_PHASE_B)
+                    std::memcpy(
+                        holo_tensor_rx_bits_, holo_tensor_sym_bits0_,
+                        static_cast<size_t>(holo_tensor_profile_.block_bits) *
+                            sizeof(int8_t));
+#endif
                     if (diag_this_pkt && sym_idx_ == 0) {
                         std::printf("[PHASE-H][RX] decode_output_bits16:");
                         for (int i = 0; i < static_cast<int>(holo_tensor_profile_.block_bits); ++i) {
@@ -294,10 +292,26 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                     const size_t room =
                         sizeof(holo_tensor_rx_bytes_) - holo_tensor_rx_len_;
+#if defined(HTS_HOLO_RX_PHASE_B)
+                    const uint16_t Kblk = holo_tensor_profile_.block_bits;
+                    const size_t wr0 = bpsk_to_bytes_(
+                        holo_tensor_sym_bits0_, Kblk,
+                        &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
+                    const size_t wr1 = bpsk_to_bytes_(
+                        holo_tensor_sym_bits1_, Kblk,
+                        &holo_tensor_rx_bytes_alt_[holo_tensor_rx_len_], room);
+                    if (wr0 == 0u || wr0 != wr1) {
+                        holo_tensor_decode_failed_ = true;
+                    } else {
+                        holo_tensor_rx_len_ =
+                            static_cast<uint8_t>(holo_tensor_rx_len_ + wr0);
+                    }
+#else
                     const size_t wr = bpsk_to_bytes_(
                         holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
                         &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
                     holo_tensor_rx_len_ = static_cast<uint8_t>(holo_tensor_rx_len_ + wr);
+#endif
                 }
 #if defined(HTS_PHASE_H_DIAG)
                 if (diag_this_pkt && (pay_recv_ >= pay_total_) && !force_diag) {
@@ -640,6 +654,24 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
 #if defined(HTS_USE_HOLO_TENSOR_4D)
         if (holo_tensor_payload_mode_) {
             pkt.harq_k = 1;
+#if defined(HTS_HOLO_RX_PHASE_B)
+            const uint32_t ok = static_cast<uint32_t>(
+                (holo_tensor_decode_failed_ == false) &
+                (holo_tensor_rx_len_ >= 8u));
+            pkt.success_mask = static_cast<uint32_t>(0u - ok);
+            if (ok != 0u) {
+                const bool crc_a = holo_tensor_packet_crc16_ok_8(holo_tensor_rx_bytes_);
+                const bool crc_b = holo_tensor_packet_crc16_ok_8(holo_tensor_rx_bytes_alt_);
+                if (crc_b && !crc_a) {
+                    std::memcpy(pkt.data, holo_tensor_rx_bytes_alt_, 8u);
+                } else {
+                    std::memcpy(pkt.data, holo_tensor_rx_bytes_, 8u);
+                }
+                pkt.data_len = 8;
+            } else {
+                pkt.data_len = 0;
+            }
+#else
             const uint32_t ok = static_cast<uint32_t>(
                 (holo_tensor_decode_failed_ == false) &
                 (holo_tensor_rx_len_ >= 8u));
@@ -650,6 +682,7 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             } else {
                 pkt.data_len = 0;
             }
+#endif
             if (on_pkt_ != nullptr) {
                 on_pkt_(pkt);
             }

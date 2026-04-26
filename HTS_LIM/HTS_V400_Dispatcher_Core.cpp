@@ -161,6 +161,14 @@ void HTS_V400_Dispatcher::clear_holo_tensor_rx_state_() noexcept {
                              sizeof(holo_tensor_rx_bits_));
     SecureMemory::secureWipe(static_cast<void*>(holo_tensor_rx_bytes_),
                              sizeof(holo_tensor_rx_bytes_));
+#if defined(HTS_HOLO_RX_PHASE_B)
+    SecureMemory::secureWipe(static_cast<void*>(holo_tensor_sym_bits0_),
+                             sizeof(holo_tensor_sym_bits0_));
+    SecureMemory::secureWipe(static_cast<void*>(holo_tensor_sym_bits1_),
+                             sizeof(holo_tensor_sym_bits1_));
+    SecureMemory::secureWipe(static_cast<void*>(holo_tensor_rx_bytes_alt_),
+                             sizeof(holo_tensor_rx_bytes_alt_));
+#endif
 }
 #endif
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {
