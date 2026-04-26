@@ -176,6 +176,10 @@ void HTS_V400_Dispatcher::clear_holo_tensor_rx_state_() noexcept {
 #if defined(HTS_HOLO_RX_PHASE_REF)
     holo_rx_phase_ref_q16_ = 0;
     holo_rx_phase_ref_valid_ = false;
+#if defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+    SecureMemory::secureWipe(static_cast<void*>(rx_soft_rotated_),
+                             sizeof(rx_soft_rotated_));
+#endif
 #endif
 }
 #endif

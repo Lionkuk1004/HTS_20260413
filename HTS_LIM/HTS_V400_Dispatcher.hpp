@@ -695,6 +695,9 @@ namespace ProtectedEngine {
 #if defined(HTS_HOLO_RX_PHASE_REF)
         int32_t holo_rx_phase_ref_q16_{ 0 };
         bool holo_rx_phase_ref_valid_{ false };
+#if defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+        int16_t rx_soft_rotated_[HOLO_CHIP_COUNT]{};
+#endif
 #endif
 #endif
     };

@@ -253,13 +253,42 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     std::printf("[PHASE-H][RX] decode_input_IQ64 (Phase-B path)\n");
                 }
 #if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
-                const uint32_t dec_ok =
-                    holo_rx_.Decode_Block_Two_Candidates_With_PhaseRef(
+                // Rev2: ref 회전+Decode_Block 은 블라인드(PS-LTE) 페이로드에만.
+                // 홀로 Sync 경로는 PRE_SYM1 ref 와 V5a payload 위상 정렬이 달라
+                // Two_Candidates 유지(S5H 저역 회귀 방지).
+                uint32_t dec_ok = HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
+                if (holo_rx_phase_ref_valid_ && !use_holographic_sync_) {
+                    const uint16_t Nc = holo_tensor_profile_.chip_count;
+                    const uint16_t n_rot =
+                        (Nc > HOLO_CHIP_COUNT) ? HOLO_CHIP_COUNT : Nc;
+                    const uint16_t ref_lut = static_cast<uint16_t>(
+                        static_cast<uint32_t>(holo_rx_phase_ref_q16_));
+                    const int32_t cos_ref = static_cast<int32_t>(Cos_Q15(ref_lut));
+                    const int32_t sin_ref = static_cast<int32_t>(Sin_Q15(ref_lut));
+                    for (uint16_t c = 0u; c < n_rot; ++c) {
+                        const int32_t I = static_cast<int32_t>(buf_I_[c]);
+                        const int32_t Q = static_cast<int32_t>(buf_Q_[c]);
+                        int32_t rot_i = (I * cos_ref + Q * sin_ref) >> 15;
+                        int32_t rot_q = (Q * cos_ref - I * sin_ref) >> 15;
+                        int32_t s = (rot_i + rot_q) / 2;
+                        if (s > 32767) {
+                            s = 32767;
+                        } else if (s < -32768) {
+                            s = -32768;
+                        }
+                        rx_soft_rotated_[c] = static_cast<int16_t>(s);
+                    }
+                    dec_ok = holo_rx_.Decode_Block(
+                        rx_soft_rotated_, Nc, 0xFFFFFFFFFFFFFFFFull,
+                        holo_tensor_rx_bits_,
+                        holo_tensor_profile_.block_bits);
+                } else {
+                    dec_ok = holo_rx_.Decode_Block_Two_Candidates(
                         buf_I_, buf_Q_,
                         holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                         holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
-                        holo_tensor_profile_.block_bits,
-                        holo_rx_phase_ref_q16_, holo_rx_phase_ref_valid_);
+                        holo_tensor_profile_.block_bits);
+                }
 #else
                 const uint32_t dec_ok = holo_rx_.Decode_Block_Two_Candidates(
                     buf_I_, buf_Q_,
@@ -281,10 +310,39 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     std::printf("\n");
                 }
 #if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
-                const uint32_t dec_ok = holo_rx_.Decode_Block_With_PhaseRef(
-                    rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
-                    holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
-                    holo_rx_phase_ref_q16_, holo_rx_phase_ref_valid_);
+                // Phase-B 와 동일: 홀로 Sync 시 ref 회전 미적용.
+                uint32_t dec_ok = HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
+                if (holo_rx_phase_ref_valid_ && !use_holographic_sync_) {
+                    const uint16_t Nc = holo_tensor_profile_.chip_count;
+                    const uint16_t n_rot =
+                        (Nc > HOLO_CHIP_COUNT) ? HOLO_CHIP_COUNT : Nc;
+                    const uint16_t ref_lut = static_cast<uint16_t>(
+                        static_cast<uint32_t>(holo_rx_phase_ref_q16_));
+                    const int32_t cos_ref = static_cast<int32_t>(Cos_Q15(ref_lut));
+                    const int32_t sin_ref = static_cast<int32_t>(Sin_Q15(ref_lut));
+                    for (uint16_t c = 0u; c < n_rot; ++c) {
+                        const int32_t I = static_cast<int32_t>(buf_I_[c]);
+                        const int32_t Q = static_cast<int32_t>(buf_Q_[c]);
+                        int32_t rot_i = (I * cos_ref + Q * sin_ref) >> 15;
+                        int32_t rot_q = (Q * cos_ref - I * sin_ref) >> 15;
+                        int32_t s = (rot_i + rot_q) / 2;
+                        if (s > 32767) {
+                            s = 32767;
+                        } else if (s < -32768) {
+                            s = -32768;
+                        }
+                        rx_soft_rotated_[c] = static_cast<int16_t>(s);
+                    }
+                    dec_ok = holo_rx_.Decode_Block(
+                        rx_soft_rotated_, Nc, 0xFFFFFFFFFFFFFFFFull,
+                        holo_tensor_rx_bits_,
+                        holo_tensor_profile_.block_bits);
+                } else {
+                    dec_ok = holo_rx_.Decode_Block(
+                        rx_soft, holo_tensor_profile_.chip_count,
+                        0xFFFFFFFFFFFFFFFFull,
+                        holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
+                }
 #else
                 const uint32_t dec_ok = holo_rx_.Decode_Block(
                     rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
@@ -295,10 +353,19 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     holo_tensor_decode_failed_ = true;
                 } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
 #if defined(HTS_HOLO_RX_PHASE_B)
+#if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+                    if (!(holo_rx_phase_ref_valid_ && !use_holographic_sync_)) {
+                        std::memcpy(
+                            holo_tensor_rx_bits_, holo_tensor_sym_bits0_,
+                            static_cast<size_t>(holo_tensor_profile_.block_bits) *
+                                sizeof(int8_t));
+                    }
+#else
                     std::memcpy(
                         holo_tensor_rx_bits_, holo_tensor_sym_bits0_,
                         static_cast<size_t>(holo_tensor_profile_.block_bits) *
                             sizeof(int8_t));
+#endif
 #endif
                     if (diag_this_pkt && sym_idx_ == 0) {
                         std::printf("[PHASE-H][RX] decode_output_bits16:");
@@ -310,6 +377,37 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     const size_t room =
                         sizeof(holo_tensor_rx_bytes_) - holo_tensor_rx_len_;
 #if defined(HTS_HOLO_RX_PHASE_B)
+#if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
+                    if (holo_rx_phase_ref_valid_ && !use_holographic_sync_) {
+                        const uint16_t Kblk = holo_tensor_profile_.block_bits;
+                        const size_t wr = bpsk_to_bytes_(
+                            holo_tensor_rx_bits_, Kblk,
+                            &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
+                        if (wr == 0u) {
+                            holo_tensor_decode_failed_ = true;
+                        } else {
+                            std::memcpy(
+                                &holo_tensor_rx_bytes_alt_[holo_tensor_rx_len_],
+                                &holo_tensor_rx_bytes_[holo_tensor_rx_len_], wr);
+                            holo_tensor_rx_len_ =
+                                static_cast<uint8_t>(holo_tensor_rx_len_ + wr);
+                        }
+                    } else {
+                        const uint16_t Kblk = holo_tensor_profile_.block_bits;
+                        const size_t wr0 = bpsk_to_bytes_(
+                            holo_tensor_sym_bits0_, Kblk,
+                            &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
+                        const size_t wr1 = bpsk_to_bytes_(
+                            holo_tensor_sym_bits1_, Kblk,
+                            &holo_tensor_rx_bytes_alt_[holo_tensor_rx_len_], room);
+                        if (wr0 == 0u || wr0 != wr1) {
+                            holo_tensor_decode_failed_ = true;
+                        } else {
+                            holo_tensor_rx_len_ =
+                                static_cast<uint8_t>(holo_tensor_rx_len_ + wr0);
+                        }
+                    }
+#else
                     const uint16_t Kblk = holo_tensor_profile_.block_bits;
                     const size_t wr0 = bpsk_to_bytes_(
                         holo_tensor_sym_bits0_, Kblk,
@@ -323,6 +421,7 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         holo_tensor_rx_len_ =
                             static_cast<uint8_t>(holo_tensor_rx_len_ + wr0);
                     }
+#endif
 #else
                     const size_t wr = bpsk_to_bytes_(
                         holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
