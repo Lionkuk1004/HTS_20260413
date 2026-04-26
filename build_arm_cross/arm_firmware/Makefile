@@ -392,6 +392,36 @@ __\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp.s
 
+__\HTS_LIM\HTS_Amp_Diag.obj: __\HTS_LIM\HTS_Amp_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Amp_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Amp_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Amp_Diag.cpp.obj
+
+__\HTS_LIM\HTS_Amp_Diag.i: __\HTS_LIM\HTS_Amp_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_Amp_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Amp_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Amp_Diag.cpp.i
+
+__\HTS_LIM\HTS_Amp_Diag.s: __\HTS_LIM\HTS_Amp_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_Amp_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Amp_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Amp_Diag.cpp.s
+
 __\HTS_LIM\HTS_AntiAnalysis_Shield.obj: __\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj
 .PHONY : __\HTS_LIM\HTS_AntiAnalysis_Shield.obj
 
@@ -421,36 +451,6 @@ __\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.s:
 	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.s
-
-__\HTS_LIM\HTS_AntiJam_Engine.obj: __\HTS_LIM\HTS_AntiJam_Engine.cpp.obj
-.PHONY : __\HTS_LIM\HTS_AntiJam_Engine.obj
-
-# target to build an object file
-__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_AntiJam_Engine.cpp.obj
-
-__\HTS_LIM\HTS_AntiJam_Engine.i: __\HTS_LIM\HTS_AntiJam_Engine.cpp.i
-.PHONY : __\HTS_LIM\HTS_AntiJam_Engine.i
-
-# target to preprocess a source file
-__\HTS_LIM\HTS_AntiJam_Engine.cpp.i:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.i
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_AntiJam_Engine.cpp.i
-
-__\HTS_LIM\HTS_AntiJam_Engine.s: __\HTS_LIM\HTS_AntiJam_Engine.cpp.s
-.PHONY : __\HTS_LIM\HTS_AntiJam_Engine.s
-
-# target to generate assembly for a file
-__\HTS_LIM\HTS_AntiJam_Engine.cpp.s:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.s
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_AntiJam_Engine.cpp.s
 
 __\HTS_LIM\HTS_Anti_Debug.obj: __\HTS_LIM\HTS_Anti_Debug.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Anti_Debug.obj
@@ -632,6 +632,36 @@ __\HTS_LIM\HTS_CCTV_Security.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_CCTV_Security.cpp.s
 
+__\HTS_LIM\HTS_CFO_V5a.obj: __\HTS_LIM\HTS_CFO_V5a.cpp.obj
+.PHONY : __\HTS_LIM\HTS_CFO_V5a.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_CFO_V5a.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CFO_V5a.cpp.obj
+
+__\HTS_LIM\HTS_CFO_V5a.i: __\HTS_LIM\HTS_CFO_V5a.cpp.i
+.PHONY : __\HTS_LIM\HTS_CFO_V5a.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_CFO_V5a.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CFO_V5a.cpp.i
+
+__\HTS_LIM\HTS_CFO_V5a.s: __\HTS_LIM\HTS_CFO_V5a.cpp.s
+.PHONY : __\HTS_LIM\HTS_CFO_V5a.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_CFO_V5a.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CFO_V5a.cpp.s
+
 __\HTS_LIM\HTS_CTR_DRBG.obj: __\HTS_LIM\HTS_CTR_DRBG.cpp.obj
 .PHONY : __\HTS_LIM\HTS_CTR_DRBG.obj
 
@@ -661,6 +691,96 @@ __\HTS_LIM\HTS_CTR_DRBG.cpp.s:
 	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_CTR_DRBG.cpp.s
+
+__\HTS_LIM\HTS_CW_Detect_Diag.obj: __\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_CW_Detect_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj
+
+__\HTS_LIM\HTS_CW_Detect_Diag.i: __\HTS_LIM\HTS_CW_Detect_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_CW_Detect_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_CW_Detect_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_Detect_Diag.cpp.i
+
+__\HTS_LIM\HTS_CW_Detect_Diag.s: __\HTS_LIM\HTS_CW_Detect_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_CW_Detect_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_CW_Detect_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_Detect_Diag.cpp.s
+
+__\HTS_LIM\HTS_CW_Excision.obj: __\HTS_LIM\HTS_CW_Excision.cpp.obj
+.PHONY : __\HTS_LIM\HTS_CW_Excision.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_CW_Excision.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_Excision.cpp.obj
+
+__\HTS_LIM\HTS_CW_Excision.i: __\HTS_LIM\HTS_CW_Excision.cpp.i
+.PHONY : __\HTS_LIM\HTS_CW_Excision.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_CW_Excision.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_Excision.cpp.i
+
+__\HTS_LIM\HTS_CW_Excision.s: __\HTS_LIM\HTS_CW_Excision.cpp.s
+.PHONY : __\HTS_LIM\HTS_CW_Excision.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_CW_Excision.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_Excision.cpp.s
+
+__\HTS_LIM\HTS_CW_LLR_Weight.obj: __\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj
+.PHONY : __\HTS_LIM\HTS_CW_LLR_Weight.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj
+
+__\HTS_LIM\HTS_CW_LLR_Weight.i: __\HTS_LIM\HTS_CW_LLR_Weight.cpp.i
+.PHONY : __\HTS_LIM\HTS_CW_LLR_Weight.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_CW_LLR_Weight.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_LLR_Weight.cpp.i
+
+__\HTS_LIM\HTS_CW_LLR_Weight.s: __\HTS_LIM\HTS_CW_LLR_Weight.cpp.s
+.PHONY : __\HTS_LIM\HTS_CW_LLR_Weight.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_CW_LLR_Weight.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_CW_LLR_Weight.cpp.s
 
 __\HTS_LIM\HTS_CoAP_Engine.obj: __\HTS_LIM\HTS_CoAP_Engine.cpp.obj
 .PHONY : __\HTS_LIM\HTS_CoAP_Engine.obj
@@ -1232,6 +1352,36 @@ __\HTS_LIM\HTS_Gyro_Engine.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Gyro_Engine.cpp.s
 
+__\HTS_LIM\HTS_HARQ_Diag.obj: __\HTS_LIM\HTS_HARQ_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_HARQ_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_HARQ_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_HARQ_Diag.cpp.obj
+
+__\HTS_LIM\HTS_HARQ_Diag.i: __\HTS_LIM\HTS_HARQ_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_HARQ_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_HARQ_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_HARQ_Diag.cpp.i
+
+__\HTS_LIM\HTS_HARQ_Diag.s: __\HTS_LIM\HTS_HARQ_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_HARQ_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_HARQ_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_HARQ_Diag.cpp.s
+
 __\HTS_LIM\HTS_HMAC_Bridge.obj: __\HTS_LIM\HTS_HMAC_Bridge.cpp.obj
 .PHONY : __\HTS_LIM\HTS_HMAC_Bridge.obj
 
@@ -1412,35 +1562,125 @@ __\HTS_LIM\HTS_Holo_Dispatcher.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Holo_Dispatcher.cpp.s
 
-__\HTS_LIM\HTS_Holo_Tensor_4D.obj: __\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj
-.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D.obj
+__\HTS_LIM\HTS_Holo_LPI.obj: __\HTS_LIM\HTS_Holo_LPI.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Holo_LPI.obj
 
 # target to build an object file
-__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj:
+__\HTS_LIM\HTS_Holo_LPI.cpp.obj:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Holo_LPI.cpp.obj
 
-__\HTS_LIM\HTS_Holo_Tensor_4D.i: __\HTS_LIM\HTS_Holo_Tensor_4D.cpp.i
-.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D.i
+__\HTS_LIM\HTS_Holo_LPI.i: __\HTS_LIM\HTS_Holo_LPI.cpp.i
+.PHONY : __\HTS_LIM\HTS_Holo_LPI.i
 
 # target to preprocess a source file
-__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.i:
+__\HTS_LIM\HTS_Holo_LPI.cpp.i:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.i
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.i
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D.cpp.i
+.PHONY : __\HTS_LIM\HTS_Holo_LPI.cpp.i
 
-__\HTS_LIM\HTS_Holo_Tensor_4D.s: __\HTS_LIM\HTS_Holo_Tensor_4D.cpp.s
-.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D.s
+__\HTS_LIM\HTS_Holo_LPI.s: __\HTS_LIM\HTS_Holo_LPI.cpp.s
+.PHONY : __\HTS_LIM\HTS_Holo_LPI.s
 
 # target to generate assembly for a file
-__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.s:
+__\HTS_LIM\HTS_Holo_LPI.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.s
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D.cpp.s
+.PHONY : __\HTS_LIM\HTS_Holo_LPI.cpp.s
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_Common.obj: __\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_Common.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_Common.i: __\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.i
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_Common.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.i
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_Common.s: __\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.s
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_Common.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.s
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_RX.obj: __\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_RX.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_RX.i: __\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.i
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_RX.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.i
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_RX.s: __\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.s
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_RX.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.s
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_TX.obj: __\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_TX.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_TX.i: __\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.i
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_TX.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.i
+
+__\HTS_LIM\HTS_Holo_Tensor_4D_TX.s: __\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.s
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_TX.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.s
 
 __\HTS_LIM\HTS_Holo_Tensor_Engine.obj: __\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Holo_Tensor_Engine.obj
@@ -1622,36 +1862,6 @@ __\HTS_LIM\HTS_Key_Rotator.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Key_Rotator.cpp.s
 
-__\HTS_LIM\HTS_LDPC.obj: __\HTS_LIM\HTS_LDPC.cpp.obj
-.PHONY : __\HTS_LIM\HTS_LDPC.obj
-
-# target to build an object file
-__\HTS_LIM\HTS_LDPC.cpp.obj:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_LDPC.cpp.obj
-
-__\HTS_LIM\HTS_LDPC.i: __\HTS_LIM\HTS_LDPC.cpp.i
-.PHONY : __\HTS_LIM\HTS_LDPC.i
-
-# target to preprocess a source file
-__\HTS_LIM\HTS_LDPC.cpp.i:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.i
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_LDPC.cpp.i
-
-__\HTS_LIM\HTS_LDPC.s: __\HTS_LIM\HTS_LDPC.cpp.s
-.PHONY : __\HTS_LIM\HTS_LDPC.s
-
-# target to generate assembly for a file
-__\HTS_LIM\HTS_LDPC.cpp.s:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.s
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_LDPC.cpp.s
-
 __\HTS_LIM\HTS_LEA_Bridge.obj: __\HTS_LIM\HTS_LEA_Bridge.cpp.obj
 .PHONY : __\HTS_LIM\HTS_LEA_Bridge.obj
 
@@ -1681,6 +1891,36 @@ __\HTS_LIM\HTS_LEA_Bridge.cpp.s:
 	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_LEA_Bridge.cpp.s
+
+__\HTS_LIM\HTS_LLR_Diag.obj: __\HTS_LIM\HTS_LLR_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_LLR_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_LLR_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_LLR_Diag.cpp.obj
+
+__\HTS_LIM\HTS_LLR_Diag.i: __\HTS_LIM\HTS_LLR_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_LLR_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_LLR_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_LLR_Diag.cpp.i
+
+__\HTS_LIM\HTS_LLR_Diag.s: __\HTS_LIM\HTS_LLR_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_LLR_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_LLR_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_LLR_Diag.cpp.s
 
 __\HTS_LIM\HTS_Location_Engine.obj: __\HTS_LIM\HTS_Location_Engine.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Location_Engine.obj
@@ -2162,6 +2402,36 @@ __\HTS_LIM\HTS_Power_Manager.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Power_Manager.cpp.s
 
+__\HTS_LIM\HTS_Preamble_Holographic.obj: __\HTS_LIM\HTS_Preamble_Holographic.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Preamble_Holographic.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Preamble_Holographic.cpp.obj
+
+__\HTS_LIM\HTS_Preamble_Holographic.i: __\HTS_LIM\HTS_Preamble_Holographic.cpp.i
+.PHONY : __\HTS_LIM\HTS_Preamble_Holographic.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Preamble_Holographic.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Preamble_Holographic.cpp.i
+
+__\HTS_LIM\HTS_Preamble_Holographic.s: __\HTS_LIM\HTS_Preamble_Holographic.cpp.s
+.PHONY : __\HTS_LIM\HTS_Preamble_Holographic.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Preamble_Holographic.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Preamble_Holographic.cpp.s
+
 __\HTS_LIM\HTS_Priority_Scheduler.obj: __\HTS_LIM\HTS_Priority_Scheduler.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Priority_Scheduler.obj
 
@@ -2252,36 +2522,6 @@ __\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.s
 
-__\HTS_LIM\HTS_RS_GF16.obj: __\HTS_LIM\HTS_RS_GF16.cpp.obj
-.PHONY : __\HTS_LIM\HTS_RS_GF16.obj
-
-# target to build an object file
-__\HTS_LIM\HTS_RS_GF16.cpp.obj:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_RS_GF16.cpp.obj
-
-__\HTS_LIM\HTS_RS_GF16.i: __\HTS_LIM\HTS_RS_GF16.cpp.i
-.PHONY : __\HTS_LIM\HTS_RS_GF16.i
-
-# target to preprocess a source file
-__\HTS_LIM\HTS_RS_GF16.cpp.i:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.i
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_RS_GF16.cpp.i
-
-__\HTS_LIM\HTS_RS_GF16.s: __\HTS_LIM\HTS_RS_GF16.cpp.s
-.PHONY : __\HTS_LIM\HTS_RS_GF16.s
-
-# target to generate assembly for a file
-__\HTS_LIM\HTS_RS_GF16.cpp.s:
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.s
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_RS_GF16.cpp.s
-
 __\HTS_LIM\HTS_Remote_Attestation.obj: __\HTS_LIM\HTS_Remote_Attestation.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Remote_Attestation.obj
 
@@ -2341,6 +2581,66 @@ __\HTS_LIM\HTS_Role_Auth.cpp.s:
 	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Role_Auth.cpp.s
+
+__\HTS_LIM\HTS_Row_Consistency_Diag.obj: __\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Row_Consistency_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj
+
+__\HTS_LIM\HTS_Row_Consistency_Diag.i: __\HTS_LIM\HTS_Row_Consistency_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_Row_Consistency_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Row_Consistency_Diag.cpp.i
+
+__\HTS_LIM\HTS_Row_Consistency_Diag.s: __\HTS_LIM\HTS_Row_Consistency_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_Row_Consistency_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Row_Consistency_Diag.cpp.s
+
+__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.obj: __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj
+
+__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.i: __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.i
+.PHONY : __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.i
+
+__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.s: __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.s
+.PHONY : __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.s
 
 __\HTS_LIM\HTS_Rx_Matched_Filter.obj: __\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Rx_Matched_Filter.obj
@@ -2702,6 +3002,36 @@ __\HTS_LIM\HTS_Sparse_Recovery.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Sparse_Recovery.cpp.s
 
+__\HTS_LIM\HTS_Sync_Diag.obj: __\HTS_LIM\HTS_Sync_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Sync_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Sync_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Sync_Diag.cpp.obj
+
+__\HTS_LIM\HTS_Sync_Diag.i: __\HTS_LIM\HTS_Sync_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_Sync_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Sync_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Sync_Diag.cpp.i
+
+__\HTS_LIM\HTS_Sync_Diag.s: __\HTS_LIM\HTS_Sync_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_Sync_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Sync_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Sync_Diag.cpp.s
+
 __\HTS_LIM\HTS_TRNG_Collector.obj: __\HTS_LIM\HTS_TRNG_Collector.cpp.obj
 .PHONY : __\HTS_LIM\HTS_TRNG_Collector.obj
 
@@ -2852,35 +3182,185 @@ __\HTS_LIM\HTS_Universal_Adapter.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Universal_Adapter.cpp.s
 
-__\HTS_LIM\HTS_V400_Dispatcher.obj: __\HTS_LIM\HTS_V400_Dispatcher.cpp.obj
-.PHONY : __\HTS_LIM\HTS_V400_Dispatcher.obj
+__\HTS_LIM\HTS_V400_Dispatcher_Core.obj: __\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Core.obj
 
 # target to build an object file
-__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj:
+__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_V400_Dispatcher.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj
 
-__\HTS_LIM\HTS_V400_Dispatcher.i: __\HTS_LIM\HTS_V400_Dispatcher.cpp.i
-.PHONY : __\HTS_LIM\HTS_V400_Dispatcher.i
+__\HTS_LIM\HTS_V400_Dispatcher_Core.i: __\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Core.i
 
 # target to preprocess a source file
-__\HTS_LIM\HTS_V400_Dispatcher.cpp.i:
+__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.i:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.i
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.i
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_V400_Dispatcher.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.i
 
-__\HTS_LIM\HTS_V400_Dispatcher.s: __\HTS_LIM\HTS_V400_Dispatcher.cpp.s
-.PHONY : __\HTS_LIM\HTS_V400_Dispatcher.s
+__\HTS_LIM\HTS_V400_Dispatcher_Core.s: __\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Core.s
 
 # target to generate assembly for a file
-__\HTS_LIM\HTS_V400_Dispatcher.cpp.s:
+__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.s:
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.s
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-.PHONY : __\HTS_LIM\HTS_V400_Dispatcher.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.s
+
+__\HTS_LIM\HTS_V400_Dispatcher_Decode.obj: __\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Decode.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj
+
+__\HTS_LIM\HTS_V400_Dispatcher_Decode.i: __\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Decode.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.i
+
+__\HTS_LIM\HTS_V400_Dispatcher_Decode.s: __\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Decode.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.s
+
+__\HTS_LIM\HTS_V400_Dispatcher_Payload.obj: __\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Payload.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj
+
+__\HTS_LIM\HTS_V400_Dispatcher_Payload.i: __\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Payload.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.i
+
+__\HTS_LIM\HTS_V400_Dispatcher_Payload.s: __\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Payload.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.s
+
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.obj: __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj
+
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.i: __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.i
+
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.s: __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.s
+
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.obj: __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj
+
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.i: __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.i
+
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.s: __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.s
+
+__\HTS_LIM\HTS_V400_Dispatcher_TX.obj: __\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_TX.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj
+
+__\HTS_LIM\HTS_V400_Dispatcher_TX.i: __\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.i
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_TX.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.i
+
+__\HTS_LIM\HTS_V400_Dispatcher_TX.s: __\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.s
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_TX.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.s
 
 __\HTS_LIM\HTS_Voice_Codec_Bridge.obj: __\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj
 .PHONY : __\HTS_LIM\HTS_Voice_Codec_Bridge.obj
@@ -2911,6 +3391,96 @@ __\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.s:
 	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 .PHONY : __\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.s
+
+__\HTS_LIM\HTS_Walsh_Row_Converter.obj: __\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Converter.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj
+
+__\HTS_LIM\HTS_Walsh_Row_Converter.i: __\HTS_LIM\HTS_Walsh_Row_Converter.cpp.i
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Converter.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Converter.cpp.i
+
+__\HTS_LIM\HTS_Walsh_Row_Converter.s: __\HTS_LIM\HTS_Walsh_Row_Converter.cpp.s
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Converter.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Converter.cpp.s
+
+__\HTS_LIM\HTS_Walsh_Row_Diag.obj: __\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Diag.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj
+
+__\HTS_LIM\HTS_Walsh_Row_Diag.i: __\HTS_LIM\HTS_Walsh_Row_Diag.cpp.i
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Diag.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Diag.cpp.i
+
+__\HTS_LIM\HTS_Walsh_Row_Diag.s: __\HTS_LIM\HTS_Walsh_Row_Diag.cpp.s
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Diag.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Diag.cpp.s
+
+__\HTS_LIM\HTS_Walsh_Row_Permuter.obj: __\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Permuter.obj
+
+# target to build an object file
+__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj
+
+__\HTS_LIM\HTS_Walsh_Row_Permuter.i: __\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.i
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Permuter.i
+
+# target to preprocess a source file
+__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.i:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.i
+
+__\HTS_LIM\HTS_Walsh_Row_Permuter.s: __\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.s
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Permuter.s
+
+# target to generate assembly for a file
+__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.s:
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+	$(MAKE) $(MAKESILENT) -f arm_firmware\CMakeFiles\hts_m4_core.dir\build.make /nologo -$(MAKEFLAGS) arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+.PHONY : __\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.s
 
 __\HTS_LIM\KISA_HMAC.obj: __\HTS_LIM\KISA_HMAC.c.obj
 .PHONY : __\HTS_LIM\KISA_HMAC.obj
@@ -3616,12 +4186,12 @@ help:
 	@echo ... __/HTS_LIM/HTS_Adaptive_BPS_Controller.obj
 	@echo ... __/HTS_LIM/HTS_Adaptive_BPS_Controller.i
 	@echo ... __/HTS_LIM/HTS_Adaptive_BPS_Controller.s
+	@echo ... __/HTS_LIM/HTS_Amp_Diag.obj
+	@echo ... __/HTS_LIM/HTS_Amp_Diag.i
+	@echo ... __/HTS_LIM/HTS_Amp_Diag.s
 	@echo ... __/HTS_LIM/HTS_AntiAnalysis_Shield.obj
 	@echo ... __/HTS_LIM/HTS_AntiAnalysis_Shield.i
 	@echo ... __/HTS_LIM/HTS_AntiAnalysis_Shield.s
-	@echo ... __/HTS_LIM/HTS_AntiJam_Engine.obj
-	@echo ... __/HTS_LIM/HTS_AntiJam_Engine.i
-	@echo ... __/HTS_LIM/HTS_AntiJam_Engine.s
 	@echo ... __/HTS_LIM/HTS_Anti_Debug.obj
 	@echo ... __/HTS_LIM/HTS_Anti_Debug.i
 	@echo ... __/HTS_LIM/HTS_Anti_Debug.s
@@ -3640,9 +4210,21 @@ help:
 	@echo ... __/HTS_LIM/HTS_CCTV_Security.obj
 	@echo ... __/HTS_LIM/HTS_CCTV_Security.i
 	@echo ... __/HTS_LIM/HTS_CCTV_Security.s
+	@echo ... __/HTS_LIM/HTS_CFO_V5a.obj
+	@echo ... __/HTS_LIM/HTS_CFO_V5a.i
+	@echo ... __/HTS_LIM/HTS_CFO_V5a.s
 	@echo ... __/HTS_LIM/HTS_CTR_DRBG.obj
 	@echo ... __/HTS_LIM/HTS_CTR_DRBG.i
 	@echo ... __/HTS_LIM/HTS_CTR_DRBG.s
+	@echo ... __/HTS_LIM/HTS_CW_Detect_Diag.obj
+	@echo ... __/HTS_LIM/HTS_CW_Detect_Diag.i
+	@echo ... __/HTS_LIM/HTS_CW_Detect_Diag.s
+	@echo ... __/HTS_LIM/HTS_CW_Excision.obj
+	@echo ... __/HTS_LIM/HTS_CW_Excision.i
+	@echo ... __/HTS_LIM/HTS_CW_Excision.s
+	@echo ... __/HTS_LIM/HTS_CW_LLR_Weight.obj
+	@echo ... __/HTS_LIM/HTS_CW_LLR_Weight.i
+	@echo ... __/HTS_LIM/HTS_CW_LLR_Weight.s
 	@echo ... __/HTS_LIM/HTS_CoAP_Engine.obj
 	@echo ... __/HTS_LIM/HTS_CoAP_Engine.i
 	@echo ... __/HTS_LIM/HTS_CoAP_Engine.s
@@ -3700,6 +4282,9 @@ help:
 	@echo ... __/HTS_LIM/HTS_Gyro_Engine.obj
 	@echo ... __/HTS_LIM/HTS_Gyro_Engine.i
 	@echo ... __/HTS_LIM/HTS_Gyro_Engine.s
+	@echo ... __/HTS_LIM/HTS_HARQ_Diag.obj
+	@echo ... __/HTS_LIM/HTS_HARQ_Diag.i
+	@echo ... __/HTS_LIM/HTS_HARQ_Diag.s
 	@echo ... __/HTS_LIM/HTS_HMAC_Bridge.obj
 	@echo ... __/HTS_LIM/HTS_HMAC_Bridge.i
 	@echo ... __/HTS_LIM/HTS_HMAC_Bridge.s
@@ -3718,9 +4303,18 @@ help:
 	@echo ... __/HTS_LIM/HTS_Holo_Dispatcher.obj
 	@echo ... __/HTS_LIM/HTS_Holo_Dispatcher.i
 	@echo ... __/HTS_LIM/HTS_Holo_Dispatcher.s
-	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D.obj
-	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D.i
-	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D.s
+	@echo ... __/HTS_LIM/HTS_Holo_LPI.obj
+	@echo ... __/HTS_LIM/HTS_Holo_LPI.i
+	@echo ... __/HTS_LIM/HTS_Holo_LPI.s
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_Common.obj
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_Common.i
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_Common.s
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_RX.obj
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_RX.i
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_RX.s
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_TX.obj
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_TX.i
+	@echo ... __/HTS_LIM/HTS_Holo_Tensor_4D_TX.s
 	@echo ... __/HTS_LIM/HTS_Holo_Tensor_Engine.obj
 	@echo ... __/HTS_LIM/HTS_Holo_Tensor_Engine.i
 	@echo ... __/HTS_LIM/HTS_Holo_Tensor_Engine.s
@@ -3739,12 +4333,12 @@ help:
 	@echo ... __/HTS_LIM/HTS_Key_Rotator.obj
 	@echo ... __/HTS_LIM/HTS_Key_Rotator.i
 	@echo ... __/HTS_LIM/HTS_Key_Rotator.s
-	@echo ... __/HTS_LIM/HTS_LDPC.obj
-	@echo ... __/HTS_LIM/HTS_LDPC.i
-	@echo ... __/HTS_LIM/HTS_LDPC.s
 	@echo ... __/HTS_LIM/HTS_LEA_Bridge.obj
 	@echo ... __/HTS_LIM/HTS_LEA_Bridge.i
 	@echo ... __/HTS_LIM/HTS_LEA_Bridge.s
+	@echo ... __/HTS_LIM/HTS_LLR_Diag.obj
+	@echo ... __/HTS_LIM/HTS_LLR_Diag.i
+	@echo ... __/HTS_LIM/HTS_LLR_Diag.s
 	@echo ... __/HTS_LIM/HTS_Location_Engine.obj
 	@echo ... __/HTS_LIM/HTS_Location_Engine.i
 	@echo ... __/HTS_LIM/HTS_Location_Engine.s
@@ -3793,6 +4387,9 @@ help:
 	@echo ... __/HTS_LIM/HTS_Power_Manager.obj
 	@echo ... __/HTS_LIM/HTS_Power_Manager.i
 	@echo ... __/HTS_LIM/HTS_Power_Manager.s
+	@echo ... __/HTS_LIM/HTS_Preamble_Holographic.obj
+	@echo ... __/HTS_LIM/HTS_Preamble_Holographic.i
+	@echo ... __/HTS_LIM/HTS_Preamble_Holographic.s
 	@echo ... __/HTS_LIM/HTS_Priority_Scheduler.obj
 	@echo ... __/HTS_LIM/HTS_Priority_Scheduler.i
 	@echo ... __/HTS_LIM/HTS_Priority_Scheduler.s
@@ -3802,15 +4399,18 @@ help:
 	@echo ... __/HTS_LIM/HTS_Quantum_Key_Bridge.obj
 	@echo ... __/HTS_LIM/HTS_Quantum_Key_Bridge.i
 	@echo ... __/HTS_LIM/HTS_Quantum_Key_Bridge.s
-	@echo ... __/HTS_LIM/HTS_RS_GF16.obj
-	@echo ... __/HTS_LIM/HTS_RS_GF16.i
-	@echo ... __/HTS_LIM/HTS_RS_GF16.s
 	@echo ... __/HTS_LIM/HTS_Remote_Attestation.obj
 	@echo ... __/HTS_LIM/HTS_Remote_Attestation.i
 	@echo ... __/HTS_LIM/HTS_Remote_Attestation.s
 	@echo ... __/HTS_LIM/HTS_Role_Auth.obj
 	@echo ... __/HTS_LIM/HTS_Role_Auth.i
 	@echo ... __/HTS_LIM/HTS_Role_Auth.s
+	@echo ... __/HTS_LIM/HTS_Row_Consistency_Diag.obj
+	@echo ... __/HTS_LIM/HTS_Row_Consistency_Diag.i
+	@echo ... __/HTS_LIM/HTS_Row_Consistency_Diag.s
+	@echo ... __/HTS_LIM/HTS_Rx_CFO_SinCos_Table.obj
+	@echo ... __/HTS_LIM/HTS_Rx_CFO_SinCos_Table.i
+	@echo ... __/HTS_LIM/HTS_Rx_CFO_SinCos_Table.s
 	@echo ... __/HTS_LIM/HTS_Rx_Matched_Filter.obj
 	@echo ... __/HTS_LIM/HTS_Rx_Matched_Filter.i
 	@echo ... __/HTS_LIM/HTS_Rx_Matched_Filter.s
@@ -3847,6 +4447,9 @@ help:
 	@echo ... __/HTS_LIM/HTS_Sparse_Recovery.obj
 	@echo ... __/HTS_LIM/HTS_Sparse_Recovery.i
 	@echo ... __/HTS_LIM/HTS_Sparse_Recovery.s
+	@echo ... __/HTS_LIM/HTS_Sync_Diag.obj
+	@echo ... __/HTS_LIM/HTS_Sync_Diag.i
+	@echo ... __/HTS_LIM/HTS_Sync_Diag.s
 	@echo ... __/HTS_LIM/HTS_TRNG_Collector.obj
 	@echo ... __/HTS_LIM/HTS_TRNG_Collector.i
 	@echo ... __/HTS_LIM/HTS_TRNG_Collector.s
@@ -3862,12 +4465,36 @@ help:
 	@echo ... __/HTS_LIM/HTS_Universal_Adapter.obj
 	@echo ... __/HTS_LIM/HTS_Universal_Adapter.i
 	@echo ... __/HTS_LIM/HTS_Universal_Adapter.s
-	@echo ... __/HTS_LIM/HTS_V400_Dispatcher.obj
-	@echo ... __/HTS_LIM/HTS_V400_Dispatcher.i
-	@echo ... __/HTS_LIM/HTS_V400_Dispatcher.s
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Core.obj
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Core.i
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Core.s
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Decode.obj
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Decode.i
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Decode.s
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Payload.obj
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Payload.i
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Payload.s
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.obj
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.i
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.s
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.obj
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.i
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.s
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_TX.obj
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_TX.i
+	@echo ... __/HTS_LIM/HTS_V400_Dispatcher_TX.s
 	@echo ... __/HTS_LIM/HTS_Voice_Codec_Bridge.obj
 	@echo ... __/HTS_LIM/HTS_Voice_Codec_Bridge.i
 	@echo ... __/HTS_LIM/HTS_Voice_Codec_Bridge.s
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Converter.obj
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Converter.i
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Converter.s
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Diag.obj
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Diag.i
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Diag.s
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Permuter.obj
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Permuter.i
+	@echo ... __/HTS_LIM/HTS_Walsh_Row_Permuter.s
 	@echo ... __/HTS_LIM/KISA_HMAC.obj
 	@echo ... __/HTS_LIM/KISA_HMAC.i
 	@echo ... __/HTS_LIM/KISA_HMAC.s

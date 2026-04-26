@@ -1,4 +1,4 @@
-// =============================================================================
+﻿// =============================================================================
 // HTS_FEC_HARQ.cpp — V400 3모드 (1칩/16칩/64칩)
 // Target: STM32F407VGT6 (Cortex-M4F) / PC
 //
@@ -6,7 +6,7 @@
 #include "HTS_Secure_Memory.h"
 #include "HTS_Walsh_Row_Converter.hpp"
 #include <array>
-#include "HTS_CXX17_Atomic_Safe.h"
+#include <atomic>
 #include <climits>
 #include <cstdint>
 #include <cstring>

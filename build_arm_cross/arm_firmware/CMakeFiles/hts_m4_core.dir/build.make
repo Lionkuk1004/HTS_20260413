@@ -181,10 +181,30 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Adaptive_BPS_Controller.c
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Amp_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Amp_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Amp_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Amp_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Amp_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Amp_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Amp_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiAnalysis_Shield.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_7) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_AntiAnalysis_Shield.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_AntiAnalysis_Shield.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiAnalysis_Shield.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -199,26 +219,6 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.s
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_AntiAnalysis_Shield.cpp.s"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiAnalysis_Shield.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.s
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiJam_Engine.cpp
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_8) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_AntiJam_Engine.cpp.obj"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiJam_Engine.cpp
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_AntiJam_Engine.cpp.i"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiJam_Engine.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.i
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_AntiJam_Engine.cpp.s"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_AntiJam_Engine.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Anti_Debug.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
@@ -341,10 +341,30 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CCTV_Security.cpp.s: cmak
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CCTV_Security.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CCTV_Security.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CFO_V5a.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CFO_V5a.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CFO_V5a.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CTR_DRBG.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_15) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CTR_DRBG.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CTR_DRBG.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CTR_DRBG.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -361,10 +381,70 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.s: cmake_for
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CTR_DRBG.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Detect_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_Detect_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Detect_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_Detect_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Detect_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_Detect_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Detect_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Excision.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_Excision.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Excision.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_Excision.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Excision.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_Excision.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_Excision.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_LLR_Weight.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_LLR_Weight.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_LLR_Weight.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_LLR_Weight.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_LLR_Weight.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CW_LLR_Weight.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CW_LLR_Weight.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CoAP_Engine.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_16) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CoAP_Engine.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_CoAP_Engine.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CoAP_Engine.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -384,7 +464,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.s: cmake_
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Conditional_SelfTest.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_17) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Conditional_SelfTest.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Conditional_SelfTest.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Conditional_SelfTest.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -404,7 +484,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Config.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_18) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Config.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Config.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Config.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -424,7 +504,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Console_Manager.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_19) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Console_Manager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Console_Manager.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Console_Manager.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -444,7 +524,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Console_Manager.cpp.s: cm
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_ConstantTimeUtil.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_20) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_ConstantTimeUtil.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_ConstantTimeUtil.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_ConstantTimeUtil.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -464,7 +544,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ConstantTimeUtil.cpp.s: c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Crc32Util.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_21) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Crc32Util.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Crc32Util.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Crc32Util.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -484,7 +564,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crc32Util.cpp.s: cmake_fo
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Creator_Telemetry.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_22) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Creator_Telemetry.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Creator_Telemetry.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Creator_Telemetry.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -504,7 +584,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Creator_Telemetry.cpp.s: 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Crypto_KAT.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_23) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Crypto_KAT.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Crypto_KAT.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Crypto_KAT.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -524,7 +604,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Crypto_KAT.cpp.s: cmake_f
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Device_Profile.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_24) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Device_Profile.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Device_Profile.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Device_Profile.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -544,7 +624,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Profile.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Device_Status_Reporter.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_25) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Device_Status_Reporter.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Device_Status_Reporter.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Device_Status_Reporter.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -564,7 +644,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Device_Status_Reporter.cp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Config.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_26) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Dynamic_Config.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Dynamic_Config.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Config.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -584,7 +664,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Config.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_27) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Dynamic_Fractal_Mapper.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Dynamic_Fractal_Mapper.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -604,7 +684,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Fractal_Mapper.cp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_28) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Dynamic_Key_Rotator.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Dynamic_Key_Rotator.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -624,7 +704,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Dynamic_Key_Rotator.cpp.s
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Emergency_Beacon.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_29) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Emergency_Beacon.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Emergency_Beacon.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Emergency_Beacon.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -644,7 +724,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Emergency_Beacon.cpp.s: c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Entropy_Arrow.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_30) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Entropy_Arrow.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Entropy_Arrow.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Entropy_Arrow.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -664,7 +744,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Arrow.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Entropy_Monitor.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_31) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Entropy_Monitor.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Entropy_Monitor.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Entropy_Monitor.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -684,7 +764,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Entropy_Monitor.cpp.s: cm
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_FEC_HARQ.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_32) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_FEC_HARQ.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_FEC_HARQ.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_FEC_HARQ.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -704,7 +784,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.s: cmake_for
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Gaussian_Pulse.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_33) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Gaussian_Pulse.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Gaussian_Pulse.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Gaussian_Pulse.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -724,7 +804,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Gyro_Engine.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_34) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Gyro_Engine.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Gyro_Engine.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Gyro_Engine.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -741,10 +821,30 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.s: cmake_
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Gyro_Engine.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_HARQ_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_HARQ_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_HARQ_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_HARQ_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_HARQ_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_HARQ_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_HARQ_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_HMAC_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_35) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_HMAC_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_HMAC_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_HMAC_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -764,7 +864,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.s: cmake_
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_36) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Auto_Scaler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Auto_Scaler.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -784,7 +884,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_37) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -804,7 +904,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.s: cm
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Init.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_38) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Init.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Init.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Init.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -824,7 +924,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Shield.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_39) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Shield.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Hardware_Shield.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Hardware_Shield.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -844,7 +944,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.s: cm
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Dispatcher.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_40) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Dispatcher.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Dispatcher.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Dispatcher.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -861,30 +961,90 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.s: cm
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Dispatcher.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D.cpp
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_41) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D.cpp.obj"
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_LPI.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_LPI.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D.cpp
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_LPI.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D.cpp.i"
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_LPI.cpp.i"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.i
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_LPI.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.i
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D.cpp.s"
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_LPI.cpp.s"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.s
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_LPI.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_Common.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_Common.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_Common.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_RX.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_RX.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_RX.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_TX.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_TX.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_4D_TX.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_Engine.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_42) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_Engine.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Holo_Tensor_Engine.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_Engine.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -904,7 +1064,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_IPC_Protocol.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_43) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_IPC_Protocol.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_IPC_Protocol.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_IPC_Protocol.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -924,7 +1084,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.s: cmake
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_IoT_Codec.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_44) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_IoT_Codec.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_IoT_Codec.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_IoT_Codec.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -944,7 +1104,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.s: cmake_fo
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_KT_DSN_Adapter.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_45) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_KT_DSN_Adapter.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_53) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_KT_DSN_Adapter.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_KT_DSN_Adapter.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -964,7 +1124,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Key_Provisioning.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_46) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Key_Provisioning.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_54) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Key_Provisioning.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Key_Provisioning.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -984,7 +1144,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.s: c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Key_Rotator.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_47) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Key_Rotator.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_55) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Key_Rotator.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Key_Rotator.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1001,30 +1161,10 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.s: cmake_
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Key_Rotator.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LDPC.cpp
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_48) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LDPC.cpp.obj"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LDPC.cpp
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LDPC.cpp.i"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LDPC.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.i
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LDPC.cpp.s"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LDPC.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.s
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LEA_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_49) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LEA_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_56) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LEA_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LEA_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1041,10 +1181,30 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.s: cmake_f
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LEA_Bridge.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LLR_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_57) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LLR_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LLR_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LLR_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LLR_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_LLR_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_LLR_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Location_Engine.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_50) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Location_Engine.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_58) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Location_Engine.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Location_Engine.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1064,7 +1224,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.s: cm
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Mesh_Router.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_51) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Mesh_Router.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_59) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Mesh_Router.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Mesh_Router.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1084,7 +1244,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.s: cmake_
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Mesh_Sync.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_52) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Mesh_Sync.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_60) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Mesh_Sync.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Mesh_Sync.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1104,7 +1264,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.s: cmake_fo
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Meter_Data_Manager.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_53) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Meter_Data_Manager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_61) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Meter_Data_Manager.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Meter_Data_Manager.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1124,7 +1284,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Meter_Data_Manager.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Modbus_Gateway.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_54) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Modbus_Gateway.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_62) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Modbus_Gateway.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Modbus_Gateway.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1144,7 +1304,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Modbus_Gateway.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Neighbor_Discovery.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_55) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Neighbor_Discovery.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_63) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Neighbor_Discovery.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Neighbor_Discovery.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1164,7 +1324,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Neighbor_Discovery.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Network_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_56) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Network_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_64) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Network_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Network_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1184,7 +1344,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Network_Bridge.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_OTA_Manager.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_57) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_OTA_Manager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_65) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_OTA_Manager.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_OTA_Manager.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1204,7 +1364,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_OTA_Manager.cpp.s: cmake_
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Orbital_Mapper.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_58) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Orbital_Mapper.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_66) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Orbital_Mapper.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Orbital_Mapper.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1224,7 +1384,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Orbital_Mapper.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_POST_Manager.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_59) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_POST_Manager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_67) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_POST_Manager.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_POST_Manager.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1244,7 +1404,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_POST_Manager.cpp.s: cmake
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Physical_Entropy_Engine.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_60) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Physical_Entropy_Engine.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_68) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Physical_Entropy_Engine.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Physical_Entropy_Engine.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1264,7 +1424,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Physical_Entropy_Engine.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_61) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Pipeline_V2_Dispatcher.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_69) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Pipeline_V2_Dispatcher.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1284,7 +1444,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pipeline_V2_Dispatcher.cp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Pointer_Auth.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_62) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Pointer_Auth.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_70) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Pointer_Auth.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Pointer_Auth.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1304,7 +1464,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Pointer_Auth.cpp.s: cmake
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Polar_Codec.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_63) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Polar_Codec.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_71) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Polar_Codec.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Polar_Codec.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1324,7 +1484,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.s: cmake_
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Polymorphic_Shield.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_64) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Polymorphic_Shield.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_72) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Polymorphic_Shield.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Polymorphic_Shield.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1344,7 +1504,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Power_Manager.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_65) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Power_Manager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_73) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Power_Manager.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Power_Manager.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1361,10 +1521,30 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.s: cmak
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Power_Manager.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Preamble_Holographic.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_74) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Preamble_Holographic.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Preamble_Holographic.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Preamble_Holographic.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Preamble_Holographic.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Preamble_Holographic.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Preamble_Holographic.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Priority_Scheduler.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_66) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Priority_Scheduler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_75) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Priority_Scheduler.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Priority_Scheduler.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1384,7 +1564,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_67) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Quantum_Decoy_VDF.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_76) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Quantum_Decoy_VDF.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1404,7 +1584,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.s: 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Quantum_Key_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_68) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Quantum_Key_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_77) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Quantum_Key_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Quantum_Key_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1421,30 +1601,10 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.s:
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Quantum_Key_Bridge.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_RS_GF16.cpp
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_69) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_RS_GF16.cpp.obj"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_RS_GF16.cpp
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_RS_GF16.cpp.i"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_RS_GF16.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.i
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_RS_GF16.cpp.s"
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_RS_GF16.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.s
-	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
-
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Remote_Attestation.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_70) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Remote_Attestation.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_78) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Remote_Attestation.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Remote_Attestation.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1464,7 +1624,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Role_Auth.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_71) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Role_Auth.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_79) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Role_Auth.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Role_Auth.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1481,10 +1641,50 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.s: cmake_fo
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Role_Auth.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Row_Consistency_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_80) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Row_Consistency_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Row_Consistency_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Row_Consistency_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Row_Consistency_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Row_Consistency_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Row_Consistency_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_81) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_CFO_SinCos_Table.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_CFO_SinCos_Table.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_CFO_SinCos_Table.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_Matched_Filter.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_72) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_Matched_Filter.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_82) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_Matched_Filter.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_Matched_Filter.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1504,7 +1704,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.s: 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_Sync_Detector.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_73) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_Sync_Detector.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_83) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Rx_Sync_Detector.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Rx_Sync_Detector.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1524,7 +1724,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.s: c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_SHA256_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_74) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_SHA256_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_84) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_SHA256_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_SHA256_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1544,7 +1744,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Boot_Verify.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_75) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Secure_Boot_Verify.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_85) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Secure_Boot_Verify.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Boot_Verify.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1564,7 +1764,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Boot_Verify.cpp.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Logger.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_76) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Secure_Logger.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_86) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Secure_Logger.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Logger.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1584,7 +1784,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Logger.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Memory.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_77) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Secure_Memory.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_87) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Secure_Memory.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Secure_Memory.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1604,7 +1804,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Secure_Memory.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Security_Pipeline.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_78) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Security_Pipeline.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_88) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Security_Pipeline.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Security_Pipeline.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1624,7 +1824,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Pipeline.cpp.s: 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Security_Session.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_79) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Security_Session.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_89) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Security_Session.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Security_Session.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1644,7 +1844,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Security_Session.cpp.s: c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sensor_Aggregator.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_80) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sensor_Aggregator.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_90) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sensor_Aggregator.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sensor_Aggregator.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1664,7 +1864,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Aggregator.cpp.s: 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sensor_Fusion.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_81) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sensor_Fusion.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_91) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sensor_Fusion.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sensor_Fusion.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1684,7 +1884,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Session_Gateway.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_82) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Session_Gateway.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_92) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Session_Gateway.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Session_Gateway.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1704,7 +1904,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.s: cm
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sparse_Recovery.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_83) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sparse_Recovery.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_93) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sparse_Recovery.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sparse_Recovery.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1721,10 +1921,30 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.s: cm
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sparse_Recovery.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sync_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_94) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sync_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sync_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sync_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sync_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Sync_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Sync_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_TRNG_Collector.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_84) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_TRNG_Collector.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_95) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_TRNG_Collector.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_TRNG_Collector.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1744,7 +1964,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.s: cma
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Tamper_HAL.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_85) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Tamper_HAL.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_96) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Tamper_HAL.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Tamper_HAL.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1764,7 +1984,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.s: cmake_f
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Tx_Scheduler.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_86) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Tx_Scheduler.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_97) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Tx_Scheduler.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Tx_Scheduler.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1784,7 +2004,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.s: cmake
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_API.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_87) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Universal_API.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_98) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Universal_API.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_API.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1804,7 +2024,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.s: cmak
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_Adapter.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_88) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Universal_Adapter.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_99) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Universal_Adapter.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_Adapter.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1821,30 +2041,130 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.s: 
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Universal_Adapter.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.cpp
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_89) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher.cpp.obj"
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_100) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Core.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.cpp
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.i: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher.cpp.i"
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Core.cpp.i"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.i
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.i
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
-arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.s: cmake_force
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher.cpp.s"
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Core.cpp.s"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
-	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.s
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_101) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Decode.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Decode.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Decode.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_102) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Payload.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Payload.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Payload.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_103) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_104) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_105) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_TX.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_TX.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_V400_Dispatcher_TX.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Voice_Codec_Bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_90) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Voice_Codec_Bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_106) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Voice_Codec_Bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Voice_Codec_Bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1861,10 +2181,70 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.s:
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Voice_Codec_Bridge.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.s
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
 
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Converter.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_107) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Converter.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Converter.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Converter.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Converter.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Converter.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Converter.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Diag.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_108) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Diag.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Diag.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Diag.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Diag.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Diag.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Diag.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Permuter.cpp
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_109) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Permuter.cpp.obj"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Permuter.cpp
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.i: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Preprocessing CXX source to CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Permuter.cpp.i"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -E D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Permuter.cpp > CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.i
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
+arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.s: cmake_force
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green "Compiling CXX source to assembly CMakeFiles/hts_m4_core.dir/__/HTS_LIM/HTS_Walsh_Row_Permuter.cpp.s"
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
+	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -S D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Permuter.cpp -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.s
+	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
+
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\KISA_HMAC.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_91) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/KISA_HMAC.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_110) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/KISA_HMAC.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\KISA_HMAC.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1884,7 +2264,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\KISA_SHA256.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_92) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/KISA_SHA256.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_111) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/KISA_SHA256.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\KISA_SHA256.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1904,7 +2284,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\aria050117.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_93) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/aria050117.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_112) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/aria050117.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\aria050117.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1924,7 +2304,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\cmake\stubs\no_heap_wrap.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_94) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/cmake/stubs/no_heap_wrap.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_113) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/cmake/stubs/no_heap_wrap.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\cmake\stubs\no_heap_wrap.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1944,7 +2324,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\no_heap_wrap.c.s:
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_95) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/cmake/stubs/toolchain_smoke_main.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_114) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/cmake/stubs/toolchain_smoke_main.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\cmake\stubs\toolchain_smoke_main.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1964,7 +2344,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\cmake\stubs\toolchain_smoke_m
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\hmac.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_96) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/hmac.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_115) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/hmac.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\hmac.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -1984,7 +2364,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\hmac.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_base.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_97) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_base.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_116) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_base.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_base.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2004,7 +2384,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_base.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_core.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_98) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_core.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_117) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_core.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_core.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2024,7 +2404,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_core.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_gcm_generic.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_99) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_gcm_generic.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_118) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_gcm_generic.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_gcm_generic.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2044,7 +2424,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_gcm_generic.c.s: cmake_fo
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_online.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_100) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_online.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_119) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_online.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_online.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2064,7 +2444,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_online.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_t_fallback.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_101) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_t_fallback.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_120) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_t_fallback.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_t_fallback.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2084,7 +2464,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_fallback.c.s: cmake_for
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_t_generic.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_102) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_t_generic.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_121) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lea_t_generic.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lea_t_generic.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2104,7 +2484,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lea_t_generic.c.s: cmake_forc
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lsh.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_103) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lsh.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_122) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lsh.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lsh.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2124,7 +2504,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lsh256.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_104) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lsh256.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_123) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lsh256.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lsh256.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2144,7 +2524,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh256.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lsh512.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_105) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lsh512.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_124) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/lsh512.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\lsh512.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2164,7 +2544,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\lsh512.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.obj: D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\util.c
 arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_106) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/util.c.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_125) "Building C object arm_firmware/CMakeFiles/hts_m4_core.dir/__/HTS_LIM/util.c.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR19DD~1.EXE $(C_DEFINES) $(C_INCLUDES) $(C_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.obj -MF CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.obj.d -o CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\util.c
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2184,7 +2564,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\util.c.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.obj: D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\stub_lsh256_bridge.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_107) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/stub_lsh256_bridge.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_126) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/stub_lsh256_bridge.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.obj -MF CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\arm_firmware\stub_lsh256_bridge.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2204,7 +2584,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\stub_lsh256_bridge.cpp.s: cmake_force
 arm_firmware\CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\flags.make
 arm_firmware\CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj: arm_firmware\hts_arm_generated\HTS_OTA_AMI_Manager.cpp
 arm_firmware\CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj: arm_firmware\CMakeFiles\hts_m4_core.dir\compiler_depend.ts
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_108) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/hts_arm_generated/HTS_OTA_AMI_Manager.cpp.obj"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_127) "Building CXX object arm_firmware/CMakeFiles/hts_m4_core.dir/hts_arm_generated/HTS_OTA_AMI_Manager.cpp.obj"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	C:\PROGRA~2\ARMGNU~1\133167~1.3RE\bin\AR10B2~1.EXE $(CXX_DEFINES) $(CXX_INCLUDES) $(CXX_FLAGS) -MD -MT arm_firmware\CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj -MF CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj.d -o CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj -c D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware\hts_arm_generated\HTS_OTA_AMI_Manager.cpp
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross
@@ -2229,15 +2609,19 @@ hts_m4_core_OBJECTS = \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AMI_Protocol.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ARIA_Bridge.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj" \
-"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Anti_Debug.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Anti_Glitch.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Antipodal_Core.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Auto_Rollback_Manager.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_BLE_NFC_Gateway.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CCTV_Security.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj" \
@@ -2257,21 +2641,25 @@ hts_m4_core_OBJECTS = \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj" \
-"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj" \
-"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj" \
@@ -2288,12 +2676,14 @@ hts_m4_core_OBJECTS = \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj" \
-"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj" \
@@ -2306,13 +2696,22 @@ hts_m4_core_OBJECTS = \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj" \
-"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj" \
+"CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj" \
 "CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj" \
@@ -2341,15 +2740,19 @@ arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LI
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AMI_Protocol.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_ARIA_Bridge.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Adaptive_BPS_Controller.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Amp_Diag.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiAnalysis_Shield.cpp.obj
-arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_AntiJam_Engine.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Anti_Debug.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Anti_Glitch.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Antipodal_Core.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Auto_Rollback_Manager.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_BLE_NFC_Gateway.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CCTV_Security.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CFO_V5a.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Detect_Diag.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_Excision.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CW_LLR_Weight.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CoAP_Engine.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Conditional_SelfTest.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Config.cpp.obj
@@ -2369,21 +2772,25 @@ arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LI
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_FEC_HARQ.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gaussian_Pulse.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Gyro_Engine.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HARQ_Diag.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_HMAC_Bridge.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Auto_Scaler.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Bridge.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Init.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Hardware_Shield.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Dispatcher.cpp.obj
-arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_LPI.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_Common.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Holo_Tensor_Engine.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IPC_Protocol.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_IoT_Codec.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_KT_DSN_Adapter.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Provisioning.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Key_Rotator.cpp.obj
-arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LDPC.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LEA_Bridge.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_LLR_Diag.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Location_Engine.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Router.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Mesh_Sync.cpp.obj
@@ -2400,12 +2807,14 @@ arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LI
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polar_Codec.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Polymorphic_Shield.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Power_Manager.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Preamble_Holographic.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Priority_Scheduler.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Decoy_VDF.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Quantum_Key_Bridge.cpp.obj
-arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_RS_GF16.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Remote_Attestation.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Role_Auth.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Row_Consistency_Diag.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Matched_Filter.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Rx_Sync_Detector.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_SHA256_Bridge.cpp.obj
@@ -2418,13 +2827,22 @@ arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LI
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sensor_Fusion.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Session_Gateway.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sparse_Recovery.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Sync_Diag.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_TRNG_Collector.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tamper_HAL.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Tx_Scheduler.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_API.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Universal_Adapter.cpp.obj
-arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Core.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_AMI.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_V400_Dispatcher_TX.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Voice_Codec_Bridge.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Converter.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Diag.cpp.obj
+arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Walsh_Row_Permuter.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_HMAC.c.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\KISA_SHA256.c.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\aria050117.c.obj
@@ -2445,7 +2863,7 @@ arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\stub_lsh2
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\hts_arm_generated\HTS_OTA_AMI_Manager.cpp.obj
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\build.make
 arm_firmware\libhts_m4_core.a: arm_firmware\CMakeFiles\hts_m4_core.dir\link.txt
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_109) "Linking CXX static library libhts_m4_core.a"
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --green --bold --progress-dir=D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\CMakeFiles --progress-num=$(CMAKE_PROGRESS_128) "Linking CXX static library libhts_m4_core.a"
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross\arm_firmware
 	$(CMAKE_COMMAND) -P CMakeFiles\hts_m4_core.dir\cmake_clean_target.cmake
 	cd D:\HTS_ARM11_Firmware\HTS_LIM\build_arm_cross

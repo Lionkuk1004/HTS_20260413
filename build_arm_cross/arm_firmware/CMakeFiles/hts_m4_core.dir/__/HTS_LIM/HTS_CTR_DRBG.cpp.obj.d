@@ -16,6 +16,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_CTR_DRBG.cpp.obj: \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/pstl/pstl_config.h \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/cstddef \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/lib/gcc/arm-none-eabi/13.3.1/include/stddef.h \
+ D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CXX17_Atomic_Safe.h \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/atomic \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/bits/atomic_base.h \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/new \

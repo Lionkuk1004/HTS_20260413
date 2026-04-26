@@ -10,6 +10,7 @@ arm_firmware\CMakeFiles\hts_m4_core.dir\__\HTS_LIM\HTS_Adaptive_BPS_Controller.c
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/sys/_stdint.h \
  D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Adaptive_BPS_Controller.h \
  D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_RF_Metrics.h \
+ D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CXX17_Atomic_Safe.h \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/atomic \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/bits/atomic_base.h \
  C:/PROGRA~2/ARMGNU~1/133167~1.3RE/arm-none-eabi/include/c++/13.3.1/arm-none-eabi/thumb/v7e-m+fp/hard/bits/c++config.h \

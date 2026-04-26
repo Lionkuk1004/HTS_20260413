@@ -1,0 +1,6 @@
+D:/HTS_ARM11_Firmware/HTS_LIM/build_arm_cross_baseline/CMakeFiles/edit_cache.dir
+D:/HTS_ARM11_Firmware/HTS_LIM/build_arm_cross_baseline/CMakeFiles/rebuild_cache.dir
+D:/HTS_ARM11_Firmware/HTS_LIM/build_arm_cross_baseline/arm_firmware/CMakeFiles/hts_m4_core.dir
+D:/HTS_ARM11_Firmware/HTS_LIM/build_arm_cross_baseline/arm_firmware/CMakeFiles/hts_m4_firmware.dir
+D:/HTS_ARM11_Firmware/HTS_LIM/build_arm_cross_baseline/arm_firmware/CMakeFiles/edit_cache.dir
+D:/HTS_ARM11_Firmware/HTS_LIM/build_arm_cross_baseline/arm_firmware/CMakeFiles/rebuild_cache.dir

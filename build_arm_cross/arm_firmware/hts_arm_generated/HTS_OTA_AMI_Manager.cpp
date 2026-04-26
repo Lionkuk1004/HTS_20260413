@@ -18,7 +18,7 @@
 #include "HTS_ConstantTimeUtil.h"
 #include "HTS_Secure_Memory.h"
 
-#include "../../../HTS_LIM/HTS_CXX17_Atomic_Safe.h"
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>
