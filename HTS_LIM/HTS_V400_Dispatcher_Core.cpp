@@ -3,11 +3,15 @@
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
+#if defined(HTS_USE_HOLO_TENSOR_4D) && defined(HTS_HOLO_RX_PHASE_REF)
+#include "HTS_Holo_Tensor_4D_Common.h"
+#endif
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h"
 #include "HTS_Secure_Memory.h"
 #include <cstdio>
 #include <cstring>
+#include <climits>
 extern "C" volatile int g_hts_ir_diag_chip0 = 0;
 extern "C" volatile int g_hts_ir_diag_feed_idx = -1;
 #if defined(HTS_PHASE_H_DIAG)
@@ -169,6 +173,41 @@ void HTS_V400_Dispatcher::clear_holo_tensor_rx_state_() noexcept {
     SecureMemory::secureWipe(static_cast<void*>(holo_tensor_rx_bytes_alt_),
                              sizeof(holo_tensor_rx_bytes_alt_));
 #endif
+#if defined(HTS_HOLO_RX_PHASE_REF)
+    holo_rx_phase_ref_q16_ = 0;
+    holo_rx_phase_ref_valid_ = false;
+#endif
+}
+#endif
+
+#if defined(HTS_USE_HOLO_TENSOR_4D) && defined(HTS_HOLO_RX_PHASE_REF)
+void HTS_V400_Dispatcher::capture_holo_phase_ref_pre_sym1_(
+    int preamble_align_off) noexcept
+{
+    const int pre1_off = preamble_align_off + 64;
+    if (pre1_off + 64 <= p0_chip_count_) {
+        int64_t sum_I = 0;
+        int64_t sum_Q = 0;
+        for (int c = 0; c < 64; ++c) {
+            sum_I += static_cast<int64_t>(p0_buf128_I_[pre1_off + c]);
+            sum_Q += static_cast<int64_t>(p0_buf128_Q_[pre1_off + c]);
+        }
+        auto sat_i64_to_i32 = [](int64_t v) -> int32_t {
+            if (v > static_cast<int64_t>(INT32_MAX)) {
+                return INT32_MAX;
+            }
+            if (v < static_cast<int64_t>(INT32_MIN)) {
+                return INT32_MIN;
+            }
+            return static_cast<int32_t>(v);
+        };
+        holo_rx_phase_ref_q16_ = Holo4D_Atan2_Q16(
+            sat_i64_to_i32(sum_Q >> 4),
+            sat_i64_to_i32(sum_I >> 4));
+        holo_rx_phase_ref_valid_ = true;
+    } else {
+        holo_rx_phase_ref_valid_ = false;
+    }
 }
 #endif
 HTS_V400_Dispatcher::~HTS_V400_Dispatcher() noexcept {

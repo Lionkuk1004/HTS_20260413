@@ -27,9 +27,11 @@
 #include <cstring>
 #include <cstdint>
 #include <cstddef>
-#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
-// Host T6 S5-HOLO V5a per-packet log; definition in HTS_T6_SIM_Test.cpp
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG) || defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
+// Host T6 S5-HOLO: definition in HTS_T6_SIM_Test.cpp
 extern int g_hts_s5h_trial_diag_true_cfo_hz;
+#endif
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
 static inline void hts_v5a_s5h_trial_diag_print_(
     const hts::rx_cfo::CFO_Result& cfo_res) noexcept
 {
@@ -41,6 +43,22 @@ static inline void hts_v5a_s5h_trial_diag_print_(
         g_hts_s5h_trial_diag_true_cfo_hz,
         static_cast<int>(cfo_res.cfo_hz),
         cfo_res.valid ? 1 : 0);
+}
+#endif
+#if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
+// Arm one printf on first Phase-1 full 64-chip buffer after holo P0 commit.
+static int s_hts_s5h_apply_diag_arm_next_p1_64 = 0;
+static inline void hts_v5a_s5h_apply_diag_arm_after_p0_commit_() noexcept
+{
+    if (g_hts_s5h_trial_diag_true_cfo_hz < 0) {
+        return;
+    }
+#if defined(HTS_DIAG_STEPB_S5H_CFO_HZ)
+    if (g_hts_s5h_trial_diag_true_cfo_hz != HTS_DIAG_STEPB_S5H_CFO_HZ) {
+        return;
+    }
+#endif
+    s_hts_s5h_apply_diag_arm_next_p1_64 = 1;
 }
 #endif
 namespace ProtectedEngine {
@@ -376,6 +394,9 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     if (psal_e63_ <= 0) {
         psal_e63_ = 1;
     }
+#if defined(HTS_HOLO_RX_PHASE_REF)
+    capture_holo_phase_ref_pre_sym1_(chip_start);
+#endif
     psal_commit_align_();
 
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
@@ -1523,6 +1544,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off);
+#endif
         psal_commit_align_();
     } else {
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
@@ -1690,6 +1714,12 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
             cfo_v5a_.Set_Apply_Cfo(0);
         }
 #endif
+#if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
+        hts_v5a_s5h_apply_diag_arm_after_p0_commit_();
+#endif
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off);
+#endif
         psal_commit_align_();
         return;
     }
@@ -1833,6 +1863,12 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
         } else {
             cfo_v5a_.Set_Apply_Cfo(0);
         }
+#endif
+#if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
+        hts_v5a_s5h_apply_diag_arm_after_p0_commit_();
+#endif
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off_p2);
 #endif
         psal_commit_align_();
     } else {
@@ -2067,6 +2103,31 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         buf_idx_ = 0;
         std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
+#if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
+        if (s_hts_s5h_apply_diag_arm_next_p1_64 != 0 &&
+            g_hts_s5h_trial_diag_true_cfo_hz >= 0) {
+            s_hts_s5h_apply_diag_arm_next_p1_64 = 0;
+            const int tc = g_hts_s5h_trial_diag_true_cfo_hz;
+            const int est = static_cast<int>(cfo_v5a_last_cfo_hz_);
+            const int ap = cfo_v5a_.IsApplyDriveActive() ? 1 : 0;
+            std::printf(
+                "[V5A-APPLY] true_cfo=%d est=%d apply_on=%d "
+                "buf[0]=(%d,%d) buf[31]=(%d,%d) buf[63]=(%d,%d)\n",
+                tc, est, ap,
+                static_cast<int>(buf_I_[0]), static_cast<int>(buf_Q_[0]),
+                static_cast<int>(buf_I_[31]), static_cast<int>(buf_Q_[31]),
+                static_cast<int>(buf_I_[63]), static_cast<int>(buf_Q_[63]));
+#if defined(HTS_CFO_V5A_S5H_STEPC_FULL)
+            for (int bi = 0; bi < 64; ++bi) {
+                std::printf(
+                    "[V5A-BUF] i=%d I=%d Q=%d\n",
+                    bi,
+                    static_cast<int>(buf_I_[bi]),
+                    static_cast<int>(buf_Q_[bi]));
+            }
+#endif
+        }
+#endif
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
 #if defined(HTS_HOLO_PREAMBLE)

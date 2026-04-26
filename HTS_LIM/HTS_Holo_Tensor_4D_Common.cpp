@@ -138,4 +138,49 @@ namespace ProtectedEngine {
         return kSecureTrue;
     }
 
+    int32_t Holo4D_Atan2_Q16(int32_t y, int32_t x) noexcept
+    {
+        if (x == 0 && y == 0) {
+            return 0;
+        }
+        if (x == 0) {
+            return (y > 0) ? 16384 : -16384;
+        }
+        int64_t X = static_cast<int64_t>(x);
+        int64_t Y = static_cast<int64_t>(y);
+        int32_t Z = 0;
+        if (X < 0) {
+            if (Y >= 0) {
+                Z += 32768;
+                X = -X;
+                Y = -Y;
+            } else {
+                Z -= 32768;
+                X = -X;
+                Y = -Y;
+            }
+        }
+        if (Y == 0) {
+            return Z;
+        }
+        static constexpr int32_t k_at_q16[16] = {
+            8192, 4839, 2555, 1292, 651, 326, 163, 82,
+            41, 20, 10, 5, 3, 1, 1, 0
+        };
+        for (int i = 0; i < 16; ++i) {
+            const int64_t xi = X;
+            const int64_t yi = Y;
+            if (yi < 0) {
+                X = xi - (yi >> i);
+                Y = yi + (xi >> i);
+                Z -= k_at_q16[i];
+            } else {
+                X = xi + (yi >> i);
+                Y = yi - (xi >> i);
+                Z += k_at_q16[i];
+            }
+        }
+        return Z;
+    }
+
 } // namespace ProtectedEngine

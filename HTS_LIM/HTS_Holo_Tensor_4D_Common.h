@@ -33,4 +33,7 @@ namespace ProtectedEngine {
         uint8_t&              cfi_violation_count,
         HoloState             target) noexcept;
 
+    /// Cordic atan2(y,x) in Q16 radians per turn (π = 32768). Shared by 4D RX / sync ref.
+    int32_t Holo4D_Atan2_Q16(int32_t y, int32_t x) noexcept;
+
 } // namespace ProtectedEngine

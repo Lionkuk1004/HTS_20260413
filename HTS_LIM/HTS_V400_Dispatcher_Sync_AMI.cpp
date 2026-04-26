@@ -342,6 +342,9 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     if (psal_e63_ <= 0) {
         psal_e63_ = 1;
     }
+#if defined(HTS_HOLO_RX_PHASE_REF)
+    capture_holo_phase_ref_pre_sym1_(chip_start);
+#endif
     psal_commit_align_();
 
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
@@ -1465,6 +1468,9 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = best_e63;
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off);
+#endif
         psal_commit_align_();
     } else {
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
@@ -1613,6 +1619,9 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = static_cast<int32_t>(best_e >> 16);
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off);
+#endif
         psal_commit_align_();
         return;
     }
@@ -1739,6 +1748,9 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
         }
         psal_off_ = best_off_p2;
         psal_e63_ = static_cast<int32_t>(best_e_p2 >> 16);
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off_p2);
+#endif
         psal_commit_align_();
     } else {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,

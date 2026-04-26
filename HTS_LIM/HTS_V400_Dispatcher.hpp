@@ -674,9 +674,10 @@ namespace ProtectedEngine {
 #if defined(HTS_USE_HOLO_TENSOR_4D)
         uint32_t ensure_holo_tensor_ready_() noexcept;
         void clear_holo_tensor_rx_state_() noexcept;
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        /// PRE_SYM1 (Walsh-0) 64 chip → Q16 위상. @a preamble_align_off = PRE_SYM0 시작.
+        void capture_holo_phase_ref_pre_sym1_(int preamble_align_off) noexcept;
 #endif
-
-#if defined(HTS_USE_HOLO_TENSOR_4D)
         HTS_Holo_Tensor_4D_TX holo_tx_{};
         HTS_Holo_Tensor_4D_RX holo_rx_{};
         HoloTensor_Profile holo_tensor_profile_{};
@@ -691,6 +692,10 @@ namespace ProtectedEngine {
 #endif
         uint8_t holo_tensor_rx_bytes_[8]{};
         uint8_t holo_tensor_rx_len_{ 0 };
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        int32_t holo_rx_phase_ref_q16_{ 0 };
+        bool holo_rx_phase_ref_valid_{ false };
+#endif
 #endif
     };
 
