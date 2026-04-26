@@ -27,6 +27,22 @@
 #include <cstring>
 #include <cstdint>
 #include <cstddef>
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+// Host T6 S5-HOLO V5a per-packet log; definition in HTS_T6_SIM_Test.cpp
+extern int g_hts_s5h_trial_diag_true_cfo_hz;
+static inline void hts_v5a_s5h_trial_diag_print_(
+    const hts::rx_cfo::CFO_Result& cfo_res) noexcept
+{
+    if (g_hts_s5h_trial_diag_true_cfo_hz < 0) {
+        return;
+    }
+    std::printf(
+        "[V5A-S5H-TRIAL] true=%d est=%d valid=%d\n",
+        g_hts_s5h_trial_diag_true_cfo_hz,
+        static_cast<int>(cfo_res.cfo_hz),
+        cfo_res.valid ? 1 : 0);
+}
+#endif
 namespace ProtectedEngine {
 using namespace detail;
 void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
@@ -1655,6 +1671,25 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = static_cast<int32_t>(best_e >> 16);
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+        if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+            const int16_t* const pre_I = &p0_buf128_I_[best_off];
+            const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
+            const hts::rx_cfo::CFO_Result cfo_res =
+                cfo_v5a_.Estimate(pre_I, pre_Q);
+            hts_v5a_s5h_trial_diag_print_(cfo_res);
+            cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
+            cfo_v5a_last_valid_ = cfo_res.valid;
+            if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
+                cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+                cfo_v5a_.Advance_Phase_Only(192);
+            } else {
+                cfo_v5a_.Set_Apply_Cfo(0);
+            }
+        } else {
+            cfo_v5a_.Set_Apply_Cfo(0);
+        }
+#endif
         psal_commit_align_();
         return;
     }
@@ -1780,6 +1815,25 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
         }
         psal_off_ = best_off_p2;
         psal_e63_ = static_cast<int32_t>(best_e_p2 >> 16);
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+        if (best_off_p2 + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+            const int16_t* const pre_I = &p0_buf128_I_[best_off_p2];
+            const int16_t* const pre_Q = &p0_buf128_Q_[best_off_p2];
+            const hts::rx_cfo::CFO_Result cfo_res =
+                cfo_v5a_.Estimate(pre_I, pre_Q);
+            hts_v5a_s5h_trial_diag_print_(cfo_res);
+            cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
+            cfo_v5a_last_valid_ = cfo_res.valid;
+            if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
+                cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+                cfo_v5a_.Advance_Phase_Only(192);
+            } else {
+                cfo_v5a_.Set_Apply_Cfo(0);
+            }
+        } else {
+            cfo_v5a_.Set_Apply_Cfo(0);
+        }
+#endif
         psal_commit_align_();
     } else {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,

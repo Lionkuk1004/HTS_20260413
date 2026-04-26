@@ -69,6 +69,11 @@ static inline void v5a_diag_ctx(const char* tag) {
 }
 #endif
 
+// Host T6: S5-HOLO V5a per-packet log (HTS_V400_Dispatcher_Sync_PSLTE.cpp)
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+int g_hts_s5h_trial_diag_true_cfo_hz = -1;
+#endif
+
 // ═══════════════════════════════════════════════════════════════
 //  상수
 // ═══════════════════════════════════════════════════════════════
@@ -1025,6 +1030,9 @@ static void test_S5_seed_fixed() {
 //  (Step 3 v3: test_S5_seed_fixed 직후 배치)
 // ═══════════════════════════════════════════════════════════════
 static void test_S5_holographic() noexcept {
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+    g_hts_s5h_trial_diag_true_cfo_hz = -1;
+#endif
 #if defined(HTS_CFO_V5A_PTE_DIAG)
     v5a_diag_ctx("S5H");
 #endif
@@ -1070,6 +1078,10 @@ static void test_S5_holographic() noexcept {
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
             ch_cfo(rI, rQ, tx.n, cfo);
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+            g_hts_s5h_trial_diag_true_cfo_hz =
+                static_cast<int>(cfo + (cfo >= 0.0 ? 0.5 : -0.5));
+#endif
             const TrialMetrics m = feed_raw_ext_holo(ds, rI, rQ, tx.n, tx.info);
             if (m.pass) {
                 ++ok;
@@ -1098,6 +1110,9 @@ static void test_S5_holographic() noexcept {
 #endif
 #if defined(HTS_CW_DETECT_DIAG_V2)
     ProtectedEngine::CWDetectDiag::print_stats_2d("S5-HOLO");
+#endif
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+    g_hts_s5h_trial_diag_true_cfo_hz = -1;
 #endif
 }
 #endif  // HTS_USE_HOLOGRAPHIC_SYNC
