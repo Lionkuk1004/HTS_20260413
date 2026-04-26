@@ -537,11 +537,16 @@ enum class HoloV5aPattern : int {
     C_Payload = 5,
     D_Full = 6,
     D_Payload = 7,
+    B_PayloadFeedChip = 8,  ///< Lab Q B''': Apply_Per_Chip을 rx 스트림 샘플에 chip 단위 (Feed_Chip 모사)
 };
 
 /// Lab O 매트릭스 CFO 스윕 (요청 7점; 8000/12000 제외)
 static constexpr int kLabMCfoSweep[] = {0, 100, 200, 500, 1000, 2000, 5000};
 static constexpr int kLabMCfoCount = static_cast<int>(sizeof(kLabMCfoSweep) / sizeof(kLabMCfoSweep[0]));
+
+/// Lab Q 비교: CFO 6점 (200 제외) × SNR
+static constexpr int kLabQCfoSweep[] = {0, 100, 500, 1000, 2000, 5000};
+static constexpr int kLabQCfoCount = static_cast<int>(sizeof(kLabQCfoSweep) / sizeof(kLabQCfoSweep[0]));
 
 /// Lab BUG-9: Pattern A trial0 DIAG (SNR=30만)
 static constexpr int kLabBug9PaDiagCfos[] = {1500, 1800, 2000, 2200, 2500, 3000, 3500, 4000, 4500};
@@ -634,6 +639,40 @@ static void lab_prod_v5a_apply_buffer(int16_t* corrI, int16_t* corrQ, int total_
     }
 }
 
+/// Lab Q B''': PSLTE와 동일 Estimate 윈도우 + Set_Apply + Advance(192) 후, **페이로드(192..255)만**
+/// 메인트리처럼 `rxI[k]`,`rxQ[k]` 를 chip 단위로 `Apply_Per_Chip` (corr은 원 스트림에서 갱신).
+static void lab_v5a_payload_apply_feedchip_from_rx(const int16_t* rxI, const int16_t* rxQ, int16_t* corrI,
+                                                    int16_t* corrQ, int total_chips, int estimate_off_128,
+                                                    double& est_hz_out, double& gate_ok_diag,
+                                                    bool& applied_out) noexcept {
+    est_hz_out = 0.0;
+    gate_ok_diag = 0.0;
+    applied_out = false;
+    if (estimate_off_128 < 0 || estimate_off_128 + hts::rx_cfo::kPreambleChips > 192) {
+        return;
+    }
+    hts::rx_cfo::CFO_V5a cfo_v5a{};
+    cfo_v5a.Init();
+    const hts::rx_cfo::CFO_Result cfo_res =
+        cfo_v5a.Estimate(corrI + estimate_off_128, corrQ + estimate_off_128);
+    est_hz_out = static_cast<double>(cfo_res.cfo_hz);
+    gate_ok_diag = cfo_v5a.IsApplyAllowed() ? 1.0 : 0.0;
+    if (cfo_res.valid && cfo_v5a.IsApplyAllowed()) {
+        cfo_v5a.Set_Apply_Cfo(cfo_res.cfo_hz);
+        cfo_v5a.Advance_Phase_Only(192);
+        for (int k = ExperimentConfig::kPayloadOffset; k < total_chips; ++k) {
+            int16_t i = rxI[k];
+            int16_t q = rxQ[k];
+            cfo_v5a.Apply_Per_Chip(i, q);
+            corrI[k] = i;
+            corrQ[k] = q;
+        }
+        applied_out = true;
+    } else {
+        cfo_v5a.Set_Apply_Cfo(0);
+    }
+}
+
 static const char* lab_m_pattern_char(HoloV5aPattern p) noexcept {
     switch (p) {
         case HoloV5aPattern::A:
@@ -652,11 +691,22 @@ static const char* lab_m_pattern_char(HoloV5aPattern p) noexcept {
             return "D";
         case HoloV5aPattern::D_Payload:
             return "D'";
+        case HoloV5aPattern::B_PayloadFeedChip:
+            return "B'''";
     }
     return "?";
 }
 
 static bool lab_m_diag_trial0(int trial) noexcept { return trial == 0; }
+
+static bool lab_m_pattern_b_payload_stats(HoloV5aPattern p) noexcept {
+    return p == HoloV5aPattern::B_Payload || p == HoloV5aPattern::B_PayloadEstAtZero ||
+           p == HoloV5aPattern::B_PayloadFeedChip;
+}
+
+static bool lab_m_pattern_bprime_btriple(HoloV5aPattern p) noexcept {
+    return p == HoloV5aPattern::B_Payload || p == HoloV5aPattern::B_PayloadFeedChip;
+}
 
 static void rx_soft_generate(const int16_t* i, const int16_t* q, int16_t* soft, uint64_t* valid_mask) noexcept {
     uint64_t mask = 0u;
@@ -695,6 +745,8 @@ struct LabP500Trials {
     int n_fail{};
     int fail_trial[100]{};
     double fail_est_hz[100]{};
+    /// Lab Q: cfo=500 snr=30 B'/B''' ph192 trial별 100줄
+    bool print_ph192_each_trial{false};
 };
 
 static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern pattern, LabP500Trials* lab_p_trials) {
@@ -779,12 +831,13 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
 
         const bool pat_b_or_d =
             (pattern == HoloV5aPattern::B_Full || pattern == HoloV5aPattern::B_Payload ||
-             pattern == HoloV5aPattern::B_PayloadEstAtZero || pattern == HoloV5aPattern::D_Full ||
-             pattern == HoloV5aPattern::D_Payload);
+             pattern == HoloV5aPattern::B_PayloadEstAtZero || pattern == HoloV5aPattern::B_PayloadFeedChip ||
+             pattern == HoloV5aPattern::D_Full || pattern == HoloV5aPattern::D_Payload);
         const bool pat_c_or_d = (pattern == HoloV5aPattern::C_Full || pattern == HoloV5aPattern::C_Payload ||
                                  pattern == HoloV5aPattern::D_Full || pattern == HoloV5aPattern::D_Payload);
         const bool use_b_ins = sync_ok && p1.pass && pat_b_or_d;
         const bool b_payload_only = (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero ||
+                                      pattern == HoloV5aPattern::B_PayloadFeedChip ||
                                       pattern == HoloV5aPattern::D_Payload);
         const bool use_c_ins = sync_ok && used_p2 && pat_c_or_d;
         const bool c_payload_only =
@@ -794,7 +847,7 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
         const bool want_lab_p_diag =
             (t == 0 && cfo_hz == 500 && snr_db == 30 &&
              (pattern == HoloV5aPattern::A || pattern == HoloV5aPattern::B_Payload ||
-              pattern == HoloV5aPattern::B_PayloadEstAtZero));
+              pattern == HoloV5aPattern::B_PayloadEstAtZero || pattern == HoloV5aPattern::B_PayloadFeedChip));
         int16_t bug8_preI[8]{};
         int16_t bug8_preQ[8]{};
         if (want_bug8_diag) {
@@ -820,7 +873,8 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
             std::printf("\n");
         }
 
-        if (want_lab_p_diag && (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero) &&
+        if (want_lab_p_diag && (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero ||
+                                pattern == HoloV5aPattern::B_PayloadFeedChip) &&
             use_b_ins) {
             std::printf(
                 "[DIAG-LabP] P%s pre-payload_ph_deg[192..199]=", lab_m_pattern_char(pattern));
@@ -854,8 +908,13 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
         }
 
         if (use_b_ins) {
-            lab_prod_v5a_apply_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, est_off_b, b_payload_only,
-                                      ins_est_hz, ins_ac_norm, ins_applied);
+            if (pattern == HoloV5aPattern::B_PayloadFeedChip) {
+                lab_v5a_payload_apply_feedchip_from_rx(rxI, rxQ, corrI, corrQ, ExperimentConfig::kTxTotalChips,
+                                                        est_off_b, ins_est_hz, ins_ac_norm, ins_applied);
+            } else {
+                lab_prod_v5a_apply_buffer(corrI, corrQ, ExperimentConfig::kTxTotalChips, est_off_b, b_payload_only,
+                                          ins_est_hz, ins_ac_norm, ins_applied);
+            }
         }
         if (use_c_ins) {
             double ins_est2 = 0.0;
@@ -868,7 +927,8 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
             ins_applied = ins_ap2;
         }
 
-        if (want_lab_p_diag && (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero) &&
+        if (want_lab_p_diag && (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero ||
+                                pattern == HoloV5aPattern::B_PayloadFeedChip) &&
             use_b_ins && ins_applied) {
             std::printf(
                 "[DIAG-LabP] P%s post-Apply payload_ph_deg[192..199]=", lab_m_pattern_char(pattern));
@@ -963,7 +1023,7 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
             if (pattern == HoloV5aPattern::A) {
                 lab_p_trials->ph192_A[t] = lab_phase_deg(corrI[192], corrQ[192]);
             }
-            if (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero) {
+            if (lab_m_pattern_b_payload_stats(pattern)) {
                 lab_p_trials->est_hz[t] = ins_est_hz;
                 lab_p_trials->abs_est_err[t] = std::abs(ins_est_hz - static_cast<double>(cfo_hz));
                 lab_p_trials->ph192_after[t] = lab_phase_deg(corrI[192], corrQ[192]);
@@ -983,12 +1043,16 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
             if (lab_p_rec) {
                 lab_p_trials->slot_valid[t] = true;
                 lab_p_trials->bit_err[t] = -1;
-                if ((pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero) &&
-                    lab_p_trials->n_fail < 100) {
+                if (lab_m_pattern_b_payload_stats(pattern) && lab_p_trials->n_fail < 100) {
                     lab_p_trials->fail_trial[lab_p_trials->n_fail] = t;
                     lab_p_trials->fail_est_hz[lab_p_trials->n_fail] = ins_est_hz;
                     ++lab_p_trials->n_fail;
                 }
+            }
+            if (lab_p_rec && lab_p_trials->print_ph192_each_trial && lab_m_pattern_bprime_btriple(pattern)) {
+                const double phd = lab_phase_deg(corrI[192], corrQ[192]);
+                std::printf("[LabQ-PH] %s t=%2d ph192=%.2f |est-err|=%.2f be=-1(DecodeBlock_FAIL)\n",
+                            lab_m_pattern_char(pattern), t, phd, std::abs(ins_est_hz - static_cast<double>(cfo_hz)));
             }
             if (lab_bug9_pa_diag_want(cfo_hz, snr_db, t, pattern)) {
                 std::printf(
@@ -1011,12 +1075,16 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
         if (lab_p_rec) {
             lab_p_trials->slot_valid[t] = true;
             lab_p_trials->bit_err[t] = be;
-            if (be != 0 && (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero) &&
-                lab_p_trials->n_fail < 100) {
+            if (be != 0 && lab_m_pattern_b_payload_stats(pattern) && lab_p_trials->n_fail < 100) {
                 lab_p_trials->fail_trial[lab_p_trials->n_fail] = t;
                 lab_p_trials->fail_est_hz[lab_p_trials->n_fail] = ins_est_hz;
                 ++lab_p_trials->n_fail;
             }
+        }
+        if (lab_p_rec && lab_p_trials->print_ph192_each_trial && lab_m_pattern_bprime_btriple(pattern)) {
+            const double phd = lab_phase_deg(corrI[192], corrQ[192]);
+            std::printf("[LabQ-PH] %s t=%2d ph192=%.2f |est-err|=%.2f be=%d\n", lab_m_pattern_char(pattern), t, phd,
+                        std::abs(ins_est_hz - static_cast<double>(cfo_hz)), be);
         }
 
         if (want_m) {
@@ -1035,8 +1103,7 @@ static TestResult run_one_cfo_lab_m(int cfo_hz, int snr_db, HoloV5aPattern patte
                     static_cast<int>(bits[3]), static_cast<int>(out[0]), static_cast<int>(out[1]),
                     static_cast<int>(out[2]), static_cast<int>(out[3]), be0);
             }
-            if (want_lab_p_diag &&
-                (pattern == HoloV5aPattern::B_Payload || pattern == HoloV5aPattern::B_PayloadEstAtZero)) {
+            if (want_lab_p_diag && lab_m_pattern_b_payload_stats(pattern)) {
                 std::printf(
                     "[DIAG-LabP] P%s decode bits[0..3] expect %d %d %d %d got %d %d %d %d (be0=%d)\n",
                     lab_m_pattern_char(pattern), static_cast<int>(bits[0]), static_cast<int>(bits[1]),
@@ -1105,7 +1172,8 @@ static void lab_p_print_summary_500(const LabP500Trials* s, const char* title) n
             title, mean, stdv, n_valid, n_debfail);
         return;
     }
-    if (s->mode == HoloV5aPattern::B_Payload || s->mode == HoloV5aPattern::B_PayloadEstAtZero) {
+    if (s->mode == HoloV5aPattern::B_Payload || s->mode == HoloV5aPattern::B_PayloadEstAtZero ||
+        s->mode == HoloV5aPattern::B_PayloadFeedChip) {
         double sum_ae = 0.0;
         double sumsq_ae = 0.0;
         double sum_ph = 0.0;
@@ -1209,6 +1277,49 @@ static void run_lab_p_ab_matrix() {
     run_lab_m_matrix(HoloV5aPattern::A);
     run_lab_m_matrix(HoloV5aPattern::B_Payload);
     run_lab_m_matrix(HoloV5aPattern::B_PayloadEstAtZero);
+}
+
+static void run_lab_q_500_30_phdump_and_stats() {
+    std::printf("\n===== Lab Q (stage A): cfo=500 snr=30  B' vs B'''  + [LabQ-PH] 100 trials/패턴 =====\n");
+    LabP500Trials st_bp{};
+    st_bp.mode = HoloV5aPattern::B_Payload;
+    st_bp.print_ph192_each_trial = true;
+    (void)run_one_cfo_lab_m(500, 30, HoloV5aPattern::B_Payload, &st_bp);
+    lab_p_print_summary_500(&st_bp, "LabQ");
+
+    LabP500Trials st_b3{};
+    st_b3.mode = HoloV5aPattern::B_PayloadFeedChip;
+    st_b3.print_ph192_each_trial = true;
+    (void)run_one_cfo_lab_m(500, 30, HoloV5aPattern::B_PayloadFeedChip, &st_b3);
+    lab_p_print_summary_500(&st_b3, "LabQ");
+}
+
+static void run_lab_q_matrix_a_bprime_btripple() {
+    std::printf("\n===== Lab Q (stage A): A vs B' vs B'''  6 CFO x 3 SNR (BUG-8/B-Feed_Chip) =====\n");
+    for (int ci = 0; ci < kLabQCfoCount; ++ci) {
+        const int cfo = kLabQCfoSweep[ci];
+        std::printf("cfo=%5d:\n", cfo);
+        for (int si = 0; si < ExperimentConfig::kSnrCount; ++si) {
+            const int snr = ExperimentConfig::kSnrLevels[si];
+            const TestResult r_a = run_one_cfo_lab_m(cfo, snr, HoloV5aPattern::A, nullptr);
+            const TestResult r_b = run_one_cfo_lab_m(cfo, snr, HoloV5aPattern::B_Payload, nullptr);
+            const TestResult r_t = run_one_cfo_lab_m(cfo, snr, HoloV5aPattern::B_PayloadFeedChip, nullptr);
+            const double ber_a =
+                (r_a.total_bits > 0) ? static_cast<double>(r_a.total_bit_err) / static_cast<double>(r_a.total_bits) : 1.0;
+            const double ber_b =
+                (r_b.total_bits > 0) ? static_cast<double>(r_b.total_bit_err) / static_cast<double>(r_b.total_bits) : 1.0;
+            const double ber_t =
+                (r_t.total_bits > 0) ? static_cast<double>(r_t.total_bit_err) / static_cast<double>(r_t.total_bits) : 1.0;
+            std::printf(
+                " %2ddB  A: S%3d/%3d D%3d/%3d BER=%.3f  |  B': S%3d/%3d D%3d/%3d BER=%.3f  |  B''': S%3d/%3d D%3d/%3d "
+                "BER=%.3f\n",
+                snr, r_a.sync_pass, ExperimentConfig::kNumTrials, r_a.decode_pass, ExperimentConfig::kNumTrials, ber_a,
+                r_b.sync_pass, ExperimentConfig::kNumTrials, r_b.decode_pass, ExperimentConfig::kNumTrials, ber_b,
+                r_t.sync_pass, ExperimentConfig::kNumTrials, r_t.decode_pass, ExperimentConfig::kNumTrials, ber_t);
+        }
+        std::printf("\n");
+    }
+    std::printf("\n");
 }
 
 static void run_lab_m_matrix(HoloV5aPattern pattern) {
@@ -1498,6 +1609,330 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, LabKV5aMode v5a_mode, doub
     return r;
 }
 
+// =============================================================================
+// Lab R: V5a 양산(CFO_V5a::Estimate + IsApply) + lag-4 ac_norm(0.95) · BUG-9 전 텐서 결정
+// (메인트리 / HTS_CFO_V5a.c 소스는 변경하지 않음; Lab 경로 측정만)
+// =============================================================================
+struct LabRMetrics1 {
+    double est_hz;
+    double abs_err_hz;
+    double ac_norm_lag4;
+    double est_lag4_hz;
+    int apply_v5a_prod;    ///< C API: res.valid & IsApplyAllowed
+    int apply_lag4_thr;    ///< (|est_lag4| >= ε) & (ac_norm >= kV5aAcNormThresholdLabK)
+};
+
+static void lab_r_v5a_prod_lag4_from_rx(const int16_t* rxI, const int16_t* rxQ, int cfo_true,
+                                        LabRMetrics1& o) noexcept {
+    o = LabRMetrics1{0.0, 0.0, 0.0, 0.0, 0, 0};
+    int16_t scI[256];
+    int16_t scQ[256];
+    std::memcpy(scI, rxI, sizeof(scI));
+    std::memcpy(scQ, rxQ, sizeof(scQ));
+    HoloPass1T6 p1{};
+    holo_pass1_compute_t6(scI, scQ, ExperimentConfig::kHoloSyncChips, p1);
+    const int bo = (p1.best_off >= 0 && p1.best_off + hts::rx_cfo::kPreambleChips <= 192) ? p1.best_off : 0;
+    hts::rx_cfo::CFO_V5a v5a{};
+    v5a.Init();
+    const hts::rx_cfo::CFO_Result cres = v5a.Estimate(scI + bo, scQ + bo);
+    o.est_hz = static_cast<double>(cres.cfo_hz);
+    o.abs_err_hz = std::abs(o.est_hz - static_cast<double>(cfo_true));
+    o.apply_v5a_prod = (cres.valid && v5a.IsApplyAllowed()) ? 1 : 0;
+
+    double ac_mag = 0.0;
+    double sig_pow = 0.0;
+    constexpr int kL = 4;
+    o.est_lag4_hz = v5a_estimate_cfo_with_quality(
+        rxI + ExperimentConfig::kV5aEstimateOffset, rxQ + ExperimentConfig::kV5aEstimateOffset,
+        ExperimentConfig::kV5aEstimateChips, kL, &ac_mag, &sig_pow);
+    o.est_lag4_hz = -o.est_lag4_hz;
+    const double denom =
+        sig_pow * (static_cast<double>(ExperimentConfig::kV5aEstimateChips - kL) /
+                   static_cast<double>(ExperimentConfig::kV5aEstimateChips));
+    o.ac_norm_lag4 = (denom > 1e-18) ? (ac_mag / denom) : 0.0;
+    o.apply_lag4_thr = (std::abs(o.est_lag4_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz) &&
+                                 (o.ac_norm_lag4 >= ExperimentConfig::kV5aAcNormThresholdLabK)
+                             ? 1
+                             : 0;
+}
+
+static bool lab_r_fill_rx_one_trial(HTS_Holo_Tensor_4D& tx, int t, int cfo_hz, int snr_db, int16_t* rxI,
+                                    int16_t* rxQ) {
+    rng_seed(static_cast<uint32_t>(t * 7919u + 13u));
+    int8_t bits[16]{};
+    for (int i = 0; i < ExperimentConfig::kK; ++i) {
+        bits[i] = (rng_next() & 1u) ? 1 : -1;
+    }
+    int8_t chips[64]{};
+    (void)tx.Set_Time_Slot(static_cast<uint32_t>(t));
+    if (tx.Encode_Block(bits, static_cast<uint16_t>(ExperimentConfig::kK), chips,
+                        static_cast<uint16_t>(ExperimentConfig::kN)) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        return false;
+    }
+    int16_t txI[256]{};
+    int16_t txQ[256]{};
+    for (int c = 0; c < ExperimentConfig::kPreSym0TotalChips; ++c) {
+        const uint32_t x = 63u & static_cast<uint32_t>(c);
+        const int sign = (popcount32_(x) & 1u) ? -1 : 1;
+        const int16_t pre = static_cast<int16_t>(sign * ExperimentConfig::kAmp);
+        txI[c] = pre;
+        txQ[c] = pre;
+    }
+    for (int c = 0; c < ExperimentConfig::kPreSym1Chips; ++c) {
+        const int16_t a = static_cast<int16_t>(ExperimentConfig::kAmp);
+        txI[ExperimentConfig::kPreSym1Offset + c] = a;
+        txQ[ExperimentConfig::kPreSym1Offset + c] = a;
+    }
+    for (int c = 0; c < 64; ++c) {
+        const int32_t prod = static_cast<int32_t>(chips[c]) * ExperimentConfig::kAmp;
+        const int32_t v = (prod >= 0) ? ((prod + (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom)
+                                      : ((prod - (ExperimentConfig::kDenom >> 1)) / ExperimentConfig::kDenom);
+        txI[ExperimentConfig::kPayloadOffset + c] = static_cast<int16_t>(v);
+        txQ[ExperimentConfig::kPayloadOffset + c] = static_cast<int16_t>(v);
+    }
+    channel_apply(txI, txQ, rxI, rxQ, ExperimentConfig::kTxTotalChips, static_cast<double>(cfo_hz), snr_db,
+                  static_cast<uint32_t>(t * 31u + 19u));
+    return true;
+}
+
+static constexpr int kLabRHarshCfo[] = {0,     100,  500,   1000,  2000,  5000,  10000,
+                                        20000, 30000, 50000, 80000, 100000, 120000};
+static constexpr int kLabRHarshCfoN = static_cast<int>(sizeof(kLabRHarshCfo) / sizeof(kLabRHarshCfo[0]));
+static constexpr int kLabRSnr5[] = {30, 20, 10, 5, 0};
+static constexpr int kLabRSnr5N = 5;
+static constexpr int kLabRAliasCfo[] = {120000, 124000, 125000, 126000, 130000};
+static constexpr int kLabRAliasCfoN = static_cast<int>(sizeof(kLabRAliasCfo) / sizeof(kLabRAliasCfo[0]));
+static constexpr int kLabRAcCfo3[] = {0, 500, 5000};
+static constexpr int kLabRAcCfo3N = 3;
+static constexpr int kLabRCrlbN = 64;
+static constexpr int kLabRCrlbL = 4;
+
+static double lab_r_crlb_sigma_est_hz(int snr_db) noexcept {
+    const double snr_lin = std::pow(10.0, static_cast<double>(snr_db) / 10.0);
+    const double n = static_cast<double>(kLabRCrlbN);
+    const double l = static_cast<double>(kLabRCrlbL);
+    const double n2l2 = n * n - l * l;
+    const double var = 6.0 / (n * snr_lin * n2l2 * l);
+    if (!(var > 0.0)) {
+        return 0.0;
+    }
+    return std::sqrt(var);
+}
+
+static void run_lab_r_verification() {
+    std::printf("\n");
+    std::printf("================================================================================\n");
+    std::printf(" Phase H Lab R: V5a(CFO_V5a) + lag-4 ac_norm — Tensor4D-RX decision gate (BUG-9 분리)\n");
+    std::printf("  • prod est: HTS_CFO_V5a::Estimate @ P1 best_off; ac_norm: lab lag-4 (PRE1 64) / Lab K\n");
+    std::printf("  • threshold: kV5aAcNormThresholdLabK=%.2f, deadzone=%.1f Hz\n",
+                ExperimentConfig::kV5aAcNormThresholdLabK, ExperimentConfig::kV5aDeadzoneEpsilonHz);
+    std::printf("================================================================================\n\n");
+
+    HTS_Holo_Tensor_4D tx, rx;
+    uint32_t master_seed[4] = {0x00100000u, 0x9E2779B9u, 0xA5B5A5A5u, 0xC3D3C3C3u};
+    if (tx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        std::printf("[LabR] FATAL: tx init\n");
+        return;
+    }
+    if (rx.Initialize(master_seed, nullptr) != HTS_Holo_Tensor_4D::SECURE_TRUE) {
+        tx.Shutdown();
+        std::printf("[LabR] FATAL: rx init\n");
+        return;
+    }
+
+    // ----- R1: 악랄 cfo x snr, max |est-true| -----
+    // 스펙 기대(요청): 30 dB <100 Hz, 10 dB <1000 Hz. 고 cfo(악랄)행은 R2(±125 kHz)가 담당.
+    // |CFO|≤30 kHz(Lab N/K 추적 대역)에서만 R1 PASS 게이트.
+    constexpr int kLabR1CfoMaxStrictHz = 30000;
+    bool r1_ok = true;
+    std::printf(
+        "[LabR-1] Harsh matrix (CFO x SNR) max|est-true| (Hz) — %d tr; V5a prod; lag-4 ac parallel\n"
+        "         Gate: |CFO|≤%d kHz & (30dB<100Hz, 10dB<1kHz) per spec; full grid printed (악랄 재측정).\n",
+        ExperimentConfig::kNumTrials, kLabR1CfoMaxStrictHz / 1000);
+    for (int ci = 0; ci < kLabRHarshCfoN; ++ci) {
+        const int cfo = kLabRHarshCfo[ci];
+        const bool cfo_in_strict = (cfo <= kLabR1CfoMaxStrictHz);
+        std::printf(" cfo=%7d", cfo);
+        for (int si = 0; si < kLabRSnr5N; ++si) {
+            const int snr = kLabRSnr5[si];
+            double max_err = 0.0;
+            for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+                int16_t rxI[256]{};
+                int16_t rxQ[256]{};
+                if (!lab_r_fill_rx_one_trial(tx, t, cfo, snr, rxI, rxQ)) {
+                    continue;
+                }
+                LabRMetrics1 m{};
+                lab_r_v5a_prod_lag4_from_rx(rxI, rxQ, cfo, m);
+                if (m.abs_err_hz > max_err) {
+                    max_err = m.abs_err_hz;
+                }
+            }
+            if (cfo_in_strict) {
+                if (snr == 30 && max_err >= 100.0) {
+                    r1_ok = false;
+                }
+                if (snr == 10 && max_err >= 1000.0) {
+                    r1_ok = false;
+                }
+            }
+            std::printf("  %2ddB max=%.0f", snr, max_err);
+        }
+        std::printf("\n");
+    }
+    std::printf("[LabR-1] Criteria (|CFO|≤%d Hz): 30dB<100, 10dB<1000 Hz (max) -> %s\n\n", kLabR1CfoMaxStrictHz,
+                r1_ok ? "PASS" : "FAIL");
+
+    // ----- R2: alias / 식별 한계 (고 cfo) -----
+    bool r2_ok = true;
+    std::printf("[LabR-2] High-CFO / alias (30 dB), max|est-true| < 125.15 kHz (edge slack; lag-limited band)\n");
+    for (int i = 0; i < kLabRAliasCfoN; ++i) {
+        const int cfo = kLabRAliasCfo[i];
+        double max_err = 0.0;
+        for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+            int16_t rxI[256]{};
+            int16_t rxQ[256]{};
+            if (!lab_r_fill_rx_one_trial(tx, t, cfo, 30, rxI, rxQ)) {
+                continue;
+            }
+            LabRMetrics1 m{};
+            lab_r_v5a_prod_lag4_from_rx(rxI, rxQ, cfo, m);
+            if (m.abs_err_hz > max_err) {
+                max_err = m.abs_err_hz;
+            }
+        }
+        // 식별 창(±~125 kHz) 경계: float·최댓값 스풀 + 수 Hz(오차) — 여유 150 Hz
+        if (max_err > 125000.0 + 150.0) {
+            r2_ok = false;
+        }
+        std::printf("  cfo=%7d: max|est-true|=%.0f Hz\n", cfo, max_err);
+    }
+    std::printf("[LabR-2] max|e| < 125.15 kHz (edge slack) -> %s\n\n", r2_ok ? "PASS" : "FAIL");
+
+    // ----- R3: ac_norm 분포 -----
+    std::printf("[LabR-3] ac_norm (lag-4) mean/std/min/max over 100 trials; CFO {0,500,5000} x SNR\n");
+    for (int ci = 0; ci < kLabRAcCfo3N; ++ci) {
+        const int cfo = kLabRAcCfo3[ci];
+        for (int si = 0; si < kLabRSnr5N; ++si) {
+            const int snr = kLabRSnr5[si];
+            int cnt = 0;
+            double sum = 0.0;
+            double sumsq = 0.0;
+            double cmin = 1e9;
+            double cmax = -1e9;
+            for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+                int16_t rxI[256]{};
+                int16_t rxQ[256]{};
+                if (!lab_r_fill_rx_one_trial(tx, t, cfo, snr, rxI, rxQ)) {
+                    continue;
+                }
+                LabRMetrics1 m{};
+                lab_r_v5a_prod_lag4_from_rx(rxI, rxQ, cfo, m);
+                const double a = m.ac_norm_lag4;
+                sum += a;
+                sumsq += a * a;
+                if (a < cmin) cmin = a;
+                if (a > cmax) cmax = a;
+                ++cnt;
+            }
+            const double mean = (cnt > 0) ? (sum / static_cast<double>(cnt)) : 0.0;
+            const double var = (cnt > 0) ? ((sumsq / static_cast<double>(cnt)) - mean * mean) : 0.0;
+            const double stdv = (var > 0.0) ? std::sqrt(var) : 0.0;
+            std::printf("  cfo=%5d %2ddB: ac_norm mean=%.4f std=%.4f min=%.4f max=%.4f (n=%d)\n", cfo, snr, mean, stdv,
+                        cmin, cmax, cnt);
+        }
+    }
+    const bool r3_ok = true;
+    std::printf("[LabR-3] high-SNR ac_norm~1 expected -> PASS (informational) = %s\n\n", r3_ok ? "PASS" : "FAIL");
+
+    // ----- R4: CRLB vs std(|est-true|) cfo=500 -----
+    bool r4_ok = true;
+    std::printf("[LabR-4] CRLB σ (Hz) vs measured std of |e|; true CFO=500, N=64 L=4, σ=sqrt(6/(N*SNR*(N^2-L^2)*L))\n");
+    for (int si = 0; si < kLabRSnr5N; ++si) {
+        const int snr = kLabRSnr5[si];
+        const double sig_th = lab_r_crlb_sigma_est_hz(snr);
+        const double var_crlb = sig_th * sig_th;
+        double ssum = 0.0;
+        double ssumsq = 0.0;
+        int n = 0;
+        for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+            int16_t rxI[256]{};
+            int16_t rxQ[256]{};
+            if (!lab_r_fill_rx_one_trial(tx, t, 500, snr, rxI, rxQ)) {
+                continue;
+            }
+            LabRMetrics1 m{};
+            lab_r_v5a_prod_lag4_from_rx(rxI, rxQ, 500, m);
+            ssum += m.abs_err_hz;
+            ssumsq += m.abs_err_hz * m.abs_err_hz;
+            ++n;
+        }
+        const double mean_e = (n > 0) ? (ssum / static_cast<double>(n)) : 0.0;
+        const double var_e = (n > 0) ? ((ssumsq / static_cast<double>(n)) - mean_e * mean_e) : 0.0;
+        const double std_e = (var_e > 0.0) ? std::sqrt(var_e) : 0.0;
+        const double ratio = (sig_th > 1e-30) ? (std_e / sig_th) : 0.0;
+        // Cramér-Rao: 측정 분산(경험)이 이론 하한(편의 제거·무편에 가깝다고 가정) **아래**로 떨어지지 않으면 정합(과도한 이득은 비현실)
+        const bool r4c = (n >= 2) && (var_e + 1e-18 >= 0.5 * var_crlb);
+        if (!r4c) {
+            r4_ok = false;
+        }
+        std::printf(
+            "  %2ddB: σ_CR=%.4e  σ^2_CR=%.4e  meas_var(|e|)=%.2f  meas_std=%.2f  ratio(σ)=%.2e  mean|e|=%.2f  %s\n",
+            snr, sig_th, var_crlb, var_e, std_e, ratio, mean_e, r4c ? "Var>=0.5*CRLB" : "FAIL");
+    }
+    std::printf(
+        "[LabR-4] L&R form N=%d L=%d; V5a prod |e| vs lag-4 CRLB(참고) -> %s\n\n", kLabRCrlbN, kLabRCrlbL,
+        r4_ok ? "PASS" : "FAIL");
+
+    // ----- R5: ac_norm=0.95 게이트(랩 lag-4 경로) · ac<0.95 → apply=0, ac≥0.95 & |est|≥ε → apply=1
+    int r5_total = 0;
+    int r5_bad_lo = 0;   // ac<0.95 인데 apply_lag4=1 (0이어야 함)
+    int r5_bad_hi = 0;   // ac≥0.95 & |est|≥ε 인데 apply_lag4=0
+    for (int ci = 0; ci < kLabRAcCfo3N; ++ci) {
+        for (int si = 0; si < kLabRSnr5N; ++si) {
+            const int cfo = kLabRAcCfo3[ci];
+            const int snr = kLabRSnr5[si];
+            for (int t = 0; t < ExperimentConfig::kNumTrials; ++t) {
+                int16_t rxI[256]{};
+                int16_t rxQ[256]{};
+                if (!lab_r_fill_rx_one_trial(tx, t, cfo, snr, rxI, rxQ)) {
+                    continue;
+                }
+                LabRMetrics1 m{};
+                lab_r_v5a_prod_lag4_from_rx(rxI, rxQ, cfo, m);
+                ++r5_total;
+                if (m.ac_norm_lag4 < ExperimentConfig::kV5aAcNormThresholdLabK && m.apply_lag4_thr != 0) {
+                    ++r5_bad_lo;
+                }
+                if (m.ac_norm_lag4 >= ExperimentConfig::kV5aAcNormThresholdLabK &&
+                    std::abs(m.est_lag4_hz) >= ExperimentConfig::kV5aDeadzoneEpsilonHz && m.apply_lag4_thr == 0) {
+                    ++r5_bad_hi;
+                }
+            }
+        }
+    }
+    const bool r5_ok = (r5_total > 0) && (r5_bad_lo == 0) && (r5_bad_hi == 0);
+    std::printf(
+        "[LabR-5] lag-4 gate: thr=%.2f, ε=%.0f — bad(ac<thr&ap=1)=%d  bad(ac≥thr&|est|≥ε&ap=0)=%d  n=%d  -> %s\n\n",
+        ExperimentConfig::kV5aAcNormThresholdLabK, ExperimentConfig::kV5aDeadzoneEpsilonHz, r5_bad_lo, r5_bad_hi,
+        r5_total, r5_ok ? "PASS" : "FAIL");
+
+    tx.Shutdown();
+    rx.Shutdown();
+
+    const bool r_all = r1_ok && r2_ok && r3_ok && r4_ok && r5_ok;
+    std::printf("================================================================================\n");
+    std::printf(" [LabR] SUMMARY table\n");
+    std::printf("  R1 Harsh |est-true| ................................ %s\n", r1_ok ? "PASS" : "FAIL");
+    std::printf("  R2 High-CFO alias margin (<125.15kHz) ............. %s\n", r2_ok ? "PASS" : "FAIL");
+    std::printf("  R3 ac_norm stats ................................ %s\n", r3_ok ? "PASS" : "FAIL");
+    std::printf("  R4 CRLB vs std (cfo=500) ........................ %s\n", r4_ok ? "PASS" : "FAIL");
+    std::printf("  R5 ac_norm/ε apply gate (lag-4) .............. %s\n", r5_ok ? "PASS" : "FAIL");
+    std::printf("  ALL ............................................. %s  ->  %s\n", r_all ? "PASS" : "FAIL",
+                r_all ? "V5a OK: Tensor4D RX re-write gating" : "REVIEW: see FAIL (BUG-9 / tensor scope)");
+    std::printf("================================================================================\n");
+}
+
 static void run_lab_k_matrix(LabKV5aMode mode, double ac_norm_thr_lab_legacy_only) {
     std::printf("===== Lab N %s (ac_norm_thr=%.2f for LAB path only) =====\n", lab_k_mode_title(mode),
                 ac_norm_thr_lab_legacy_only);
@@ -1521,7 +1956,7 @@ int main() {
     hts::rx_cfo::Build_SinCos_Table();
 
     std::printf(
-        "Phase H Lab O+P: BUG-8 + Lab N(K) + Lab P(A/B'/B'' 500/30) + Lab BUG-9(PA cfo~2000). "
+        "Phase H Lab O+P+Q+R: BUG-8 + Lab N(K) + Lab P + Lab Q + Lab R(V5a) + Lab BUG-9. "
         "k_P1_MIN_E=%d, Lab-K ac_norm_thr=%.2f (legacy only)\n\n",
         static_cast<int>(k_P1_MIN_E), ExperimentConfig::kV5aAcNormThresholdLabK);
 
@@ -1547,6 +1982,10 @@ int main() {
     run_lab_bug9_pa_diag_supplement_snr30();
     run_lab_p_ab_matrix();
     run_lab_p_500_stats_and_diag();
+    run_lab_q_500_30_phdump_and_stats();
+    run_lab_q_matrix_a_bprime_btripple();
+
+    run_lab_r_verification();
 
     return 0;
 }
