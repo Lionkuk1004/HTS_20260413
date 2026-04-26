@@ -10,7 +10,7 @@
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h" // Tick_Adaptive_BPS 용
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "../../HTS_LIM/HTS_CXX17_Atomic_Safe.h"
 #include <climits>
 #include <cstdio>
 #include <cstring>

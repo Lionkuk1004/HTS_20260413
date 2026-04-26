@@ -1,4 +1,4 @@
-﻿// =========================================================================
+// =========================================================================
 // HTS_Key_Rotator.cpp
 // Forward Secrecy 기반 동적 시드 로테이터 구현부
 // Target: STM32F407 (Cortex-M4, 168MHz)
@@ -9,7 +9,7 @@
 #include "HTS_Secure_Memory.h"
 
 // ── Self-Contained 표준 헤더 ───────────────────────────────────────
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

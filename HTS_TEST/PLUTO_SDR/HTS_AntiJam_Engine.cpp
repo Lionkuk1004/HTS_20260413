@@ -9,7 +9,7 @@
 // [제약] float 0, double 0, 나눗셈 0, try-catch 0, 힙 0
 // =========================================================================
 #include "HTS_AntiJam_Engine.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 

@@ -4,7 +4,7 @@
 // Target: STM32F407 (Cortex-M4)
 //
 #include "HTS_Gyro_Engine.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>      // size_t
 #include <cstdint>      // uint32_t
 #include <cstring>

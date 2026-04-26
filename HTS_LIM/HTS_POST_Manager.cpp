@@ -21,8 +21,7 @@
 #include "HTS_Secure_Logger.h"
 #include "HTS_Secure_Memory.h"
 #include "HTS_Auto_Rollback_Manager.hpp"
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     namespace {

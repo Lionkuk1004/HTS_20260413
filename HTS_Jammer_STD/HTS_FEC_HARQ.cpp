@@ -6,7 +6,7 @@
 #include "HTS_Secure_Memory.h"
 #include "HTS_Walsh_Row_Converter.hpp"
 #include <array>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <climits>
 #include <cstdint>
 #include <cstring>

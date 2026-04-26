@@ -12,7 +12,7 @@
 #include "HTS_Secure_Memory.h"
 #include "HTS_Hardware_Init.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 

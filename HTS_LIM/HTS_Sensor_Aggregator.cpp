@@ -13,7 +13,7 @@
 #include "HTS_Sensor_Aggregator.h"
 #include "HTS_Sensor_Fusion.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <new>

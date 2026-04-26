@@ -48,8 +48,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     class HTS_Priority_Scheduler;

@@ -6,8 +6,7 @@
 #include "HTS_Hardware_Shield.h"
 #include "HTS_Hardware_Bridge.hpp"
 #include "HTS_Physical_Entropy_Engine.h"
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 #if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #include <bit>
 #endif

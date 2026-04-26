@@ -8,8 +8,7 @@
 #include "HTS_Arm_Irq_Mask_Guard.h"
 #include "HTS_IPC_Protocol.h"
 #include <new>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
     static constexpr uint32_t BLE_INIT_NONE = 0u;
     static constexpr uint32_t BLE_INIT_BUSY = 1u;

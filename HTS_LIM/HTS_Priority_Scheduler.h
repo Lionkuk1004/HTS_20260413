@@ -41,8 +41,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     /// @brief 패킷 우선순위

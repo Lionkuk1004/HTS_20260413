@@ -6,7 +6,7 @@
 
 #include "HTS_CCTV_Security.h"
 #include "HTS_IPC_Protocol.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <new>
 

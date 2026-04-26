@@ -6,8 +6,7 @@
 #include "HTS_Remote_Attestation.hpp"
 #include "HTS_Hardware_Bridge.hpp"
 
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     // ── 상수 ──

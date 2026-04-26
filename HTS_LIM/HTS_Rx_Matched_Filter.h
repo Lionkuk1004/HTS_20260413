@@ -32,8 +32,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     // 전방 선언 (HTS_Dynamic_Config.h include 제거)

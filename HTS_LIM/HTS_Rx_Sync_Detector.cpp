@@ -11,7 +11,7 @@
 #include "HTS_Secure_Memory.h"
 
 // ── Self-Contained 표준 헤더 (<atomic>, <cstdint> 등) ────────────────
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <climits>
 #include <cstddef>
 #include <cstdint>

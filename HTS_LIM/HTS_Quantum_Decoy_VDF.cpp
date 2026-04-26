@@ -6,7 +6,7 @@
 #include "HTS_Quantum_Decoy_VDF.h"
 #include "HTS_Hardware_Init.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 
 #if defined(_MSC_VER)

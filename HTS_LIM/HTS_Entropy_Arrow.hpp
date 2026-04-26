@@ -19,8 +19,7 @@
 #pragma once
 
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 // =========================================================================
 //  플랫폼 분기 — 존재 기반 (#ifdef) 안전 패턴
 //

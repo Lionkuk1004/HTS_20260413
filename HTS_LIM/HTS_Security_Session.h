@@ -33,8 +33,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     enum class CipherAlgorithm { ARIA_256_CTR, LEA_256_CTR, AES_256_CTR };

@@ -14,7 +14,7 @@
 
 #include "HTS_IPC_Protocol_A55.h"
 #include <cstring>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <new>          // placement new
 #include <cstdio>       // snprintf
 

@@ -53,8 +53,7 @@
 #include "HTS_IoT_Codec_Defs.h"
 #include "HTS_IPC_Protocol_Defs.h"
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     /// @brief HTS IoT 코덱 -- 범용 센서 TLV 직렬화/역직렬화

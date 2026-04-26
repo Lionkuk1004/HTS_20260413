@@ -15,8 +15,7 @@
 #include "HTS_Hardware_Init.h"
 #include "HTS_Secure_Memory.h"
 #include <new>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     namespace {

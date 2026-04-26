@@ -65,7 +65,7 @@
 ///       Tx 타임슬롯 마감 의존 — 우선순위 변경 시 이 파일 동시 검토 필수
 #pragma once
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstddef>
 

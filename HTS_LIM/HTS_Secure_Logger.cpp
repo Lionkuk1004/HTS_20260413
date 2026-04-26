@@ -1,4 +1,4 @@
-﻿// =========================================================================
+// =========================================================================
 // HTS_Secure_Logger.cpp
 // 보안 감사 로거 구현부 — ARM 전용, 힙 할당 0회
 // Target: STM32F407 (Cortex-M4)
@@ -10,7 +10,7 @@
 #include "HTS_Hardware_Init.h"
 #include "HTS_Secure_Memory.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstring>
 

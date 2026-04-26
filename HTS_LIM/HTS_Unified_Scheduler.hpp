@@ -20,7 +20,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include "HTS_Dual_Tensor_16bit.h"
 
 namespace ProtectedEngine {

@@ -10,7 +10,7 @@
 #include "HTS_Walsh_Row_Permuter.hpp"
 #include "HTS_Secure_Memory.h"
 #include "HTS_Session_Gateway.hpp"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

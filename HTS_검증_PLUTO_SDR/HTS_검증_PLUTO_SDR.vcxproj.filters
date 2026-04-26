@@ -15,39 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="..\HTS_LIM\HTS_FEC_HARQ.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_Polar_Codec.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_Secure_Memory.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Core.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_TX.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_TEST\t6_sim\HTS_Session_Derive_Stub.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_Walsh_Row_Permuter.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
-    <ClCompile Include="..\HTS_LIM\HTS_Holo_LPI.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="..\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>

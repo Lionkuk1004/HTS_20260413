@@ -4,7 +4,7 @@
 // Target: STM32F407 (Cortex-M4, 168MHz, SRAM 192KB)
 //
 #include "HTS_Orbital_Mapper.hpp"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

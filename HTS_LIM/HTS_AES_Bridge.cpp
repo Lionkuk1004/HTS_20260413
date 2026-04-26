@@ -18,7 +18,7 @@
 // =========================================================================
 #include "HTS_AES_Bridge.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstring>
 

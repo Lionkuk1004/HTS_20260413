@@ -33,8 +33,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     /// @brief 실행 속도 기반 디버거/에뮬레이터 탐지 (정적 유틸리티)

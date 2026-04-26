@@ -12,7 +12,7 @@
 #error "[HTS_FATAL] HTS_Anchor_Vault는 A55/서버 전용. STM32 빌드에서 제외하십시오."
 #endif
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <mutex>   // A55/서버 전용: lock_guard 직렬화 (STM32 빌드는 상단 #error)
 #include <cstring>
 

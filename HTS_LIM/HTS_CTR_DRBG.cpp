@@ -32,7 +32,7 @@
 #define DRBG_CIPHER_NAME "ARIA-256"
 #endif
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 #if defined(_MSC_VER)
 #include <intrin.h>

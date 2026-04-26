@@ -11,7 +11,7 @@
 #include <intrin.h>
 #endif
 #include <new>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>  // memset
 
 namespace ProtectedEngine {

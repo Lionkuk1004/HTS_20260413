@@ -9,7 +9,7 @@
 #include <cstdio>
 #include <cstdlib>
 #if defined(HTS_ALLOW_HOST_BUILD)
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #endif
 
 // =========================================================================

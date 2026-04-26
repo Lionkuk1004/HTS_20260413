@@ -18,17 +18,19 @@
 //   #8 측정 기반: 추측 금지
 //   #9 DPTE 양산 도구셋
 // ============================================================================
+#include <bit>
 #include <cmath>
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
-#include <windows.h>
 // ──────────────────────────────────────────────────────────
-// 영준님 4D 텐서 헤더 (메인트리 그대로 사용)
+// 영준님 4D 텐서 헤더 (메인트리 그대로 사용) — <windows.h> 전에 include 하여
+// SAL/Windows 매크로(_Order 등)가 <atomic>·표준 머신 헤더를 깨는 것을 방지
 // ──────────────────────────────────────────────────────────
 #include "../HTS_LIM/HTS_Holo_Tensor_4D_TX.h"
 #include "../HTS_LIM/HTS_Holo_Tensor_4D_RX.h"
 #include "../HTS_LIM/HTS_Holo_Tensor_4D_Defs.h"
+#include <windows.h>
 using namespace ProtectedEngine;
 // ============================================================================
 // ★★★ 영준님 수정 가능 영역 (실험 파라미터) ★★★
@@ -251,7 +253,7 @@ static void generate_holo_preamble(int16_t *tx_I, int16_t *tx_Q,
     const uint8_t row = 63;
     for (int c = 0; c < 64; ++c) {
         uint32_t x = row & static_cast<uint32_t>(c);
-        const int parity = __builtin_popcount(x) & 1;
+        const int parity = static_cast<int>(std::popcount(x) & 1u);
         // chip = amp × (-1)^parity
         tx_I[c] = static_cast<int16_t>(parity ? -amp : amp);
         tx_Q[c] = 0;

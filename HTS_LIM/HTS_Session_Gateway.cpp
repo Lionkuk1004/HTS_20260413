@@ -13,7 +13,7 @@
 #include "HTS_Anti_Glitch.h"
 #include "HTS_POST_Manager.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)

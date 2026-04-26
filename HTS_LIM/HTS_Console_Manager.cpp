@@ -11,7 +11,7 @@
 #include "HTS_Role_Auth.h"
 #include "HTS_Secure_Logger.h"
 #include <new>        // placement new
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstring>    // memcpy (channel_config 원자적 복사용)
 

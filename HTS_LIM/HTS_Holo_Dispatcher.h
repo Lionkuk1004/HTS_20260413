@@ -69,7 +69,7 @@
 #include "HTS_Holo_Tensor_4D_TX.h"
 #include "HTS_Holo_Tensor_4D_RX.h"
 #include "HTS_RF_Metrics.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 

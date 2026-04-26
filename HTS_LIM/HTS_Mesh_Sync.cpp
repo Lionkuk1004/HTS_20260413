@@ -15,7 +15,7 @@
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

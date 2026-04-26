@@ -33,7 +33,7 @@
 /// @author 임영준 (Lim Young-jun)
 /// @copyright INNOViD 2026. All rights reserved.
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstddef>
 

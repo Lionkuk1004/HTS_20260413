@@ -8,7 +8,7 @@
 #include "HTS_Tx_Scheduler.hpp"
 #include "HTS_Dynamic_Config.h"
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

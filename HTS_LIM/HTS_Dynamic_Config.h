@@ -5,8 +5,7 @@
 // =========================================================================
 #pragma once
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     enum class HTS_Phy_Tier : uint8_t {

@@ -15,7 +15,7 @@
 #include "HTS_IPC_Protocol.h"
 #include "HTS_API.h"
 #include <cstring>    // memset (secure wipe uses volatile loop instead)
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <new>        // placement new
 #include <cstddef>
 

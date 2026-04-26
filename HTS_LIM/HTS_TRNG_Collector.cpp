@@ -1,4 +1,4 @@
-﻿// =========================================================================
+// =========================================================================
 // HTS_TRNG_Collector.cpp
 // TRNG Raw 데이터 수집기 구현부
 // Target: STM32F407 (Cortex-M4)
@@ -13,7 +13,7 @@
 // =========================================================================
 #include "HTS_TRNG_Collector.h"
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstring>
 #if defined(_MSC_VER)

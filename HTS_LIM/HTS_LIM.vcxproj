@@ -184,6 +184,7 @@
     <ClCompile Include="HTS_Amp_Diag.cpp" />
     <ClCompile Include="HTS_CoAP_Engine.cpp" />
     <ClCompile Include="HTS_CFO_V5a.cpp" />
+    <ClCompile Include="HTS_Preamble_Holographic.cpp" />
     <ClCompile Include="HTS_Rx_CFO_SinCos_Table.cpp" />
     <ClCompile Include="HTS_CW_Detect_Diag.cpp" />
     <ClCompile Include="HTS_CW_Excision.cpp" />
@@ -312,6 +313,7 @@
     <ClCompile Include="HTS_Unified_Scheduler.cpp" />
     <ClCompile Include="HTS_Universal_Adapter.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher_Sync_PSLTE.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
@@ -342,6 +344,7 @@
     <ClInclude Include="HTS_Arm_Irq_Mask_Guard.h" />
     <ClInclude Include="HTS_Channel_Physics.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
+    <ClInclude Include="HTS_Preamble_Holographic.h" />
     <ClInclude Include="HTS_Rx_CFO_SinCos_Table.hpp" />
     <ClInclude Include="HTS_Rx_CFO_SinCos_Table_ROM.hpp" />
     <ClInclude Include="HTS_CW_Detect_Diag.hpp" />
@@ -394,6 +397,7 @@
     <ClInclude Include="HTS_Device_Profile_Defs.h" />
     <ClInclude Include="HTS_Holo_Dispatcher.h" />
     <ClInclude Include="HTS_Holo_Dispatcher_Defs.h" />
+    <ClInclude Include="HTS_CXX17_Atomic_Safe.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_Common.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_TX.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_RX.h" />
@@ -488,6 +492,7 @@
     <ClInclude Include="HTS_Unified_Scheduler.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher_Internal.hpp" />
+    <ClInclude Include="HTS_V400_FWHT_Int16Scale.hpp" />
     <ClInclude Include="HTS_Voice_Codec_Bridge.h" />
     <ClInclude Include="HTS_Voice_Codec_Bridge_Defs.h" />
     <ClInclude Include="HTS_Walsh_Row_Converter.hpp" />

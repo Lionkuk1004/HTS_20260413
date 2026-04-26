@@ -1,4 +1,4 @@
-﻿// =========================================================================
+// =========================================================================
 // HTS_Tamper_HAL.cpp
 // 물리적 변조 감지 HAL 구현부
 // Target: STM32F407 (Cortex-M4)
@@ -9,7 +9,7 @@
 // =========================================================================
 #include "HTS_Tamper_HAL.h"
 #include "HTS_Secure_Logger.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || \

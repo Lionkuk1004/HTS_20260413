@@ -7,7 +7,7 @@
 #include "HTS_Network_Bridge.h"
 #include "HTS_IPC_Protocol.h"
 #include <new>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>   // memcpy, memset
 
 namespace ProtectedEngine {

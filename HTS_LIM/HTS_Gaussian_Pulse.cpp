@@ -6,7 +6,7 @@
 
 #include "HTS_Gaussian_Pulse.h"
 #include <algorithm>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

@@ -2,7 +2,7 @@
 /// @file  HTS_Holo_Tensor_4D_RX.h
 /// @brief 4D 홀로 — RX 전용(독립 1024B impl + 시드/슬롯/프로파일)
 #include "HTS_Holo_Tensor_4D_Defs.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 
 namespace ProtectedEngine {

@@ -16,7 +16,7 @@
 #include "HTS_Secure_Logger.h"
 #include "HTS_Secure_Memory.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 
 namespace ProtectedEngine {

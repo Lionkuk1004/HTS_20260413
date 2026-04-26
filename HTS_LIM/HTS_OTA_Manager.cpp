@@ -8,7 +8,7 @@
 #include "HTS_OTA_Manager.h"
 #include "HTS_IPC_Protocol.h"
 #include <new>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 #if defined(_MSC_VER)
 #include <intrin.h>

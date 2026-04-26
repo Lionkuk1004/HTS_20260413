@@ -7,7 +7,7 @@
 #include "HTS_AES_Bridge.h"
 #include "HTS_ConstantTimeUtil.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

@@ -52,8 +52,7 @@
 #include "HTS_Network_Bridge_Defs.h"
 #include "HTS_IPC_Protocol_Defs.h"
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     class HTS_IPC_Protocol;

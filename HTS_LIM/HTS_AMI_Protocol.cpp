@@ -22,7 +22,7 @@
 #include "HTS_Arm_Irq_Mask_Guard.h"
 #include "HTS_IPC_Protocol.h"
 #include <new>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 
 namespace ProtectedEngine {

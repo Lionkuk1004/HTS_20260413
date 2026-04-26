@@ -1,4 +1,4 @@
-﻿// =========================================================================
+// =========================================================================
 // HTS_Unified_Scheduler.cpp
 // DMA 핑퐁 이중 버퍼 기반 통합 송신 스케줄러 구현부
 // Target: STM32F407 (Cortex-M4)
@@ -9,7 +9,7 @@
 #include "HTS_Unified_Scheduler.hpp"
 #include "HTS_Hardware_Init.h"
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstddef>
 #include <cstring>

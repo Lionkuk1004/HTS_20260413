@@ -14,7 +14,7 @@
 #include "HTS_Secure_Memory.h"
 
 #include <cstring>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <climits>

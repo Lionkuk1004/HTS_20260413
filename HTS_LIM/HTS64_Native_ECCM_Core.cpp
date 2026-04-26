@@ -8,7 +8,7 @@
 #include "HTS64_Native_ECCM_Core.hpp"
 #include "HTS_RF_Metrics.h"   // ajc_nf 기록용 (선택적)
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <climits>
 #include <cstddef>
 #include <cstdint>

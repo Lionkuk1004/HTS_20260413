@@ -32,7 +32,7 @@
 // ─────────────────────────────────────────────────────────────────────────
 #pragma once
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstddef>
 #if !defined(__arm__) && !defined(__TARGET_ARCH_ARM) && \

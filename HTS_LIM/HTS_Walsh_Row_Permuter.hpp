@@ -53,7 +53,7 @@
 /// @author Lim Young-jun
 /// @copyright INNOViD 2026. All rights reserved.
 #pragma once
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 namespace ProtectedEngine {

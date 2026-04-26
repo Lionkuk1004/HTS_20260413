@@ -34,7 +34,7 @@
 #include "HTS_SHA256_Bridge.h"  // FIPS SHA-256 KAT
 #endif
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 
 #if defined(_MSC_VER)

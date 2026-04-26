@@ -2,7 +2,7 @@
 // 용량은 2의 거듭제곱; 인덱스는 마스크( &) 로 래핑 — 나눗셈/모듈로 미사용.
 #pragma once
 
-#include <atomic>
+#include "../../HTS_LIM/HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

@@ -3,7 +3,7 @@
 // =========================================================================
 #include "HTS_Pipeline_V2_Dispatcher.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 
 #if defined(_MSC_VER)

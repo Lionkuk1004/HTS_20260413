@@ -12,8 +12,7 @@
 //
 #include "HTS_Entropy_Arrow.hpp"
 #include "HTS_Arm_Irq_Mask_Guard.h"
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)
 #define HTS_PLATFORM_ARM
 #endif

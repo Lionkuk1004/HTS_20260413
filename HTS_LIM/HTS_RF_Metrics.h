@@ -47,7 +47,7 @@
 // =========================================================================
 #pragma once
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 
 namespace ProtectedEngine {

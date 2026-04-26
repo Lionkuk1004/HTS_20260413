@@ -2,7 +2,7 @@
 #define HTS_API_BUILD
 #include "HTS_API.h"
 
-#include <atomic>
+#include "../HTS_LIM/HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 
 namespace HTS_API {

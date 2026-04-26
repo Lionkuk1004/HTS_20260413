@@ -4,7 +4,7 @@
 // Target: STM32F407 (Cortex-M4)
 //
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <climits>
 #if defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__TARGET_ARCH_THUMB) || defined(__ARM_ARCH)

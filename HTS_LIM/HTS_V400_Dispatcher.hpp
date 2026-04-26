@@ -117,6 +117,13 @@ namespace ProtectedEngine {
         RF_SETTLING = 3u   ///< RF PLL 안정 구간 — 칩 송수신 Blanking(타이머는 Feed_Chip 경유)
     };
 
+    /// @brief [Pluto/PC 하네스·구형 단일 cpp] 소프트클립 — 분기 본문은 제거, API·상태만 유지
+    enum class SoftClipPolicy : uint8_t {
+        NEVER    = 0u,
+        ADAPTIVE = 1u,
+        ALWAYS   = 2u
+    };
+
     /// @brief 디코딩 완료 패킷 구조체
     struct DecodedPacket {
         static constexpr uint32_t DECODE_MASK_OK = 0xFFFFFFFFu;
@@ -225,6 +232,13 @@ namespace ProtectedEngine {
         void Set_Lab_BPS64(int bps) noexcept;
         /// @brief 재밍 시험 하네스: I/Q 모드 IQ_SAME 고정.
         void Set_Lab_IQ_Mode_Jam_Harness() noexcept;
+
+        /// @brief [Pluto/벤치 호환] CW 상쇄 — 본기 분기 트리에서는 제거됨; 내부 플래그만 갱신
+        void Set_CW_Cancel(bool enable) noexcept;
+        /// @brief [Pluto/벤치 호환] AJC — 본기 분기 트리에서는 제거됨; 내부 플래그만 갱신
+        void Set_AJC_Enabled(bool enable) noexcept;
+        /// @brief [Pluto/벤치 호환] 소프트클립 정책 — 본기 분기 경로에선 미사용(상태만 갱신)
+        void Set_SoftClip_Policy(SoftClipPolicy policy) noexcept;
 
         /// @brief RF 측정값 컨테이너 주입 (선택적)
         void Set_RF_Metrics(HTS_RF_Metrics* p) noexcept;
@@ -441,6 +455,10 @@ namespace ProtectedEngine {
         int  sym_idx_;                  ///< 현재 심볼 인덱스
         bool harq_inited_;              ///< HARQ 상태 초기화 완료 여부
         bool retx_ready_;
+        /// 플래그만 (Step2/3 제거 — HTS_V400_Dispatcher_*.cpp 주석)
+        bool cw_cancel_enabled_{ true };
+        bool ajc_enabled_{ true };
+        SoftClipPolicy soft_clip_policy_{ SoftClipPolicy::ALWAYS };
 
         // ── WorkBuf 유니온 (반이중 TDM) ───────────────────────────
         //

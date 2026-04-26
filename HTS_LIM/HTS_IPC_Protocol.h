@@ -71,8 +71,7 @@
 #include "HTS_AP_Bridge_Defs.h"
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     /// @brief HTS IPC 프로토콜 엔진 -- STM32 SPI 슬레이브

@@ -312,6 +312,19 @@ void HTS_V400_Dispatcher::Set_Tx_Amp(int16_t amp) noexcept {
     }
     tx_amp_ = amp;
 }
+
+void HTS_V400_Dispatcher::Set_CW_Cancel(bool enable) noexcept {
+    cw_cancel_enabled_ = enable;
+}
+
+void HTS_V400_Dispatcher::Set_AJC_Enabled(bool enable) noexcept {
+    ajc_enabled_ = enable;
+}
+
+void HTS_V400_Dispatcher::Set_SoftClip_Policy(SoftClipPolicy policy) noexcept {
+    soft_clip_policy_ = policy;
+}
+
 HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() noexcept { return tpc_; }
 const HTS_TPC_Controller& HTS_V400_Dispatcher::Get_TPC() const noexcept {
     return tpc_;

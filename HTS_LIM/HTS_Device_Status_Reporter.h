@@ -36,7 +36,7 @@
 //    IRQ 번호는 STM32F407 RM0090 벡터 테이블 기준으로 교체.
 // ─────────────────────────────────────────────────────────
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstddef>
 

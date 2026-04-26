@@ -7,7 +7,7 @@
 #include "HTS_Secure_Logger.h"
 // [NOTE] HTS_Secure_Memory.h — 직접 호출 없음 (호출자 소거 책임 원칙)
 //  각 보안 모듈이 Execute_Self_Healing 호출 전에 자체 secureWipe 수행
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 
 namespace ProtectedEngine {

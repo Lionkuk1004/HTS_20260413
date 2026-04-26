@@ -27,8 +27,7 @@
 #include "HTS_Tx_Scheduler.hpp"
 #include "HTS_Unified_Scheduler.hpp"
 
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 #if __cplusplus >= 202002L || (defined(_MSVC_LANG) && _MSVC_LANG >= 202002L)
 #define HTS_API_LIKELY   HTS_LIKELY
 #define HTS_API_UNLIKELY HTS_UNLIKELY

@@ -417,6 +417,12 @@
     <ClCompile Include="HTS_Amp_Diag.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Preamble_Holographic.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HTS_Anchor_Vault.hpp">
@@ -779,6 +785,9 @@
     <ClInclude Include="HTS_Modbus_Gateway_Defs.h">
       <Filter>Layer 15 - AMI OTA</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_CXX17_Atomic_Safe.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
     <ClInclude Include="HTS_Holo_Tensor_4D_Common.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
@@ -939,6 +948,12 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_DWT_Profiler.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_V400_FWHT_Int16Scale.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Preamble_Holographic.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

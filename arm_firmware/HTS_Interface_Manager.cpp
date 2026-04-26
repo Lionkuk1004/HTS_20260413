@@ -2,7 +2,7 @@
 
 #include "HTS_Interface_Manager.h"
 
-#include <atomic>
+#include "../HTS_LIM/HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 
 namespace HTS_Interface {

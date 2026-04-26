@@ -1,4 +1,4 @@
-﻿// =========================================================================
+// =========================================================================
 // HTS_Dual_Tensor_16bit.cpp
 // B-CDMA 듀얼 레인 텐서 파이프라인 구현부 (Pimpl 은닉)
 // Target: STM32F407 (Cortex-M4, 168MHz)
@@ -14,7 +14,7 @@
 
 // ── Self-Contained 표준 헤더 ─────────────────────────────────────────
 #include <algorithm>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

@@ -7,8 +7,7 @@
 #include "HTS_Device_Profile.h"
 #include "HTS_Console_Manager.h"
 #include <new>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
     static constexpr uint32_t PROFILE_INIT_NONE = 0u;
     static constexpr uint32_t PROFILE_INIT_BUSY = 1u;

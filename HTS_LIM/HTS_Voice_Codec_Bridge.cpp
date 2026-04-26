@@ -9,7 +9,7 @@
 #include "HTS_Voice_Codec_Bridge.h"
 #include "HTS_Secure_Memory.h"
 #include <new>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 
 namespace ProtectedEngine {

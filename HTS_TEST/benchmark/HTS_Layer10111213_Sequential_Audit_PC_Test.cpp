@@ -27,7 +27,7 @@
 #include "HTS_Universal_API.h"
 #include "HTS_V400_Dispatcher.hpp"
 
-#include <atomic>
+#include "../../HTS_LIM/HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstdlib>

@@ -8,7 +8,7 @@
 #include "HTS_Auto_Rollback_Manager.hpp"
 #include "HTS_Secure_Logger.h"
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #if defined(_MSC_VER)
 #include <intrin.h>
 #endif

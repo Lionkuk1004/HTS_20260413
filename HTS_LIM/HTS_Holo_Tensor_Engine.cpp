@@ -4,7 +4,7 @@
 //
 #include "HTS_Holo_Tensor_Engine.h"
 #include "HTS_Secure_Memory.h"
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstring>
 #if defined(_MSC_VER)
 #include <intrin.h>

@@ -6,7 +6,7 @@
 #include "HTS_Hardware_Bridge.hpp"
 
 // ── Self-Contained 표준 헤더 (<cstddef>, <cstdint>) ──────────────────
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>      // size_t
 #include <cstdint>      // uint8_t, uint64_t
 #include <cstdlib>      // std::abort — AArch64 틱 실패 시 엔트로피 0 주입 방지

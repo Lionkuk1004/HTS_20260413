@@ -18,7 +18,7 @@
 #include "HTS_Mesh_Sync.h"
 #include "HTS_Priority_Scheduler.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

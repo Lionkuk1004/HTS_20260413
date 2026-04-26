@@ -7,7 +7,7 @@
 #include "HTS_BitOps.h"
 #include "HTS_Secure_Memory.h"
 
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstdint>
 #include <cstring>
 #if defined(_MSC_VER)

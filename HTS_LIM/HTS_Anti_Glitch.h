@@ -17,8 +17,7 @@
 // ─────────────────────────────────────────────────────────
 
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     class AntiGlitchShield {

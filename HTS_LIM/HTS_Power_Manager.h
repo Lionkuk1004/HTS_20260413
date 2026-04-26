@@ -39,8 +39,7 @@
 
 #include "HTS_Power_Manager_Defs.h"
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     /// @brief HTS 전력 관리자

@@ -33,8 +33,7 @@
 #include "HTS_Voice_Codec_Bridge_Defs.h"
 #include "HTS_IPC_Protocol_Defs.h"
 #include <cstdint>
-#include <atomic>
-
+#include "HTS_CXX17_Atomic_Safe.h"
 namespace ProtectedEngine {
 
     /// UDP 페이로드(헤더+프레임+CRC16)를 sendto / udp_send 등으로 보낼 콜백

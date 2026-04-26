@@ -30,7 +30,7 @@
 #endif
 
 // ── Self-Contained 표준 헤더 [BUG-07] ───────────────────────────────
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include <cstddef>
 #include <cstdint>
 #include <cstring>

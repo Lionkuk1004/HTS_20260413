@@ -30,7 +30,7 @@
 
 #include <cstdint>
 #include <cstddef>
-#include <atomic>
+#include "HTS_CXX17_Atomic_Safe.h"
 #include "lea.h"
 
 namespace ProtectedEngine {
