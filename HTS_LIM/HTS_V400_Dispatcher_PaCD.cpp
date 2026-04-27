@@ -6,6 +6,10 @@
 
 #if defined(HTS_USE_PACD)
 
+#if defined(HTS_USE_PN_MASKED)
+#include "HTS_V400_Dispatcher_PNMasked.hpp"
+#endif
+
 #include "HTS_CFO_V5a.hpp"
 #include "HTS_Rx_CFO_SinCos_Table.hpp"
 #include "HTS_Secure_Memory.h"
@@ -46,6 +50,19 @@ alignas(4) constexpr auto k_tx_preamble128_I =
     make_tx_preamble128(std::make_index_sequence<128>{});
 /// Walsh preamble: Q 채널은 `walsh_enc` 와 동일하게 I 와 동일 칩값.
 alignas(4) constexpr auto k_tx_preamble128_Q = k_tx_preamble128_I;
+
+#if defined(HTS_USE_PN_MASKED)
+template <std::size_t... I>
+constexpr bool pn_masked_row_0x3f_matches_pacd(
+    std::index_sequence<I...>) noexcept {
+    return (
+        (... && (::detail::kPnMaskedTxPreambleI[0x3Fu][I] ==
+                 k_tx_preamble128_I[I])));
+}
+static_assert(
+    pn_masked_row_0x3f_matches_pacd(std::make_index_sequence<128>{}),
+    "PN-masked row 0x3F must match PaCD default preamble (128 chips)");
+#endif  // HTS_USE_PN_MASKED
 
 static inline int32_t pacd_dot_q14_round(int32_t x, int32_t c_q14, int32_t y,
                                            int32_t s_q14) noexcept {

@@ -24,6 +24,9 @@
 #endif
 
 #include "HTS_V400_Dispatcher.hpp"
+#if defined(HTS_USE_PN_MASKED)
+#include "HTS_V400_Dispatcher_PNMasked.hpp"
+#endif
 #include "HTS_Walsh_Row_Converter.hpp"
 #if defined(HTS_HARQ_DIAG)
 #include "HTS_HARQ_Diag.hpp"
