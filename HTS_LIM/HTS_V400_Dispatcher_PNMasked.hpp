@@ -132,4 +132,50 @@ inline const int16_t* GetPnMaskedPreambleQ(int row) noexcept {
 
 }  // namespace detail
 
+// fwht_raw 는 아래 `ProtectedEngine::detail` 에서 재사용 (양산 경로 일관성).
+#include "HTS_V400_Dispatcher_Internal.hpp"
+
+namespace ProtectedEngine {
+namespace detail {
+
+/// PN-masked Phase0: RX 첫 64칩 → `fwht_raw(..., 64)` → BPTE argmax \|bin\|.
+/// LUT(`::detail`) 과 별도 — 호출부는 `off` 정렬된 `&p0_buf128_I_[off]` 전달.
+inline void pn_masked_phase0_scan(const int16_t* rx_pre_first64,
+                                   int* out_best_row,
+                                   int32_t* out_peak) noexcept {
+    if (rx_pre_first64 == nullptr || out_best_row == nullptr ||
+        out_peak == nullptr) {
+        if (out_best_row != nullptr) {
+            *out_best_row = 0;
+        }
+        if (out_peak != nullptr) {
+            *out_peak = 0;
+        }
+        return;
+    }
+
+    int32_t buf[64];
+    for (int i = 0; i < 64; ++i) {
+        buf[i] = static_cast<int32_t>(rx_pre_first64[i]);
+    }
+    fwht_raw(buf, 64);
+
+    int max_idx = 0;
+    int32_t max_val = 0;
+    for (int i = 0; i < 64; ++i) {
+        const int32_t v = buf[i];
+        const int32_t v_sign = v >> 31;
+        const int32_t v_abs = (v ^ v_sign) - v_sign;
+        const int32_t diff = v_abs - max_val;
+        const int32_t mask = diff >> 31;
+        max_val = (mask & max_val) | (~mask & v_abs);
+        max_idx = (mask & max_idx) | (~mask & i);
+    }
+    *out_best_row = max_idx;
+    *out_peak = max_val;
+}
+
+}  // namespace detail
+}  // namespace ProtectedEngine
+
 #endif  // HTS_USE_PN_MASKED
