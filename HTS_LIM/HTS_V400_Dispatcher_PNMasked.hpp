@@ -231,6 +231,24 @@ inline int32_t pn_masked_phase0_subchip_refine(int32_t peak_minus,
     return pn_masked_pte_subchip(peak_minus, peak_zero, peak_plus);
 }
 
+/// 32-bit device ID → PN-masked Walsh row \([0,63]\) (XOR fold + BPTE clamp).
+///
+/// Step 6-2: `device_id` 는 STM32 UID 혼합(`HTS_Remote_Attestation` 등)·콘솔
+/// `DEVICE_ID`·부트 설정 등 **상위 TU**에서 공급. 본 함수는 매핑만 수행.
+inline int pn_masked_device_id_to_row(uint32_t device_id) noexcept {
+    const uint32_t fold16 = device_id ^ (device_id >> 16u);
+    const uint32_t fold8 = fold16 ^ (fold16 >> 8u);
+    const uint32_t fold6 = fold8 & 63u;
+
+    int32_t row_clamped = static_cast<int32_t>(fold6);
+    const int32_t below_mask = row_clamped >> 31;
+    row_clamped = row_clamped & ~below_mask;
+    const int32_t above_diff = 63 - row_clamped;
+    const int32_t above_mask = above_diff >> 31;
+    row_clamped = (row_clamped & ~above_mask) | (63 & above_mask);
+    return static_cast<int>(row_clamped);
+}
+
 }  // namespace detail
 }  // namespace ProtectedEngine
 

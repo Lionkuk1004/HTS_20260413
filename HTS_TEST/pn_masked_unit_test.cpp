@@ -150,6 +150,32 @@ int test_pte_subchip() noexcept {
     return (pass == total) ? total : -1;
 }
 
+static int test_device_id_to_row() noexcept {
+    using ProtectedEngine::detail::pn_masked_device_id_to_row;
+    int pass = 0;
+    std::printf("Test 3: pn_masked_device_id_to_row (XOR fold + clamp)\n");
+    const uint32_t ids[] = {0x12345678u, 0xABCDEF00u, 0xDEADBEEFu, 0u,
+                             0xFFFFFFFFu};
+    for (unsigned i = 0; i < sizeof(ids) / sizeof(ids[0]); ++i) {
+        const int row = pn_masked_device_id_to_row(ids[i]);
+        std::printf("  device_id=0x%08X → row %d\n",
+                      static_cast<unsigned>(ids[i]), row);
+        if (row >= 0 && row < 64) {
+            ++pass;
+        }
+    }
+    const int a = pn_masked_device_id_to_row(0x12345678u);
+    const int b = pn_masked_device_id_to_row(0x12345678u);
+    if (a == b) {
+        ++pass;
+        std::printf("  deterministic: 0x12345678 → %d (repeat OK)\n", a);
+    } else {
+        std::printf("  deterministic: FAIL (%d vs %d)\n", a, b);
+    }
+    std::printf("Result: %d/6 PASS\n\n", pass);
+    return (pass == 6) ? 1 : 0;
+}
+
 /// Step 5-2: PC `pn_masked_phase0_scan` 타이밍 (KCMVP / Step 7 참고).
 static int profile_phase0_scan() noexcept {
     using ProtectedEngine::detail::pn_masked_phase0_scan;
@@ -210,17 +236,21 @@ int main() {
     return 0;
 #else
     std::printf(
-        "=== PN-masked unit test (Step 2 + Step 4-1 PTE + Step 5-2 profile) "
-        "===\n\n");
+        "=== PN-masked unit test (Step 2 + Step 4-1 PTE + Step 6-1 device "
+        "+ Step 5-2 profile) ===\n\n");
     const int n = test_row_detection_clean();
     const int pte = test_pte_subchip();
+    const int dev = test_device_id_to_row();
     if (n != 64) {
         std::printf("FAIL row tests %d/64\n", n);
     }
     if (pte <= 0) {
         std::printf("FAIL PTE sub-chip tests\n");
     }
-    if (n != 64 || pte <= 0) {
+    if (dev != 1) {
+        std::printf("FAIL device_id → row tests\n");
+    }
+    if (n != 64 || pte <= 0 || dev != 1) {
         return 1;
     }
     const int prof = profile_phase0_scan();
@@ -228,7 +258,8 @@ int main() {
         std::printf("FAIL profile row sanity\n");
         return 1;
     }
-    std::printf("\nALL PASS — FWHT rows + PTE sub-chip + profile\n");
+    std::printf(
+        "\nALL PASS — FWHT rows + PTE sub-chip + device_id map + profile\n");
     return 0;
 #endif
 }
