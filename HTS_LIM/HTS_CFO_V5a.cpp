@@ -93,6 +93,20 @@ static inline int16_t sat_i32_to_i16(int32_t v) noexcept {
     return static_cast<int16_t>(v);
 }
 
+/// BPTE i32 → i16 saturation (constant-time; `Apply_Per_Chip` 전용).
+/// `sat_i32_to_i16` 과 수학 동치; Derotate 경로는 A-3 에서 별도 검토.
+static inline int16_t saturate_i32_to_i16_bpte(int32_t v) noexcept {
+    const int32_t high_diff = v - 32767;
+    const int32_t high_mask = high_diff >> 31;
+    int32_t r = (high_mask & v) | (~high_mask & 32767);
+
+    const int32_t low_diff = r - (-32768);
+    const int32_t low_mask = low_diff >> 31;
+    r = (low_mask & static_cast<int32_t>(-32768)) | (~low_mask & r);
+
+    return static_cast<int16_t>(r);
+}
+
 // (x*A + y*B) / 2^14 with signed rounding (int64 inner product).
 static inline int32_t dot_q14_round(int32_t x, int32_t a_q14, int32_t y,
                                     int32_t b_q14) noexcept {
@@ -916,22 +930,10 @@ void CFO_V5a::Advance_Phase_Only(int chips) noexcept {
 void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
     const int32_t ci = static_cast<int32_t>(chip_I);
     const int32_t cq = static_cast<int32_t>(chip_Q);
-    int32_t ri = (ci * apply_cos_acc_q14_ + cq * apply_sin_acc_q14_) >> 14;
-    int32_t rq = (cq * apply_cos_acc_q14_ - ci * apply_sin_acc_q14_) >> 14;
-    if (ri > 32767) {
-        ri = 32767;
-    }
-    if (ri < -32768) {
-        ri = -32768;
-    }
-    if (rq > 32767) {
-        rq = 32767;
-    }
-    if (rq < -32768) {
-        rq = -32768;
-    }
-    chip_I = static_cast<int16_t>(ri);
-    chip_Q = static_cast<int16_t>(rq);
+    const int32_t ri = (ci * apply_cos_acc_q14_ + cq * apply_sin_acc_q14_) >> 14;
+    const int32_t rq = (cq * apply_cos_acc_q14_ - ci * apply_sin_acc_q14_) >> 14;
+    chip_I = saturate_i32_to_i16_bpte(ri);
+    chip_Q = saturate_i32_to_i16_bpte(rq);
     const int32_t next_cos = static_cast<int32_t>(
         (static_cast<int64_t>(apply_cos_acc_q14_) *
              static_cast<int64_t>(apply_cos_per_q14_) -
