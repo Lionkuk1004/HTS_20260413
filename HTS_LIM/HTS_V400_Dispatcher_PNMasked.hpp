@@ -211,6 +211,13 @@ inline int32_t pn_masked_pte_subchip(int32_t y_minus, int32_t y_zero,
     return static_cast<int32_t>(result);
 }
 
+/// PN Phase0: step=2 거친 검색 후 `best_off` 주변 3-point `pn_peak` → Q14 sub-chip.
+inline int32_t pn_masked_phase0_subchip_refine(int32_t peak_minus,
+                                               int32_t peak_zero,
+                                               int32_t peak_plus) noexcept {
+    return pn_masked_pte_subchip(peak_minus, peak_zero, peak_plus);
+}
+
 }  // namespace detail
 }  // namespace ProtectedEngine
 

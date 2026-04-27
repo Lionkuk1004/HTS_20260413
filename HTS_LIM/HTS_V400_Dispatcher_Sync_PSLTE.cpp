@@ -997,21 +997,11 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         max_row = max_row0;
 #endif
 #endif
-#if defined(HTS_USE_PN_MASKED)
-        int pn_row_scan = 0;
-        int32_t pn_peak_scan = 0;
-        detail::pn_masked_phase0_scan(&p0_buf128_I_[off], &pn_row_scan,
-                                       &pn_peak_scan);
-        (void)pn_peak_scan;
-#endif
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
             best_e63 = accum;
             best_off = off;
-#if defined(HTS_USE_PN_MASKED)
-            pn_masked_best_row_ = pn_row_scan;
-#endif
 #if defined(HTS_PHASE0_WALSH_BANK)
             best_dom_row = max_row;
             best_seed_I = seed_I_fwht;
@@ -1127,6 +1117,42 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             second_e63 = accum;
         }
     }
+
+#if defined(HTS_USE_PN_MASKED)
+#if !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
+    {
+        int pn_best_off = 0;
+        int32_t pn_best_peak = -1;
+        int pn_best_row = 0;
+        int32_t pn_peak_hist[32]{};
+        for (int idx = 0; idx < 32; ++idx) {
+            const int off_step2 = idx * 2;
+            int row_scan = 0;
+            int32_t peak_scan = 0;
+            detail::pn_masked_phase0_scan(&p0_buf128_I_[off_step2], &row_scan,
+                                          &peak_scan);
+            pn_peak_hist[idx] = peak_scan;
+            const int32_t better =
+                ~((peak_scan - pn_best_peak - 1) >> 31);
+            pn_best_peak =
+                (better & peak_scan) | (~better & pn_best_peak);
+            pn_best_off =
+                (better & off_step2) | (~better & pn_best_off);
+            pn_best_row =
+                (better & row_scan) | (~better & pn_best_row);
+        }
+        int32_t subchip_q14 = 0;
+        const int idx_zero = pn_best_off / 2;
+        if (idx_zero > 0 && idx_zero < 31) {
+            subchip_q14 = detail::pn_masked_phase0_subchip_refine(
+                pn_peak_hist[idx_zero - 1], pn_peak_hist[idx_zero],
+                pn_peak_hist[idx_zero + 1]);
+        }
+        pn_masked_best_row_ = pn_best_row;
+        pn_masked_subchip_q14_ = subchip_q14;
+    }
+#endif
+#endif
 
 #if defined(HTS_WALSH_ROW_DIAG) && !defined(HTS_PHASE0_WALSH_BANK) && \
     !defined(HTS_TARGET_AMI)
