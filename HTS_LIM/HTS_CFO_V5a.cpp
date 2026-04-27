@@ -696,11 +696,16 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
                           cfo_total);
             const int64_t e = Energy_Multiframe_impl(work_I_, work_Q_);
             coarse_energies[b] = e;
-            if (e > cb_e) {
-                cb_e = e;
-                cb_cfo = cfo_total;
-                cb_best_idx = b;
-            }
+            // strict e > cb_e (tie → 유지), BPTE — `if (e > cb_e)` 와 비트 동치
+            const int64_t diff_ce = e - cb_e;
+            const int64_t update_ce = ~((diff_ce - 1) >> 63);
+            cb_e = (~update_ce & cb_e) | (update_ce & e);
+            cb_cfo = static_cast<int32_t>(
+                (~update_ce & static_cast<int64_t>(cb_cfo)) |
+                (update_ce & static_cast<int64_t>(cfo_total)));
+            cb_best_idx = static_cast<int>(
+                (~update_ce & static_cast<int64_t>(cb_best_idx)) |
+                (update_ce & static_cast<int64_t>(b)));
         }
 
         int32_t coarse_offset_q15 = 0;
@@ -745,11 +750,16 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
             if (f < 32) {
                 fine_energies_[f] = e;
             }
-            if (e > best_e) {
-                best_e = e;
-                best_cfo = cfo;
-                fine_best_idx = f;
-            }
+            // strict e > best_e (tie → 유지), BPTE
+            const int64_t diff_fe = e - best_e;
+            const int64_t update_fe = ~((diff_fe - 1) >> 63);
+            best_e = (~update_fe & best_e) | (update_fe & e);
+            best_cfo = static_cast<int32_t>(
+                (~update_fe & static_cast<int64_t>(best_cfo)) |
+                (update_fe & static_cast<int64_t>(cfo)));
+            fine_best_idx = static_cast<int>(
+                (~update_fe & static_cast<int64_t>(fine_best_idx)) |
+                (update_fe & static_cast<int64_t>(f)));
         }
         int32_t fine_offset_q15 = 0;
         if (fine_best_idx > 0 && fine_best_idx < (kCfoFineBanks - 1)) {
