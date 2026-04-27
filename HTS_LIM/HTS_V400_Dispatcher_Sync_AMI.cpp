@@ -13,6 +13,9 @@
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
+#if defined(HTS_USE_PN_MASKED)
+#include "HTS_V400_Dispatcher_PNMasked.hpp"
+#endif
 #ifdef HTS_USE_HOLOGRAPHIC_SYNC
 #include "HTS_Preamble_Holographic.h"
 #endif
@@ -397,8 +400,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     int best_off = -1;
     int64_t sum_all = 0;
     int best_dom_row = 63;
-    int32_t best_seed_I = 0;
-    int32_t best_seed_Q = 0;
+    [[maybe_unused]] int32_t best_seed_I = 0;
+    [[maybe_unused]] int32_t best_seed_Q = 0;
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     static int s_stage4_scan_idx = 0;
     ++s_stage4_scan_idx;
@@ -573,8 +576,8 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
     for (int off = 0; off < 64; ++off) {
         int32_t accum = 0;
         int max_row = 0;
-        int32_t seed_I_fwht = 0;
-        int32_t seed_Q_fwht = 0;
+        [[maybe_unused]] int32_t seed_I_fwht = 0;
+        [[maybe_unused]] int32_t seed_Q_fwht = 0;
         int stage4_b1_row = 0;
 #if defined(HTS_PHASE0_WALSH_BANK)
         // ── Walsh Bank Phase 0 — Full FWHT + Max Row + per-block T 보존 ──
@@ -918,11 +921,25 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         stage4_b1_row = max_row1;
 #endif
 #endif
+#if defined(HTS_USE_PN_MASKED)
+#if !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
+        int pn_row_scan = 0;
+        int32_t pn_peak_scan = 0;
+        detail::pn_masked_phase0_scan(&p0_buf128_I_[off], &pn_row_scan,
+                                       &pn_peak_scan);
+        (void)pn_peak_scan;
+#endif
+#endif
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
             best_e63 = accum;
             best_off = off;
+#if defined(HTS_USE_PN_MASKED)
+#if !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
+            pn_masked_best_row_ = pn_row_scan;
+#endif
+#endif
 #if defined(HTS_PHASE0_WALSH_BANK)
             best_dom_row = max_row;
             best_seed_I = seed_I_fwht;
@@ -1807,8 +1824,8 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 (static_cast<int32_t>(chip_Q) >> 7);
     chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
     chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
-    const int16_t before_cfo_I = chip_I;
-    const int16_t before_cfo_Q = chip_Q;
+    [[maybe_unused]] const int16_t before_cfo_I = chip_I;
+    [[maybe_unused]] const int16_t before_cfo_Q = chip_Q;
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
         (s_lab_feed_chip_idx % 16) == 0) {
