@@ -83,18 +83,7 @@ static constexpr int8_t kWalsh63Row63[64] = {
     -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
     +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1};
 
-static inline int16_t sat_i32_to_i16(int32_t v) noexcept {
-    if (v > 32767) {
-        return 32767;
-    }
-    if (v < -32768) {
-        return -32768;
-    }
-    return static_cast<int16_t>(v);
-}
-
-/// BPTE i32 → i16 saturation (constant-time; `Apply_Per_Chip` 전용).
-/// `sat_i32_to_i16` 과 수학 동치; Derotate 경로는 A-3 에서 별도 검토.
+/// BPTE i32 → i16 saturation (constant-time). `sat_i32_to_i16` / `Apply_Per_Chip`.
 static inline int16_t saturate_i32_to_i16_bpte(int32_t v) noexcept {
     const int32_t high_diff = v - 32767;
     const int32_t high_mask = high_diff >> 31;
@@ -107,15 +96,19 @@ static inline int16_t saturate_i32_to_i16_bpte(int32_t v) noexcept {
     return static_cast<int16_t>(r);
 }
 
+static inline int16_t sat_i32_to_i16(int32_t v) noexcept {
+    return saturate_i32_to_i16_bpte(v);
+}
+
 // (x*A + y*B) / 2^14 with signed rounding (int64 inner product).
 static inline int32_t dot_q14_round(int32_t x, int32_t a_q14, int32_t y,
                                     int32_t b_q14) noexcept {
     const int64_t p = static_cast<int64_t>(x) * static_cast<int64_t>(a_q14) +
                       static_cast<int64_t>(y) * static_cast<int64_t>(b_q14);
-    if (p >= 0) {
-        return static_cast<int32_t>((p + (1LL << 13)) >> 14);
-    }
-    return static_cast<int32_t>((p - (1LL << 13)) >> 14);
+    const int64_t sign_mask = p >> 63;
+    const int64_t bias =
+        ((static_cast<int64_t>(1) << 13) ^ sign_mask) - sign_mask;
+    return static_cast<int32_t>((p + bias) >> 14);
 }
 
 // --- Q14 per-chip path (레거시 Apply/Advance 정수 수식) ---
