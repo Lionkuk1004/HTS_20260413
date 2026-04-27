@@ -62,7 +62,8 @@ constexpr int32_t GRAVITY_SPIKE_THR_Q8 = 500;
 // ============================================================
 
 /// 6면 Gravity Cube 평가
-/// 입력: V5a + PaCD 적용된 chip 데이터 (128 chip preamble)
+/// 입력: V5a + PaCD 적용된 chip I/Q, 4×64 템플릿 I (`tx_pre_tmpl_I` 연속 256 int16)
+/// `rx_chip_count`: 유효 RX 칩 수 — ab19 윈도우 상관에 **최소 256** 필요 (미만 시 false).
 /// 출력: cube_pass (true/false), GravityCube6 (진단용)
 ///
 /// DPTE 적용 (G-3-2):
@@ -73,6 +74,7 @@ constexpr int32_t GRAVITY_SPIKE_THR_Q8 = 500;
     const int16_t* rx_pre_I,
     const int16_t* rx_pre_Q,
     const int16_t* tx_pre_tmpl_I,
+    int32_t rx_chip_count,
     GravityCube6* out_cube) noexcept;
 
 } // namespace detail_gravity
