@@ -114,6 +114,41 @@ int test_row_detection_clean() noexcept {
     return pass;
 }
 
+int test_pte_subchip() noexcept {
+    using ProtectedEngine::detail::pn_masked_pte_subchip;
+    int pass = 0;
+    int total = 0;
+    auto check = [&](const char* name, int32_t got, int32_t exp) noexcept {
+        ++total;
+        if (got == exp) {
+            ++pass;
+            std::printf("  PTE %s: PASS (got %d)\n", name, static_cast<int>(got));
+        } else {
+            std::printf("  PTE %s: FAIL (got %d, expected %d)\n", name,
+                        static_cast<int>(got), static_cast<int>(exp));
+        }
+    };
+
+    std::printf("Test 2: pn_masked_pte_subchip (parabolic Q14)\n");
+    // y_zero peak, symmetric neighbours → offset 0
+    check("sym_peak", pn_masked_pte_subchip(100, 1000, 100), 0);
+    check("sym_peak2", pn_masked_pte_subchip(800, 1000, 800), 0);
+    // den raw 0 (flat), num 0 → finite 0
+    check("den0_flat", pn_masked_pte_subchip(500, 500, 500), 0);
+    // Integer PTE: num=1, den=6 → 16384/6
+    check("frac", pn_masked_pte_subchip(1002, 1000, 1001), 2730);
+    // Negative offset (num>0, den<0)
+    // num<0, den>0 → negative offset (den=240, C++ trunc toward zero)
+    check("neg_off", pn_masked_pte_subchip(1020, 1000, 1100), -5461);
+    // Upper clamp
+    check("clamp_hi", pn_masked_pte_subchip(100000, 0, 0), 8192);
+    // Lower clamp
+    check("clamp_lo", pn_masked_pte_subchip(0, 0, 100000), -8192);
+
+    std::printf("Result: %d/%d PTE checks PASS\n\n", pass, total);
+    return (pass == total) ? total : -1;
+}
+
 #endif  // HTS_USE_PN_MASKED
 
 }  // namespace
@@ -123,13 +158,19 @@ int main() {
     std::printf("HTS_USE_PN_MASKED not defined — test skipped\n");
     return 0;
 #else
-    std::printf("=== PN-masked unit test (Step 2) ===\n\n");
+    std::printf("=== PN-masked unit test (Step 2 + Step 4-1 PTE) ===\n\n");
     const int n = test_row_detection_clean();
-    if (n == 64) {
-        std::printf("ALL PASS — LUT first 64 chips match FWHT row basis\n");
+    const int pte = test_pte_subchip();
+    if (n == 64 && pte > 0) {
+        std::printf("ALL PASS — FWHT rows + PTE sub-chip\n");
         return 0;
     }
-    std::printf("FAIL %d/64\n", n);
+    if (n != 64) {
+        std::printf("FAIL row tests %d/64\n", n);
+    }
+    if (pte <= 0) {
+        std::printf("FAIL PTE sub-chip tests\n");
+    }
     return 1;
 #endif
 }

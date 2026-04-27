@@ -175,6 +175,42 @@ inline void pn_masked_phase0_scan(const int16_t* rx_pre_first64,
     *out_peak = max_val;
 }
 
+/// PTE Parabolic 3-point sub-chip 보간 (Q14 offset, \([-0.5,+0.5]\) chip).
+///
+/// \(\text{offset} = (y_- - y_+) / (2(y_- - 2y_0 + y_+))\), 여기서는
+/// `sub_chip_offset_q14 = (num * 2^14) / den`, `num = y_- - y_+`,
+/// `den = 2(y_- - 2y_0 + y_+)`.
+///
+/// BPTE: `den == 0` 일 때 `den := 1` (constant-time), 결과 \([-8192,8192]\) 클램프.
+/// 힙·float·제어 분기 없음, `noexcept`.
+inline int32_t pn_masked_pte_subchip(int32_t y_minus, int32_t y_zero,
+                                     int32_t y_plus) noexcept {
+    const int64_t num =
+        static_cast<int64_t>(y_minus) - static_cast<int64_t>(y_plus);
+    int64_t den = 2 * (static_cast<int64_t>(y_minus) -
+                       (static_cast<int64_t>(y_zero) << 1) +
+                       static_cast<int64_t>(y_plus));
+
+    // BPTE: den==0 → 1 ( (den|−den)>>63 가 0일 때만 den 대신 1 )
+    const int64_t den_nz = (den | (-den)) >> 63;
+    den = (den_nz & den) | ((~den_nz) & 1);
+
+    const int64_t k_q14 = static_cast<int64_t>(1) << 14;
+    const int64_t offset_q14 = (num * k_q14) / den;
+
+    // BPTE clamp upper (≤ 8192)
+    const int64_t high_diff = offset_q14 - 8192;
+    const int64_t high_mask = high_diff >> 63;
+    int64_t result = (high_mask & offset_q14) | (~high_mask & 8192);
+
+    // BPTE clamp lower (≥ -8192): low_diff = result - (-8192)
+    const int64_t low_diff = result + 8192;
+    const int64_t ge_mask = ~(low_diff >> 63);
+    result = (ge_mask & result) | (~ge_mask & (-8192));
+
+    return static_cast<int32_t>(result);
+}
+
 }  // namespace detail
 }  // namespace ProtectedEngine
 
