@@ -15,6 +15,7 @@
 #error "PC-only unit test"
 #endif
 
+#include <chrono>
 #include <cstdint>
 #include <cstdio>
 
@@ -149,6 +150,56 @@ int test_pte_subchip() noexcept {
     return (pass == total) ? total : -1;
 }
 
+/// Step 5-2: PC `pn_masked_phase0_scan` 타이밍 (KCMVP / Step 7 참고).
+static int profile_phase0_scan() noexcept {
+    using ProtectedEngine::detail::pn_masked_phase0_scan;
+    constexpr int kIterations = 100000;
+
+    int16_t test_input[64];
+    const int16_t* row0 = ::detail::GetPnMaskedPreambleI(0);
+    for (int i = 0; i < 64; ++i) {
+        test_input[i] = row0[i];
+    }
+
+    int row = 0;
+    int32_t peak = 0;
+
+    for (int it = 0; it < 1000; ++it) {
+        pn_masked_phase0_scan(test_input, &row, &peak);
+    }
+
+    const auto start = std::chrono::high_resolution_clock::now();
+    for (int it = 0; it < kIterations; ++it) {
+        pn_masked_phase0_scan(test_input, &row, &peak);
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+
+    const auto ns =
+        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
+            .count();
+
+    const double ns_per_call = static_cast<double>(ns) /
+                                static_cast<double>(kIterations);
+    const double total_ms = static_cast<double>(ns) / 1.0e6;
+
+    std::printf("\n=== Step 5-2 PC Profile ===\n");
+    std::printf("pn_masked_phase0_scan:\n");
+    std::printf("  per-call:   %.1f ns\n", ns_per_call);
+    std::printf("  iterations: %d\n", kIterations);
+    std::printf("  total:      %.2f ms\n", total_ms);
+    std::printf("  result row: %d (expected 0)\n", row);
+    std::printf("  result peak: %d\n", static_cast<int>(peak));
+
+    const double phase0_total_us = ns_per_call * 32.0 / 1000.0;
+    std::printf("\nEstimated Phase0 (32 calls @ step 2): %.1f us\n",
+                phase0_total_us);
+    const bool within_1ms = phase0_total_us <= 1000.0;
+    std::printf("  vs 1ms target (32 calls): %s (%.1f us <= 1000 us)\n",
+                within_1ms ? "PASS" : "FAIL", phase0_total_us);
+
+    return (row == 0) ? 1 : 0;
+}
+
 #endif  // HTS_USE_PN_MASKED
 
 }  // namespace
@@ -158,19 +209,26 @@ int main() {
     std::printf("HTS_USE_PN_MASKED not defined — test skipped\n");
     return 0;
 #else
-    std::printf("=== PN-masked unit test (Step 2 + Step 4-1 PTE) ===\n\n");
+    std::printf(
+        "=== PN-masked unit test (Step 2 + Step 4-1 PTE + Step 5-2 profile) "
+        "===\n\n");
     const int n = test_row_detection_clean();
     const int pte = test_pte_subchip();
-    if (n == 64 && pte > 0) {
-        std::printf("ALL PASS — FWHT rows + PTE sub-chip\n");
-        return 0;
-    }
     if (n != 64) {
         std::printf("FAIL row tests %d/64\n", n);
     }
     if (pte <= 0) {
         std::printf("FAIL PTE sub-chip tests\n");
     }
-    return 1;
+    if (n != 64 || pte <= 0) {
+        return 1;
+    }
+    const int prof = profile_phase0_scan();
+    if (prof != 1) {
+        std::printf("FAIL profile row sanity\n");
+        return 1;
+    }
+    std::printf("\nALL PASS — FWHT rows + PTE sub-chip + profile\n");
+    return 0;
 #endif
 }
