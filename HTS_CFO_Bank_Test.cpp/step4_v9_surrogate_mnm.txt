@@ -1,0 +1,10 @@
+STEP4_BUILD_TAG=MNM_HTSCFOV5A_ESTIMATE
+STEP4_TRIALS=200 CFO_points=27 (surrogate, not archived V9)
+--- Rows: SNR-only surrogate labels (see source comment) ---
+LVL1_NORMAL(sur)       snr=30 dB cfg_trials=200 pool_n=  5400 | mean_hz=   -1.28 mean_abs_hz=   23.07 std_hz=   28.81 max_abs_hz=     98.0 pass200_pct=100.0
+LVL2_URBAN(sur)        snr=24 dB cfg_trials=200 pool_n=  5400 | mean_hz=   -0.85 mean_abs_hz=   44.55 std_hz=   55.39 max_abs_hz=    194.0 pass200_pct=100.0
+LVL3_INDUSTRIAL(sur)   snr=18 dB cfg_trials=200 pool_n=  5400 | mean_hz=   +0.43 mean_abs_hz=   85.76 std_hz=  106.94 max_abs_hz=    389.0 pass200_pct= 94.0
+LVL4_MILITARY(sur)     snr=12 dB cfg_trials=200 pool_n=  5400 | mean_hz=   +2.22 mean_abs_hz=  163.96 std_hz=  203.75 max_abs_hz=    712.0 pass200_pct= 66.1
+LVL5_EXTREME(sur)      snr= 6 dB cfg_trials=200 pool_n=  5400 | mean_hz=   +6.36 mean_abs_hz=  319.67 std_hz=  402.18 max_abs_hz=   1578.0 pass200_pct= 38.5
+--- AMI surrogate: AWGN 30 dB + CFO ~ N(0,3000^2) Hz ---
+AMI_GAUSS_3KHZ(sur)    snr=30 dB cfg_trials=200 pool_n=   200 | mean_hz=   -1.68 mean_abs_hz=   27.38 std_hz=   32.99 max_abs_hz=     84.9 pass200_pct=100.0

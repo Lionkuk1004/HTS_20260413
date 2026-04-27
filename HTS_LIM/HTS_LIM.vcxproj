@@ -494,6 +494,7 @@
     <ClInclude Include="HTS_V400_Dispatcher.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher_Internal.hpp" />
     <ClInclude Include="HTS_V400_Dispatcher_PaCD.hpp" />
+    <ClInclude Include="HTS_V400_Dispatcher_PNMasked.hpp" />
     <ClInclude Include="HTS_V400_FWHT_Int16Scale.hpp" />
     <ClInclude Include="HTS_Voice_Codec_Bridge.h" />
     <ClInclude Include="HTS_Voice_Codec_Bridge_Defs.h" />
@@ -533,6 +534,8 @@
     <None Include="HTS_Universal_Adapter.def" />
     <None Include="HTS_Universal_API.def" />
     <None Include="HTS_V400_Dispatcher.cpp.pre_split_backup" />
+    <None Include="HTS_V400_Dispatcher_PNMasked_DESIGN.md" />
+    <None Include="HTS_V400_Dispatcher_PNMasked_KCMVP_TIMING.md" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

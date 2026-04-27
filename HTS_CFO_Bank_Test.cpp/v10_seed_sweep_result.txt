@@ -1,0 +1,21 @@
+=== Step 2D SEED mismatch sweep (cfo=0, timing=0, psi=0, SNR=30 dB) ===
+TX master_seed[0..3] = DEADBEEF 9E2779B9 A5A5A5A5 C3D3C3C3 (fixed); RX differs only in [0] unless noted.
+SEED drives Holo4D_Generate_Partitioned_Params + Holo4D_Generate_Phase_Mask (TX/RX .cpp).
+dec/sync = decode perfect / HOLO sync pass (of 100)
+
+name                             | RX[0]    | dec/100 | sync/100 | tag
+--------------------------------+----------+---------+----------+------
+match (baseline)                 | DEADBEEF | 100/100 | 100/100 | OK
+1 bit (LSB)                      | DEADBEEE |   0/100 | 100/100 | cliff
+literal 0xDEADBEED               | DEADBEED |   0/100 | 100/100 | cliff
+literal 0xDEADBEFF               | DEADBEFF |   0/100 | 100/100 | cliff
+1 bit (bit 3)                    | DEADBEE7 |   0/100 | 100/100 | cliff
+1 bit (bit 7)                    | DEADBE6F |   0/100 | 100/100 | cliff
+1 bit (bit 15)                   | DEAD3EEF |   0/100 | 100/100 | cliff
+1 bit (bit 23)                   | DE2DBEEF |   0/100 | 100/100 | cliff
+1 bit (bit 31)                   | 5EADBEEF |   0/100 | 100/100 | cliff
+XOR 0xFF (low 8)                 | DEADBE10 |   0/100 | 100/100 | cliff
+XOR 0xFFFF (low 16)              | DEAD4110 |   0/100 | 100/100 | cliff
+XOR 0xFFFFFFFF (invert w0)       | 21524110 |   0/100 | 100/100 | cliff
+completely different w0          | 12345678 |   0/100 | 100/100 | cliff
+--------------------------------+----------+---------+----------+------

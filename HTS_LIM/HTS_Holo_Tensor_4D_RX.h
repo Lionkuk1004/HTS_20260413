@@ -45,6 +45,18 @@ namespace ProtectedEngine {
             int8_t*                 output_bits_cand1,
             uint16_t                K) noexcept;
 
+        /// Decode_Block_Two_Candidates 와 동일 + 내부 accum metric(K개 int32)를 Wipe 전에 복사.
+        /// 4D 다이버시티(B') 합산은 호출측에서 int64 등으로 누적 권장.
+        uint32_t Decode_Block_Two_Candidates_With_Metric(
+            const int16_t*        rx_I,
+            const int16_t*        rx_Q,
+            uint16_t                N,
+            uint64_t                valid_mask,
+            int8_t*                 output_bits_cand0,
+            int8_t*                 output_bits_cand1,
+            int32_t*                output_metric,
+            uint16_t                K) noexcept;
+
         /// Two_Candidates 후 CRC 콜백으로 단일 출력 선택(레거시·단위 테스트용).
         uint32_t Decode_Block_With_Phase(
             const int16_t*        rx_I,
@@ -79,7 +91,8 @@ namespace ProtectedEngine {
             uint64_t valid_mask,
             int8_t* output_bits_cand0,
             int8_t* output_bits_cand1,
-            uint16_t K) noexcept;
+            uint16_t K,
+            int32_t* output_metric) noexcept;
         alignas(4) uint8_t  impl_buf_[IMPL_BUF_SIZE];
         std::atomic<bool>  initialized_{ false };
         mutable std::atomic_flag op_busy_ = ATOMIC_FLAG_INIT;

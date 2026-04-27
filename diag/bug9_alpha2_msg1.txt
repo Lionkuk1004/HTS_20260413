@@ -1,0 +1,5 @@
+[BUG-9] RX_4D: Decode_Block I/Q overload for phase tracking
+
+- Decode_Block(rx_I, rx_Q, N, mask, out, K): pilot vector + sub-block derotate
+- Cordic atan2 Q16 + Cos_Q15/Sin_Q15; existing 1D Decode_Block unchanged
+- TX unchanged

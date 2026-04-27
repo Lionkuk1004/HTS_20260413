@@ -1,22 +1,26 @@
 // ============================================================================
-// HTS_CFO_Bank_Test.cpp — Phase H Lab: V5a + 4D Tensor Integration
+// HTS_CFO_Bank_Test.cpp — Phase H Lab v3
+// ★★★ Decode_Block_Two_Candidates 연결 (양산 RX derotate + BPSK 양 후보)
+// ★★ 50Hz/100Hz 풀 정밀 sweep (v2 유지, 301점)
 // ============================================================================
-// 영준님 격리 실험 환경
 // 목적:
 //   - V5a CFO 보정 + HTS_Holo_Tensor_4D 디코딩 통합
 //   - HOLO sync ON/OFF 분기 (S5/S5H 시뮬)
-//   - rx_soft 변환 빠른 실험 ((I+Q)/2 vs I-only vs 기타)
-//   - cfo sweep 측정 → 진짜 FAIL 위치 식별
+//   - cfo sweep 측정 → cliff/회복 식별
 //
-// 영준님 의도:
-//   Cursor 거치지 않고 VS 에서 직접 빠른 iteration
-//   영준님 코드 직접 인용 (TX I=Q duplicated, RX (I+Q)/2)
-//   메인트리 영향 0 (격리 환경)
+// 변경점 (2026-04-26 v3):
+//   - 기존: rx_tensor.Decode_Block(rx_soft, ...)  ← 단순 1D
+//   - 변경: rx_tensor.Decode_Block_Two_Candidates(corr_I, corr_Q, ...)
+//           ← 양산 derotate + BPSK cand0/cand1 양 후보
+//   - Lab: cand0/cand1 중 data_bits 대비 bit_err 작은 쪽 선택
+//     (양산은 CRC 또는 known reference; 여기서는 측정용 ground truth)
 //
-// 영준님 메모리 #7, #8, #9 준수:
-//   #7 BPTE: 분기 없는 패턴
-//   #8 측정 기반: 추측 금지
-//   #9 DPTE 양산 도구셋
+// 컴파일 옵션 (RX TU / Lab vcxproj):
+//   /DHTS_HOLO_RX_PHASE_B_DEROTATE  ← 양산 derotate ON (default OFF)
+//
+// kCfoSweepList (v2): 0~5000Hz @50Hz, 5100~25000Hz @100Hz, 예상 ~38분
+//
+// 영준님 메모리 #7, #8, #9 준수: BPTE 패턴, 측정 기반, DPTE 양산 도구셋
 // ============================================================================
 #include <bit>
 #include <cmath>
@@ -27,18 +31,321 @@
 // 영준님 4D 텐서 헤더 (메인트리 그대로 사용) — <windows.h> 전에 include 하여
 // SAL/Windows 매크로(_Order 등)가 <atomic>·표준 머신 헤더를 깨는 것을 방지
 // ──────────────────────────────────────────────────────────
-#include "../HTS_LIM/HTS_Holo_Tensor_4D_TX.h"
-#include "../HTS_LIM/HTS_Holo_Tensor_4D_RX.h"
 #include "../HTS_LIM/HTS_Holo_Tensor_4D_Defs.h"
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_RX.h"
+#include "../HTS_LIM/HTS_Holo_Tensor_4D_TX.h"
 #include <windows.h>
 using namespace ProtectedEngine;
 // ============================================================================
 // ★★★ 영준님 수정 가능 영역 (실험 파라미터) ★★★
 // ============================================================================
 namespace ExperimentConfig {
-// CFO sweep 범위 (Hz)
-constexpr int kCfoSweepList[] = {0,   50,   100,  200,  300, 500,
-                                 700, 1000, 2000, 3000, 5000};
+// ★★ 풀 정밀 CFO sweep — 50Hz/100Hz 단위 (총 301 점)
+constexpr int kCfoSweepList[] = {
+    // 저~중 CFO 정밀 (0~5000Hz, 50Hz step) — 101 점
+    0,
+    50,
+    100,
+    150,
+    200,
+    250,
+    300,
+    350,
+    400,
+    450,
+    500,
+    550,
+    600,
+    650,
+    700,
+    750,
+    800,
+    850,
+    900,
+    950,
+    1000,
+    1050,
+    1100,
+    1150,
+    1200,
+    1250,
+    1300,
+    1350,
+    1400,
+    1450,
+    1500,
+    1550,
+    1600,
+    1650,
+    1700,
+    1750,
+    1800,
+    1850,
+    1900,
+    1950,
+    2000,
+    2050,
+    2100,
+    2150,
+    2200,
+    2250,
+    2300,
+    2350,
+    2400,
+    2450,
+    2500,
+    2550,
+    2600,
+    2650,
+    2700,
+    2750,
+    2800,
+    2850,
+    2900,
+    2950,
+    3000,
+    3050,
+    3100,
+    3150,
+    3200,
+    3250,
+    3300,
+    3350,
+    3400,
+    3450,
+    3500,
+    3550,
+    3600,
+    3650,
+    3700,
+    3750,
+    3800,
+    3850,
+    3900,
+    3950,
+    4000,
+    4050,
+    4100,
+    4150,
+    4200,
+    4250,
+    4300,
+    4350,
+    4400,
+    4450,
+    4500,
+    4550,
+    4600,
+    4650,
+    4700,
+    4750,
+    4800,
+    4850,
+    4900,
+    4950,
+    5000,
+    // 고 CFO 정밀 (5100~25000Hz, 100Hz step) — 200 점
+    5100,
+    5200,
+    5300,
+    5400,
+    5500,
+    5600,
+    5700,
+    5800,
+    5900,
+    6000,
+    6100,
+    6200,
+    6300,
+    6400,
+    6500,
+    6600,
+    6700,
+    6800,
+    6900,
+    7000,
+    7100,
+    7200,
+    7300,
+    7400,
+    7500,
+    7600,
+    7700,
+    7800,
+    7900,
+    8000,
+    8100,
+    8200,
+    8300,
+    8400,
+    8500,
+    8600,
+    8700,
+    8800,
+    8900,
+    9000,
+    9100,
+    9200,
+    9300,
+    9400,
+    9500,
+    9600,
+    9700,
+    9800,
+    9900,
+    10000,
+    10100,
+    10200,
+    10300,
+    10400,
+    10500,
+    10600,
+    10700,
+    10800,
+    10900,
+    11000,
+    11100,
+    11200,
+    11300,
+    11400,
+    11500,
+    11600,
+    11700,
+    11800,
+    11900,
+    12000,
+    12100,
+    12200,
+    12300,
+    12400,
+    12500,
+    12600,
+    12700,
+    12800,
+    12900,
+    13000,
+    13100,
+    13200,
+    13300,
+    13400,
+    13500,
+    13600,
+    13700,
+    13800,
+    13900,
+    14000,
+    14100,
+    14200,
+    14300,
+    14400,
+    14500,
+    14600,
+    14700,
+    14800,
+    14900,
+    15000,
+    15100,
+    15200,
+    15300,
+    15400,
+    15500,
+    15600,
+    15700,
+    15800,
+    15900,
+    16000,
+    16100,
+    16200,
+    16300,
+    16400,
+    16500,
+    16600,
+    16700,
+    16800,
+    16900,
+    17000,
+    17100,
+    17200,
+    17300,
+    17400,
+    17500,
+    17600,
+    17700,
+    17800,
+    17900,
+    18000,
+    18100,
+    18200,
+    18300,
+    18400,
+    18500,
+    18600,
+    18700,
+    18800,
+    18900,
+    19000,
+    19100,
+    19200,
+    19300,
+    19400,
+    19500,
+    19600,
+    19700,
+    19800,
+    19900,
+    20000,
+    20100,
+    20200,
+    20300,
+    20400,
+    20500,
+    20600,
+    20700,
+    20800,
+    20900,
+    21000,
+    21100,
+    21200,
+    21300,
+    21400,
+    21500,
+    21600,
+    21700,
+    21800,
+    21900,
+    22000,
+    22100,
+    22200,
+    22300,
+    22400,
+    22500,
+    22600,
+    22700,
+    22800,
+    22900,
+    23000,
+    23100,
+    23200,
+    23300,
+    23400,
+    23500,
+    23600,
+    23700,
+    23800,
+    23900,
+    24000,
+    24100,
+    24200,
+    24300,
+    24400,
+    24500,
+    24600,
+    24700,
+    24800,
+    24900,
+    25000,
+};
 constexpr int kCfoSweepCount = sizeof(kCfoSweepList) / sizeof(int);
 // 트라이얼 수
 constexpr int kNumTrials = 100;
@@ -61,15 +368,6 @@ constexpr bool kEnableHoloSync = false; // ★ 영준님 변경 가능
 constexpr int kHoloSyncE63Threshold = kAmp * 38;
 // Channel chip rate
 constexpr double kChipRateHz = 1e6;
-// rx_soft 변환 모드
-//   0: (I+Q)/2 (현재 메인트리, 학계 MRC)
-//   1: I 만
-//   2: Q 만 (테스트)
-//   3: |I| > |Q| 시 I, 아니면 Q (dominant)
-//   4: I + Q (단순 합)
-constexpr int kRxSoftMode = 0; // ★ 영준님 변경 가능
-// BPTE chip validity threshold (0 = 모두 valid)
-constexpr int32_t kChipValidThreshold = 0; // ★ 영준님 변경 가능
 } // namespace ExperimentConfig
 // ============================================================================
 // Sin/Cos LUT (Q14)
@@ -260,64 +558,11 @@ static void generate_holo_preamble(int16_t *tx_I, int16_t *tx_Q,
     }
 }
 // ============================================================================
-// rx_soft 생성 (★ 영준님 수정 가능)
-// ============================================================================
-static void rx_soft_generate(const int16_t *buf_I, const int16_t *buf_Q,
-                             int16_t *rx_soft, int N,
-                             uint64_t *out_valid_mask) noexcept {
-    uint64_t valid_mask = 0u;
-    for (int c = 0; c < N; ++c) {
-        const int32_t i_val = static_cast<int32_t>(buf_I[c]);
-        const int32_t q_val = static_cast<int32_t>(buf_Q[c]);
-        // BPTE chip validity (영준님 메모리 #7)
-        int32_t valid_chip;
-        if (ExperimentConfig::kChipValidThreshold > 0) {
-            const int32_t mag_sq = i_val * i_val + q_val * q_val;
-            const int64_t diff =
-                static_cast<int64_t>(mag_sq) -
-                static_cast<int64_t>(ExperimentConfig::kChipValidThreshold);
-            valid_chip = static_cast<int32_t>(~(diff >> 63));
-        } else {
-            valid_chip = -1; // all 1s (모두 valid)
-        }
-        // rx_soft 변환 (모드 별)
-        int32_t soft;
-        switch (ExperimentConfig::kRxSoftMode) {
-        case 0: // (I+Q)/2 — 메인트리 현재
-            soft = (i_val + q_val) / 2;
-            break;
-        case 1: // I 만
-            soft = i_val;
-            break;
-        case 2: // Q 만
-            soft = q_val;
-            break;
-        case 3: { // dominant (|I| > |Q| 시 I)
-            const int32_t abs_i = (i_val < 0) ? -i_val : i_val;
-            const int32_t abs_q = (q_val < 0) ? -q_val : q_val;
-            soft = (abs_i > abs_q) ? i_val : q_val;
-            break;
-        }
-        case 4: // I + Q
-            soft = i_val + q_val;
-            break;
-        default:
-            soft = (i_val + q_val) / 2;
-            break;
-        }
-        // BPTE invalidation
-        rx_soft[c] = static_cast<int16_t>(soft & valid_chip);
-        // valid_mask 갱신
-        valid_mask |= (static_cast<uint64_t>(valid_chip & 1u)
-                       << static_cast<uint32_t>(c));
-    }
-    *out_valid_mask = valid_mask;
-}
-// ============================================================================
 // TX (영준님 Build_Packet 의 4D 텐서 분기 직접 포팅)
 // ============================================================================
-static int tx_build_tensor(HTS_Holo_Tensor_4D_TX &tensor, const int8_t *data_bits,
-                           int16_t *tx_I, int16_t *tx_Q, int amp) noexcept {
+static int tx_build_tensor(HTS_Holo_Tensor_4D_TX &tensor,
+                           const int8_t *data_bits, int16_t *tx_I,
+                           int16_t *tx_Q, int amp) noexcept {
     int8_t chip_bpsk[64];
     if (tensor.Encode_Block(
             data_bits, static_cast<uint16_t>(ExperimentConfig::kK), chip_bpsk,
@@ -352,7 +597,7 @@ struct TestResult {
     int total_bits;
 };
 // ============================================================================
-// CFO Sweep 측정 (한 SNR)
+// CFO Sweep 측정 (한 SNR) — Decode_Block_Two_Candidates + Lab 후보 선택
 // ============================================================================
 static TestResult run_one_cfo(int cfo_hz, int snr_db, int num_trials) {
     TestResult res = {0, 0, 0, 0};
@@ -431,29 +676,32 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, int num_trials) {
             std::memcpy(corr_I, rx_I, sizeof(corr_I));
             std::memcpy(corr_Q, rx_Q, sizeof(corr_Q));
         }
-        // RX rx_soft 생성 (★ 영준님 수정 가능 영역)
-        int16_t rx_soft[64];
-        uint64_t valid_mask = 0xFFFFFFFFFFFFFFFFull;
-        rx_soft_generate(corr_I, corr_Q, rx_soft, ExperimentConfig::kN,
-                         &valid_mask);
-        // 4D 텐서 디코딩
+        // ★ 양산 RX: I/Q → (선택 derotate) → Walsh; φ / φ+π 후보 동시 반환
         rx_tensor.Set_Time_Slot(static_cast<uint32_t>(trial));
-        int8_t output_bits[16];
-        if (rx_tensor.Decode_Block(
-                rx_soft, static_cast<uint16_t>(ExperimentConfig::kN),
-                valid_mask, output_bits,
+        int8_t bits_cand0[16];
+        int8_t bits_cand1[16];
+        const uint64_t valid_mask = 0xFFFFFFFFFFFFFFFFull;
+        if (rx_tensor.Decode_Block_Two_Candidates(
+                corr_I, corr_Q,
+                static_cast<uint16_t>(ExperimentConfig::kN), valid_mask,
+                bits_cand0, bits_cand1,
                 static_cast<uint16_t>(ExperimentConfig::kK)) !=
             HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
             res.total_bits += ExperimentConfig::kK;
             res.total_bit_err += ExperimentConfig::kK;
             continue;
         }
-        // 검증
-        int bit_err = 0;
+        // Lab: CRC 없음 → ground truth 대비 bit_err 작은 후보 (양산과 구분)
+        int bit_err_0 = 0;
+        int bit_err_1 = 0;
         for (int i = 0; i < ExperimentConfig::kK; ++i) {
-            if (output_bits[i] != data_bits[i])
-                ++bit_err;
+            if (bits_cand0[i] != data_bits[i])
+                ++bit_err_0;
+            if (bits_cand1[i] != data_bits[i])
+                ++bit_err_1;
         }
+        const int bit_err =
+            (bit_err_0 <= bit_err_1) ? bit_err_0 : bit_err_1;
         res.total_bit_err += bit_err;
         res.total_bits += ExperimentConfig::kK;
         if (bit_err == 0)
@@ -464,25 +712,6 @@ static TestResult run_one_cfo(int cfo_hz, int snr_db, int num_trials) {
     return res;
 }
 // ============================================================================
-// rx_soft 모드 이름
-// ============================================================================
-static const char *rx_soft_mode_name(int mode) {
-    switch (mode) {
-    case 0:
-        return "(I+Q)/2";
-    case 1:
-        return "I only";
-    case 2:
-        return "Q only";
-    case 3:
-        return "dominant";
-    case 4:
-        return "I+Q";
-    default:
-        return "unknown";
-    }
-}
-// ============================================================================
 // 메인 (test_holo_tensor_cfo_sweep)
 // ============================================================================
 void test_holo_tensor_cfo_sweep() {
@@ -491,13 +720,25 @@ void test_holo_tensor_cfo_sweep() {
     std::printf(
         "============================================================\n");
     std::printf(
-        "  Phase H Lab: V5a + 4D Tensor CFO Sweep (영준님 격리 환경)\n");
+        "  Phase H Lab v3: V5a + 4D Tensor (Two_Candidates 연결)\n");
+    std::printf("  ★ 양산 RX Decode_Block_Two_Candidates 호출\n");
+    std::printf("  ★ HTS_HOLO_RX_PHASE_B_DEROTATE (이 TU): %s\n",
+#if defined(HTS_HOLO_RX_PHASE_B_DEROTATE)
+                "ON (양산 derotate 활성)"
+#else
+                "OFF (derotate 비활성)"
+#endif
+    );
+    std::printf(
+        "     실제 derotate는 HTS_LIM 빌드 시 RX.cpp에 동일 매크로 필요\n");
     std::printf(
         "============================================================\n");
-    std::printf("Profile: K=%d, N=%d, L=%d (영준님 4D 텐서 default)\n",
+    std::printf("Profile: K=%d, N=%d, L=%d\n",
                 ExperimentConfig::kK, ExperimentConfig::kN,
                 ExperimentConfig::kL);
     std::printf("Trials per (cfo, SNR): %d\n", ExperimentConfig::kNumTrials);
+    std::printf("CFO sweep points: %d (0~5000Hz @50Hz, 5100~25000Hz @100Hz)\n",
+                ExperimentConfig::kCfoSweepCount);
     std::printf("Chip rate: %.0f Hz (1 MHz 가정)\n",
                 ExperimentConfig::kChipRateHz);
     std::printf("V5a correction: %s\n",
@@ -505,12 +746,7 @@ void test_holo_tensor_cfo_sweep() {
     std::printf("HOLO sync: %s (S%s sim)\n",
                 ExperimentConfig::kEnableHoloSync ? "ON" : "OFF",
                 ExperimentConfig::kEnableHoloSync ? "5H" : "5");
-    std::printf("rx_soft mode: %d (%s)\n", ExperimentConfig::kRxSoftMode,
-                rx_soft_mode_name(ExperimentConfig::kRxSoftMode));
-    std::printf("ChipValidThreshold: %d %s\n",
-                static_cast<int>(ExperimentConfig::kChipValidThreshold),
-                ExperimentConfig::kChipValidThreshold == 0 ? "(all valid)"
-                                                           : "");
+    std::printf("예상 시간: ~38 분 (3 SNR x 100 trial x 301 cfo)\n");
     std::printf(
         "============================================================\n\n");
     // 헤더
@@ -542,20 +778,28 @@ void test_holo_tensor_cfo_sweep() {
                     : "");
         }
         std::printf("\n");
+        // 매 50 점마다 fflush (긴 실행 중 부분 결과 보존)
+        if ((c + 1) % 50 == 0) {
+            std::fflush(stdout);
+        }
     }
     std::printf("\n");
     std::printf("Notes:\n");
     std::printf("  sync = HOLO sync 통과 수 (HOLO sync OFF 시 N/N)\n");
-    std::printf("  dec  = 디코딩 100%% 성공 수\n");
+    std::printf("  dec  = 디코딩 100%% 성공 수 (Two_Candidates + min bit_err)\n");
     std::printf("  BER  = Bit Error Rate\n");
     std::printf("  OK   = decode >= 95%%\n");
     std::printf("\n");
-    std::printf("영준님 실험:\n");
-    std::printf("  1. kEnableHoloSync = false → S5 시뮬\n");
-    std::printf("  2. kEnableHoloSync = true  → S5H 시뮬\n");
-    std::printf("  3. kRxSoftMode 변경 (0~4)\n");
-    std::printf("  4. kChipValidThreshold 변경\n");
-    std::printf("  5. F5 빠른 재실행\n");
+    std::printf("  ★ Decode_Block_Two_Candidates (양산 RX 경로)\n");
+    std::printf("  ★ cand0/cand1 → ground truth 대비 bit_err 작은 쪽 (Lab 전용)\n");
+    std::printf("  ★ HTS_HOLO_RX_PHASE_B_DEROTATE 로 derotate ON/OFF\n");
+    std::printf("\n");
+    std::printf("실험 매트릭스:\n");
+    std::printf("  실험 1: 매크로 OFF + V5a ON  (Two_C only, baseline)\n");
+    std::printf("  실험 2: 매크로 ON  + V5a ON  (양산 풀 경로)\n");
+    std::printf("  실험 3: 매크로 ON  + V5a OFF (derotate 단독 효과)\n");
+    std::printf("\n");
+    std::printf("  kEnableHoloSync: false=S5, true=S5H (preamble+threshold)\n");
     std::printf(
         "============================================================\n");
 }

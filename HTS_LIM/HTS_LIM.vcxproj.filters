@@ -423,6 +423,9 @@
     <ClCompile Include="HTS_Preamble_Holographic.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_PaCD.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="HTS_Anchor_Vault.hpp">
@@ -956,6 +959,12 @@
     <ClInclude Include="HTS_Preamble_Holographic.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
+    <ClInclude Include="HTS_V400_Dispatcher_PaCD.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_V400_Dispatcher_PNMasked.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <Text Include="Hts session15 handoff · MD" />
@@ -976,5 +985,7 @@
     <None Include=".audit_log.md" />
     <None Include="cpp.hint" />
     <None Include="HTS_V400_Dispatcher.cpp.pre_split_backup" />
+    <None Include="HTS_V400_Dispatcher_PNMasked_KCMVP_TIMING.md" />
+    <None Include="HTS_V400_Dispatcher_PNMasked_DESIGN.md" />
   </ItemGroup>
 </Project>

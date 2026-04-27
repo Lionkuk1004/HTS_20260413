@@ -344,7 +344,8 @@ namespace ProtectedEngine {
         uint16_t N, uint64_t valid_mask,
         int8_t* output_bits_cand0,
         int8_t* output_bits_cand1,
-        uint16_t K) noexcept
+        uint16_t K,
+        int32_t* output_metric) noexcept
     {
         if (output_bits_cand0 == nullptr || output_bits_cand1 == nullptr) {
             return HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
@@ -470,6 +471,13 @@ namespace ProtectedEngine {
                 1 - 2 * static_cast<int32_t>(sign_bit));
             output_bits_cand0[static_cast<size_t>(k)] = b0;
             output_bits_cand1[static_cast<size_t>(k)] = static_cast<int8_t>(-b0);
+        }
+
+        if (output_metric != nullptr) {
+            for (uint16_t k = 0u; k < K_eff; ++k) {
+                output_metric[static_cast<size_t>(k)] =
+                    im->accum[static_cast<size_t>(k)];
+            }
         }
 
         SecureMemory::secureWipe(static_cast<void*>(der_I), sizeof(der_I));
@@ -657,7 +665,36 @@ namespace ProtectedEngine {
         }
         const uint32_t ok = detail_holo4d_decode_two_candidates(
             *this, im, rx_I, rx_Q, N, valid_mask, output_bits_cand0, output_bits_cand1,
-            K);
+            K, nullptr);
+        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        if (ok == SECURE_TRUE) { ++im->decode_count; }
+        return ok;
+    }
+
+    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_Two_Candidates_With_Metric(
+        const int16_t* rx_I, const int16_t* rx_Q,
+        uint16_t N, uint64_t valid_mask,
+        int8_t* output_bits_cand0,
+        int8_t* output_bits_cand1,
+        int32_t* output_metric,
+        uint16_t K) noexcept
+    {
+        if (rx_I == nullptr) { return SECURE_FALSE; }
+        if (rx_Q == nullptr) { return SECURE_FALSE; }
+        if (output_bits_cand0 == nullptr) { return SECURE_FALSE; }
+        if (output_bits_cand1 == nullptr) { return SECURE_FALSE; }
+        if (output_metric == nullptr) { return SECURE_FALSE; }
+        Holo4D_RX_Busy_Guard g(op_busy_);
+        if (!g.locked) { return SECURE_FALSE; }
+        if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
+        Impl* im = reinterpret_cast<Impl*>(impl_buf_);
+        if (Holo4D_Cfi_Transition(
+            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
+            return SECURE_FALSE;
+        }
+        const uint32_t ok = detail_holo4d_decode_two_candidates(
+            *this, im, rx_I, rx_Q, N, valid_mask, output_bits_cand0, output_bits_cand1,
+            K, output_metric);
         Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;
@@ -683,7 +720,7 @@ namespace ProtectedEngine {
         int8_t b0[HOLO_MAX_BLOCK_BITS];
         int8_t b1[HOLO_MAX_BLOCK_BITS];
         const uint32_t ok = detail_holo4d_decode_two_candidates(
-            *this, im, rx_I, rx_Q, N, valid_mask, b0, b1, K);
+            *this, im, rx_I, rx_Q, N, valid_mask, b0, b1, K, nullptr);
         if (ok != SECURE_TRUE) {
             Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
             return ok;

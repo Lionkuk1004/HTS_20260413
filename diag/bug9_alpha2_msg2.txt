@@ -1,0 +1,5 @@
+[BUG-9] Callers: switch Decode_Block to I/Q overload
+
+- HTS_V400_Dispatcher_Payload.cpp: buf_I_/buf_Q_
+- HTS_CFO_Bank_Test.cpp: corr_I/corr_Q; SECURE_TRUE from RX
+- HTS_Holo_Dispatcher.cpp: per-block rx_I/rx_Q slice

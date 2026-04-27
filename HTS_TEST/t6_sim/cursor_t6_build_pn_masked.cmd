@@ -1,5 +1,8 @@
 @echo off
-REM HTS_T6_SIM_Test_pn.exe — cursor_t6_build.cmd + /DHTS_USE_PN_MASKED (Step 6-2 회귀)
+REM HTS_T6_SIM_Test_pn.exe — Walsh/PSLTE default + /DHTS_USE_PN_MASKED (Step 6-2/7-2)
+REM 조합: Holo+PN → cursor_t6_build_holo_pn_masked.cmd
+REM       PaCD+PN → cursor_t6_build_pacd_pn_masked.cmd
+REM       Holo+PaCD+PN → cursor_t6_build_holo_pacd_pn_masked.cmd
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
