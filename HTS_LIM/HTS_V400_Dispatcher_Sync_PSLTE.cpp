@@ -2951,6 +2951,15 @@ int32_t HTS_V400_Dispatcher::Get_Estimated_Timing_Offset_Q16() const noexcept {
 void HTS_V400_Dispatcher::mf_reset_() noexcept {
     std::memset(mf_recv_I_q16_, 0, sizeof(mf_recv_I_q16_));
     std::memset(mf_recv_Q_q16_, 0, sizeof(mf_recv_Q_q16_));
+    SecureMemory::secureWipe(static_cast<void*>(mf_ref_q16_),
+                             sizeof(mf_ref_q16_));
+    SecureMemory::secureWipe(static_cast<void*>(mf_corr_I_),
+                             sizeof(mf_corr_I_));
+    SecureMemory::secureWipe(static_cast<void*>(mf_corr_Q_),
+                             sizeof(mf_corr_Q_));
+    SecureMemory::secureWipe(static_cast<void*>(mf_envelope_),
+                             sizeof(mf_envelope_));
+    mf_ref_ready_ = false;
     mf_recv_count_ = 0u;
     mf_synced_ = false;
     mf_estimated_offset_q16_ = 0;
@@ -2977,10 +2986,41 @@ uint32_t HTS_V400_Dispatcher::mf_envelope_combine_(
 }
 
 void HTS_V400_Dispatcher::mf_generate_reference_(uint32_t rx_seq) noexcept {
+    static constexpr uint32_t kN = 64u;
+#if defined(HTS_USE_PN_MASKED) && HTS_USE_PN_MASKED
+    // MF 기준: PN-masked 프리앰블 **첫 64칩**(양산 LUT, `pn_masked_get_device_row`).
+    {
+        const int row =
+            ProtectedEngine::detail::pn_masked_get_device_row();
+        const int16_t* const pre_I = ::detail::GetPnMaskedPreambleI(row);
+        int32_t max_abs = 1;
+        for (uint32_t i = 0u; i < kN; ++i) {
+            const int32_t v =
+                static_cast<int32_t>(pre_I[static_cast<int>(i)]);
+            const int32_t av = (v < 0) ? -v : v;
+            if (av > max_abs) {
+                max_abs = av;
+            }
+        }
+        if (max_abs == 0) {
+            max_abs = 1;
+        }
+        for (uint32_t i = 0u; i < kN; ++i) {
+            const int32_t v =
+                static_cast<int32_t>(pre_I[static_cast<int>(i)]);
+            const int32_t scaled =
+                (v * static_cast<int32_t>(0x7FFF)) / max_abs;
+            mf_ref_q16_[i] = scaled << 16;
+        }
+        (void)mf_engine_.Set_Reference_Sequence(mf_ref_q16_, kN);
+        mf_ref_rx_seq_ = rx_seq;
+        mf_ref_ready_ = true;
+        return;
+    }
+#endif
     static constexpr int8_t kPreambleData[16] = {
         1, -1, 1, 1, -1, 1, -1, 1, 1, -1, -1, 1, -1, -1, 1, 1
     };
-    static constexpr uint32_t kN = 64u;
 
     MF_PRNG_State rng{};
     mf_prng_init_(rng, seed_, rx_seq);

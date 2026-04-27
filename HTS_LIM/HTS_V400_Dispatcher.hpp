@@ -83,6 +83,7 @@
 #endif
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
 #include "HTS_Rx_Matched_Filter.h"
+#include "HTS_Dynamic_Config.h"
 #endif
 #ifdef HTS_USE_HOLOGRAPHIC_SYNC
 #include "HTS_Preamble_Holographic.h"
