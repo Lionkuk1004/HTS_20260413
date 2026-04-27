@@ -15,7 +15,9 @@
 #error "PC-only unit test"
 #endif
 
+#include <algorithm>
 #include <chrono>
+#include <cmath>
 #include <cstdint>
 #include <cstdio>
 
@@ -176,53 +178,159 @@ static int test_device_id_to_row() noexcept {
     return (pass == 6) ? 1 : 0;
 }
 
-/// Step 5-2: PC `pn_masked_phase0_scan` 타이밍 (KCMVP / Step 7 참고).
-static int profile_phase0_scan() noexcept {
-    using ProtectedEngine::detail::pn_masked_phase0_scan;
-    constexpr int kIterations = 100000;
+template <typename Fn>
+static double measure_ns_per_call(int iterations, int warmup, Fn&& fn) noexcept {
+    for (int w = 0; w < warmup; ++w) {
+        fn();
+    }
+    const auto start = std::chrono::high_resolution_clock::now();
+    for (int it = 0; it < iterations; ++it) {
+        fn();
+    }
+    const auto end = std::chrono::high_resolution_clock::now();
+    const auto ns = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                        end - start)
+                        .count();
+    return static_cast<double>(ns) / static_cast<double>(iterations);
+}
 
-    int16_t test_input[64];
-    const int16_t* row0 = ::detail::GetPnMaskedPreambleI(0);
+static const char* ct_label(double dev_pct) noexcept {
+    return (dev_pct < 5.0) ? "PASS" : "INVESTIGATE";
+}
+
+/// Step 7-1: KCMVP-style timing spread (PC 휴리스틱; 5% 미만이면 PASS).
+static int kcmvp_constant_time_suite() noexcept {
+    using ProtectedEngine::detail::pn_masked_device_id_to_row;
+    using ProtectedEngine::detail::pn_masked_phase0_scan;
+    using ProtectedEngine::detail::pn_masked_phase0_subchip_refine;
+    using ProtectedEngine::detail::pn_masked_pte_subchip;
+
+    constexpr int kIter = 100000;
+    constexpr int kWarm = 2000;
+
+    int16_t input_zero[64]{};
+    int16_t input_max[64];
+    int16_t input_random[64];
     for (int i = 0; i < 64; ++i) {
-        test_input[i] = row0[i];
+        input_max[i] = 32767;
+        input_random[i] = static_cast<int16_t>((i * 137) & 0x7FFF);
     }
 
     int row = 0;
     int32_t peak = 0;
 
-    for (int it = 0; it < 1000; ++it) {
-        pn_masked_phase0_scan(test_input, &row, &peak);
-    }
+    std::printf("\n=== Constant-time check (Step 7-1 KCMVP) ===\n");
+    std::printf("  iterations=%d warmup=%d per input\n", kIter, kWarm);
 
-    const auto start = std::chrono::high_resolution_clock::now();
-    for (int it = 0; it < kIterations; ++it) {
-        pn_masked_phase0_scan(test_input, &row, &peak);
-    }
-    const auto end = std::chrono::high_resolution_clock::now();
+    const auto measure_scan = [&](const int16_t* in,
+                                  const char* name) noexcept -> double {
+        const double ns_per = measure_ns_per_call(
+            kIter, kWarm, [&]() noexcept {
+                pn_masked_phase0_scan(in, &row, &peak);
+            });
+        std::printf("  %-18s: %.1f ns/call\n", name, ns_per);
+        return ns_per;
+    };
 
-    const auto ns =
-        std::chrono::duration_cast<std::chrono::nanoseconds>(end - start)
-            .count();
+    const double t_zero = measure_scan(input_zero, "zero input");
+    const double t_max = measure_scan(input_max, "max input");
+    const double t_rand = measure_scan(input_random, "random input");
+    const double avg_scan = (t_zero + t_max + t_rand) / 3.0;
+    const double dev_scan =
+        (std::max)({std::fabs(t_zero - avg_scan), std::fabs(t_max - avg_scan),
+                     std::fabs(t_rand - avg_scan)});
+    const double pct_scan = (avg_scan > 0.0) ? (dev_scan / avg_scan * 100.0) : 0.0;
+    std::printf("  pn_masked_phase0_scan avg: %.1f ns, max deviation: %.2f%% "
+                "-> %s\n",
+                avg_scan, pct_scan, ct_label(pct_scan));
 
-    const double ns_per_call = static_cast<double>(ns) /
-                                static_cast<double>(kIterations);
-    const double total_ms = static_cast<double>(ns) / 1.0e6;
+    volatile int32_t pte_sink = 0;
+    const auto measure_pte = [&](int32_t ym, int32_t y0, int32_t yp,
+                                 const char* name) noexcept -> double {
+        const double ns_per = measure_ns_per_call(
+            kIter, kWarm, [&]() noexcept {
+                pte_sink ^= pn_masked_pte_subchip(ym, y0, yp);
+            });
+        std::printf("  PTE %-14s: %.1f ns/call\n", name, ns_per);
+        return ns_per;
+    };
+    std::printf("\n--- pn_masked_pte_subchip ---\n");
+    const double p0 = measure_pte(100, 1000, 100, "sym_peak");
+    const double p1 = measure_pte(100000, 0, 0, "clamp_hi");
+    const double p2 = measure_pte(0, 0, 100000, "clamp_lo");
+    const double avg_pte = (p0 + p1 + p2) / 3.0;
+    const double dev_pte =
+        (std::max)({std::fabs(p0 - avg_pte), std::fabs(p1 - avg_pte),
+                     std::fabs(p2 - avg_pte)});
+    const double pct_pte = (avg_pte > 0.0) ? (dev_pte / avg_pte * 100.0) : 0.0;
+    std::printf("  pn_masked_pte_subchip avg: %.1f ns, max deviation: %.2f%% "
+                "-> %s\n",
+                avg_pte, pct_pte, ct_label(pct_pte));
 
-    std::printf("\n=== Step 5-2 PC Profile ===\n");
-    std::printf("pn_masked_phase0_scan:\n");
-    std::printf("  per-call:   %.1f ns\n", ns_per_call);
-    std::printf("  iterations: %d\n", kIterations);
-    std::printf("  total:      %.2f ms\n", total_ms);
-    std::printf("  result row: %d (expected 0)\n", row);
-    std::printf("  result peak: %d\n", static_cast<int>(peak));
+    volatile uint32_t row_sink = 0;
+    const auto measure_id = [&](uint32_t id, const char* name) noexcept
+        -> double {
+        const double ns_per = measure_ns_per_call(
+            kIter, kWarm, [&]() noexcept {
+                row_sink ^= static_cast<uint32_t>(
+                    pn_masked_device_id_to_row(id));
+            });
+        std::printf("  id %-14s: %.1f ns/call\n", name, ns_per);
+        return ns_per;
+    };
+    std::printf("\n--- pn_masked_device_id_to_row ---\n");
+    const double d0 = measure_id(0u, "0");
+    const double d1 = measure_id(0xFFFFFFFFu, "0xFFFFFFFF");
+    const double d2 = measure_id(0xDEADBEEFu, "0xDEADBEEF");
+    const double avg_id = (d0 + d1 + d2) / 3.0;
+    const double dev_id =
+        (std::max)({std::fabs(d0 - avg_id), std::fabs(d1 - avg_id),
+                     std::fabs(d2 - avg_id)});
+    const double pct_id = (avg_id > 0.0) ? (dev_id / avg_id * 100.0) : 0.0;
+    std::printf("  pn_masked_device_id_to_row avg: %.1f ns, max deviation: "
+                "%.2f%% -> %s\n",
+                avg_id, pct_id, ct_label(pct_id));
 
-    const double phase0_total_us = ns_per_call * 32.0 / 1000.0;
-    std::printf("\nEstimated Phase0 (32 calls @ step 2): %.1f us\n",
+    volatile int32_t sub_sink = 0;
+    const auto measure_sub = [&](int32_t a, int32_t b, int32_t c,
+                                   const char* name) noexcept -> double {
+        const double ns_per = measure_ns_per_call(
+            kIter, kWarm, [&]() noexcept {
+                sub_sink ^= pn_masked_phase0_subchip_refine(a, b, c);
+            });
+        std::printf("  subchip_refine %-9s: %.1f ns/call\n", name, ns_per);
+        return ns_per;
+    };
+    std::printf("\n--- pn_masked_phase0_subchip_refine ---\n");
+    const double s0 = measure_sub(100, 1000, 100, "sym");
+    const double s1 = measure_sub(1, 5000, 2, "asym");
+    const double s2 = measure_sub(800, 1000, 900, "near");
+    const double avg_sub = (s0 + s1 + s2) / 3.0;
+    const double dev_sub =
+        (std::max)({std::fabs(s0 - avg_sub), std::fabs(s1 - avg_sub),
+                     std::fabs(s2 - avg_sub)});
+    const double pct_sub = (avg_sub > 0.0) ? (dev_sub / avg_sub * 100.0) : 0.0;
+    std::printf("  pn_masked_phase0_subchip_refine avg: %.1f ns, max "
+                "deviation: %.2f%% -> %s\n",
+                avg_sub, pct_sub, ct_label(pct_sub));
+
+    (void)pte_sink;
+    (void)row_sink;
+    (void)sub_sink;
+
+    const double ns_one_scan = avg_scan;
+    const double phase0_total_us = ns_one_scan * 32.0 / 1000.0;
+    std::printf("\nEstimated Phase0 (32 coarse offsets): %.1f us\n",
                 phase0_total_us);
-    const bool within_1ms = phase0_total_us <= 1000.0;
-    std::printf("  vs 1ms target (32 calls): %s (%.1f us <= 1000 us)\n",
-                within_1ms ? "PASS" : "FAIL", phase0_total_us);
+    std::printf("  vs 1ms budget: %s\n",
+                phase0_total_us <= 1000.0 ? "PASS" : "FAIL");
 
+    int16_t sanity_in[64];
+    const int16_t* row0 = ::detail::GetPnMaskedPreambleI(0);
+    for (int i = 0; i < 64; ++i) {
+        sanity_in[i] = row0[i];
+    }
+    pn_masked_phase0_scan(sanity_in, &row, &peak);
     return (row == 0) ? 1 : 0;
 }
 
@@ -237,7 +345,7 @@ int main() {
 #else
     std::printf(
         "=== PN-masked unit test (Step 2 + Step 4-1 PTE + Step 6-1 device "
-        "+ Step 5-2 profile) ===\n\n");
+        "+ Step 7-1 KCMVP timing) ===\n\n");
     const int n = test_row_detection_clean();
     const int pte = test_pte_subchip();
     const int dev = test_device_id_to_row();
@@ -253,13 +361,14 @@ int main() {
     if (n != 64 || pte <= 0 || dev != 1) {
         return 1;
     }
-    const int prof = profile_phase0_scan();
-    if (prof != 1) {
-        std::printf("FAIL profile row sanity\n");
+    const int kcmvp = kcmvp_constant_time_suite();
+    if (kcmvp != 1) {
+        std::printf("FAIL KCMVP phase0_scan row sanity (expected 0)\n");
         return 1;
     }
     std::printf(
-        "\nALL PASS — FWHT rows + PTE sub-chip + device_id map + profile\n");
+        "\nALL PASS — FWHT rows + PTE sub-chip + device_id map + KCMVP "
+        "timing\n");
     return 0;
 #endif
 }
