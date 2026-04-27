@@ -77,6 +77,11 @@ constexpr int32_t GRAVITY_SPIKE_THR_Q8 = 500;
     int32_t rx_chip_count,
     GravityCube6* out_cube) noexcept;
 
+/// CMYK 4×64 템플릿 (연속 256 int16: A‖B‖C‖D). `pre_amp` 는 TX `generate_holo_preamble_` 와 동일 스케일(보통 1000).
+void gravity_fill_cmyk_templates_i256(const uint32_t seed[4], uint32_t slot,
+                                      int16_t pre_amp,
+                                      int16_t* out256) noexcept;
+
 } // namespace detail_gravity
 } // namespace HTS_LIM
 

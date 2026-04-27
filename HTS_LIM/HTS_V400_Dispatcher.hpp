@@ -87,6 +87,9 @@
 #ifdef HTS_USE_HOLOGRAPHIC_SYNC
 #include "HTS_Preamble_Holographic.h"
 #endif
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+#include "HTS_V400_Dispatcher_Gravity.hpp"
+#endif
 namespace ProtectedEngine {
 
     /// @brief HTS_RF_Metrics 전방 선언 (적응형 BPS 인수용)
@@ -313,6 +316,18 @@ namespace ProtectedEngine {
         /// @brief 헤더 심볼 수
         static constexpr int     HDR_SYMS = 2;
 
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+        static constexpr int k_p0_collect_limit_ = 256;
+        [[nodiscard]] bool Get_Gravity_Pass_Ever() const noexcept {
+            return gravity_pass_ever_;
+        }
+#elif defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY
+        static constexpr int k_p0_collect_limit_ = 192;
+        [[nodiscard]] bool Get_Gravity_Pass_Ever() const noexcept { return false; }
+#else
+        static constexpr int k_p0_collect_limit_ = 192;
+#endif
+
         /// @brief FHSS 도약 채널(0~127) — `seed`·`seq` 혼합, `/`·`%` 없음(`& 0x7F`만)
         [[nodiscard]] static uint8_t FHSS_Derive_Channel(
             uint32_t seed, uint32_t seq) noexcept;
@@ -357,8 +372,13 @@ namespace ProtectedEngine {
         int     wait_sync_count_{ 0 };
 
         // ── Phase 0: 128칩 cross-offset 스캔 ──
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+        int16_t p0_buf128_I_[256] = {};
+        int16_t p0_buf128_Q_[256] = {};
+#else
         int16_t p0_buf128_I_[192] = {};
         int16_t p0_buf128_Q_[192] = {};
+#endif
         int     p0_chip_count_    = 0;
         int16_t p0_carry_I_[64]   = {};
         int16_t p0_carry_Q_[64]   = {};
@@ -370,6 +390,21 @@ namespace ProtectedEngine {
         bool    psal_pending_ = false;
         int     psal_off_     = 0;
         int32_t psal_e63_     = 0;
+        [[nodiscard]] int p0_gravity_scan_base_() const noexcept {
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+            return (p0_chip_count_ >= 256) ? 64 : 0;
+#else
+            return 0;
+#endif
+        }
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+        int16_t gravity_tx_tmpl_[256]{};
+        uint32_t gravity_tmpl_rx_seq_{0};
+        bool gravity_tmpl_valid_{false};
+        bool gravity_last_pass_{false};
+        bool gravity_pass_ever_{false};
+        HTS_LIM::detail_gravity::GravityCube6 gravity_last_cube_{};
+#endif
 #if defined(HTS_USE_PN_MASKED)
         /// Phase0 승리 `off` 시점 `pn_masked_phase0_scan` 의 row (Step 6 seed 매핑).
         int pn_masked_best_row_{ 0 };

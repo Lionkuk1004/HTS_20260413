@@ -10,6 +10,9 @@
 #if defined(HTS_USE_PACD) && defined(HTS_USE_PN_MASKED)
 #include "HTS_V400_Dispatcher_PNMasked.hpp"
 #endif
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+#include "HTS_V400_Dispatcher_Gravity.hpp"
+#endif
 #if defined(HTS_HARQ_DIAG)
 #include "HTS_HARQ_Diag.hpp"
 #endif
@@ -341,7 +344,9 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                 {
                     const int pre_off = psal_off_;
                     bool p0_live = false;
-                    if (pre_off >= 0 && pre_off + 128 <= 192) {
+                    const int p0_cap =
+                        static_cast<int>(sizeof(p0_buf128_I_) / sizeof(int16_t));
+                    if (pre_off >= 0 && pre_off + 128 <= p0_cap) {
                         for (int i = 0; i < 128; ++i) {
                             if (p0_buf128_I_[pre_off + i] != 0 ||
                                 p0_buf128_Q_[pre_off + i] != 0) {
@@ -370,6 +375,40 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                 }
 #endif  // HTS_USE_PACD
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+                if (sym_idx_ == 0) {
+                    const int p0_cap =
+                        static_cast<int>(sizeof(p0_buf128_I_) / sizeof(int16_t));
+                    if (p0_chip_count_ >= 256 && psal_off_ >= 0 &&
+                        psal_off_ + 256 <= p0_cap) {
+                        if (!gravity_tmpl_valid_ ||
+                            gravity_tmpl_rx_seq_ != rx_seq_) {
+                            const int16_t amp =
+                                (tx_amp_ > 0) ? tx_amp_ : static_cast<int16_t>(1000);
+                            HTS_LIM::detail_gravity::gravity_fill_cmyk_templates_i256(
+                                holo_lpi_seed_, rx_seq_, amp, gravity_tx_tmpl_);
+                            gravity_tmpl_rx_seq_ = rx_seq_;
+                            gravity_tmpl_valid_ = true;
+                        }
+                        const bool cube_pass =
+                            HTS_LIM::detail_gravity::gravity_evaluate_cube(
+                                p0_buf128_I_, p0_buf128_Q_, gravity_tx_tmpl_,
+                                p0_chip_count_, &gravity_last_cube_);
+                        gravity_last_pass_ = cube_pass;
+                        if (cube_pass) {
+                            gravity_pass_ever_ = true;
+                        }
+                        if (!cube_pass) {
+                            holo_tensor_decode_failed_ = true;
+                            retx_ready_ = true;
+                            pay_recv_ = 0;
+                            sym_idx_ = 0;
+                            buf_idx_ = 0;
+                            return;
+                        }
+                    }
+                }
+#endif
 #if !defined(HTS_HOLO_RX_PHASE_B)
 #if !defined(HTS_USE_4D_DIVERSITY)
                 int16_t rx_soft[HOLO_CHIP_COUNT];

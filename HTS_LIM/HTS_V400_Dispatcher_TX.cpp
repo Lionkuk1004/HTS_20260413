@@ -92,7 +92,7 @@ void HTS_V400_Dispatcher::generate_holo_preamble_(
     }
     fwht_raw(buf, 64);
 
-    static constexpr uint8_t k_perm[24][4] = {
+    static constexpr uint8_t k_holo_tx_perm24[24][4] = {
         {0, 1, 2, 3}, {0, 1, 3, 2}, {0, 2, 1, 3}, {0, 2, 3, 1}, {0, 3, 1, 2},
         {0, 3, 2, 1}, {1, 0, 2, 3}, {1, 0, 3, 2}, {1, 2, 0, 3}, {1, 2, 3, 0},
         {1, 3, 0, 2}, {1, 3, 2, 0}, {2, 0, 1, 3}, {2, 0, 3, 1}, {2, 1, 0, 3},
@@ -107,7 +107,7 @@ void HTS_V400_Dispatcher::generate_holo_preamble_(
         }
         const uint8_t pi =
             static_cast<uint8_t>(((gyro >> 4u) & 0x1Fu) % 24u);
-        const uint8_t* p = k_perm[pi];
+        const uint8_t* p = k_holo_tx_perm24[pi];
         const int32_t v0 = buf[i + p[0]];
         const int32_t v1 = buf[i + p[1]];
         const int32_t v2 = buf[i + p[2]];

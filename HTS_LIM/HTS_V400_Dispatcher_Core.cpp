@@ -3,6 +3,9 @@
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+#include "HTS_V400_Dispatcher_Gravity.hpp"
+#endif
 #if defined(HTS_USE_HOLO_TENSOR_4D) && defined(HTS_HOLO_RX_PHASE_REF)
 #include "HTS_Holo_Tensor_4D_Common.h"
 #endif
@@ -517,6 +520,13 @@ void HTS_V400_Dispatcher::full_reset_() noexcept {
     derot_shift_ = 17;
     std::memset(p0_buf128_I_, 0, sizeof(p0_buf128_I_));
     std::memset(p0_buf128_Q_, 0, sizeof(p0_buf128_Q_));
+#if defined(HTS_USE_GRAVITY) && HTS_USE_GRAVITY && defined(HTS_HOLO_PREAMBLE)
+    gravity_tmpl_valid_ = false;
+    gravity_tmpl_rx_seq_ = 0u;
+    gravity_last_pass_ = false;
+    gravity_pass_ever_ = false;
+    gravity_last_cube_ = HTS_LIM::detail_gravity::GravityCube6{};
+#endif
     std::memset(p0_carry_I_, 0, sizeof(p0_carry_I_));
     std::memset(p0_carry_Q_, 0, sizeof(p0_carry_Q_));
     wait_sync_head_ = 0;

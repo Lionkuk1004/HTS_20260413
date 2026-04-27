@@ -67,7 +67,7 @@ void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
 
 #if defined(HTS_HOLO_PREAMBLE)
 void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
-    if (p0_chip_count_ < 192) {
+    if (p0_chip_count_ < k_p0_collect_limit_) {
         std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
                     static_cast<size_t>(64) * sizeof(int16_t));
         std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
@@ -76,9 +76,13 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         return;
     }
 
+    const int pb = p0_gravity_scan_base_();
+    const int16_t* const p0I = p0_buf128_I_ + pb;
+    const int16_t* const p0Q = p0_buf128_Q_ + pb;
+
     int32_t amp_est = 0;
     for (int i = 0; i < 192; ++i) {
-        const int32_t ai = static_cast<int32_t>(p0_buf128_I_[i]);
+        const int32_t ai = static_cast<int32_t>(p0I[i]);
         const int32_t sm = ai >> 31;
         amp_est += (ai ^ sm) - sm;
     }
@@ -97,13 +101,13 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         int64_t acQ = 0;
         for (int n = 0; n < 64; ++n) {
             const int32_t r1I =
-                static_cast<int32_t>(p0_buf128_I_[off + n]);
+                static_cast<int32_t>(p0I[off + n]);
             const int32_t r1Q =
-                static_cast<int32_t>(p0_buf128_Q_[off + n]);
+                static_cast<int32_t>(p0Q[off + n]);
             const int32_t r2I =
-                static_cast<int32_t>(p0_buf128_I_[off + n + 64]);
+                static_cast<int32_t>(p0I[off + n + 64]);
             const int32_t r2Q =
-                static_cast<int32_t>(p0_buf128_Q_[off + n + 64]);
+                static_cast<int32_t>(p0Q[off + n + 64]);
             acI += static_cast<int64_t>(r1I) * r2I +
                    static_cast<int64_t>(r1Q) * r2Q;
             acQ += static_cast<int64_t>(r1I) * r2Q -
@@ -138,13 +142,13 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     const int bo = best_off_ac;
     for (int n = 0; n < 48; ++n) {
         const int32_t r1I =
-            static_cast<int32_t>(p0_buf128_I_[bo + n]);
+            static_cast<int32_t>(p0I[bo + n]);
         const int32_t r1Q =
-            static_cast<int32_t>(p0_buf128_Q_[bo + n]);
+            static_cast<int32_t>(p0Q[bo + n]);
         const int32_t r2I =
-            static_cast<int32_t>(p0_buf128_I_[bo + n + 32]);
+            static_cast<int32_t>(p0I[bo + n + 32]);
         const int32_t r2Q =
-            static_cast<int32_t>(p0_buf128_Q_[bo + n + 32]);
+            static_cast<int32_t>(p0Q[bo + n + 32]);
         cfo_acI += static_cast<int64_t>(r1I) * r2I +
                    static_cast<int64_t>(r1Q) * r2Q;
         cfo_acQ += static_cast<int64_t>(r1I) * r2Q -
@@ -217,8 +221,8 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             const int i1 = dd + k;
             const int i2 = dd + k + 1;
             const int64_t df =
-                static_cast<int64_t>(p0_buf128_I_[i1]) * p0_buf128_I_[i2] +
-                static_cast<int64_t>(p0_buf128_Q_[i1]) * p0_buf128_Q_[i2];
+                static_cast<int64_t>(p0I[i1]) * p0I[i2] +
+                static_cast<int64_t>(p0Q[i1]) * p0Q[i2];
             if (exp_sign[k] > 0) {
                 acc += df;
             } else {
@@ -291,8 +295,8 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
     for (int blk = 0; blk < 2; ++blk) {
         int32_t di = 0;
         int32_t dq = 0;
-        walsh63_dot_(&p0_buf128_I_[chip_start + (blk << 6)],
-                     &p0_buf128_Q_[chip_start + (blk << 6)], di, dq);
+        walsh63_dot_(&p0I[chip_start + (blk << 6)],
+                     &p0Q[chip_start + (blk << 6)], di, dq);
         seed_dot_I += di;
         seed_dot_Q += dq;
     }
@@ -307,9 +311,9 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         int32_t nonzero = 0;
         for (int j = 0; j < 64; ++j) {
             const int32_t ai =
-                static_cast<int32_t>(p0_buf128_I_[chip_start + j]);
+                static_cast<int32_t>(p0I[chip_start + j]);
             const int32_t aq =
-                static_cast<int32_t>(p0_buf128_Q_[chip_start + j]);
+                static_cast<int32_t>(p0Q[chip_start + j]);
             const int32_t si = ai >> 31;
             const int32_t abs_i = (ai ^ si) - si;
             const int32_t sq = aq >> 31;
@@ -337,7 +341,7 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
 #endif
     }
 
-    psal_off_ = chip_start;
+    psal_off_ = chip_start + pb;
     psal_e63_ = static_cast<int32_t>(best_mag2 >> 32);
     if (psal_e63_ <= 0) {
         psal_e63_ = static_cast<int32_t>(best_mag2 >> 20);
@@ -346,7 +350,7 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         psal_e63_ = 1;
     }
 #if defined(HTS_HOLO_RX_PHASE_REF)
-    capture_holo_phase_ref_pre_sym1_(chip_start);
+    capture_holo_phase_ref_pre_sym1_(chip_start + pb);
 #endif
     psal_commit_align_();
 
@@ -1909,7 +1913,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             p0_buf128_I_[p0_chip_count_] = chip_I;
             p0_buf128_Q_[p0_chip_count_] = chip_Q;
             ++p0_chip_count_;
-            if (p0_chip_count_ < 192)
+            if (p0_chip_count_ < k_p0_collect_limit_)
                 return;
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
             {
