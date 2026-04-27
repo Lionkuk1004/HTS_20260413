@@ -1,5 +1,6 @@
 @echo off
-REM HTS_T6_SIM_Test_pacd.exe — cursor_t6_build.cmd + /DHTS_USE_PACD (개발 전용)
+REM HTS_T6_SIM_Test_gravity.exe — cursor_t6_build.cmd + /DHTS_USE_GRAVITY=1 (G-3-1+)
+REM 호출부 없으면 링크만 되며 T6 시나리오 카운트는 baseline 과 동일 기대.
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"
@@ -12,10 +13,10 @@ cl /nologo /O2 /std:c++17 /EHsc /MD /W4 /WX /wd4324 /DNDEBUG ^
    /DHTS_ALLOW_HOST_BUILD ^
    /DHTS_FEC_SIMULATE_M4_RAM_LAYOUT ^
    /DHTS_USE_HOLO_TENSOR_4D ^
-   /DHTS_USE_PACD ^
+   /DHTS_USE_GRAVITY=1 ^
    %HOLO_FLAG% ^
    /D_CRT_SECURE_NO_WARNINGS ^
-   /FeHTS_T6_SIM_Test_pacd.exe ^
+   /FeHTS_T6_SIM_Test_gravity.exe ^
    HTS_T6_SIM_Test.cpp HTS_Session_Derive_Stub.cpp ^
    ..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp ^
    ..\..\HTS_LIM\HTS_Preamble_Holographic.cpp ^
