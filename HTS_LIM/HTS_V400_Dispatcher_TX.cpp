@@ -12,6 +12,9 @@
 #if defined(HTS_HOLO_PREAMBLE)
 #include "HTS_Holo_Tensor_4D_Defs.h"
 #endif
+#if defined(HTS_USE_PN_MASKED)
+#include "HTS_V400_Dispatcher_PNMasked.hpp"
+#endif
 #include <cstdint>
 #include <cstddef>
 namespace ProtectedEngine {
@@ -277,8 +280,15 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
             dq[0] = 0;
         }
 #else
+#if defined(HTS_USE_PN_MASKED)
+        const int pre_sym0_row =
+            ProtectedEngine::detail::pn_masked_get_device_row();
+        walsh_enc(static_cast<uint8_t>(pre_sym0_row), 64, pre_amp,
+                  bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
+#else
         walsh_enc(PRE_SYM0, 64, pre_amp, bp_dst_i(oI, pos, okm),
                   bp_dst_q(oQ, pos, okm));
+#endif
 #endif
         pos += 64 * inc;
     }
@@ -381,7 +391,12 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                             static_cast<uint32_t>(holo_tensor_profile_.block_bits);
         for (int blk = 0; blk < tensor_blocks; ++blk) {
             int8_t data_bits[HOLO_MAX_BLOCK_BITS];
+#if defined(HTS_USE_4D_DIVERSITY)
+            int8_t chip_bpsk_I[HOLO_CHIP_COUNT];
+            int8_t chip_bpsk_Q[HOLO_CHIP_COUNT];
+#else
             int8_t chip_bpsk[HOLO_CHIP_COUNT];
+#endif
             const int byte_off = blk * tensor_block_bytes;
             const int remain = (ilen > byte_off) ? (ilen - byte_off) : 0;
             const int use_bytes =
@@ -390,6 +405,30 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                 (use_bytes > 0) ? &info[byte_off] : nullptr,
                 static_cast<size_t>((use_bytes > 0) ? use_bytes : 0), data_bits,
                 static_cast<uint16_t>(tensor_k));
+#if defined(HTS_USE_4D_DIVERSITY)
+            (void)holo_tx_.Set_Time_Slot(tx_seq_);
+            if (holo_tx_.Encode_Block(data_bits, holo_tensor_profile_.block_bits,
+                                      chip_bpsk_I, holo_tensor_profile_.chip_count) !=
+                HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+                SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
+                SecureMemory::secureWipe(static_cast<void*>(chip_bpsk_I),
+                                         sizeof(chip_bpsk_I));
+                return 0;
+            }
+            (void)holo_tx_.Set_Time_Slot(tx_seq_ ^ 1u);
+            if (holo_tx_.Encode_Block(data_bits, holo_tensor_profile_.block_bits,
+                                      chip_bpsk_Q, holo_tensor_profile_.chip_count) !=
+                HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
+                SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
+                SecureMemory::secureWipe(static_cast<void*>(chip_bpsk_I),
+                                         sizeof(chip_bpsk_I));
+                SecureMemory::secureWipe(static_cast<void*>(chip_bpsk_Q),
+                                         sizeof(chip_bpsk_Q));
+                (void)holo_tx_.Set_Time_Slot(tx_seq_);
+                return 0;
+            }
+            (void)holo_tx_.Set_Time_Slot(tx_seq_);
+#else
             if (holo_tx_.Encode_Block(data_bits, holo_tensor_profile_.block_bits,
                                             chip_bpsk, holo_tensor_profile_.chip_count) !=
                 HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
@@ -397,6 +436,7 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                 SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
                 return 0;
             }
+#endif
             const int denom_raw = (lk > 0u) ? static_cast<int>(lk) : 32;
             const int denom = (denom_raw > 1) ? (denom_raw >> 1) : 1;
             if (diag_this_pkt && blk == 0) {
@@ -407,12 +447,39 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                 }
                 std::printf("\n");
                 std::printf("[PHASE-H][TX] encoded_chip_bpsk64:");
+#if defined(HTS_USE_4D_DIVERSITY)
+                for (int i = 0; i < tensor_n; ++i) {
+                    std::printf(" %d", static_cast<int>(chip_bpsk_I[i]));
+                }
+#else
                 for (int i = 0; i < tensor_n; ++i) {
                     std::printf(" %d", static_cast<int>(chip_bpsk[i]));
                 }
+#endif
                 std::printf("\n");
             }
             for (int c = 0; c < tensor_n; ++c) {
+#if defined(HTS_USE_4D_DIVERSITY)
+                const int32_t prod_I =
+                    static_cast<int32_t>(chip_bpsk_I[c]) * static_cast<int32_t>(amp);
+                const int32_t v_I =
+                    (prod_I >= 0) ? ((prod_I + (denom >> 1)) / denom)
+                                  : ((prod_I - (denom >> 1)) / denom);
+                const int32_t prod_Q =
+                    static_cast<int32_t>(chip_bpsk_Q[c]) * static_cast<int32_t>(amp);
+                const int32_t v_Q =
+                    (prod_Q >= 0) ? ((prod_Q + (denom >> 1)) / denom)
+                                  : ((prod_Q - (denom >> 1)) / denom);
+                oI[pos] = static_cast<int16_t>(v_I);
+                oQ[pos] = static_cast<int16_t>(v_Q);
+                if (diag_this_pkt && blk == 0) {
+                    std::printf("[PHASE-H][TX] chip[%d]: bpskI=%d bpskQ=%d modI=%d modQ=%d\n",
+                                c, static_cast<int>(chip_bpsk_I[c]),
+                                static_cast<int>(chip_bpsk_Q[c]),
+                                static_cast<int>(oI[pos]),
+                                static_cast<int>(oQ[pos]));
+                }
+#else
                 const int32_t prod =
                     static_cast<int32_t>(chip_bpsk[c]) * static_cast<int32_t>(amp);
                 const int32_t v =
@@ -426,10 +493,16 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                                 static_cast<int>(oI[pos]),
                                 static_cast<int>(oQ[pos]));
                 }
+#endif
                 ++pos;
             }
             SecureMemory::secureWipe(static_cast<void*>(data_bits), sizeof(data_bits));
+#if defined(HTS_USE_4D_DIVERSITY)
+            SecureMemory::secureWipe(static_cast<void*>(chip_bpsk_I), sizeof(chip_bpsk_I));
+            SecureMemory::secureWipe(static_cast<void*>(chip_bpsk_Q), sizeof(chip_bpsk_Q));
+#else
             SecureMemory::secureWipe(static_cast<void*>(chip_bpsk), sizeof(chip_bpsk));
+#endif
         }
 #if defined(HTS_PHASE_H_DIAG)
         if (diag_this_pkt && !force_diag) {

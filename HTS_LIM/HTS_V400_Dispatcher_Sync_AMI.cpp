@@ -1042,42 +1042,6 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
     }
 
-#if defined(HTS_USE_PN_MASKED)
-#if !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
-    {
-        int pn_best_off = 0;
-        int32_t pn_best_peak = -1;
-        int pn_best_row = 0;
-        int32_t pn_peak_hist[32]{};
-        for (int idx = 0; idx < 32; ++idx) {
-            const int off_step2 = idx * 2;
-            int row_scan = 0;
-            int32_t peak_scan = 0;
-            detail::pn_masked_phase0_scan(&p0_buf128_I_[off_step2], &row_scan,
-                                          &peak_scan);
-            pn_peak_hist[idx] = peak_scan;
-            const int32_t better =
-                ~((peak_scan - pn_best_peak - 1) >> 31);
-            pn_best_peak =
-                (better & peak_scan) | (~better & pn_best_peak);
-            pn_best_off =
-                (better & off_step2) | (~better & pn_best_off);
-            pn_best_row =
-                (better & row_scan) | (~better & pn_best_row);
-        }
-        int32_t subchip_q14 = 0;
-        const int idx_zero = pn_best_off / 2;
-        if (idx_zero > 0 && idx_zero < 31) {
-            subchip_q14 = detail::pn_masked_phase0_subchip_refine(
-                pn_peak_hist[idx_zero - 1], pn_peak_hist[idx_zero],
-                pn_peak_hist[idx_zero + 1]);
-        }
-        pn_masked_best_row_ = pn_best_row;
-        pn_masked_subchip_q14_ = subchip_q14;
-    }
-#endif
-#endif
-
 #if defined(HTS_WALSH_ROW_DIAG) && !defined(HTS_PHASE0_WALSH_BANK) && \
     !defined(HTS_TARGET_AMI)
     // accum 은 3블록 중 임의 조합(8×8 vs coherent)에서 나올 수 있어,
@@ -1393,6 +1357,19 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
 #endif
         dominant_row_ = static_cast<uint8_t>(best_dom_row);
+#if defined(HTS_USE_PN_MASKED) && \
+    !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
+        pn_masked_best_row_ = static_cast<int>(dominant_row_);
+        pn_masked_subchip_q14_ = 0;
+        const int expected_row =
+            ProtectedEngine::detail::pn_masked_get_device_row();
+        const int diff = pn_masked_best_row_ - expected_row;
+        const int match_mask = ~((diff | -diff) >> 31);
+        pn_masked_row_verify_ok_ =
+            static_cast<uint8_t>(static_cast<uint32_t>(match_mask) & 1u);
+#elif defined(HTS_USE_PN_MASKED)
+        pn_masked_row_verify_ok_ = 1u;
+#endif
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
         std::printf(
             "[STAGE4-P0] lock dominant_row=%u off=%d (seed=walsh63 non-coh)\n",
@@ -2003,6 +1980,14 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         buf_idx_ = 0;
         std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
+#if defined(HTS_HOLO_PREAMBLE)
+        const uint8_t phase1_pre0_sym = PRE_SYM0;
+#elif defined(HTS_USE_PN_MASKED)
+        const uint8_t phase1_pre0_sym = static_cast<uint8_t>(
+            ProtectedEngine::detail::pn_masked_get_device_row());
+#else
+        const uint8_t phase1_pre0_sym = PRE_SYM0;
+#endif
         // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
 #if defined(HTS_HOLO_PREAMBLE)
@@ -2263,7 +2248,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         }
         uint8_t best_m = 0u;
         if (e63_64 >= e0_64) {
-            best_m = PRE_SYM0;
+            best_m = phase1_pre0_sym;
             if (first_c63_ == 0) {
                 first_c63_ = e63_sh;
             }
@@ -2293,7 +2278,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 const int gate_sym_pre1 =
                     (sym == static_cast<int8_t>(PRE_SYM1)) ? 1 : 0;
                 const int gate_sym_pre0 =
-                    (sym == static_cast<int8_t>(PRE_SYM0)) ? 1 : 0;
+                    (sym == static_cast<int8_t>(phase1_pre0_sym)) ? 1 : 0;
                 const int enter_hdr = gate_sym_pre1;
                 std::printf(
                     "[P1-GATE] #%d n=%d e63_sh=%d e0_sh=%d max_e=%d "
@@ -2331,7 +2316,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
             }
             return;
         }
-        if (sym == static_cast<int8_t>(PRE_SYM0)) {
+        if (sym == static_cast<int8_t>(phase1_pre0_sym)) {
             if (tail_rem > 0) {
                 p1_tail_collect_rem_ = tail_rem; p1_tail_idx_ = 0;
                 if (carry_only_full) {

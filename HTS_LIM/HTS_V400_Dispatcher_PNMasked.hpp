@@ -249,6 +249,45 @@ inline int pn_masked_device_id_to_row(uint32_t device_id) noexcept {
     return static_cast<int>(row_clamped);
 }
 
+/// Murmur3 finalizer — `HTS_Remote_Attestation.cpp` `Murmur3_Fmix32` 와 동일 상수.
+inline uint32_t pn_masked_murmur3_fmix32(uint32_t h) noexcept {
+    h ^= h >> 16u;
+    h *= 0x85EBCA6Bu;
+    h ^= h >> 13u;
+    h *= 0xC2B2AE35u;
+    h ^= h >> 16u;
+    return h;
+}
+
+/// 디바이스 32비트 시드 (STM32 UID 혼합 / PC 테스트 상수).
+///
+/// ARM: `0x1FFF7A10` UID 3워드 XOR 후 `fmix32` (`Get_Device_Key_*` 와 동일 주소·혼합 패턴).
+/// 그 외: T6·콘솔 시뮬 고정값 (`HTS_Remote_Attestation` MSVC 분기와 별도 — PN row 안정).
+inline uint32_t pn_masked_get_device_id() noexcept {
+#if (defined(__GNUC__) || defined(__clang__)) && \
+    (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH))
+    constexpr std::uintptr_t kStm32UidBase = 0x1FFF7A10u;
+    volatile const uint32_t* uid =
+        reinterpret_cast<volatile const uint32_t*>(kStm32UidBase);
+    return pn_masked_murmur3_fmix32(uid[0] ^ uid[1] ^ uid[2]);
+#else
+    return 0xA5A5A5A5u;
+#endif
+}
+
+inline int pn_masked_get_device_row() noexcept {
+#if defined(HTS_ALLOW_HOST_BUILD) && \
+    !((defined(__GNUC__) || defined(__clang__)) && \
+      (defined(__arm__) || defined(__TARGET_ARCH_ARM) || defined(__ARM_ARCH)))
+    // PC T6·단위경로: Walsh PRE_SYM0(63) 과 동일 행 — `pn_masked_get_device_id` 는
+    // 계측·BPTE 검증용으로 PC 상수 유지, **행** 만 양산과 분리(Step 6-2 호스트 회귀).
+    (void)pn_masked_get_device_id();
+    return 63;
+#else
+    return pn_masked_device_id_to_row(pn_masked_get_device_id());
+#endif
+}
+
 }  // namespace detail
 }  // namespace ProtectedEngine
 

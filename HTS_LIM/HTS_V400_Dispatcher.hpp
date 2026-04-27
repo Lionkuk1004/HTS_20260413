@@ -375,6 +375,9 @@ namespace ProtectedEngine {
         int pn_masked_best_row_{ 0 };
         /// Step=2 + PTE 보간 sub-chip offset (Q14, Step 7 연동).
         int32_t pn_masked_subchip_q14_{ 0 };
+        /// `pn_masked_best_row_` vs `pn_masked_get_device_row()` BPTE 일치(1). 불일치 0.
+        /// 동기 승인 경로는 변경하지 않음(계측·향후 KCMVP/정책 연동).
+        uint8_t pn_masked_row_verify_ok_{ 0 };
 #endif
         /// HTS_PHASE0_WALSH_BANK: P0 FWHT max row (기본 63, 비-WBANK 경로 무시)
         uint8_t dominant_row_ = 63u;

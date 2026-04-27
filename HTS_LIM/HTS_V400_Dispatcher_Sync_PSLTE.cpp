@@ -1118,42 +1118,6 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
     }
 
-#if defined(HTS_USE_PN_MASKED)
-#if !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
-    {
-        int pn_best_off = 0;
-        int32_t pn_best_peak = -1;
-        int pn_best_row = 0;
-        int32_t pn_peak_hist[32]{};
-        for (int idx = 0; idx < 32; ++idx) {
-            const int off_step2 = idx * 2;
-            int row_scan = 0;
-            int32_t peak_scan = 0;
-            detail::pn_masked_phase0_scan(&p0_buf128_I_[off_step2], &row_scan,
-                                          &peak_scan);
-            pn_peak_hist[idx] = peak_scan;
-            const int32_t better =
-                ~((peak_scan - pn_best_peak - 1) >> 31);
-            pn_best_peak =
-                (better & peak_scan) | (~better & pn_best_peak);
-            pn_best_off =
-                (better & off_step2) | (~better & pn_best_off);
-            pn_best_row =
-                (better & row_scan) | (~better & pn_best_row);
-        }
-        int32_t subchip_q14 = 0;
-        const int idx_zero = pn_best_off / 2;
-        if (idx_zero > 0 && idx_zero < 31) {
-            subchip_q14 = detail::pn_masked_phase0_subchip_refine(
-                pn_peak_hist[idx_zero - 1], pn_peak_hist[idx_zero],
-                pn_peak_hist[idx_zero + 1]);
-        }
-        pn_masked_best_row_ = pn_best_row;
-        pn_masked_subchip_q14_ = subchip_q14;
-    }
-#endif
-#endif
-
 #if defined(HTS_WALSH_ROW_DIAG) && !defined(HTS_PHASE0_WALSH_BANK) && \
     !defined(HTS_TARGET_AMI)
     // accum 은 3블록 중 임의 조합(8×8 vs coherent)에서 나올 수 있어,
@@ -1469,6 +1433,19 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         }
 #endif
         dominant_row_ = static_cast<uint8_t>(best_dom_row);
+#if defined(HTS_USE_PN_MASKED) && \
+    !(defined(HTS_TARGET_AMI) && !defined(HTS_PHASE0_WALSH_BANK))
+        pn_masked_best_row_ = static_cast<int>(dominant_row_);
+        pn_masked_subchip_q14_ = 0;
+        const int expected_row =
+            ProtectedEngine::detail::pn_masked_get_device_row();
+        const int diff = pn_masked_best_row_ - expected_row;
+        const int match_mask = ~((diff | -diff) >> 31);
+        pn_masked_row_verify_ok_ =
+            static_cast<uint8_t>(static_cast<uint32_t>(match_mask) & 1u);
+#elif defined(HTS_USE_PN_MASKED)
+        pn_masked_row_verify_ok_ = 1u;
+#endif
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
         std::printf(
             "[STAGE4-P0] lock dominant_row=%u off=%d (seed=walsh63 non-coh)\n",

@@ -7,6 +7,9 @@
 #if defined(HTS_USE_PACD)
 #include "HTS_V400_Dispatcher_PaCD.hpp"
 #endif
+#if defined(HTS_USE_PACD) && defined(HTS_USE_PN_MASKED)
+#include "HTS_V400_Dispatcher_PNMasked.hpp"
+#endif
 #if defined(HTS_HARQ_DIAG)
 #include "HTS_HARQ_Diag.hpp"
 #endif
@@ -348,10 +351,22 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         }
                     }
                     if (p0_live) {
+#if defined(HTS_USE_PN_MASKED)
+                        const int dev_row =
+                            ProtectedEngine::detail::pn_masked_get_device_row();
+                        const int16_t* const tx_pre_I =
+                            ::detail::GetPnMaskedPreambleI(dev_row);
+                        const int16_t* const tx_pre_Q =
+                            ::detail::GetPnMaskedPreambleQ(dev_row);
+#else
+                        const int16_t* const tx_pre_I =
+                            ::detail::pacd_tx_preamble128_I();
+                        const int16_t* const tx_pre_Q =
+                            ::detail::pacd_tx_preamble128_Q();
+#endif
                         ::detail::pacd_apply_payload(
                             &p0_buf128_I_[pre_off], &p0_buf128_Q_[pre_off],
-                            ::detail::pacd_tx_preamble128_I(),
-                            ::detail::pacd_tx_preamble128_Q(), buf_I_, buf_Q_);
+                            tx_pre_I, tx_pre_Q, buf_I_, buf_Q_);
                     }
                 }
 #endif  // HTS_USE_PACD
