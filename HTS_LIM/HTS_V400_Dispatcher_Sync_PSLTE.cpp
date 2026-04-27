@@ -3,6 +3,9 @@
 // =============================================================================
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
+#if defined(HTS_USE_PN_MASKED)
+#include "HTS_V400_Dispatcher_PNMasked.hpp"
+#endif
 #ifdef HTS_USE_HOLOGRAPHIC_SYNC
 #include "HTS_Preamble_Holographic.h"
 #endif
@@ -994,11 +997,21 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
         max_row = max_row0;
 #endif
 #endif
+#if defined(HTS_USE_PN_MASKED)
+        int pn_row_scan = 0;
+        int32_t pn_peak_scan = 0;
+        detail::pn_masked_phase0_scan(&p0_buf128_I_[off], &pn_row_scan,
+                                       &pn_peak_scan);
+        (void)pn_peak_scan;
+#endif
         sum_all += static_cast<int64_t>(accum);
         if (accum > best_e63) {
             second_e63 = best_e63;
             best_e63 = accum;
             best_off = off;
+#if defined(HTS_USE_PN_MASKED)
+            pn_masked_best_row_ = pn_row_scan;
+#endif
 #if defined(HTS_PHASE0_WALSH_BANK)
             best_dom_row = max_row;
             best_seed_I = seed_I_fwht;

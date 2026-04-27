@@ -370,6 +370,10 @@ namespace ProtectedEngine {
         bool    psal_pending_ = false;
         int     psal_off_     = 0;
         int32_t psal_e63_     = 0;
+#if defined(HTS_USE_PN_MASKED)
+        /// Phase0 승리 `off` 시점 `pn_masked_phase0_scan` 의 row (Step 6 seed 매핑).
+        int pn_masked_best_row_{ 0 };
+#endif
         /// HTS_PHASE0_WALSH_BANK: P0 FWHT max row (기본 63, 비-WBANK 경로 무시)
         uint8_t dominant_row_ = 63u;
         /// Stage 6A: P0 확정 행 기준 CFO-Walsh row permutation (63 ⊕ dom)
