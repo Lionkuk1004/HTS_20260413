@@ -138,7 +138,20 @@ inline const int16_t* GetPnMaskedPreambleQ(int row) noexcept {
 namespace ProtectedEngine {
 namespace detail {
 
-/// PN-masked Phase0: RX 첫 64칩 → `fwht_raw(..., 64)` → BPTE argmax \|bin\|.
+/// PN-masked 전용 64-point FWHT (`fwht_raw` 양산 구현과 출력 동일 목표).
+///
+/// PC 및 미검증 ARM: `fwht_raw(d, 64)`.
+/// `HTS_PLATFORM_ARM` + `__ARM_FEATURE_DSP` 일 때 SIMD 본체 예약(현재 동치 fallback).
+inline void pn_masked_fwht64_simd(int32_t* d) noexcept {
+#if defined(HTS_PLATFORM_ARM) && defined(__ARM_FEATURE_DSP)
+    // Cortex-M4 DSP(SMUAD/SMLAD 등) butterfly — Step 5-2 이후 칩별 검증 시 본 구현.
+    fwht_raw(d, 64);
+#else
+    fwht_raw(d, 64);
+#endif
+}
+
+/// PN-masked Phase0: RX 첫 64칩 → `pn_masked_fwht64_simd` → BPTE argmax \|bin\|.
 /// LUT(`::detail`) 과 별도 — 호출부는 `off` 정렬된 `&p0_buf128_I_[off]` 전달.
 inline void pn_masked_phase0_scan(const int16_t* rx_pre_first64,
                                    int* out_best_row,
@@ -158,7 +171,7 @@ inline void pn_masked_phase0_scan(const int16_t* rx_pre_first64,
     for (int i = 0; i < 64; ++i) {
         buf[i] = static_cast<int32_t>(rx_pre_first64[i]);
     }
-    fwht_raw(buf, 64);
+    pn_masked_fwht64_simd(buf);
 
     int max_idx = 0;
     int32_t max_val = 0;
