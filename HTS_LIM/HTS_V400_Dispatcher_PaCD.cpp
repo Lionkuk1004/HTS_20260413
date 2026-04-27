@@ -56,8 +56,8 @@ template <std::size_t... I>
 constexpr bool pn_masked_row_0x3f_matches_pacd(
     std::index_sequence<I...>) noexcept {
     return (
-        (... && (::detail::kPnMaskedTxPreambleI[0x3Fu][I] ==
-                 k_tx_preamble128_I[I])));
+        (... && (::detail::kPnMaskedTxPreamblePack.kPnMaskedTxPreamble[0x3Fu]
+                      [I] == k_tx_preamble128_I[I])));
 }
 static_assert(
     pn_masked_row_0x3f_matches_pacd(std::make_index_sequence<128>{}),
