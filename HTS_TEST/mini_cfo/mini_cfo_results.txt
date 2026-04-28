@@ -1,0 +1,16 @@
+=== Mini CFO unit test (isolated, no V5a) ===
+actual_Hz    Estimate_Hz     residual_est    est_after_apply total_residual 
+------------------------------------------------------------
+0            0               0               0               0              
+100          99              1               0               1              
+200          199             1               1               0              
+500          500             0               0               0              
+1000         1000            0               0               0              
+5000         5001            -1              0               -1             
+10000        9999            1               1               0              
+12000        12000           0               -1              1              
+20000        20000           0               -1              1              
+25000        25000           0               0               0              
+
+Hints: |residual_est| small => Estimate OK on this toy signal.
+       |est_after| small => Apply + re-estimate chain OK.

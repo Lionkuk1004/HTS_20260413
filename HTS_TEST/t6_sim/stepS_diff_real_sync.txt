@@ -1,3 +1,0 @@
-Comparing files stepS_pre_split_real_sync.log and STEPS_POST_SPLIT_REAL_SYNC.LOG
-FC: no differences encountered
-

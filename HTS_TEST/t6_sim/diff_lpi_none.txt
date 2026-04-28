@@ -1,3 +1,0 @@
-Comparing files split_lpi_none.txt and FIX_LPI_NONE.TXT
-FC: no differences encountered
-

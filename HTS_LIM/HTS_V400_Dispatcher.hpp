@@ -695,11 +695,9 @@ namespace ProtectedEngine {
         bool holo_tensor_payload_mode_{ false };
         bool holo_tensor_decode_failed_{ false };
         int8_t holo_tensor_rx_bits_[HOLO_MAX_BLOCK_BITS]{};
-#if defined(HTS_HOLO_RX_PHASE_B)
         int8_t holo_tensor_sym_bits0_[HOLO_MAX_BLOCK_BITS]{};
         int8_t holo_tensor_sym_bits1_[HOLO_MAX_BLOCK_BITS]{};
         uint8_t holo_tensor_rx_bytes_alt_[8]{};
-#endif
         uint8_t holo_tensor_rx_bytes_[8]{};
         uint8_t holo_tensor_rx_len_{ 0 };
 #if defined(HTS_HOLO_RX_PHASE_REF)

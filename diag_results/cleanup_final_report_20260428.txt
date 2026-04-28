@@ -1,0 +1,39 @@
+=== 환경 정리 — 최종 보고 (Phase: dry-run + 백업만, 2026-04-28) ===
+
+[A] 수행됨
+- 백업: D:\HTS_ARM11_Firmware\backup_20260428\HTS_LIM_full_20260428.tar.gz
+  크기 약 1,105,891,852 bytes.
+  참고: tar 중 "HTS_LIM/.vs/.../*.vsidx Permission denied" 1건 — VS가 해당 파일을 잠근 경우.
+  첫 시도(빈 29byte 아카이브)는 잘못된 경로/옵션으로 실패했고, -C D:\HTS_ARM11_Firmware HTS_LIM 로 재시도하여 상기 크기로 생성됨.
+- HTS_TEST 트리 덤프: diag_results\hts_test_tree_20260428.txt
+- dry-run 보고서: diag_results\hts_test_cleanup_dryrun_20260428.txt
+                  diag_results\diag_results_cleanup_dryrun_20260428.txt
+- git 상태·stash·untracked: 콘솔 캡처(에이전트 로그). 미커밋 변경 다수; stash 자동 수행 안 함(원칙).
+
+[B] 수행 안 함 (영준님 확인 전)
+- .exe rename / 삭제
+- x64·Win32·int rmdir
+- HTS_T6_SIM_Test\ 폴더 이동/삭제
+- HTS_TEST 하위 대량 삭제
+- diag_results 내 파일 삭제·통합
+- msbuild / 전체 T6 실행 검증 (환경에 MSBuild 미구성)
+
+[A] HTS_T6_SIM_Test.exe 현재 3개 (dir /s /b)
+1) HTS_TEST\t6_sim\x64\Release\HTS_T6_SIM_Test.exe — 2026-04-28 17:20, 119,808 bytes  ← 16139 측정본(합의 시 보존)
+2) HTS_LIM\x64\Release\HTS_T6_SIM_Test.exe         — 2026-04-28 17:37, 138,752 bytes  ← rename/삭제 후보
+3) HTS_TEST\t6_sim\HTS_T6_SIM_Test.exe               — 2026-04-28 12:17, 137,728 bytes  ← rename/삭제 후보
+
+[C] 다음 단계 (영준님)
+1) 16139 측정 exe가 (1)번이 맞는지 최종 확인.
+2) 확인 후: (2)(3) 을 .bak_20260428 로 rename 또는 삭제.
+3) vcxproj B(HTS_T6_SIM_Test\) — 옵션 가/나 결정.
+4) HTS_TEST [ASK] 항목 결정 후 hts_test_cleanup_dryrun 에 따라 단계 실행.
+5) git: 복구 vs commit vs stash — 별도 정책 결정.
+
+검증 체크리스트 (본 Phase)
+[ ] 백업 tar 존재 및 크기 합리적 확인 (부분 잠금 파일만 누락 가능)
+[ ] .exe 단일화 — 미완료 (dry-run)
+[ ] vcxproj 단일화 — 미완료 (폴더 유지)
+[ ] HTS_TEST 정리 — dry-run 문서만
+[ ] diag_results — 보존, 삭제 없음
+[ ] 빌드/실행 16139 재현 — 미실행

@@ -313,8 +313,13 @@
     <ClCompile Include="HTS_Unified_Scheduler.cpp" />
     <ClCompile Include="HTS_Universal_Adapter.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
-    <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp" />
-    <ClCompile Include="HTS_V400_Dispatcher_Sync_PSLTE.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
+    <!-- 기본: PS-LTE Sync TU 만 링크. AMI 전용 빌드 시 msbuild /p:HTS_SYNC_PROFILE=AMI 로 AMI 만 포함. -->
+    <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp">
+      <ExcludedFromBuild Condition="'$(HTS_SYNC_PROFILE)'!='AMI'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_Sync_PSLTE.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'">
+      <ExcludedFromBuild Condition="'$(HTS_SYNC_PROFILE)'=='AMI'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="HTS_V400_Dispatcher_Payload.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_PaCD.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_V400_Dispatcher_TX.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />

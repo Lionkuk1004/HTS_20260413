@@ -1,0 +1,136 @@
+=== WRC / BUG-9 환경 차이 통합 보고서 (2026-04-28) ===
+범위: Cursor 에이전트가 접근 가능한 워크스페이스 D:\HTS_ARM11_Firmware\HTS_LIM 기준 진단.
+영준님 PC의 "다른 복사본"과의 fc 비교는 해당 머신에서 동일 명령으로 수행 필요.
+
+--------------------------------------------------------------------------------
+6-1. 환경 위치
+--------------------------------------------------------------------------------
+영준님 기준 경로(대화 기준): D:\HTS_ARM11_Firmware\HTS_LIM\  (git 없다고 보고됨)
+Cursor/에이전트 워크스페이스: D:\HTS_ARM11_Firmware\HTS_LIM\
+  - D:\HTS_ARM11_Firmware\HTS_LIM\.git  존재: True (이 워크스페이스는 git repo)
+  - D:\HTS_ARM11_Firmware\.git  존재: False
+경로 차이(본 세션): "동일 루트" — Cursor 측정 산출물(1720)은 아래에 존재:
+  D:\HTS_ARM11_Firmware\HTS_LIM\diag_results\v5a_diag_per_scenario_2026-04-28_1720.txt
+  D:\HTS_ARM11_Firmware\HTS_LIM\diag_results\v5a_diag_summary_2026-04-28_1720.txt
+  (D:\ 루트가 아니라 위 diag_results 하위)
+
+D:\ 상 HTS_T6_SIM_Test.vcxproj 위치(2곳 — 혼동 주의):
+  1) D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.vcxproj  ← T6 시뮬 주 프로젝트
+  2) D:\HTS_ARM11_Firmware\HTS_LIM\HTS_T6_SIM_Test\HTS_T6_SIM_Test.vcxproj   ← 별도 래퍼(경로·경고레벨 등 다름)
+
+--------------------------------------------------------------------------------
+작업 1-2 / 1-3: 핵심 소스·프로젝트 타임스탬프 (워크스페이스)
+--------------------------------------------------------------------------------
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Walsh_Row_Converter.cpp | 2026-04-25 20:30:52 | 6687 bytes
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_PaCD.cpp | 2026-04-27 15:05:25 | 5627 bytes
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp     | 2026-04-28 09:49:27 | 36573 bytes
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp             | 2026-04-28 17:19:05 | 68306 bytes
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.cpp | 2026-04-28 17:20:33 | 74916 bytes
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.vcxproj | 2026-04-28 17:19:24 | 11005 bytes
+
+x64\Release\HTS_T6_SIM_Test.exe | 2026-04-28 17:20:47 | 119808 bytes
+(Win32 Release 경로 exe: 없음)
+
+--------------------------------------------------------------------------------
+작업 2: 영준님 폴더 vs Cursor 폴더 fc (6개 파일)
+--------------------------------------------------------------------------------
+본 에이전트는 영준님 PC의 별도 트리에 직접 접근 불가 → 동일 워크스페이스 내에서는 fc 대상이 하나뿐.
+영준님 측에서 아래 형식으로 실행하면 "다른 복사본" 여부 즉시 판별 가능:
+  fc /n D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_FEC_HARQ.cpp <OTHER>\HTS_LIM\HTS_FEC_HARQ.cpp
+(요청 6개 외에 WRC 호출 가드가 있는 HTS_FEC_HARQ.cpp 비교가 본 이슈에 더 직접적임)
+
+--------------------------------------------------------------------------------
+작업 3: WRC 호출 path + 가드 (코드 근거)
+--------------------------------------------------------------------------------
+(1) T6 단일 TU에서 FEC HARQ 본문 포함
+  HTS_TEST\t6_sim\HTS_T6_SIM_Test.cpp 약 1807행:
+  #include "../../HTS_LIM/HTS_FEC_HARQ.cpp"
+
+(2) WRC::clean_chips 실제 호출 — Decode64_IR 내부, 전처리 가드
+  HTS_LIM\HTS_FEC_HARQ.cpp 약 1597~1617행:
+  #if HTS_WRC_METHOD != 0 || defined(HTS_ALLOW_HOST_BUILD)
+    ...
+    for (int s = 0; s < nsym; ++s) {
+        WRC::clean_chips(g_wrc_sym_i + s * nc, nc);
+        WRC::clean_chips(g_wrc_sym_q + s * nc, nc);
+    }
+    use_I = g_wrc_sym_i;
+    use_Q = g_wrc_sym_q;
+  #endif
+  해석: HTS_WRC_METHOD==0 이고 HTS_ALLOW_HOST_BUILD 가 정의되지 않은 TU로 컴파일되면
+        위 블록 전체가 제거됨 → Decode64_IR 경로에서 WRC::clean_chips 호출 0회 → call_count_64=0.
+
+(3) 진단 카운터 증가 위치 (호출이 있을 때만 증가)
+  HTS_LIM\HTS_Walsh_Row_Converter.cpp — WRC::clean_chips()
+    HTS_WRC_METHOD==0 분기에서도 call_count_16/64는 증가하도록 구현됨(약 217~222행).
+    따라서 "call_count_64==0"은 clean_chips가 아예 호출되지 않았음을 의미(구현상 논리 일치).
+
+(4) WRC 전용 disable 매크로(HTS_WRC_DISABLE 등): 리포지토리 전역 grep 결과 없음.
+
+(5) HTS_Walsh_Row_Converter.hpp — HTS_WRC_METHOD 기본값 0 (no-op)이나,
+    호출 자체는 (2)의 전처리 가드에 의해 별도 문제.
+
+호출 caller(논리): FEC_HARQ::Decode64_IR (64칩 IR 디코드 경로) 루프 내.
+
+--------------------------------------------------------------------------------
+작업 4: vcxproj ClCompile (HTS_TEST\t6_sim 기준) + 두 vcxproj 차이 요약
+--------------------------------------------------------------------------------
+ClCompile 목록(t6_sim): HTS_T6_SIM_Test.cpp, HTS_Session_Derive_Stub.cpp,
+  HTS_LIM\HTS_Walsh_Row_Converter.cpp, HTS_Preamble_Holographic.cpp, HTS_CFO_V5a.cpp,
+  HTS_Holo_Tensor_4D_Common/TX/RX.cpp, HTS_Rx_CFO_SinCos_Table.cpp, HTS_V400_Dispatcher_PaCD.cpp
+  ※ HTS_FEC_HARQ.cpp 는 ClCompile에 없고 T6_SIM_Test.cpp 가 #include 로 끌어옴.
+
+HTS_TEST\t6_sim\HTS_T6_SIM_Test.vcxproj vs HTS_T6_SIM_Test\HTS_T6_SIM_Test.vcxproj (fc 요약):
+  - 둘 다 Release|x64 등에 HTS_ALLOW_HOST_BUILD 정의됨 → 현재 트리 기준으로는 양쪽 모두
+    (2)번 가드가 참이 되어 WRC 호출 블록이 살아 있어야 함.
+  - 차이: 경고 레벨(W4 vs W3), TreatWarningAsError, 진단 매크로( T6_BUF / V5A_PER_SCENARIO 등 ),
+    Include 경로 깊이(..\..\HTS_LIM vs ..\HTS_LIM), ClCompile 상대 경로 표기 등.
+  - 동일 소스를 빌드하더라도 "어느 vcxproj/어느 솔루션을 열었는지"에 따라 사용자 매크로 오버라이드 가능성은 남음.
+
+--------------------------------------------------------------------------------
+작업 5: .exe (워크스페이스)
+--------------------------------------------------------------------------------
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\x64\Release\HTS_T6_SIM_Test.exe
+  2026-04-28 17:20:47, 119808 bytes
+  (직전 소스/ vcxproj 수정 17:19~17:20 대비 exe가 약간 늦게 갱신 → stale 의심 낮음)
+
+--------------------------------------------------------------------------------
+6-2. 핵심 .cpp "동일/차이" (본 세션 한정)
+--------------------------------------------------------------------------------
+영준님 별도 트리 미접근 → fc 불가. 워크스페이스 단일본만 확인됨.
+
+--------------------------------------------------------------------------------
+6-3. WRC 호출 위치 정리
+--------------------------------------------------------------------------------
+호출 위치: HTS_LIM\HTS_FEC_HARQ.cpp — Decode64_IR 내 약 1612~1613행 (루프)
+호출 가드: #if HTS_WRC_METHOD != 0 || defined(HTS_ALLOW_HOST_BUILD)
+진단 출력: HTS_TEST\t6_sim\HTS_T6_SIM_Test.cpp main() 종료 직전 약 1792행 WRC::print_diag()
+
+--------------------------------------------------------------------------------
+6-4. BUG-9 / WRC 불일치 결론 (후보 → 본 세션 확정 가능 범위)
+--------------------------------------------------------------------------------
+가) 코드 차이(.cpp 내용) — 가능성 높음 (영준님 복사본이 오래된 HTS_FEC_HARQ.cpp 인 경우)
+    예: 과거에는 가드가 "HTS_WRC_METHOD != 0" 만 있었고 HOST 분기가 없었다면
+        WRC_METHOD==0 빌드에서 호출 0과 일치.
+
+나) 빌드 옵션(vcxproj / 전처리) — 가능성 높음
+    예: HTS_ALLOW_HOST_BUILD 가 빠진 커스텀 빌드·다른 타깃·props 오버라이드.
+
+다) stale .exe — 보조 후보 (영준님 exe 타임스탬프가 FEC_HARQ 수정보다 오래되면 의심)
+
+라) 완전히 다른 폴더의 repo — 사용자 가설과 부합 가능하나,
+    본 Cursor 워크스페이스에서는 D:\HTS_ARM11_Firmware\HTS_LIM 단일 + .git 존재.
+
+【본 세션에서 논리적으로 확정 가능한 본진】
+  "call_count_64 == 0" 은 WRC::clean_chips 가 링크된 TU에서 호출되지 않았다는 뜻이며,
+  현재 소스 기준으로는 HTS_FEC_HARQ.cpp 의 전처리 가드
+  (HTS_WRC_METHOD != 0 || defined(HTS_ALLOW_HOST_BUILD)) 가 거짓인 빌드 산물이거나,
+  동 가드 이전 버전의 소스로 빌드된 산물이다.
+
+--------------------------------------------------------------------------------
+검증 체크리스트 (사용자용)
+--------------------------------------------------------------------------------
+[ ] 영준님 측정에 사용한 .exe 전체 경로·파일 시간 기록
+[ ] 동일 경로 소스에서 HTS_FEC_HARQ.cpp 1597행 부근 #if 줄이 위와 동일한지 fc 로 확인
+[ ] 빌드 로그에서 HTS_T6_SIM_Test.cpp 컴파일 시 전처리 정의에 HTS_ALLOW_HOST_BUILD 포함 여부
+[ ] Clean rebuild (x64 Release) 후 WRC DIAG 재확인

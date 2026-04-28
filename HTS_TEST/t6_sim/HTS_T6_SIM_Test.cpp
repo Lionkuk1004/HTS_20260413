@@ -24,6 +24,9 @@
 #endif
 
 #include "HTS_V400_Dispatcher.hpp"
+#if defined(HTS_V5A_DIAG) || defined(HTS_V5A_DIAG_PER_SCENARIO)
+#include "HTS_CFO_V5a.hpp"
+#endif
 #if defined(HTS_USE_PN_MASKED)
 #include "HTS_V400_Dispatcher_PNMasked.hpp"
 #endif
@@ -66,9 +69,32 @@ using ProtectedEngine::PayloadMode;
 extern "C" volatile int g_phase_h_diag_force;
 extern "C" volatile uint32_t g_phase_h_diag_seed;
 #endif
+#if defined(HTS_V5A_DIAG_PER_SCENARIO)
+#include "HTS_CFO_V5a_T6_Scenario.hpp"
+#define T6_V5A_SSET(lab, ph, hz)                                            \
+    do {                                                                   \
+        g_t6_current_scenario_label = (lab);                                 \
+        g_t6_current_phase_deg = (ph);                                     \
+        g_t6_current_cfo_hz = (hz);                                        \
+    } while (0)
+#else
+#define T6_V5A_SSET(lab, ph, hz) ((void)0)
+#endif
 #if defined(HTS_CFO_V5A_PTE_DIAG)
 static inline void v5a_diag_ctx(const char* tag) {
     hts::rx_cfo::V5a_Pte_Diag_Set_Context(tag);
+}
+#endif
+#if defined(HTS_V5A_DIAG)
+static inline void v5a_diag_label_row(const char* scenario, int param_hz) noexcept {
+    hts::rx_cfo::V5a_Diag_Label(scenario, param_hz);
+#if defined(HTS_V5A_DIAG_PER_SCENARIO)
+    T6_V5A_SSET(scenario, 0, param_hz);
+#endif
+}
+#elif defined(HTS_V5A_DIAG_PER_SCENARIO)
+static inline void v5a_diag_label_row(const char* scenario, int param_hz) noexcept {
+    T6_V5A_SSET(scenario, 0, param_hz);
 }
 #endif
 
@@ -548,6 +574,7 @@ static void test_S1() {
     ProtectedEngine::CWDetectDiag::set_scenario_label(
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
+    T6_V5A_SSET("S1", 0, 0);
     hdr("S1", "완벽한 무결성 (클린 채널)");
     int ok = 0, crc_only = 0, build_fail = 0;
     long long total_bits = 0;
@@ -639,6 +666,7 @@ static void test_S2() {
     hdr("S2", "위상 전수 조사 (블라인드 획득)");
     const int degs[] = {0, 45, 90, 135, 180, 225, 270, 315};
     for (int deg : degs) {
+        T6_V5A_SSET("S2", deg, 0);
         int ok = 0, crc_only = 0;
         long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
@@ -711,6 +739,7 @@ static void test_S3() {
     ProtectedEngine::CWDetectDiag::set_scenario_label(
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::LowSnr);
 #endif
+    T6_V5A_SSET("S3", 0, 0);
     hdr("S3", "심해 SNR 워터폴 (-30 ~ +10 dB)");
     std::mt19937 rng(0x30000000u);
     const double snrs[] = {-30, -25, -20, -15, -10, -5, 0, 5, 10};
@@ -790,6 +819,7 @@ static void test_S4() {
     ProtectedEngine::CWDetectDiag::set_scenario_label(
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
+    T6_V5A_SSET("S4", 0, 0);
     hdr("S4", "비동기 타이밍 오프셋");
     const int offsets[] = {0, 1, 5, 17, 31, 63, 127};
     for (int off : offsets) {
@@ -901,6 +931,15 @@ static void test_S5() {
     constexpr int kS5TrialsThisBuild = kTrials;
 #endif
     for (double cfo : cfos) {
+        const int s5_cfo_hz_row =
+            static_cast<int>(cfo + (cfo >= 0.0 ? 0.5 : -0.5));
+#if defined(HTS_V5A_DIAG)
+        v5a_diag_label_row("S5", s5_cfo_hz_row);
+#elif defined(HTS_V5A_DIAG_PER_SCENARIO)
+        T6_V5A_SSET("S5", 0, s5_cfo_hz_row);
+#else
+        (void)s5_cfo_hz_row;
+#endif
         int ok = 0, crc_only = 0;
         long long total_bits = 0;
         for (int t = 0; t < kS5TrialsThisBuild; ++t) {
@@ -910,6 +949,36 @@ static void test_S5() {
                 total_bits += 64;
                 continue;
             }
+#if defined(HTS_TX_DUMP_DIAG)
+            {
+                static int s_tx_dump_n_0;
+                static int s_tx_dump_n_100;
+                static int s_tx_dump_n_500;
+                constexpr int kTxDumpLimit = 1;
+                int* p_count = nullptr;
+                if (s5_cfo_hz_row == 0) {
+                    p_count = &s_tx_dump_n_0;
+                } else if (s5_cfo_hz_row == 100) {
+                    p_count = &s_tx_dump_n_100;
+                } else if (s5_cfo_hz_row == 500) {
+                    p_count = &s_tx_dump_n_500;
+                }
+                if (p_count != nullptr && *p_count < kTxDumpLimit) {
+                    std::printf(
+                        "[TX-DUMP] lab=S5 hz=%d n=%d t=%d seed=0x%08X\n",
+                        s5_cfo_hz_row, tx.n, t,
+                        static_cast<unsigned>(ds));
+                    for (int i = 0; i < tx.n; ++i) {
+                        std::printf(
+                            "[TX-IQ] hz=%d i=%d I=%d Q=%d\n",
+                            s5_cfo_hz_row, i,
+                            static_cast<int>(tx.I[i]),
+                            static_cast<int>(tx.Q[i]));
+                    }
+                    ++(*p_count);
+                }
+            }
+#endif
             int16_t rI[kMaxC], rQ[kMaxC];
             std::memcpy(rI, tx.I, sizeof(int16_t) * static_cast<size_t>(tx.n));
             std::memcpy(rQ, tx.Q, sizeof(int16_t) * static_cast<size_t>(tx.n));
@@ -975,6 +1044,7 @@ static void test_S5_seed_fixed() {
     ProtectedEngine::CWDetectDiag::set_scenario_label(
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
+    T6_V5A_SSET("S5F", 0, 0);
     hdr("S5F", "CFO sweep (seed/payload 고정)");
     const double cfos[] = {
         0, 50, 100, 200, 500, 1000, 2000,
@@ -989,6 +1059,13 @@ static void test_S5_seed_fixed() {
         return;
     }
     for (double cfo : cfos) {
+#if defined(HTS_V5A_DIAG)
+        v5a_diag_label_row(
+            "S5F", static_cast<int>(cfo + (cfo >= 0.0 ? 0.5 : -0.5)));
+#elif defined(HTS_V5A_DIAG_PER_SCENARIO)
+        T6_V5A_SSET(
+            "S5F", 0, static_cast<int>(cfo + (cfo >= 0.0 ? 0.5 : -0.5)));
+#endif
         int ok = 0, crc_only = 0;
         long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
@@ -1064,6 +1141,7 @@ static void test_S5_holographic() noexcept {
     ProtectedEngine::CWDetectDiag::set_scenario_label(
         ProtectedEngine::CWDetectDiag::CWDetectScenarioLabel::Clean);
 #endif
+    T6_V5A_SSET("S5H", 0, 0);
     hdr("S5-HOLO", "CFO sweep with L1+L2+L3+L5 Holographic");
     const double cfos[] = {
         0, 50, 100, 200, 500, 1000, 2000,
@@ -1072,6 +1150,13 @@ static void test_S5_holographic() noexcept {
         7500, 10000,
         12500, 15000, 17500, 20000, 25000};
     for (double cfo : cfos) {
+#if defined(HTS_V5A_DIAG)
+        v5a_diag_label_row(
+            "S5H", static_cast<int>(cfo + (cfo >= 0.0 ? 0.5 : -0.5)));
+#elif defined(HTS_V5A_DIAG_PER_SCENARIO)
+        T6_V5A_SSET(
+            "S5H", 0, static_cast<int>(cfo + (cfo >= 0.0 ? 0.5 : -0.5)));
+#endif
         int ok = 0, crc_only = 0;
         long long total_bits = 0;
         for (int t = 0; t < kTrials; ++t) {
@@ -1557,10 +1642,17 @@ static void test_S10() {
 
 } // namespace
 
+#if defined(HTS_V5A_DIAG_PER_SCENARIO)
+const char* g_t6_current_scenario_label = "INIT";
+int g_t6_current_phase_deg = 0;
+int g_t6_current_cfo_hz = 0;
+#endif
+
 // ═══════════════════════════════════════════════════════════════
 //  main
 // ═══════════════════════════════════════════════════════════════
 int main() {
+    T6_V5A_SSET("INIT", 0, 0);
 #if defined(HTS_CFO_V5A_PTE_DIAG)
     hts::rx_cfo::V5a_Pte_Diag_Reset();
 #endif

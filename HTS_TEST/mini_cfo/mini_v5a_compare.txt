@@ -1,0 +1,64 @@
+=== Mini CFO Production Signal Test ===
+TX: Walsh PRE_SYM (row63 + row0), I=Q, amp=1000
+
+Test 1: Walsh PRE_SYM direct -> Mini.Estimate (no dispread)
+actual_Hz    Estimate        residual        note           
+------------------------------------------------------------
+0            0               0               OK             
+100          100             0               OK             
+200          200             0               OK             
+500          500             0               OK             
+1000         1000            0               OK             
+5000         5000            0               OK             
+10000        10000           0               OK             
+12000        12000           0               OK             
+20000        20000           0               OK             
+25000        25000           0               OK             
+
+Test 2: Walsh dispread -> Mini.Estimate (V5a work_I/Q style)
+actual_Hz    Estimate        residual        note           
+------------------------------------------------------------
+0            0               0               OK             
+100          100             0               OK             
+200          200             0               OK             
+500          500             0               OK             
+1000         1000            0               OK             
+5000         5000            0               OK             
+10000        10000           0               OK             
+12000        12000           0               OK             
+20000        20000           0               OK             
+25000        25000           0               OK             
+
+Test 3: dispread + Estimate + Apply(raw) + redispread + re-Estimate
+actual_Hz    Mini_est        res_after_est   est_after       total_res      
+------------------------------------------------------------
+0            0               0               0               0              
+100          100             0               0               0              
+200          200             0               0               0              
+500          500             0               0               0              
+1000         1000            0               0               0              
+5000         5000            0               0               0              
+10000        10000           0               0               0              
+12000        12000           0               0               0              
+20000        20000           0               0               0              
+25000        25000           0               0               0              
+
+Criteria:
+  Test1: many FAIL => Mini L&R expects Walsh-despread input.
+  Test2: OK => Walsh dispread + Mini ~= production-shaped chain.
+  Test3: total_res ~ 0 => Apply + re-estimate self-consistent.
+
+=== Mini vs V5a direct compare (isolated) ===
+input: Walsh PRE_SYM (row63 + row0), I=Q, amp=1000
+PreambleChips=128, ChipRateHz=1000000
+
+actual_Hz    Mini         Mini_잔여  V5a          V5a_잔여  
+------------------------------------------------------------
+0            0            0            1            -1          
+100          100          0            102          -2          
+200          200          0            202          -2          
+500          500          0            499          1           
+1000         1000         0            1002         -2          
+5000         5000         0            5000         0           
+10000        10000        0            10002        -2          
+12000        12000        0            12001        -1          

@@ -10,9 +10,11 @@
   <Project Path="HTS_CFO_Bank_Test.cpp/HTS_CFO_Bank_Test.cpp.vcxproj" Id="8e802e5e-26f2-49b3-ac55-f0b39c48b04f" />
   <Project Path="HTS_Jammer_STD/HTS_Jammer_STD.vcxproj" Id="5ad046b2-70b7-4e89-adb8-2dfe3d0ca62b" />
   <Project Path="HTS_LIM/HTS_LIM.vcxproj" Id="9bd2f8c7-315e-4373-83d5-3357f259718e" />
+  <Project Path="HTS_T6_SIM_Test/HTS_T6_SIM_Test.vcxproj" Id="b31cf66e-c1c1-467a-bd30-ad192113fb1e" />
   <Project Path="HTS_TEST/HTS_검증_AMI.vcxproj" Id="c3d4e5f6-a7b8-9012-cdef-123456789012" />
   <Project Path="HTS_TEST/HTS_검증_AMI_Barrage30_Spec.vcxproj" Id="d5e6f708-d0e1-2345-f012-456789012345" />
   <Project Path="HTS_TEST/HTS_검증_KCMVP.vcxproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
   <Project Path="HTS_검증_PLUTO_SDR/HTS_검증_PLUTO_SDR.vcxproj" Id="0f9fc64a-2461-4131-b71f-aa94298173b4" />
+  <Project Path="Payload Test/Payload Test.vcxproj" Id="cf645485-640c-4594-aa1a-b9369302740e" />
   <Project Path="POLAR_TEST/POLAR_TEST.vcxproj" Id="576c6afa-da0b-469d-b7e7-872bb96decf4" />
 </Solution>

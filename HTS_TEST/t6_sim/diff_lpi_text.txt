@@ -1,261 +1,0 @@
-Comparing files stepS_post_split_lpi_iso.log and STEPS_POST_FIX_LPI_ISO.LOG
-***** stepS_post_split_lpi_iso.log
-% LPI=NONE  100/100
-      0 dB |  100.0% | avg   3.8R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=50% LPI=NONE  1/100  V4-64-LPIiso J/S=5 cov=50% LPI=NONE  2/100  V4-64-LPIiso J/S=5 cov=50% LPI=NONE
-***** STEPS_POST_FIX_LPI_ISO.LOG
-% LPI=NONE  100/100
-      0 dB |  100.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=50% LPI=NONE  1/100  V4-64-LPIiso J/S=5 cov=50% LPI=NONE  2/100  V4-64-LPIiso J/S=5 cov=50% LPI=NONE
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=50% LPI=NONE  98/100  V4-64-LPIiso J/S=10 cov=50% LPI=NONE  99/100  V4-64-LPIiso J/S=10 cov=50% LPI=NONE  100/100
-     10 dB |  100.0% | avg   4.2R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=N
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=50% LPI=NONE  98/100  V4-64-LPIiso J/S=10 cov=50% LPI=NONE  99/100  V4-64-LPIiso J/S=10 cov=50% LPI=NONE  100/100
-     10 dB |  100.0% | avg   7.9R | maxR=12 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=N
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=50% LPI=NONE  98/100  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  99/100  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  100/100
-     20 dB |   77.0% | avg  24.8R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=NONE  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=NONE  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=N
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=50% LPI=NONE  98/100  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  99/100  V4-64-LPIiso J/S=20 cov=50% LPI=NONE  100/100
-     20 dB |   74.0% | avg  25.8R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=NONE  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=NONE  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=N
-*****
-
-***** stepS_post_split_lpi_iso.log
-ov=100% LPI=NONE  98/100  V4-64-LPIiso J/S=5 cov=100% LPI=NONE  99/100  V4-64-LPIiso J/S=5 cov=100% LPI=NONE  100/100
-      5 dB |  100.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=10 cov=100% LPI=NONE  1/100  V4-64-LPIiso J/S=10 cov=100% LPI=NONE  2/100  V4-64-LPIiso J/S=10 cov=100% LP
-***** STEPS_POST_FIX_LPI_ISO.LOG
-ov=100% LPI=NONE  98/100  V4-64-LPIiso J/S=5 cov=100% LPI=NONE  99/100  V4-64-LPIiso J/S=5 cov=100% LPI=NONE  100/100
-      5 dB |  100.0% | avg   5.4R | maxR=12 | V4-64
-  V4-64-LPIiso J/S=10 cov=100% LPI=NONE  1/100  V4-64-LPIiso J/S=10 cov=100% LPI=NONE  2/100  V4-64-LPIiso J/S=10 cov=100% LP
-*****
-
-***** stepS_post_split_lpi_iso.log
--64-LPIiso J/S=10 cov=100% LPI=NONE  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=NONE  100/100
-     10 dB |  100.0% | avg   7.1R | maxR=12 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=NONE  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=NONE  2/100  V4-64-LPIiso J/S=20 cov=100% LP
-***** STEPS_POST_FIX_LPI_ISO.LOG
--64-LPIiso J/S=10 cov=100% LPI=NONE  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=NONE  100/100
-     10 dB |  100.0% | avg  16.5R | maxR=29 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=NONE  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=NONE  2/100  V4-64-LPIiso J/S=20 cov=100% LP
-*****
-
-***** stepS_post_split_lpi_iso.log
--64-LPIiso J/S=20 cov=100% LPI=NONE  99/100  V4-64-LPIiso J/S=20 cov=100% LPI=NONE  100/100
-     20 dB |    7.0% | avg  29.6R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=100% LPI=NONE  1/100  V4-64-LPIiso J/S=25 cov=100% LPI=NONE  2/100  V4-64-LPIiso J/S=25 cov=100% LP
-***** STEPS_POST_FIX_LPI_ISO.LOG
--64-LPIiso J/S=20 cov=100% LPI=NONE  99/100  V4-64-LPIiso J/S=20 cov=100% LPI=NONE  100/100
-     20 dB |    1.0% | avg  28.0R | maxR=28 | V4-64
-  V4-64-LPIiso J/S=25 cov=100% LPI=NONE  1/100  V4-64-LPIiso J/S=25 cov=100% LPI=NONE  2/100  V4-64-LPIiso J/S=25 cov=100% LP
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=AMP  100/100
-     -1 dB |  100.0% | avg   3.2R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  3
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=AMP  100/100
-     -1 dB |  100.0% | avg   3.5R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  3
-*****
-
-***** stepS_post_split_lpi_iso.log
-  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  100/100
-      0 dB |  100.0% | avg   3.9R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  3
-***** STEPS_POST_FIX_LPI_ISO.LOG
-  V4-64-LPIiso J/S=0 cov=50% LPI=AMP  100/100
-      0 dB |  100.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  3
-*****
-
-***** stepS_post_split_lpi_iso.log
-  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  100/100
-      5 dB |  100.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=10 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=10 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=10 cov=50% LPI=AMP
-***** STEPS_POST_FIX_LPI_ISO.LOG
-  V4-64-LPIiso J/S=5 cov=50% LPI=AMP  100/100
-      5 dB |  100.0% | avg   4.0R | maxR= 5 | V4-64
-  V4-64-LPIiso J/S=10 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=10 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=10 cov=50% LPI=AMP
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=AMP  100/100
-     10 dB |  100.0% | avg   4.5R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=AMP
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=AMP  100/100
-     10 dB |  100.0% | avg   8.1R | maxR=16 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=AMP
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=AMP  100/100
-     20 dB |   71.0% | avg  24.6R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=AMP
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=AMP  100/100
-     20 dB |   67.0% | avg  25.2R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=AMP  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=AMP  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=AMP
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=AMP  100/100
-     25 dB |    1.0% | avg  32.0R | maxR=32 | V4-64
-
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=AMP  100/100
-     25 dB |    2.0% | avg  30.0R | maxR=32 | V4-64
-
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=100% LPI=AMP  98/100  V4-64-LPIiso J/S=-1 cov=100% LPI=AMP  99/100  V4-64-LPIiso J/S=-1 cov=100% LPI=AMP  100/100
-     -1 dB |  100.0% | avg   3.3R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=0 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=0 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=0 cov=100% LPI=AMP
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=100% LPI=AMP  98/100  V4-64-LPIiso J/S=-1 cov=100% LPI=AMP  99/100  V4-64-LPIiso J/S=-1 cov=100% LPI=AMP  100/100
-     -1 dB |  100.0% | avg   3.4R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=0 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=0 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=0 cov=100% LPI=AMP
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=AMP  100/100
-      0 dB |  100.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=5 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=5 cov=100% LPI=AMP
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=AMP  100/100
-      0 dB |  100.0% | avg   4.0R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=5 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=5 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=5 cov=100% LPI=AMP
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=AMP  100/100
-      5 dB |  100.0% | avg   4.0R | maxR= 7 | V4-64
-  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=10 cov=100% LPI=
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=AMP  100/100
-      5 dB |  100.0% | avg   5.3R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=10 cov=100% LPI=
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=100% LPI=AMP  98/100  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  100/100
-     10 dB |  100.0% | avg   7.6R | maxR=16 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=20 cov=100% LPI=
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=100% LPI=AMP  98/100  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=AMP  100/100
-     10 dB |   99.0% | avg  17.5R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=20 cov=100% LPI=
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=100% LPI=AMP  98/100  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  99/100  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  100/100
-     20 dB |    7.0% | avg  29.4R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=25 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=25 cov=100% LPI=
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=100% LPI=AMP  98/100  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  99/100  V4-64-LPIiso J/S=20 cov=100% LPI=AMP  100/100
-     20 dB |    0.0% | avg   0.0R | maxR= 0 | V4-64
-  V4-64-LPIiso J/S=25 cov=100% LPI=AMP  1/100  V4-64-LPIiso J/S=25 cov=100% LPI=AMP  2/100  V4-64-LPIiso J/S=25 cov=100% LPI=
-*****
-
-***** stepS_post_split_lpi_iso.log
-  V4-64-LPIiso J/S=0 cov=50% LPI=TIM  100/100
-      0 dB |    6.0% | avg   3.8R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=50% LPI=TIM  1/100  V4-64-LPIiso J/S=5 cov=50% LPI=TIM  2/100  V4-64-LPIiso J/S=5 cov=50% LPI=TIM  3
-***** STEPS_POST_FIX_LPI_ISO.LOG
-  V4-64-LPIiso J/S=0 cov=50% LPI=TIM  100/100
-      0 dB |    6.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=5 cov=50% LPI=TIM  1/100  V4-64-LPIiso J/S=5 cov=50% LPI=TIM  2/100  V4-64-LPIiso J/S=5 cov=50% LPI=TIM  3
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=TIM  100/100
-     10 dB |    1.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=TIM  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=TIM  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=TIM
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=TIM  100/100
-     10 dB |    1.0% | avg   8.0R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=TIM  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=TIM  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=TIM
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=TIM  100/100
-     20 dB |    4.0% | avg  25.5R | maxR=28 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=TIM  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=TIM  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=TIM
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=TIM  100/100
-     20 dB |    4.0% | avg  27.8R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=TIM  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=TIM  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=TIM
-*****
-
-***** stepS_post_split_lpi_iso.log
-0% LPI=TIM  100/100
-      5 dB |    7.0% | avg   4.0R | maxR= 4 | V4-64
-  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  1/100  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  2/100  V4-64-LPIiso J/S=10 cov=100% LPI=
-***** STEPS_POST_FIX_LPI_ISO.LOG
-0% LPI=TIM  100/100
-      5 dB |    7.0% | avg   5.1R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  1/100  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  2/100  V4-64-LPIiso J/S=10 cov=100% LPI=
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=100% LPI=TIM  98/100  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  100/100
-     10 dB |    2.0% | avg   6.0R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  2/100  V4-64-LPIiso J/S=20 cov=100% LPI=
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=100% LPI=TIM  98/100  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=TIM  100/100
-     10 dB |    2.0% | avg  15.0R | maxR=18 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  2/100  V4-64-LPIiso J/S=20 cov=100% LPI=
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=100% LPI=TIM  98/100  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  99/100  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  100/100
-     20 dB |    1.0% | avg  32.0R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=100% LPI=TIM  1/100  V4-64-LPIiso J/S=25 cov=100% LPI=TIM  2/100  V4-64-LPIiso J/S=25 cov=100% LPI=
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=100% LPI=TIM  98/100  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  99/100  V4-64-LPIiso J/S=20 cov=100% LPI=TIM  100/100
-     20 dB |    0.0% | avg   0.0R | maxR= 0 | V4-64
-  V4-64-LPIiso J/S=25 cov=100% LPI=TIM  1/100  V4-64-LPIiso J/S=25 cov=100% LPI=TIM  2/100  V4-64-LPIiso J/S=25 cov=100% LPI=
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=50% LPI=BOTH  98/100  V4-64-LPIiso J/S=10 cov=50% LPI=BOTH  99/100  V4-64-LPIiso J/S=10 cov=50% LPI=BOTH  100/100
-     10 dB |    3.0% | avg   5.0R | maxR= 7 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=B
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=50% LPI=BOTH  98/100  V4-64-LPIiso J/S=10 cov=50% LPI=BOTH  99/100  V4-64-LPIiso J/S=10 cov=50% LPI=BOTH  100/100
-     10 dB |    3.0% | avg   6.7R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  1/100  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  2/100  V4-64-LPIiso J/S=20 cov=50% LPI=B
-*****
-
-***** stepS_post_split_lpi_iso.log
-cov=50% LPI=BOTH  98/100  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  99/100  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  100/100
-     20 dB |    3.0% | avg  25.3R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=BOTH  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=BOTH  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=B
-***** STEPS_POST_FIX_LPI_ISO.LOG
-cov=50% LPI=BOTH  98/100  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  99/100  V4-64-LPIiso J/S=20 cov=50% LPI=BOTH  100/100
-     20 dB |    2.0% | avg  24.0R | maxR=32 | V4-64
-  V4-64-LPIiso J/S=25 cov=50% LPI=BOTH  1/100  V4-64-LPIiso J/S=25 cov=50% LPI=BOTH  2/100  V4-64-LPIiso J/S=25 cov=50% LPI=B
-*****
-
-***** stepS_post_split_lpi_iso.log
--64-LPIiso J/S=10 cov=100% LPI=BOTH  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=BOTH  100/100
-     10 dB |    2.0% | avg   6.0R | maxR= 8 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=BOTH  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=BOTH  2/100  V4-64-LPIiso J/S=20 cov=100% LP
-***** STEPS_POST_FIX_LPI_ISO.LOG
--64-LPIiso J/S=10 cov=100% LPI=BOTH  99/100  V4-64-LPIiso J/S=10 cov=100% LPI=BOTH  100/100
-     10 dB |    2.0% | avg  15.0R | maxR=18 | V4-64
-  V4-64-LPIiso J/S=20 cov=100% LPI=BOTH  1/100  V4-64-LPIiso J/S=20 cov=100% LPI=BOTH  2/100  V4-64-LPIiso J/S=20 cov=100% LP
-*****
-

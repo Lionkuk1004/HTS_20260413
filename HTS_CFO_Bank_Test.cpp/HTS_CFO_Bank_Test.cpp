@@ -16,7 +16,8 @@
 //     (양산은 CRC 또는 known reference; 여기서는 측정용 ground truth)
 //
 // 컴파일 옵션 (RX TU / Lab vcxproj):
-//   /DHTS_HOLO_RX_PHASE_B_DEROTATE  ← 양산 derotate ON (default OFF)
+//   /DHTS_HOLO_RX_PHASE_B_DEROTATE  ← 이 TU printf 라벨용(선택). 4D RX는
+//       HTS_Holo_Tensor_4D_RX.cpp 에서 잔여 dφ derotate 항상 적용.
 //
 // kCfoSweepList (v2): 0~5000Hz @50Hz, 5100~25000Hz @100Hz, 예상 ~38분
 //

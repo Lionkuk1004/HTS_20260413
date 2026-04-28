@@ -177,7 +177,15 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             static_cast<long long>(cfo_acQ), static_cast<int>(d1I),
             static_cast<int>(d1Q), sh, bo);
 #endif
+#if defined(HTS_V5A_DIAG)
+        hts::rx_cfo::V5a_Diag_Ac_Call_Pre(d1I, d1Q, 32);
+#endif
         cfo_v5a_.Estimate_From_Autocorr(d1I, d1Q, 32);
+#if defined(HTS_BYPASS_GROUP_C)
+        cfo_v5a_last_cfo_hz_ = 0;
+        cfo_v5a_last_valid_ = false;
+        cfo_v5a_.Set_Apply_Cfo(0);
+#else
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
             "[POST-EST-ATAN2] sin14=%d hz=%d\n",
@@ -189,6 +197,7 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         } else {
             cfo_v5a_.Set_Apply_Cfo(0);
         }
+#endif
     }
 
     int16_t local_A[64];
@@ -1441,6 +1450,11 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                     const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
                     const hts::rx_cfo::CFO_Result cfo_res =
                         cfo_v5a_.Estimate(pre_I, pre_Q);
+#if defined(HTS_BYPASS_GROUP_C)
+                    cfo_v5a_last_cfo_hz_ = 0;
+                    cfo_v5a_last_valid_ = false;
+                    cfo_v5a_.Set_Apply_Cfo(0);
+#else
                     cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
                     cfo_v5a_last_valid_ = cfo_res.valid;
                     if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
@@ -1449,6 +1463,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                     } else {
                         cfo_v5a_.Set_Apply_Cfo(0);
                     }
+#endif
                 } else {
                     cfo_v5a_.Set_Apply_Cfo(0);
                 }

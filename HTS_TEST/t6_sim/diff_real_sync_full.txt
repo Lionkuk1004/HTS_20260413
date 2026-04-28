@@ -1,25 +1,0 @@
-Comparing files stepS_post_split_real_sync.log and STEPS_POST_FIX_REAL_SYNC.LOG
-***** stepS_post_split_real_sync.log
- LPI=NONE  99/100  V4-64-RealSync Holo=OFF J/S=10 cov=50% LPI=NONE  100/100
-     10 dB |  100.0% | avg   1.0R | maxR= 1 | V4-64-Sync
-         sync=100.0%  header=100.0%  payload=100.0%  (100/100 / 100/100 / 100/100)
-
-***** STEPS_POST_FIX_REAL_SYNC.LOG
- LPI=NONE  99/100  V4-64-RealSync Holo=OFF J/S=10 cov=50% LPI=NONE  100/100
-     10 dB |   96.0% | avg   1.0R | maxR= 2 | V4-64-Sync
-         sync=100.0%  header=100.0%  payload=96.0%  (100/100 / 100/100 / 96/100)
-
-*****
-
-***** stepS_post_split_real_sync.log
-lSync Holo=OFF J/S=10 cov=50% LPI=AMP  99/100  V4-64-RealSync Holo=OFF J/S=10 cov=50% LPI=AMP  100/100
-     10 dB |  100.0% | avg   1.0R | maxR= 1 | V4-64-Sync
-         sync=100.0%  header=100.0%  payload=100.0%  (100/100 / 100/100 / 100/100)
-
-***** STEPS_POST_FIX_REAL_SYNC.LOG
-lSync Holo=OFF J/S=10 cov=50% LPI=AMP  99/100  V4-64-RealSync Holo=OFF J/S=10 cov=50% LPI=AMP  100/100
-     10 dB |   92.0% | avg   1.0R | maxR= 1 | V4-64-Sync
-         sync=100.0%  header=100.0%  payload=92.0%  (100/100 / 100/100 / 92/100)
-
-*****
-

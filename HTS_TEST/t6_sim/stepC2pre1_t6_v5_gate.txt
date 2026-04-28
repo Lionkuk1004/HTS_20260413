@@ -1,2 +1,0 @@
-From stepC2pre1_t6_v5.log (full log not committed):
-  정량 합계:  13839 /  15200 ( 91.0%) — 전체 BER: 0.08954

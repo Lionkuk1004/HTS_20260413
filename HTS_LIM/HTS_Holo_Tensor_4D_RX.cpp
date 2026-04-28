@@ -279,8 +279,9 @@ namespace ProtectedEngine {
     };
 
     namespace {
-        /// 인접 칩 lag=1 복소 상관 누적 → 블록 평균 잔여 dφ(Q16/칩).
+        /// 인접 칩 lag=1 복소 상관 Σ z[n+1]·conj(z[n]) → arg(Σ) = 잔여 dφ(Q16/칩).
         /// (제곱 위상 추정은 저 CFO에서 과회전을 유발할 수 있어 선형 누적 사용.)
+        /// lag 항마다 동일한 칩간 위상이면 arg(Σ)가 그 위상과 같으므로 /(N-1) 불필요.
         static int32_t holo4d_estimate_residual_dphi_q16(
             const int16_t* rx_I, const int16_t* rx_Q, uint16_t N) noexcept
         {
@@ -296,18 +297,33 @@ namespace ProtectedEngine {
                     static_cast<int64_t>(q1) * q0;
                 const int64_t c_Q = static_cast<int64_t>(q1) * i0 -
                     static_cast<int64_t>(i1) * q0;
-                sum_I += c_I >> 8;
-                sum_Q += c_Q >> 8;
+                sum_I += c_I;
+                sum_Q += c_Q;
             }
-            const int32_t total_q16 = Holo4D_Atan2_Q16(
-                static_cast<int32_t>(sum_Q >> 16),
-                static_cast<int32_t>(sum_I >> 16));
-            const int32_t denom = static_cast<int32_t>(static_cast<uint16_t>(N - 1u));
-            if (denom <= 0) { return 0; }
-            int32_t dphi = total_q16 / denom;
-            if (dphi > 4096) { dphi = 4096; }
-            else if (dphi < -4096) { dphi = -4096; }
-            return dphi;
+            int32_t sh = 0;
+            for (;;) {
+                const int64_t tI = sum_I >> sh;
+                const int64_t tQ = sum_Q >> sh;
+                const int64_t ax = tI >> 63;
+                const int64_t ai = (tI ^ ax) - ax;
+                const int64_t ay = tQ >> 63;
+                const int64_t aq = (tQ ^ ay) - ay;
+                const int64_t m = (ai > aq) ? ai : aq;
+                if (m <= static_cast<int64_t>(2147483647) || sh >= 40) {
+                    break;
+                }
+                ++sh;
+            }
+            const int32_t I_clamped = static_cast<int32_t>(sum_I >> sh);
+            const int32_t Q_clamped = static_cast<int32_t>(sum_Q >> sh);
+            const int32_t dphi_q16 = Holo4D_Atan2_Q16(Q_clamped, I_clamped);
+            const int32_t over_max = dphi_q16 - 4096;
+            const int32_t over_max_mask = ~(over_max >> 31);
+            int32_t result = (dphi_q16 & ~over_max_mask) | (4096 & over_max_mask);
+            const int32_t under_min = -4096 - result;
+            const int32_t under_min_mask = ~(under_min >> 31);
+            result = (result & ~under_min_mask) | (-4096 & under_min_mask);
+            return result;
         }
 
         static void holo4d_chip_derotate_q15(
@@ -383,14 +399,8 @@ namespace ProtectedEngine {
         int16_t der_I[HOLO_CHIP_COUNT];
         int16_t der_Q[HOLO_CHIP_COUNT];
 
-        const int32_t dphi_est =
+        const int32_t dphi_q16 =
             holo4d_estimate_residual_dphi_q16(rx_I, rx_Q, N_eff);
-#if defined(HTS_HOLO_RX_PHASE_B_DEROTATE)
-        const int32_t dphi_q16 = dphi_est;
-#else
-        const int32_t dphi_q16 = 0;
-        (void)dphi_est;
-#endif
         holo4d_chip_derotate_q15(
             rx_I, rx_Q, dphi_q16, N_eff, der_I, der_Q);
 

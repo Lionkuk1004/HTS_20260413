@@ -1,0 +1,5 @@
+Sign match I: 128/128, diff: 0/128
+Sign match Q: 128/128, diff: 0/128
+Amplitude ratio mean (pacd_I/v4_I, 128 chips): 2.000000
+v4_I[0..7]:   500 -500 -500 500 -500 500 500 -500
+pacd_I[0..7]: 1000 -1000 -1000 1000 -1000 1000 1000 -1000

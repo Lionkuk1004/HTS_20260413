@@ -66,10 +66,47 @@ static_assert(kLR_NumSeg * kLR_SegSize == kPreambleChips,
 /// 미정의 시 기존 Luise–Reggiannini 세그먼트 LR 유지.
 // #define HTS_USE_MNM_WALSH  (빌드 스크립트에서 /DHTS_USE_MNM_WALSH)
 
+/// Lab: 정의 시 `Estimate` 의 L&R 경로가 **인접 세그먼트(M-1) 미적분** 식으로 대체
+/// (`LR_Estimate_impl`: Walsh 가중·lag≤4·L&R1995 Hz 스케일).
+/// `HTS_USE_MNM_WALSH` 와 동시 정의 시 **M&M 경로 우선**.
+// #define HTS_USE_CLASSIC_LR  (빌드 스크립트에서 /DHTS_USE_CLASSIC_LR)
+
+/// Lab: `Estimate` 단계별 bypass (`/DHTS_BYPASS_*=1`). **미정의 시 양산과 동일.**
+/// - `HTS_BYPASS_WALSH_DISPREAD` — coarse/fine 에너지: Walsh 멀티프레임 대신 raw 칩 에너지 합.
+/// - `HTS_BYPASS_COARSE_SEARCH` — coarse 뱅크 고정(중앙 bin), coarse PTE 0.
+/// - `HTS_BYPASS_FINE_SEARCH` — fine 뱅크 스킵(`best_cfo = cb_refined`, fine PTE 0).
+/// - `HTS_BYPASS_PTE` — coarse/fine parabolic PTE 0 (`HTS_V5A_DISABLE_PTE` 와 중첩 가능).
+/// - `HTS_BYPASS_LR` — L&R 0 (`HTS_V5A_DISABLE_LR` 와 동등 분기).
+/// - `HTS_BYPASS_FINEREF` — 패스 합산을 `lr_cfo` 만(실험용, 2-pass 궤적 이상 가능).
+/// - `HTS_BYPASS_ITERATIVE` — `kCfoIterPasses` 대신 1 pass 만.
+/// - `HTS_BYPASS_APPLY` — `Apply_Per_Chip` 에서 칩 회전·위상 누적 없이 통과(실험).
+///
+/// Lab: `/DHTS_V5A_STEP_A_DIAG=1` — `Estimate` 단계별 덤프(입력·coarse/fine 에너지·PTE·pass).
+/// `HTS_V5A_DIAG` 와 별도. 미정의 시 코드·출력 없음.
+///
+/// Lab: `/DHTS_V5A_STEP_B1_DIAG=1` (반드시 `HTS_V5A_DIAG` 동시 정의) — S5/500Hz 라벨일 때만
+/// 입력·coarse/fine 에너지 뱅크 덤프(`[V5A-B1-*]`). 미정의 시 코드·출력 없음.
+///
+/// Lab: `/DHTS_V5A_STEP_C1_DIAG=1` (반드시 `HTS_V5A_DIAG` 동시 정의) — `V5a::Estimate` 호출 직전
+/// Dispatcher 측 `p0_buf128_*`·포인터 오프셋 덤프(`[V5A-C1-*]`). 미정의 시 코드·출력 없음.
+///
+/// Lab: `/DHTS_V5A_STEP_D1_DIAG=1` (반드시 `HTS_V5A_DIAG` 동시 정의) — `best_off` / `best_off_p2`
+/// 결정 직후·`Estimate` 직전 스캔 메트릭 덤프(`[V5A-D1-*]`). 미정의 시 코드·출력 없음.
+
 #if defined(HTS_CFO_V5A_PTE_DIAG)
 void V5a_Pte_Diag_Reset() noexcept;
 void V5a_Pte_Diag_Set_Context(const char* tag) noexcept;
 void V5a_Pte_Diag_Print_Summary() noexcept;
+#endif
+
+#if defined(HTS_V5A_DIAG)
+/// T6 등: 현재 CFO 행(예: 500)과 시나리오 이름. Apply 칩별 `[V5A-APPLY]` 카운터를 리셋.
+void V5a_Diag_Label(const char* scenario, int param_hz) noexcept;
+/// `Estimate_From_Autocorr` 직전 ac_I/Q·mag2·임계값 게이트 덤프(시나리오당 최대 8회).
+void V5a_Diag_Ac_Call_Pre(int32_t ac_I, int32_t ac_Q, int lag_chips) noexcept;
+/// `V5a_Diag_Label` 직후 컨텍스트 (Dispatcher Step C-1 등 타 TU). 정의는 `HTS_CFO_V5a.cpp`.
+extern const char* g_v5a_lab_scenario;
+extern int32_t g_v5a_lab_param_hz;
 #endif
 
 #if defined(HTS_LR_DIAG)

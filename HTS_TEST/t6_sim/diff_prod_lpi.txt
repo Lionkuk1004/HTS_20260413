@@ -1,3 +1,0 @@
-Comparing files stepS_post_fix_tune_lpi_iso.log and STEPS_PROD_LPI_ISO.LOG
-FC: no differences encountered
-

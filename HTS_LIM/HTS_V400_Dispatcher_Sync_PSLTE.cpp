@@ -64,6 +64,53 @@ static inline void hts_v5a_s5h_apply_diag_arm_after_p0_commit_() noexcept
     s_hts_s5h_apply_diag_arm_next_p1_64 = 1;
 }
 #endif
+
+#if defined(HTS_V5A_STEP_C1_DIAG) && defined(HTS_V5A_DIAG)
+namespace {
+void hts_v5a_step_c1_diag_dump_if_(const int16_t* pre_I,
+                                   const int16_t* pre_Q,
+                                   const int16_t* p0_I_base,
+                                   const int16_t* p0_Q_base,
+                                   int p0_chip_count) noexcept
+{
+    static int s_c1_dump_n = 0;
+    constexpr int kC1DumpLimit = 3;
+    const char* const lab = hts::rx_cfo::g_v5a_lab_scenario;
+    const bool is_target =
+        (lab != nullptr) && (std::strcmp(lab, "S5") == 0) &&
+        (hts::rx_cfo::g_v5a_lab_param_hz == 500);
+    if (!is_target || s_c1_dump_n >= kC1DumpLimit) {
+        return;
+    }
+    long long i_off_chips = -1LL;
+    long long q_off_chips = -1LL;
+    const bool i_in_192 =
+        (pre_I >= p0_I_base) && (pre_I < p0_I_base + 192);
+    const bool q_in_192 =
+        (pre_Q >= p0_Q_base) && (pre_Q < p0_Q_base + 192);
+    if (i_in_192 && q_in_192) {
+        i_off_chips = static_cast<long long>(pre_I - p0_I_base);
+        q_off_chips = static_cast<long long>(pre_Q - p0_Q_base);
+    }
+    std::printf(
+        "[V5A-C1-PTR] dump=%d pre_I=%p pre_Q=%p p0_I=%p p0_Q=%p "
+        "I_off_chips=%lld Q_off_chips=%lld\n",
+        s_c1_dump_n, static_cast<const void*>(pre_I),
+        static_cast<const void*>(pre_Q), static_cast<const void*>(p0_I_base),
+        static_cast<const void*>(p0_Q_base), i_off_chips, q_off_chips);
+    std::printf("[V5A-C1-STATE] dump=%d p0_chip_count=%d\n", s_c1_dump_n,
+                p0_chip_count);
+    std::printf("[V5A-C1-BUF192] dump=%d total_chips=192\n", s_c1_dump_n);
+    for (int n = 0; n < 192; ++n) {
+        std::printf("[V5A-C1-BUF] dump=%d n=%d I=%d Q=%d\n", s_c1_dump_n, n,
+                    static_cast<int>(p0_I_base[n]),
+                    static_cast<int>(p0_Q_base[n]));
+    }
+    ++s_c1_dump_n;
+}
+}  // namespace
+#endif
+
 namespace ProtectedEngine {
 using namespace detail;
 void HTS_V400_Dispatcher::psal_commit_align_() noexcept {
@@ -220,7 +267,15 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
             static_cast<long long>(cfo_acQ), static_cast<int>(d1I),
             static_cast<int>(d1Q), sh, bo);
 #endif
+#if defined(HTS_V5A_DIAG)
+        hts::rx_cfo::V5a_Diag_Ac_Call_Pre(d1I, d1Q, 32);
+#endif
         cfo_v5a_.Estimate_From_Autocorr(d1I, d1Q, 32);
+#if defined(HTS_BYPASS_GROUP_C)
+        cfo_v5a_last_cfo_hz_ = 0;
+        cfo_v5a_last_valid_ = false;
+        cfo_v5a_.Set_Apply_Cfo(0);
+#else
 #if defined(HTS_DIAG_PRINTF) && defined(HTS_DIAG_CFO_EST)
         std::printf(
             "[POST-EST-ATAN2] sin14=%d hz=%d\n",
@@ -232,6 +287,7 @@ void HTS_V400_Dispatcher::phase0_scan_holo_preamble_rx_() noexcept {
         } else {
             cfo_v5a_.Set_Apply_Cfo(0);
         }
+#endif
     }
 
     int16_t local_A[64];
@@ -1451,6 +1507,29 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
             "[STAGE4-P0] lock dominant_row=%u off=%d (seed=walsh63 non-coh)\n",
             static_cast<unsigned>(dominant_row_), best_off);
 #endif
+#if defined(HTS_V5A_STEP_D1_DIAG) && defined(HTS_V5A_DIAG)
+        {
+            static int s_d1_p0_dump_n = 0;
+            constexpr int kD1DumpLimit = 3;
+            const char* const lab = hts::rx_cfo::g_v5a_lab_scenario;
+            const bool is_target =
+                (lab != nullptr) && (std::strcmp(lab, "S5") == 0) &&
+                (hts::rx_cfo::g_v5a_lab_param_hz == 500);
+            if (is_target && s_d1_p0_dump_n < kD1DumpLimit) {
+                std::printf(
+                    "[V5A-D1-P0-OFF] dump=%d path=phase0_scan_ best_off=%d "
+                    "best_e63=%d second_e63=%d best_dom_row=%d dominant_row_=%u "
+                    "p0_chip_count=%d sum_others=%lld r_avg_ok=%d sep_ok=%d "
+                    "e63_min=%d\n",
+                    s_d1_p0_dump_n, best_off, static_cast<int>(best_e63),
+                    static_cast<int>(second_e63), best_dom_row,
+                    static_cast<unsigned>(dominant_row_), p0_chip_count_,
+                    static_cast<long long>(sum_others), r_avg_ok ? 1 : 0,
+                    sep_ok ? 1 : 0, e63_min);
+                ++s_d1_p0_dump_n;
+            }
+        }
+#endif
         {
             int32_t seed_dot_I = 0, seed_dot_Q = 0;
 #if defined(HTS_PHASE0_WALSH_BANK)
@@ -1515,8 +1594,17 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                 if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
                     const int16_t* const pre_I = &p0_buf128_I_[best_off];
                     const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
+#if defined(HTS_V5A_STEP_C1_DIAG) && defined(HTS_V5A_DIAG)
+                    hts_v5a_step_c1_diag_dump_if_(pre_I, pre_Q, p0_buf128_I_,
+                                                  p0_buf128_Q_, p0_chip_count_);
+#endif
                     const hts::rx_cfo::CFO_Result cfo_res =
                         cfo_v5a_.Estimate(pre_I, pre_Q);
+#if defined(HTS_BYPASS_GROUP_C)
+                    cfo_v5a_last_cfo_hz_ = 0;
+                    cfo_v5a_last_valid_ = false;
+                    cfo_v5a_.Set_Apply_Cfo(0);
+#else
                     cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
                     cfo_v5a_last_valid_ = cfo_res.valid;
                     if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
@@ -1525,6 +1613,7 @@ void HTS_V400_Dispatcher::phase0_scan_() noexcept {
                     } else {
                         cfo_v5a_.Set_Apply_Cfo(0);
                     }
+#endif
                 } else {
                     cfo_v5a_.Set_Apply_Cfo(0);
                 }
@@ -1711,23 +1800,41 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
 #endif
         psal_off_ = best_off;
         psal_e63_ = static_cast<int32_t>(best_e >> 16);
+#if defined(HTS_V5A_STEP_D1_DIAG) && defined(HTS_V5A_DIAG)
+        {
+            static int s_d1_h1_dump_n = 0;
+            constexpr int kD1DumpLimit = 3;
+            const char* const lab = hts::rx_cfo::g_v5a_lab_scenario;
+            const bool is_target =
+                (lab != nullptr) && (std::strcmp(lab, "S5") == 0) &&
+                (hts::rx_cfo::g_v5a_lab_param_hz == 500);
+            if (is_target && s_d1_h1_dump_n < kD1DumpLimit) {
+                std::printf(
+                    "[V5A-D1-H-PASS1-OFF] dump=%d path=phase0_scan_holographic_pass1 "
+                    "best_off=%d best_e=%lld ratio_x10=%d l12_ok=%d l5_ok=%d "
+                    "l3_ok=%d pass_p1=%d p0_chip_count=%d threshold_12=%lld\n",
+                    s_d1_h1_dump_n, best_off, static_cast<long long>(best_e),
+                    ratio_x10, l12_ok ? 1 : 0, l5_ok ? 1 : 0, l3_ok ? 1 : 0,
+                    pass_p1 ? 1 : 0, p0_chip_count_,
+                    static_cast<long long>(threshold_12));
+                ++s_d1_h1_dump_n;
+            }
+        }
+#endif
 #if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
         if (best_off + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
             const int16_t* const pre_I = &p0_buf128_I_[best_off];
             const int16_t* const pre_Q = &p0_buf128_Q_[best_off];
+#if defined(HTS_V5A_STEP_C1_DIAG) && defined(HTS_V5A_DIAG)
+            hts_v5a_step_c1_diag_dump_if_(pre_I, pre_Q, p0_buf128_I_,
+                                          p0_buf128_Q_, p0_chip_count_);
+#endif
+            // E-6: S5H trial DIAG only — local CFO_V5a (no cfo_v5a_ mutation).
+            hts::rx_cfo::CFO_V5a v5a_trial;
+            v5a_trial.Init();
             const hts::rx_cfo::CFO_Result cfo_res =
-                cfo_v5a_.Estimate(pre_I, pre_Q);
+                v5a_trial.Estimate(pre_I, pre_Q);
             hts_v5a_s5h_trial_diag_print_(cfo_res);
-            cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
-            cfo_v5a_last_valid_ = cfo_res.valid;
-            if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
-                cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
-                cfo_v5a_.Advance_Phase_Only(192);
-            } else {
-                cfo_v5a_.Set_Apply_Cfo(0);
-            }
-        } else {
-            cfo_v5a_.Set_Apply_Cfo(0);
         }
 #endif
 #if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
@@ -1847,7 +1954,7 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
                     "l12=%d l5=%d l3=%d pass=%d pass2=1 hyp=%d\n",
                     off_d, static_cast<long long>(e_d), r_d,
                     static_cast<int>(l12_p2), static_cast<int>(l5_p2),
-                    static_cast<int>(l3_p2), static_cast<int>(pass_p2),
+                    static_cast<int>(l3_p2),                     static_cast<int>(pass_p2),
                     static_cast<int>(best_hyp));
     }
 #endif
@@ -1861,23 +1968,44 @@ void HTS_V400_Dispatcher::phase0_scan_holographic_() noexcept {
         }
         psal_off_ = best_off_p2;
         psal_e63_ = static_cast<int32_t>(best_e_p2 >> 16);
+#if defined(HTS_V5A_STEP_D1_DIAG) && defined(HTS_V5A_DIAG)
+        {
+            static int s_d1_h2_dump_n = 0;
+            constexpr int kD1DumpLimit = 3;
+            const char* const lab = hts::rx_cfo::g_v5a_lab_scenario;
+            const bool is_target =
+                (lab != nullptr) && (std::strcmp(lab, "S5") == 0) &&
+                (hts::rx_cfo::g_v5a_lab_param_hz == 500);
+            if (is_target && s_d1_h2_dump_n < kD1DumpLimit) {
+                std::printf(
+                    "[V5A-D1-H-PASS2-OFF] dump=%d path=phase0_scan_holographic_pass2 "
+                    "best_off_p2=%d best_e_p2=%lld best_ratio_p2=%d best_hyp=%d "
+                    "pass_p2=%d l12_p2=%d l5_p2=%d l3_p2=%d pass1_best_off=%d "
+                    "p0_chip_count=%d threshold_12=%lld\n",
+                    s_d1_h2_dump_n, best_off_p2,
+                    static_cast<long long>(best_e_p2),
+                    static_cast<int>(best_ratio_p2), static_cast<int>(best_hyp),
+                    pass_p2 ? 1 : 0, l12_p2 ? 1 : 0, l5_p2 ? 1 : 0,
+                    l3_p2 ? 1 : 0, best_off, p0_chip_count_,
+                    static_cast<long long>(threshold_12));
+                ++s_d1_h2_dump_n;
+            }
+        }
+#endif
 #if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
         if (best_off_p2 + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
             const int16_t* const pre_I = &p0_buf128_I_[best_off_p2];
             const int16_t* const pre_Q = &p0_buf128_Q_[best_off_p2];
+#if defined(HTS_V5A_STEP_C1_DIAG) && defined(HTS_V5A_DIAG)
+            hts_v5a_step_c1_diag_dump_if_(pre_I, pre_Q, p0_buf128_I_,
+                                          p0_buf128_Q_, p0_chip_count_);
+#endif
+            // E-6: S5H trial DIAG only — local CFO_V5a (no cfo_v5a_ mutation).
+            hts::rx_cfo::CFO_V5a v5a_trial;
+            v5a_trial.Init();
             const hts::rx_cfo::CFO_Result cfo_res =
-                cfo_v5a_.Estimate(pre_I, pre_Q);
+                v5a_trial.Estimate(pre_I, pre_Q);
             hts_v5a_s5h_trial_diag_print_(cfo_res);
-            cfo_v5a_last_cfo_hz_ = cfo_res.cfo_hz;
-            cfo_v5a_last_valid_ = cfo_res.valid;
-            if (cfo_res.valid && cfo_v5a_.IsApplyAllowed()) {
-                cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
-                cfo_v5a_.Advance_Phase_Only(192);
-            } else {
-                cfo_v5a_.Set_Apply_Cfo(0);
-            }
-        } else {
-            cfo_v5a_.Set_Apply_Cfo(0);
         }
 #endif
 #if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)

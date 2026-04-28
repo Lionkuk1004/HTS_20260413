@@ -186,7 +186,6 @@ static uint32_t holo_tensor_decode_4d_a2_prime_(
     return HTS_Holo_Tensor_4D_RX::SECURE_TRUE;
 }
 #endif
-#if defined(HTS_HOLO_RX_PHASE_B)
 /// 8바이트 페이로드: 앞 6바이트 CRC-16/CCITT, 리틀엔디안 CRC at [6],[7]
 static bool holo_tensor_packet_crc16_ok_8(const uint8_t* p) noexcept {
     const uint16_t calc = FEC_HARQ::CRC16(p, 6);
@@ -195,7 +194,6 @@ static bool holo_tensor_packet_crc16_ok_8(const uint8_t* p) noexcept {
         (static_cast<uint16_t>(p[7]) << 8));
     return calc == rx;
 }
-#endif
 } // namespace
 #endif
 void HTS_V400_Dispatcher::tpc_rx_feedback_after_decode_(
@@ -328,12 +326,39 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
         const int nc = (cur_mode_ == PayloadMode::DATA) ? 64 : 16;
 #if defined(HTS_USE_HOLO_TENSOR_4D)
         if (cur_mode_ == PayloadMode::DATA && holo_tensor_payload_mode_) {
+#if defined(HTS_T6_BUF_DUMP_DIAG)
+            // 양산 분기 진입 시점 buf_I/Q dump (단위 테스트 채널 회전 결과와 비교용)
+            static uint32_t s_buf_dump_count = 0u;
+            if (s_buf_dump_count < 8u) {
+                std::printf(
+                    "[T6-BUF] block=%u rx_seq=%u sym_idx=%d\n"
+                    "  buf_I[0..7] = %d %d %d %d %d %d %d %d\n"
+                    "  buf_Q[0..7] = %d %d %d %d %d %d %d %d\n",
+                    static_cast<unsigned>(s_buf_dump_count),
+                    static_cast<unsigned>(rx_seq_), sym_idx_,
+                    static_cast<int>(buf_I_[0]), static_cast<int>(buf_I_[1]),
+                    static_cast<int>(buf_I_[2]), static_cast<int>(buf_I_[3]),
+                    static_cast<int>(buf_I_[4]), static_cast<int>(buf_I_[5]),
+                    static_cast<int>(buf_I_[6]), static_cast<int>(buf_I_[7]),
+                    static_cast<int>(buf_Q_[0]), static_cast<int>(buf_Q_[1]),
+                    static_cast<int>(buf_Q_[2]), static_cast<int>(buf_Q_[3]),
+                    static_cast<int>(buf_Q_[4]), static_cast<int>(buf_Q_[5]),
+                    static_cast<int>(buf_Q_[6]), static_cast<int>(buf_Q_[7]));
+                ++s_buf_dump_count;
+            }
+#endif
             if (sym_idx_ >= pay_total_) {
                 full_reset_();
                 return;
             }
             if (ensure_holo_tensor_ready_() != HTS_Holo_Tensor_4D_TX::SECURE_TRUE) {
                 holo_tensor_decode_failed_ = true;
+#if defined(HTS_UT2_STEP1_DIAG)
+                std::printf(
+                    "[UT2-DIAG-5] decode_failed set! reason=ensure_holo_tensor_ready "
+                    "sym_idx=%d\n",
+                    sym_idx_);
+#endif
             } else {
                 (void)holo_rx_.Set_Time_Slot(rx_seq_);
 #if defined(HTS_USE_PACD)
@@ -370,11 +395,6 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                 }
 #endif  // HTS_USE_PACD
-#if !defined(HTS_HOLO_RX_PHASE_B)
-#if !defined(HTS_USE_4D_DIVERSITY)
-                int16_t rx_soft[HOLO_CHIP_COUNT];
-#endif
-#endif
 #if defined(HTS_PHASE_H_DIAG)
                 static uint32_t s_tensor_rx_pkt_diag = 0u;
                 const bool force_diag = (g_phase_h_diag_force != 0) &&
@@ -403,9 +423,8 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
 #else
                 const bool diag_this_pkt = false;
 #endif
-#if defined(HTS_HOLO_RX_PHASE_B)
                 if (diag_this_pkt && sym_idx_ == 0) {
-                    std::printf("[PHASE-H][RX] decode_input_IQ64 (Phase-B path)\n");
+                    std::printf("[PHASE-H][RX] decode_input_IQ64 (tensor I/Q path)\n");
                 }
 #if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
                 // Rev2: ref 회전+Decode_Block 은 블라인드(PS-LTE) 페이로드에만.
@@ -445,11 +464,66 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         holo_tensor_profile_.block_bits,
                         holo_tensor_sym_bits0_, holo_tensor_sym_bits1_);
 #else
-                    dec_ok = holo_rx_.Decode_Block_Two_Candidates(
-                        buf_I_, buf_Q_,
-                        holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
-                        holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
+                    // 양산 레거시: (I+Q)/2 → Decode_Block (HOLO_RX_PHASE_REF 비적용 경로).
+                    int16_t rx_soft_inner[HOLO_CHIP_COUNT];
+                    for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
+                        const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
+                                            static_cast<int32_t>(buf_Q_[c]);
+                        rx_soft_inner[c] = static_cast<int16_t>(sum / 2);
+                    }
+#if defined(HTS_T6_BUF_DUMP_DIAG)
+                    {
+                        static uint32_t s_rxsoft_dump_count_inner = 0u;
+                        if (s_rxsoft_dump_count_inner < 8u) {
+                            std::printf(
+                                "[T6-RXSOFT] block=%u rx_soft[0..7] = %d %d %d %d "
+                                "%d %d %d %d\n",
+                                static_cast<unsigned>(s_rxsoft_dump_count_inner),
+                                static_cast<int>(rx_soft_inner[0]),
+                                static_cast<int>(rx_soft_inner[1]),
+                                static_cast<int>(rx_soft_inner[2]),
+                                static_cast<int>(rx_soft_inner[3]),
+                                static_cast<int>(rx_soft_inner[4]),
+                                static_cast<int>(rx_soft_inner[5]),
+                                static_cast<int>(rx_soft_inner[6]),
+                                static_cast<int>(rx_soft_inner[7]));
+                            ++s_rxsoft_dump_count_inner;
+                        }
+                    }
+#endif
+                    dec_ok = holo_rx_.Decode_Block(
+                        rx_soft_inner, holo_tensor_profile_.chip_count,
+                        0xFFFFFFFFFFFFFFFFull, holo_tensor_rx_bits_,
                         holo_tensor_profile_.block_bits);
+                    if (dec_ok == HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+                        const uint16_t Kblk = holo_tensor_profile_.block_bits;
+                        for (uint16_t k = 0u; k < Kblk; ++k) {
+                            const int8_t b =
+                                holo_tensor_rx_bits_[static_cast<size_t>(k)];
+                            holo_tensor_sym_bits0_[static_cast<size_t>(k)] = b;
+                            holo_tensor_sym_bits1_[static_cast<size_t>(k)] =
+                                static_cast<int8_t>(-b);
+                        }
+#if defined(HTS_T6_BUF_DUMP_DIAG)
+                        {
+                            static uint32_t s_bits_dump_count_inner = 0u;
+                            if (s_bits_dump_count_inner < 8u) {
+                                std::printf(
+                                    "[T6-BITS] block=%u rx_bits[0..15] = ",
+                                    static_cast<unsigned>(s_bits_dump_count_inner));
+                                for (int i = 0;
+                                     i < 16 && i < static_cast<int>(Kblk); ++i) {
+                                    std::printf(
+                                        "%d ",
+                                        static_cast<int>(
+                                            holo_tensor_rx_bits_[i]));
+                                }
+                                std::printf("\n");
+                                ++s_bits_dump_count_inner;
+                            }
+                        }
+#endif
+                    }
 #endif
                 }
 #else
@@ -460,84 +534,110 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     holo_tensor_profile_.block_bits,
                     holo_tensor_sym_bits0_, holo_tensor_sym_bits1_);
 #else
-                const uint32_t dec_ok = holo_rx_.Decode_Block_Two_Candidates(
-                    buf_I_, buf_Q_,
-                    holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
-                    holo_tensor_sym_bits0_, holo_tensor_sym_bits1_,
-                    holo_tensor_profile_.block_bits);
-#endif
-#endif
-#else
-#if defined(HTS_USE_4D_DIVERSITY)
-                const uint32_t dec_ok = holo_tensor_decode_4d_a2_prime_(
-                    holo_rx_, rx_seq_, buf_I_, buf_Q_,
-                    holo_tensor_profile_.chip_count,
-                    holo_tensor_profile_.block_bits,
-                    holo_tensor_sym_bits0_, holo_tensor_sym_bits1_);
-#else
+                // 양산 레거시: dφ 미적용 (I+Q)/2 → Decode_Block — RX Impl::Decode 와 동일 축.
+                // CRC 페이로드 조립은 sym0/sym1 ±180° 쌍이 필요하므로 비트 복사만 수행.
+                int16_t rx_soft[HOLO_CHIP_COUNT];
                 for (int c = 0; c < HOLO_CHIP_COUNT; ++c) {
                     const int32_t sum = static_cast<int32_t>(buf_I_[c]) +
                                         static_cast<int32_t>(buf_Q_[c]);
                     rx_soft[c] = static_cast<int16_t>(sum / 2);
                 }
-                if (diag_this_pkt && sym_idx_ == 0) {
-                    std::printf("[PHASE-H][RX] decode_input_rx_soft64:");
-                    for (int i = 0; i < 64; ++i) {
-                        std::printf(" %d", static_cast<int>(rx_soft[i]));
+#if defined(HTS_T6_BUF_DUMP_DIAG)
+                {
+                    static uint32_t s_rxsoft_dump_count = 0u;
+                    if (s_rxsoft_dump_count < 8u) {
+                        std::printf(
+                            "[T6-RXSOFT] block=%u rx_soft[0..7] = %d %d %d %d "
+                            "%d %d %d %d\n",
+                            static_cast<unsigned>(s_rxsoft_dump_count),
+                            static_cast<int>(rx_soft[0]),
+                            static_cast<int>(rx_soft[1]),
+                            static_cast<int>(rx_soft[2]),
+                            static_cast<int>(rx_soft[3]),
+                            static_cast<int>(rx_soft[4]),
+                            static_cast<int>(rx_soft[5]),
+                            static_cast<int>(rx_soft[6]),
+                            static_cast<int>(rx_soft[7]));
+                        ++s_rxsoft_dump_count;
                     }
-                    std::printf("\n");
                 }
-#if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
-                // Phase-B 와 동일: 홀로 Sync 시 ref 회전 미적용.
-                uint32_t dec_ok = HTS_Holo_Tensor_4D_RX::SECURE_FALSE;
-                if (holo_rx_phase_ref_valid_ && !use_holographic_sync_) {
-                    const uint16_t Nc = holo_tensor_profile_.chip_count;
-                    const uint16_t n_rot =
-                        (Nc > HOLO_CHIP_COUNT) ? HOLO_CHIP_COUNT : Nc;
-                    const uint16_t ref_lut = static_cast<uint16_t>(
-                        static_cast<uint32_t>(holo_rx_phase_ref_q16_));
-                    const int32_t cos_ref = static_cast<int32_t>(Cos_Q15(ref_lut));
-                    const int32_t sin_ref = static_cast<int32_t>(Sin_Q15(ref_lut));
-                    for (uint16_t c = 0u; c < n_rot; ++c) {
-                        const int32_t I = static_cast<int32_t>(buf_I_[c]);
-                        const int32_t Q = static_cast<int32_t>(buf_Q_[c]);
-                        int32_t rot_i = (I * cos_ref + Q * sin_ref) >> 15;
-                        int32_t rot_q = (Q * cos_ref - I * sin_ref) >> 15;
-                        int32_t s = (rot_i + rot_q) / 2;
-                        if (s > 32767) {
-                            s = 32767;
-                        } else if (s < -32768) {
-                            s = -32768;
-                        }
-                        rx_soft_rotated_[c] = static_cast<int16_t>(s);
-                    }
-                    dec_ok = holo_rx_.Decode_Block(
-                        rx_soft_rotated_, Nc, 0xFFFFFFFFFFFFFFFFull,
-                        holo_tensor_rx_bits_,
-                        holo_tensor_profile_.block_bits);
-                } else {
-                    dec_ok = holo_rx_.Decode_Block(
-                        rx_soft, holo_tensor_profile_.chip_count,
-                        0xFFFFFFFFFFFFFFFFull,
-                        holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
-                }
-#else
+#endif
                 const uint32_t dec_ok = holo_rx_.Decode_Block(
                     rx_soft, holo_tensor_profile_.chip_count, 0xFFFFFFFFFFFFFFFFull,
                     holo_tensor_rx_bits_, holo_tensor_profile_.block_bits);
+#if defined(HTS_UT2_STEP1_DIAG)
+                {
+                    static uint32_t s_ut2_diag1_block_count = 0u;
+                    if (s_ut2_diag1_block_count < 8u) {
+                        std::printf(
+                            "[UT2-DIAG-1] block=%u dec_ok=%u rx_seq=%u sym_idx=%d "
+                            "rx_soft[0..7]=%d,%d,%d,%d,%d,%d,%d,%d\n",
+                            static_cast<unsigned>(s_ut2_diag1_block_count),
+                            static_cast<unsigned>(dec_ok),
+                            static_cast<unsigned>(rx_seq_), sym_idx_,
+                            static_cast<int>(rx_soft[0]),
+                            static_cast<int>(rx_soft[1]),
+                            static_cast<int>(rx_soft[2]),
+                            static_cast<int>(rx_soft[3]),
+                            static_cast<int>(rx_soft[4]),
+                            static_cast<int>(rx_soft[5]),
+                            static_cast<int>(rx_soft[6]),
+                            static_cast<int>(rx_soft[7]));
+                        if (dec_ok == HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+                            std::printf(
+                                "[UT2-DIAG-1] block=%u rx_bits[0..15]=",
+                                static_cast<unsigned>(s_ut2_diag1_block_count));
+                            for (uint16_t k = 0u;
+                                 k < holo_tensor_profile_.block_bits && k < 16u;
+                                 ++k) {
+                                std::printf(
+                                    "%d ",
+                                    static_cast<int>(holo_tensor_rx_bits_[k]));
+                            }
+                            std::printf("\n");
+                        }
+                        ++s_ut2_diag1_block_count;
+                    }
+                }
 #endif
+                if (dec_ok == HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+                    const uint16_t Kblk = holo_tensor_profile_.block_bits;
+                    for (uint16_t k = 0u; k < Kblk; ++k) {
+                        const int8_t b =
+                            holo_tensor_rx_bits_[static_cast<size_t>(k)];
+                        holo_tensor_sym_bits0_[static_cast<size_t>(k)] = b;
+                        holo_tensor_sym_bits1_[static_cast<size_t>(k)] =
+                            static_cast<int8_t>(-b);
+                    }
+#if defined(HTS_T6_BUF_DUMP_DIAG)
+                    {
+                        static uint32_t s_bits_dump_count = 0u;
+                        if (s_bits_dump_count < 8u) {
+                            std::printf(
+                                "[T6-BITS] block=%u rx_bits[0..15] = ",
+                                static_cast<unsigned>(s_bits_dump_count));
+                            for (int i = 0;
+                                 i < 16 && i < static_cast<int>(Kblk); ++i) {
+                                std::printf(
+                                    "%d ",
+                                    static_cast<int>(holo_tensor_rx_bits_[i]));
+                            }
+                            std::printf("\n");
+                            ++s_bits_dump_count;
+                        }
+                    }
+#endif
+                }
 #endif
 #endif
                 if (dec_ok != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                     holo_tensor_decode_failed_ = true;
-                } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
-#if defined(HTS_USE_4D_DIVERSITY) && !defined(HTS_HOLO_RX_PHASE_B)
-                    std::memcpy(
-                        holo_tensor_rx_bits_, holo_tensor_sym_bits0_,
-                        static_cast<size_t>(holo_tensor_profile_.block_bits) *
-                            sizeof(int8_t));
+#if defined(HTS_UT2_STEP1_DIAG)
+                    std::printf(
+                        "[UT2-DIAG-5] decode_failed set! dec_ok=%u sym_idx=%d\n",
+                        static_cast<unsigned>(dec_ok), sym_idx_);
 #endif
-#if defined(HTS_HOLO_RX_PHASE_B)
+                } else if (holo_tensor_rx_len_ < sizeof(holo_tensor_rx_bytes_)) {
 #if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
                     if (!(holo_rx_phase_ref_valid_ && !use_holographic_sync_)) {
                         std::memcpy(
@@ -551,7 +651,6 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         static_cast<size_t>(holo_tensor_profile_.block_bits) *
                             sizeof(int8_t));
 #endif
-#endif
                     if (diag_this_pkt && sym_idx_ == 0) {
                         std::printf("[PHASE-H][RX] decode_output_bits16:");
                         for (int i = 0; i < static_cast<int>(holo_tensor_profile_.block_bits); ++i) {
@@ -561,7 +660,6 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                     const size_t room =
                         sizeof(holo_tensor_rx_bytes_) - holo_tensor_rx_len_;
-#if defined(HTS_HOLO_RX_PHASE_B)
 #if defined(HTS_HOLO_RX_PHASE_REF) && defined(HTS_HOLO_RX_PHASE_REF_APPLY)
                     if (holo_rx_phase_ref_valid_ && !use_holographic_sync_) {
                         const uint16_t Kblk = holo_tensor_profile_.block_bits;
@@ -570,6 +668,12 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                             &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
                         if (wr == 0u) {
                             holo_tensor_decode_failed_ = true;
+#if defined(HTS_UT2_STEP1_DIAG)
+                            std::printf(
+                                "[UT2-DIAG-5] decode_failed set! wr(single)=0 "
+                                "sym_idx=%d\n",
+                                sym_idx_);
+#endif
                         } else {
                             std::memcpy(
                                 &holo_tensor_rx_bytes_alt_[holo_tensor_rx_len_],
@@ -585,8 +689,28 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         const size_t wr1 = bpsk_to_bytes_(
                             holo_tensor_sym_bits1_, Kblk,
                             &holo_tensor_rx_bytes_alt_[holo_tensor_rx_len_], room);
+#if defined(HTS_UT2_STEP1_DIAG)
+                        {
+                            static uint32_t s_ut2_diag2_byte_count = 0u;
+                            if (s_ut2_diag2_byte_count < 8u) {
+                                std::printf(
+                                    "[UT2-DIAG-2] block=%u wr0=%zu wr1=%zu "
+                                    "rx_len_before=%u decode_failed=%d\n",
+                                    static_cast<unsigned>(s_ut2_diag2_byte_count),
+                                    wr0, wr1,
+                                    static_cast<unsigned>(holo_tensor_rx_len_),
+                                    holo_tensor_decode_failed_ ? 1 : 0);
+                                ++s_ut2_diag2_byte_count;
+                            }
+                        }
+#endif
                         if (wr0 == 0u || wr0 != wr1) {
                             holo_tensor_decode_failed_ = true;
+#if defined(HTS_UT2_STEP1_DIAG)
+                            std::printf(
+                                "[UT2-DIAG-5] decode_failed set! wr0=%zu wr1=%zu\n",
+                                wr0, wr1);
+#endif
                         } else {
                             holo_tensor_rx_len_ =
                                 static_cast<uint8_t>(holo_tensor_rx_len_ + wr0);
@@ -600,18 +724,32 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     const size_t wr1 = bpsk_to_bytes_(
                         holo_tensor_sym_bits1_, Kblk,
                         &holo_tensor_rx_bytes_alt_[holo_tensor_rx_len_], room);
+#if defined(HTS_UT2_STEP1_DIAG)
+                    {
+                        static uint32_t s_ut2_diag2_byte_count_mass = 0u;
+                        if (s_ut2_diag2_byte_count_mass < 8u) {
+                            std::printf(
+                                "[UT2-DIAG-2] block=%u wr0=%zu wr1=%zu "
+                                "rx_len_before=%u decode_failed=%d\n",
+                                static_cast<unsigned>(s_ut2_diag2_byte_count_mass),
+                                wr0, wr1,
+                                static_cast<unsigned>(holo_tensor_rx_len_),
+                                holo_tensor_decode_failed_ ? 1 : 0);
+                            ++s_ut2_diag2_byte_count_mass;
+                        }
+                    }
+#endif
                     if (wr0 == 0u || wr0 != wr1) {
                         holo_tensor_decode_failed_ = true;
+#if defined(HTS_UT2_STEP1_DIAG)
+                        std::printf(
+                            "[UT2-DIAG-5] decode_failed set! wr0=%zu wr1=%zu\n",
+                            wr0, wr1);
+#endif
                     } else {
                         holo_tensor_rx_len_ =
                             static_cast<uint8_t>(holo_tensor_rx_len_ + wr0);
                     }
-#endif
-#else
-                    const size_t wr = bpsk_to_bytes_(
-                        holo_tensor_rx_bits_, holo_tensor_profile_.block_bits,
-                        &holo_tensor_rx_bytes_[holo_tensor_rx_len_], room);
-                    holo_tensor_rx_len_ = static_cast<uint8_t>(holo_tensor_rx_len_ + wr);
 #endif
                 }
 #if defined(HTS_PHASE_H_DIAG)
@@ -954,8 +1092,31 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
     } else if (cur_mode_ == PayloadMode::DATA) {
 #if defined(HTS_USE_HOLO_TENSOR_4D)
         if (holo_tensor_payload_mode_) {
+#if defined(HTS_UT2_STEP1_DIAG)
+            {
+                std::printf(
+                    "[UT2-DIAG-3] try_decode rx_seq=%u rx_len=%u decode_failed=%d\n",
+                    static_cast<unsigned>(rx_seq_),
+                    static_cast<unsigned>(holo_tensor_rx_len_),
+                    holo_tensor_decode_failed_ ? 1 : 0);
+                std::printf("[UT2-DIAG-3] rx_bytes=     ");
+                for (size_t i = 0u;
+                     i < static_cast<size_t>(holo_tensor_rx_len_) && i < 8u; ++i) {
+                    std::printf(
+                        "%02X ",
+                        static_cast<unsigned>(holo_tensor_rx_bytes_[i]));
+                }
+                std::printf("\n[UT2-DIAG-3] rx_bytes_alt= ");
+                for (size_t i = 0u;
+                     i < static_cast<size_t>(holo_tensor_rx_len_) && i < 8u; ++i) {
+                    std::printf(
+                        "%02X ",
+                        static_cast<unsigned>(holo_tensor_rx_bytes_alt_[i]));
+                }
+                std::printf("\n");
+            }
+#endif
             pkt.harq_k = 1;
-#if defined(HTS_HOLO_RX_PHASE_B)
             const uint32_t ok = static_cast<uint32_t>(
                 (holo_tensor_decode_failed_ == false) &
                 (holo_tensor_rx_len_ >= 8u));
@@ -963,6 +1124,61 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             if (ok != 0u) {
                 const bool crc_a = holo_tensor_packet_crc16_ok_8(holo_tensor_rx_bytes_);
                 const bool crc_b = holo_tensor_packet_crc16_ok_8(holo_tensor_rx_bytes_alt_);
+#if defined(HTS_T6_BUF_DUMP_DIAG)
+                {
+                    static uint32_t s_final_dump_count = 0u;
+                    if (s_final_dump_count < 4u) {
+                        std::printf(
+                            "[T6-FINAL] rx_seq=%u\n",
+                            static_cast<unsigned>(rx_seq_));
+                        std::printf("  rx_bytes_main: ");
+                        for (int i = 0; i < 8; ++i) {
+                            std::printf(
+                                "%02X ",
+                                static_cast<unsigned>(
+                                    holo_tensor_rx_bytes_[i]));
+                        }
+                        std::printf(" (crc_a=%d)\n", crc_a ? 1 : 0);
+                        std::printf("  rx_bytes_alt:  ");
+                        for (int i = 0; i < 8; ++i) {
+                            std::printf(
+                                "%02X ",
+                                static_cast<unsigned>(
+                                    holo_tensor_rx_bytes_alt_[i]));
+                        }
+                        std::printf(" (crc_b=%d)\n", crc_b ? 1 : 0);
+                        std::printf(
+                            "  selected: %s\n",
+                            (crc_b && !crc_a) ? "alt" : "main");
+                        ++s_final_dump_count;
+                    }
+                }
+#endif
+#if defined(HTS_UT2_STEP1_DIAG)
+                {
+                    const uint16_t crc_a_calc =
+                        FEC_HARQ::CRC16(holo_tensor_rx_bytes_, 6);
+                    const uint16_t crc_a_rx = static_cast<uint16_t>(
+                        static_cast<uint16_t>(holo_tensor_rx_bytes_[6]) |
+                        (static_cast<uint16_t>(holo_tensor_rx_bytes_[7]) << 8));
+                    const uint16_t crc_b_calc =
+                        FEC_HARQ::CRC16(holo_tensor_rx_bytes_alt_, 6);
+                    const uint16_t crc_b_rx = static_cast<uint16_t>(
+                        static_cast<uint16_t>(holo_tensor_rx_bytes_alt_[6]) |
+                        (static_cast<uint16_t>(holo_tensor_rx_bytes_alt_[7])
+                         << 8));
+                    std::printf(
+                        "[UT2-DIAG-4] crc_a=%d (calc=%04X rx=%04X) "
+                        "crc_b=%d (calc=%04X rx=%04X) selected=%s\n",
+                        crc_a ? 1 : 0,
+                        static_cast<unsigned>(crc_a_calc),
+                        static_cast<unsigned>(crc_a_rx),
+                        crc_b ? 1 : 0,
+                        static_cast<unsigned>(crc_b_calc),
+                        static_cast<unsigned>(crc_b_rx),
+                        (crc_b && !crc_a) ? "alt" : "main");
+                }
+#endif
                 if (crc_b && !crc_a) {
                     std::memcpy(pkt.data, holo_tensor_rx_bytes_alt_, 8u);
                 } else {
@@ -972,18 +1188,6 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             } else {
                 pkt.data_len = 0;
             }
-#else
-            const uint32_t ok = static_cast<uint32_t>(
-                (holo_tensor_decode_failed_ == false) &
-                (holo_tensor_rx_len_ >= 8u));
-            pkt.success_mask = static_cast<uint32_t>(0u - ok);
-            if (ok != 0u) {
-                std::memcpy(pkt.data, holo_tensor_rx_bytes_, 8u);
-                pkt.data_len = 8;
-            } else {
-                pkt.data_len = 0;
-            }
-#endif
             if (on_pkt_ != nullptr) {
                 on_pkt_(pkt);
             }
