@@ -2062,19 +2062,6 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #endif
     int16_t chip_I = rx_I;
     int16_t chip_Q = rx_Q;
-    {
-        // [TASK-006 DIAG] Feed_Chip 진입 raw chip (모든 전처리 전)
-        static uint32_t s_raw_count = 0u;
-        if (s_raw_count < 50u) {
-            ++s_raw_count;
-            std::printf("[TASK006-RAW-IN] hit#%u chip_I=%d chip_Q=%d "
-                        "diff=%d (I-Q)\n",
-                        static_cast<unsigned>(s_raw_count),
-                        static_cast<int>(chip_I), static_cast<int>(chip_Q),
-                        static_cast<int>(chip_I) - static_cast<int>(chip_Q));
-            std::fflush(stdout);
-        }
-    }
     // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
     // dc_est = dc_est - (dc_est >> 7) + (chip >> 7)
     dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
@@ -2100,33 +2087,7 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     // CFO 역회전: V5a per-chip apply (Holo P0 + Walsh P0)
     // 순서: DC → CFO → AGC
     if (cfo_v5a_.IsApplyDriveActive()) {
-        {
-            // [TASK-006 DIAG] Apply 활성 시점의 chip (I/Q 차이 검증)
-            static uint32_t s_active_count = 0u;
-            if (s_active_count < 30u) {
-                ++s_active_count;
-                std::printf("[TASK006-ACTIVE-PRE] hit#%u chip_I=%d chip_Q=%d "
-                            "diff=%d\n",
-                            static_cast<unsigned>(s_active_count),
-                            static_cast<int>(chip_I), static_cast<int>(chip_Q),
-                            static_cast<int>(chip_I) - static_cast<int>(chip_Q));
-                std::fflush(stdout);
-            }
-        }
         cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
-        {
-            // [TASK-006 DIAG] Apply 직후 (TASK-005R3 POST 와 동일 위치, diff 추가)
-            static uint32_t s_active_post_count = 0u;
-            if (s_active_post_count < 30u) {
-                ++s_active_post_count;
-                std::printf("[TASK006-ACTIVE-POST] hit#%u chip_I=%d chip_Q=%d "
-                            "diff=%d\n",
-                            static_cast<unsigned>(s_active_post_count),
-                            static_cast<int>(chip_I), static_cast<int>(chip_Q),
-                            static_cast<int>(chip_I) - static_cast<int>(chip_Q));
-                std::fflush(stdout);
-            }
-        }
     }
     {
         // [TASK-005R3 DIAG] Apply (V5a) 직후 chip 첫 N회
