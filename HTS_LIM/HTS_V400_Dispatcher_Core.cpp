@@ -401,6 +401,12 @@ void HTS_V400_Dispatcher::Set_Lab_IQ_Mode_Jam_Harness() noexcept {
     iq_mode_ = IQ_Mode::IQ_SAME;
     iq_upgrade_count_ = 0u;
 }
+void HTS_V400_Dispatcher::Set_Lab_IQ_Mode_Independent() noexcept {
+    // [TASK-008] Lab 전용 — 양산 빌드에서 호출 안 함
+    iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
+    iq_upgrade_count_ = 0u;
+    iq_mode_lab_locked_ = true;
+}
 void HTS_V400_Dispatcher::Set_RF_Metrics(HTS_RF_Metrics *p) noexcept {
     // 비소유 포인터 저장 — nullptr 허용 (Tick 무동작 모드)
     p_metrics_ = p;
@@ -456,7 +462,7 @@ void HTS_V400_Dispatcher::Tick_Adaptive_BPS() noexcept {
     } else {
         iq_upgrade_count_ = 0u;
     }
-    if (ir_mode_) {
+    if (ir_mode_ && !iq_mode_lab_locked_) {
         iq_mode_ = IQ_Mode::IQ_SAME;
         iq_upgrade_count_ = 0u;
     }

@@ -233,6 +233,8 @@ namespace ProtectedEngine {
         void Set_Lab_BPS64(int bps) noexcept;
         /// @brief 재밍 시험 하네스: I/Q 모드 IQ_SAME 고정.
         void Set_Lab_IQ_Mode_Jam_Harness() noexcept;
+        // [TASK-008] Lab 전용: IQ_INDEPENDENT 강제 + 자동 재고정 차단
+        void Set_Lab_IQ_Mode_Independent() noexcept;
 
         /// @brief [Pluto/벤치 호환] CW 상쇄 — 본기 분기 트리에서는 제거됨; 내부 플래그만 갱신
         void Set_CW_Cancel(bool enable) noexcept;
@@ -498,6 +500,7 @@ namespace ProtectedEngine {
         //  재밍: IQ_SAME → +3dB 다이버시티 (NF ≥ NF_IQ_SAME_TH)
         //  히스테리시스: SPLIT_TH < SAME_TH (떨림 방지)
         IQ_Mode iq_mode_{ IQ_Mode::IQ_SAME };  ///< 현재 I/Q 모드 (기본: 안전)
+        bool iq_mode_lab_locked_{ false };  ///< [TASK-008] Lab lock: Tick_Adaptive_BPS 의 IQ 재고정 차단
         static constexpr uint32_t NF_IQ_SPLIT_TH = 10u;   ///< dB 이하 → I/Q 독립
         static constexpr uint32_t NF_IQ_SAME_TH = 20u;   ///< dB 이상 → I=Q 동일
         static constexpr int IQ_BPS_PEACETIME = 5;         ///< 평시 최적 BPS
