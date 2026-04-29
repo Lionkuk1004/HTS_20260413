@@ -2089,6 +2089,17 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     if (cfo_v5a_.IsApplyDriveActive()) {
         cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
     }
+    {
+        // [TASK-005R3 DIAG] Apply (V5a) 직후 chip 첫 N회
+        static uint32_t s_post_apply_count = 0u;
+        if (s_post_apply_count < 20u) {
+            ++s_post_apply_count;
+            std::printf("[TASK005R3-POST-APPLY] hit#%u chip_I=%d chip_Q=%d\n",
+                        static_cast<unsigned>(s_post_apply_count),
+                        static_cast<int>(chip_I), static_cast<int>(chip_Q));
+            std::fflush(stdout);
+        }
+    }
 #if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
     defined(HTS_DIAG_CFO_EST)
     {
@@ -2651,6 +2662,21 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
         return;
     buf_I_[buf_idx_] = chip_I;
     buf_Q_[buf_idx_] = chip_Q;
+    {
+        // [TASK-005R3 DIAG] sym buffer 누적 직후 첫 N회
+        static uint32_t s_buf_count = 0u;
+        if (s_buf_count < 20u) {
+            ++s_buf_count;
+            std::printf("[TASK005R3-SYM-BUF] hit#%u buf_idx=%d chip_I=%d chip_Q=%d "
+                        "buf_I=%d buf_Q=%d\n",
+                        static_cast<unsigned>(s_buf_count),
+                        static_cast<int>(buf_idx_),
+                        static_cast<int>(chip_I), static_cast<int>(chip_Q),
+                        static_cast<int>(buf_I_[buf_idx_]),
+                        static_cast<int>(buf_Q_[buf_idx_]));
+            std::fflush(stdout);
+        }
+    }
     buf_idx_++;
     if (phase_ == RxPhase::READ_HEADER) {
         if (buf_idx_ == 64) {
@@ -2999,8 +3025,26 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                 buf_idx_ = 0;
         }
     } else if (phase_ == RxPhase::READ_PAYLOAD) {
-        if (buf_idx_ >= pay_cps_)
+        if (buf_idx_ >= pay_cps_) {
+            {
+                // [TASK-005R3 DIAG] on_sym_ 진입 직전 buf 첫 4 chip
+                static uint32_t s_done_count = 0u;
+                if (s_done_count < 10u) {
+                    ++s_done_count;
+                    std::printf(
+                        "[TASK005R3-SYM-DONE] sym#%u buf_idx=%d "
+                        "buf[0]=(%d,%d) buf[1]=(%d,%d) buf[2]=(%d,%d) buf[3]=(%d,%d)\n",
+                        static_cast<unsigned>(s_done_count),
+                        static_cast<int>(buf_idx_),
+                        static_cast<int>(buf_I_[0]), static_cast<int>(buf_Q_[0]),
+                        static_cast<int>(buf_I_[1]), static_cast<int>(buf_Q_[1]),
+                        static_cast<int>(buf_I_[2]), static_cast<int>(buf_Q_[2]),
+                        static_cast<int>(buf_I_[3]), static_cast<int>(buf_Q_[3]));
+                    std::fflush(stdout);
+                }
+            }
             on_sym_();
+        }
     }
 }
 #if defined(HTS_SYNC_USE_MATCHED_FILTER)
