@@ -17,6 +17,7 @@
 #endif
 #include <cstdint>
 #include <cstddef>
+#include <cstdio>
 namespace ProtectedEngine {
 using namespace detail;
 namespace {
@@ -138,6 +139,21 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
         return 0;
     if (ilen < 0 || max_c <= 0)
         return 0;
+    {
+        // [TASK-009 DIAG] Build_Packet 진입 시 iq_mode_ 실제값
+        static uint32_t s_tx_enter_count = 0u;
+        if (s_tx_enter_count < 10u) {
+            ++s_tx_enter_count;
+            std::printf(
+                "[TASK009-TX-ENTER] hit#%u iq_mode=%d (0=SAME, 1=INDEP) "
+                "iq_lab_locked=%d ir_mode=%d\n",
+                static_cast<unsigned>(s_tx_enter_count),
+                static_cast<int>(static_cast<uint8_t>(iq_mode_)),
+                static_cast<int>(iq_mode_lab_locked_),
+                static_cast<int>(ir_mode_));
+            std::fflush(stdout);
+        }
+    }
     // [Walsh_Row_Permuter] payload 스크램블 키 — TX tx_seq_·첫 라운드(ir_rv_=0 아래)
     if (!walsh_permuter_.Is_Initialized()) {
         (void)walsh_permuter_.Initialize(tx_seq_, 0u);
@@ -200,6 +216,29 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                               static_cast<uint32_t>(HDR_IQ_BIT));
     uint16_t hdr = (static_cast<uint16_t>(mb & 0x03u) << 10u) | iq_bit |
                    (static_cast<uint16_t>(psyms) & 0x01FFu);
+    {
+        // [TASK-009 DIAG] iq_mode_ 분기 197 통과 확인 (hdr IQ 비트 경로)
+        static uint32_t s_branch197_count = 0u;
+        if (s_branch197_count < 5u) {
+            ++s_branch197_count;
+            const char* branch_taken = "UNKNOWN";
+            if (ir_mode_ != 0) {
+                branch_taken = "IR_HDR_IQ_BIT_ZERO";
+            } else if (iq_ind_u != 0u) {
+                branch_taken = "HDR_INDEP_BIT";
+            } else {
+                branch_taken = "HDR_SAME_BIT";
+            }
+            std::printf(
+                "[TASK009-TX-BR197] hit#%u iq_mode=%d branch_taken=%s "
+                "iq_bit=%u ir=%u iq_ind=%u\n",
+                static_cast<unsigned>(s_branch197_count),
+                static_cast<int>(static_cast<uint8_t>(iq_mode_)),
+                branch_taken, static_cast<unsigned>(iq_bit),
+                static_cast<unsigned>(ir_hdr_iq_same_u), iq_ind_u);
+            std::fflush(stdout);
+        }
+    }
 
     uint8_t syms_v1[80] = {};
     uint8_t syms16_ir[FEC_HARQ::NSYM16] = {};
@@ -528,6 +567,26 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     }
 
     tx_seq_ += static_cast<uint32_t>(go & 1u);
+    {
+        // [TASK-009 DIAG] Build_Packet 종료 시 oI/oQ 첫 8 chip
+        static uint32_t s_tx_exit_count = 0u;
+        if (s_tx_exit_count < 5u && pos >= 8) {
+            ++s_tx_exit_count;
+            std::printf(
+                "[TASK009-TX-EXIT] hit#%u n=%d "
+                "I:%d,%d,%d,%d,%d,%d,%d,%d Q:%d,%d,%d,%d,%d,%d,%d,%d\n",
+                static_cast<unsigned>(s_tx_exit_count), pos,
+                static_cast<int>(oI[0]), static_cast<int>(oI[1]),
+                static_cast<int>(oI[2]), static_cast<int>(oI[3]),
+                static_cast<int>(oI[4]), static_cast<int>(oI[5]),
+                static_cast<int>(oI[6]), static_cast<int>(oI[7]),
+                static_cast<int>(oQ[0]), static_cast<int>(oQ[1]),
+                static_cast<int>(oQ[2]), static_cast<int>(oQ[3]),
+                static_cast<int>(oQ[4]), static_cast<int>(oQ[5]),
+                static_cast<int>(oQ[6]), static_cast<int>(oQ[7]));
+            std::fflush(stdout);
+        }
+    }
     return pos;
 }
 /* BUG-FIX-RETX3: HARQ 연속모드 TX — 프리앰블/헤더 생략 */
@@ -567,6 +626,19 @@ int HTS_V400_Dispatcher::Build_Retx(PayloadMode mode, const uint8_t *info,
     const uint32_t u16 = u1 | u2;
     const uint32_t iq_ind_u =
         static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+    {
+        // [TASK-009 DIAG] Build_Retx iq_ind_u (569 부근) — hdr IQ 비트 없음, 인코딩 경로만
+        static uint32_t s_branch569_count = 0u;
+        if (s_branch569_count < 5u) {
+            ++s_branch569_count;
+            std::printf(
+                "[TASK009-TX-BR569] hit#%u iq_mode=%d iq_ind=%u ir=%d\n",
+                static_cast<unsigned>(s_branch569_count),
+                static_cast<int>(static_cast<uint8_t>(iq_mode_)), iq_ind_u,
+                static_cast<int>(ir_mode_));
+            std::fflush(stdout);
+        }
+    }
 
     uint8_t syms16_ir[FEC_HARQ::NSYM16] = {};
     uint8_t syms16_pl[FEC_HARQ::NSYM16] = {};
