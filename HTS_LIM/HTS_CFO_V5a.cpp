@@ -1530,6 +1530,26 @@ CFO_Result CFO_V5a::Estimate(const int16_t* rx_I,
                 static_cast<int>(best_cfo), static_cast<int>(fine_refined),
                 static_cast<int>(lr_cfo), static_cast<int>(cfo_estimate));
         }
+        {
+            static int s_task018_est_dump_n = 0;
+            if (s_task018_est_dump_n < 200 && pass == v5a_pass_limit - 1) {
+                ++s_task018_est_dump_n;
+                const int32_t in_cfo = g_t6_current_cfo_hz;
+                const int32_t coarse_hz_bin =
+                    coarse_start + cb_best_idx * kCfoCoarseStep;
+                const int32_t fine_hz_bin =
+                    fine_start + fine_best_idx * kCfoFineStep;
+                const char sign = (cfo_estimate < 0) ? '-' : '+';
+                std::printf(
+                    "[TASK018-V5A-EST] in_cfo=%d coarse_idx=%d coarse_hz=%d "
+                    "fine_idx=%d fine_hz=%d totalHz=%d sign=%c\n",
+                    static_cast<int>(in_cfo), cb_best_idx,
+                    static_cast<int>(coarse_hz_bin), fine_best_idx,
+                    static_cast<int>(fine_hz_bin),
+                    static_cast<int>(cfo_estimate), sign);
+                std::fflush(stdout);
+            }
+        }
 #endif
     }
 
