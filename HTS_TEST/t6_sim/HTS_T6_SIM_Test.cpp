@@ -221,7 +221,8 @@ static void setup(HTS_V400_Dispatcher& d, uint32_t seed) noexcept {
     d.Set_Preamble_Reps(kPreReps);
     d.Set_Packet_Callback(on_pkt);
     d.Update_Adaptive_BPS(1000);
-    d.Set_Lab_IQ_Mode_Jam_Harness();
+    // [TASK-007] IQ_SAME 해제 실험 — Lab Jam Harness 비활성화
+    // Set_Lab_IQ_Mode_Jam_Harness();
 #if defined(HTS_SYNC_USE_MATCHED_FILTER) && defined(HTS_USE_PN_MASKED)
     // MF + PTE + PN-masked 측정 빌드: 기준 시퀀스는 `mf_generate_reference_` 의 LUT 경로.
     d.Set_Matched_Filter_Sync(true);
