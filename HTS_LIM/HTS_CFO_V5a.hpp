@@ -25,7 +25,7 @@ struct CFO_Result {
 #endif
 
 #ifndef HTS_CFO_COARSE_STEP
-#define HTS_CFO_COARSE_STEP 3000
+#define HTS_CFO_COARSE_STEP 1500  // [TASK-017] was 3000; ±12 kHz, banks=(2*12k/step)+1
 #endif
 
 #ifndef HTS_CFO_FINE_STEP
