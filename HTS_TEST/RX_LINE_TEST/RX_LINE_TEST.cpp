@@ -15,7 +15,14 @@ int main(int argc, char** argv) {
     }
     std::printf("=== HTS RX_LINE_TEST Phase 1 (CFO sweep) ===\n");
     std::printf("base_seed=0x%08X\n", static_cast<unsigned>(base_seed));
-    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweep, base_seed);
+
+    std::printf("\n--- AMI 200 kcps ---\n");
+    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepAmi, base_seed);
+
+    std::printf("\n--- PSLTE 1 Mcps ---\n");
+    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepPslte,
+                               base_seed);
+
     return 0;
 }
 
