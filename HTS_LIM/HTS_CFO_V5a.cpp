@@ -1679,8 +1679,33 @@ void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
 #else
     const int32_t ci = static_cast<int32_t>(chip_I);
     const int32_t cq = static_cast<int32_t>(chip_Q);
+#ifdef HTS_V5A_APPLY_SIGN_FIX
+    // [BUG FIX] Align with Derotate (e^{-j theta}, CFO removal).
+    const int32_t ri = (ci * apply_cos_acc_q14_ - cq * apply_sin_acc_q14_) >> 14;
+    const int32_t rq = (cq * apply_cos_acc_q14_ + ci * apply_sin_acc_q14_) >> 14;
+    {
+        // [TASK-001 DIAG] 빌드 매크로 활성 1회 출력 (측정 후 원복 예정)
+        static int s_apply_branch_print = 0;
+        if (s_apply_branch_print == 0) {
+            std::printf("[V5A-APPLY-BRANCH] FIX (e^{-jtheta}) active\n");
+            std::fflush(stdout);
+            s_apply_branch_print = 1;
+        }
+    }
+#else
+    // [LEGACY] e^{+j theta} (doubles CFO effect vs correct derotation).
     const int32_t ri = (ci * apply_cos_acc_q14_ + cq * apply_sin_acc_q14_) >> 14;
     const int32_t rq = (cq * apply_cos_acc_q14_ - ci * apply_sin_acc_q14_) >> 14;
+    {
+        // [TASK-001 DIAG] 빌드 매크로 활성 1회 출력 (측정 후 원복 예정)
+        static int s_apply_branch_print = 0;
+        if (s_apply_branch_print == 0) {
+            std::printf("[V5A-APPLY-BRANCH] LEGACY (e^{+jtheta}) active\n");
+            std::fflush(stdout);
+            s_apply_branch_print = 1;
+        }
+    }
+#endif
 #if defined(HTS_V5A_DIAG)
     v5a_diag_emit_apply(apply_chip_counter_, apply_cos_acc_q14_,
                         apply_sin_acc_q14_, apply_cos_per_q14_, apply_sin_per_q14_,
