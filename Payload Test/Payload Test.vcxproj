@@ -167,7 +167,6 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="HTS_Payload_UT.cpp" />
-    <ClCompile Include="..\HTS_LIM\HTS_Holo_Tensor_4D_Kernel.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Atan2_Q16.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp" />

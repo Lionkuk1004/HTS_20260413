@@ -259,7 +259,6 @@
     <ClCompile Include="HTS_Hardware_Shield.cpp" />
     <ClCompile Include="HTS_HMAC_Bridge.cpp" />
     <ClCompile Include="HTS_Holo_Dispatcher.cpp" />
-    <ClCompile Include="HTS_Holo_Tensor_4D_Kernel.cpp" />
     <ClCompile Include="HTS_Atan2_Q16.cpp" />
     <ClCompile Include="HTS_Holo_Tensor_4D_TX.cpp" />
     <ClCompile Include="HTS_Holo_Tensor_4D_RX.cpp" />
@@ -405,7 +404,6 @@
     <ClInclude Include="HTS_Holo_Dispatcher.h" />
     <ClInclude Include="HTS_Holo_Dispatcher_Defs.h" />
     <ClInclude Include="HTS_CXX17_Atomic_Safe.h" />
-    <ClInclude Include="HTS_Holo_Tensor_4D_Kernel.h" />
     <ClInclude Include="HTS_Atan2_Q16.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_TX.h" />
     <ClInclude Include="HTS_Holo_Tensor_4D_RX.h" />
