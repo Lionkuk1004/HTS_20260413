@@ -1,0 +1,11 @@
+SHA256? x64\Release_AMI\V5A_UNIT_TEST.exe ??:
+a3aa87bb48d92cb6d552417282ead6c6364bd25f07d04d9cd07065c1f693777c
+CertUtil: -hashfile ??? ????? ???????.
+
+
+FullName      : D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\V5A_UNIT_TEST\x64\Release_AMI\V5A_UNIT_TEST.exe
+LastWriteTime : 2026-04-29 오후 10:51:22
+Length        : 20992
+
+
+

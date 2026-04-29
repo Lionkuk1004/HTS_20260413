@@ -1,0 +1,10 @@
+﻿[TASK-023 Stage C] Summary: synthetic 128-chip alternating BPSK + CFO rotation; V5a kChipRateHz=1e6.
+
+Findings:
+- At CFO_in=0, totalHz ~ +15509 (AMI and PSLTE builds). Large bias vs zero input.
+- PSLTE (fs=1Mcps): small positive CFO sweep shows err ~ -15.5 kHz plateau, not sign flip (23B) nor -27k stuck (23C).
+- cb_idx jumps 2..14 across sweep (not monotonic with CFO_in) -> coarse energy landscape misaligned with synthetic preamble.
+
+Verdict: Not 23A. Not 23B/23C. Not localized 23D. Closest: 23E-style grid + preamble mismatch vs production.
+
+Next: feed captured 128-chip buffer from RX/T6, or minimal TU with HTS_Preamble_Holographic output.
