@@ -1125,6 +1125,21 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
     pkt.mode = cur_mode_;
     pkt.success_mask = DecodedPacket::DECODE_MASK_FAIL;
     uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
+    {
+        // [TASK-014] try_decode_ 진입 (모드 공통)
+        static uint64_t s_t14_enter = 0u;
+        ++s_t14_enter;
+        if (s_t14_enter == 1ull || (s_t14_enter % 100ull) == 0ull) {
+            std::printf(
+                "[TASK014-DEC-ENTER] count=%llu pay_recv=%d pay_total=%d "
+                "mode=%d ir=%d\n",
+                static_cast<unsigned long long>(s_t14_enter),
+                pay_recv_, pay_total_,
+                static_cast<int>(cur_mode_),
+                static_cast<int>(ir_mode_));
+            std::fflush(stdout);
+        }
+    }
     /* WorkBuf: try_decode_ 진입 시 memset 초기화 완료 (BUG-FIX-IR5). */
     if (cur_mode_ == PayloadMode::VIDEO_1) {
         pkt.success_mask =
@@ -1354,18 +1369,86 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
                             ir_state_->rounds_done);
                     }
 #endif
+                    {
+                        // [TASK-014] Decode64_IR 직전
+                        static uint64_t s_t14_pred64 = 0u;
+                        ++s_t14_pred64;
+                        if (s_t14_pred64 == 1ull ||
+                            (s_t14_pred64 % 100ull) == 0ull) {
+                            std::printf(
+                                "[TASK014-PRE-D64] count=%llu bps=%d nsym=%d "
+                                "rv=%d\n",
+                                static_cast<unsigned long long>(s_t14_pred64),
+                                bps, nsym_ir, rv);
+                            std::fflush(stdout);
+                        }
+                    }
                     pkt.success_mask = static_cast<uint32_t>(
                         0u -
                         static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
                             ir_chip_I_, ir_chip_Q_, nsym_ir, FEC_HARQ::C64, bps,
                             il, rv, *ir_state_, pkt.data, &pkt.data_len, wb_,
                             walsh_shift_payload)));
+                    {
+                        // [TASK-014] Decode64_IR 결과 (success_mask)
+                        static uint64_t s_t14_d64 = 0u;
+                        ++s_t14_d64;
+                        const int d64_ok = (pkt.success_mask != 0u) ? 1 : 0;
+                        if (s_t14_d64 == 1ull || (s_t14_d64 % 100ull) == 0ull) {
+                            std::printf(
+                                "[TASK014-D64-RESULT] count=%llu result=%d "
+                                "data_len=%d\n",
+                                static_cast<unsigned long long>(s_t14_d64),
+                                d64_ok, pkt.data_len);
+                            std::fflush(stdout);
+                        }
+                    }
+                    {
+                        // [TASK-014] CRC16(6) vs rx CRC 바이트 (읽기 전용)
+                        static uint64_t s_t14_crc = 0u;
+                        ++s_t14_crc;
+                        int crc_ok = -1;
+                        if (pkt.success_mask != 0u && pkt.data_len >= 8) {
+                            const uint16_t calc =
+                                FEC_HARQ::CRC16(pkt.data, 6);
+                            const uint16_t rxv = static_cast<uint16_t>(
+                                static_cast<uint16_t>(pkt.data[6]) |
+                                (static_cast<uint16_t>(pkt.data[7]) << 8));
+                            crc_ok = (calc == rxv) ? 1 : 0;
+                        }
+                        if (s_t14_crc == 1ull || (s_t14_crc % 100ull) == 0ull) {
+                            std::printf(
+                                "[TASK014-CRC] count=%llu ok=%d data_len=%d\n",
+                                static_cast<unsigned long long>(s_t14_crc),
+                                crc_ok, pkt.data_len);
+                            std::fflush(stdout);
+                        }
+                    }
 #if defined(HTS_DIAG_PRINTF)
                     std::printf(
                         "[PAYLOAD-SHIFT] walsh_shift=%u dom=%u\n",
                         static_cast<unsigned>(walsh_shift_payload),
                         static_cast<unsigned>(dominant_row_));
 #endif
+                } else {
+                    {
+                        // [TASK-014] Decode64_IR 미진입 (bps/포인터 게이트)
+                        static uint64_t s_t14_pred64_skip = 0u;
+                        ++s_t14_pred64_skip;
+                        if (s_t14_pred64_skip == 1ull ||
+                            (s_t14_pred64_skip % 100ull) == 0ull) {
+                            std::printf(
+                                "[TASK014-PRE-D64] count=%llu skip=1 bps=%d "
+                                "ir_st=%d chipI=%d chipQ=%d\n",
+                                static_cast<unsigned long long>(
+                                    s_t14_pred64_skip),
+                                bps,
+                                (ir_state_ != nullptr) ? 1 : 0,
+                                (ir_chip_I_ != nullptr) ? 1 : 0,
+                                (ir_chip_Q_ != nullptr) ? 1 : 0);
+                            std::fflush(stdout);
+                        }
+                    }
                 }
                 ir_rv_ = (ir_rv_ + 1) & 3;
                 {
@@ -1438,6 +1521,27 @@ void HTS_V400_Dispatcher::try_decode_() noexcept {
             retx_ready_ = true;
             buf_idx_ = 0;
             // set_phase_(RxPhase::WAIT_SYNC);
+        }
+        {
+            // [TASK-014] try_decode_ DATA 분기 종료 시점 (finish 무관)
+            static uint64_t s_t14_exit_tot = 0u;
+            static uint64_t s_t14_exit_ok = 0u;
+            ++s_t14_exit_tot;
+            if (pkt.success_mask != 0u) {
+                ++s_t14_exit_ok;
+            }
+            if (s_t14_exit_tot == 1ull || (s_t14_exit_tot % 100ull) == 0ull) {
+                const double rate =
+                    (s_t14_exit_tot > 0u)
+                        ? (100.0 * static_cast<double>(s_t14_exit_ok) /
+                           static_cast<double>(s_t14_exit_tot))
+                        : 0.0;
+                std::printf(
+                    "[TASK014-DEC-EXIT] total=%llu success=%llu rate=%.2f%%\n",
+                    static_cast<unsigned long long>(s_t14_exit_tot),
+                    static_cast<unsigned long long>(s_t14_exit_ok), rate);
+                std::fflush(stdout);
+            }
         }
     }
 }
