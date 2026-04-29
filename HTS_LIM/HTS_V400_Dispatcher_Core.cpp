@@ -4,7 +4,7 @@
 #include "HTS_V400_Dispatcher.hpp"
 #include "HTS_V400_Dispatcher_Internal.hpp"
 #if defined(HTS_USE_HOLO_TENSOR_4D) && defined(HTS_HOLO_RX_PHASE_REF)
-#include "HTS_Holo_Tensor_4D_Common.h"
+#include "HTS_Atan2_Q16.h"
 #endif
 #include "HTS_Holo_LPI.h"
 #include "HTS_RF_Metrics.h"

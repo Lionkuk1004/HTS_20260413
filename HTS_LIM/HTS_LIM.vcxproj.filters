@@ -282,7 +282,10 @@
     <ClCompile Include="HTS_Power_Manager.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_Holo_Tensor_4D_Common.cpp">
+    <ClCompile Include="HTS_Holo_Tensor_4D_Kernel.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_Atan2_Q16.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_Holo_Tensor_4D_TX.cpp">
@@ -791,7 +794,10 @@
     <ClInclude Include="HTS_CXX17_Atomic_Safe.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
-    <ClInclude Include="HTS_Holo_Tensor_4D_Common.h">
+    <ClInclude Include="HTS_Holo_Tensor_4D_Kernel.h">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_Atan2_Q16.h">
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_Holo_Tensor_4D_TX.h">

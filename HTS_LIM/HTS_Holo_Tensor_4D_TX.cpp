@@ -1,6 +1,6 @@
 /// @file  HTS_Holo_Tensor_4D_TX.cpp
 #include "HTS_Holo_Tensor_4D_TX.h"
-#include "HTS_Holo_Tensor_4D_Common.h"
+#include "HTS_Holo_Tensor_4D_Kernel.h"
 #include "HTS_Arm_Irq_Mask_Guard.h"
 #include "HTS_Secure_Memory.h"
 #include <new>
