@@ -2030,6 +2030,16 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
 #if defined(HTS_AMP_DIAG)
     AmpDiag::record_chip(rx_I, rx_Q);
 #endif
+    {
+        // [TASK-013] Feed_Chip 진입 카운터
+        static uint64_t s_feed_count = 0u;
+        ++s_feed_count;
+        if (s_feed_count == 1ull || (s_feed_count % 1000ull) == 0ull) {
+            std::printf("[TASK013-FEED] count=%llu\n",
+                        static_cast<unsigned long long>(s_feed_count));
+            std::fflush(stdout);
+        }
+    }
 #if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
     static int s_lab_feed_chip_idx = 0;
     ++s_lab_feed_chip_idx;
@@ -2954,6 +2964,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     sym_idx_ = 0;
                     max_harq_ = FEC_HARQ::DATA_K; // =800 (구 주석 "32"와 불일치 정리)
                     set_phase_(RxPhase::READ_PAYLOAD);
+                    {
+                        // [TASK-013] READ_PAYLOAD 진입 (헤더 파싱 성공 직후)
+                        static uint64_t s_sync_count = 0u;
+                        ++s_sync_count;
+                        if (s_sync_count == 1ull ||
+                            (s_sync_count % 1000ull) == 0ull) {
+                            std::printf("[TASK013-SYNC] count=%llu\n",
+                                        static_cast<unsigned long long>(
+                                            s_sync_count));
+                            std::fflush(stdout);
+                        }
+                    }
                     buf_idx_ = 0;
                     // [Walsh_Row_Permuter] 헤더 완료 후 payload 직전 — TX Build_Packet
                     // 의 tx_seq_(= rx_seq_ 미증가 시점) 및 첫 RV 라운드(0) 와 정합
@@ -3027,6 +3049,18 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
     } else if (phase_ == RxPhase::READ_PAYLOAD) {
         if (buf_idx_ >= pay_cps_) {
             {
+                // [TASK-013] 페이로드 심볼 칩 버퍼 완성 (buf_idx_ >= pay_cps_)
+                static uint64_t s_sym_count = 0u;
+                ++s_sym_count;
+                if (s_sym_count == 1ull || (s_sym_count % 1000ull) == 0ull) {
+                    std::printf(
+                        "[TASK013-SYM] count=%llu pay_cps=%d buf_idx=%d\n",
+                        static_cast<unsigned long long>(s_sym_count),
+                        pay_cps_, buf_idx_);
+                    std::fflush(stdout);
+                }
+            }
+            {
                 // [TASK-005R3 DIAG] on_sym_ 진입 직전 buf 첫 4 chip
                 static uint32_t s_done_count = 0u;
                 if (s_done_count < 10u) {
@@ -3043,7 +3077,33 @@ void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
                     std::fflush(stdout);
                 }
             }
+            {
+                // [TASK-013] on_sym_() 호출 직전
+                static uint64_t s_on_sym_count = 0u;
+                ++s_on_sym_count;
+                if (s_on_sym_count == 1ull ||
+                    (s_on_sym_count % 1000ull) == 0ull) {
+                    std::printf("[TASK013-ON_SYM] count=%llu\n",
+                                static_cast<unsigned long long>(
+                                    s_on_sym_count));
+                    std::fflush(stdout);
+                }
+            }
             on_sym_();
+            {
+                // [TASK-013] on_sym_() 반환 직후 (try_decode_ 는 on_sym_ 내부)
+                static uint64_t s_decode_count = 0u;
+                ++s_decode_count;
+                if (s_decode_count == 1ull ||
+                    (s_decode_count % 1000ull) == 0ull) {
+                    std::printf(
+                        "[TASK013-DECODE] post_on_sym count=%llu "
+                        "pay_recv=%d pay_total=%d\n",
+                        static_cast<unsigned long long>(s_decode_count),
+                        pay_recv_, pay_total_);
+                    std::fflush(stdout);
+                }
+            }
         }
     }
 }
