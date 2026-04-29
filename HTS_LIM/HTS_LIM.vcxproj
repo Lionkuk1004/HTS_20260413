@@ -183,7 +183,10 @@
     <ClCompile Include="hmac.c" />
     <ClCompile Include="HTS_Amp_Diag.cpp" />
     <ClCompile Include="HTS_CoAP_Engine.cpp" />
-    <ClCompile Include="HTS_CFO_V5a.cpp" />
+    <ClCompile Include="HTS_CFO_V5a_AMI.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="HTS_CFO_V5a_PSLTE.cpp" />
     <ClCompile Include="HTS_Preamble_Holographic.cpp" />
     <ClCompile Include="HTS_Rx_CFO_SinCos_Table.cpp" />
     <ClCompile Include="HTS_CW_Detect_Diag.cpp" />
@@ -314,9 +317,7 @@
     <ClCompile Include="HTS_Universal_Adapter.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher_Core.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <!-- 기본: PS-LTE Sync TU 만 링크. AMI 전용 빌드 시 msbuild /p:HTS_SYNC_PROFILE=AMI 로 AMI 만 포함. -->
-    <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp">
-      <ExcludedFromBuild Condition="'$(HTS_SYNC_PROFILE)'!='AMI'">true</ExcludedFromBuild>
-    </ClCompile>
+    <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp" />
     <ClCompile Include="HTS_V400_Dispatcher_Sync_PSLTE.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'">
       <ExcludedFromBuild Condition="'$(HTS_SYNC_PROFILE)'=='AMI'">true</ExcludedFromBuild>
     </ClCompile>
@@ -395,6 +396,7 @@
     <ClInclude Include="HTS_Console_Manager.h" />
     <ClInclude Include="HTS_Console_Manager_Defs.h" />
     <ClInclude Include="HTS_CFO_V5a.hpp" />
+    <ClInclude Include="HTS_CFO_V5a_Internal.hpp" />
     <ClInclude Include="HTS_CFO_V5a_TestExport.hpp" />
     <ClInclude Include="HTS_Preamble_AGC.h" />
     <ClInclude Include="HTS_Crypto_KAT.h" />

@@ -147,7 +147,12 @@
     <ClCompile Include="..\t6_sim\HTS_Session_Derive_Stub.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Preamble_Holographic.cpp" />
-    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a_AMI.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='Release_AMI'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a_PSLTE.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'=='Release_AMI'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\..\HTS_LIM\HTS_Atan2_Q16.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Holo_Tensor_4D_TX.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Holo_Tensor_4D_RX.cpp" />

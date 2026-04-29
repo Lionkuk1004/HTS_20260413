@@ -1,5 +1,5 @@
 // =============================================================================
-// HTS_CFO_V5a.cpp — INNOViD HTS Rx CFO V5a
+// HTS_CFO_V5a_Implementation.cpp (AMI/PSLTE TU include) — INNOViD HTS Rx CFO V5a
 // Phase 1-3: Derotate / Walsh63_Dot / Energy_Multiframe (file-static).
 // Phase 1-4: L&R segment autocorr estimator (Luise & Reggiannini 1995).
 // Lab 전용: `/DHTS_V5A_DISABLE_PTE` 시 coarse/fine PTE(parabolic) 오프셋을 0으로
@@ -9,6 +9,7 @@
 // =============================================================================
 #include "HTS_CFO_V5a.hpp"
 #include "HTS_Rx_CFO_SinCos_Table.hpp"
+#include "HTS_CFO_V5a_Internal.hpp"
 
 #include <cmath>
 #include <cstdio>
@@ -344,85 +345,6 @@ static int diag_find_or_add_context_(const char* tag) noexcept {
 }
 #endif
 
-// Same sequence as HTS_V400_Dispatcher_Internal.hpp k_w63 (Walsh-Hadamard row 63).
-static constexpr int8_t kWalsh63Row63[64] = {
-    +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1,
-    -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
-    -1, +1, +1, -1, +1, -1, -1, +1, +1, -1, -1, +1, -1, +1, +1, -1,
-    +1, -1, -1, +1, -1, +1, +1, -1, -1, +1, +1, -1, +1, -1, -1, +1};
-
-/// BPTE i32 → i16 saturation (constant-time). `sat_i32_to_i16` / `Apply_Per_Chip`.
-static inline int16_t saturate_i32_to_i16_bpte(int32_t v) noexcept {
-    const int32_t high_diff = v - 32767;
-    const int32_t high_mask = high_diff >> 31;
-    int32_t r = (high_mask & v) | (~high_mask & 32767);
-
-    const int32_t low_diff = r - (-32768);
-    const int32_t low_mask = low_diff >> 31;
-    r = (low_mask & static_cast<int32_t>(-32768)) | (~low_mask & r);
-
-    return static_cast<int16_t>(r);
-}
-
-static inline int16_t sat_i32_to_i16(int32_t v) noexcept {
-    return saturate_i32_to_i16_bpte(v);
-}
-
-// (x*A + y*B) / 2^14 with signed rounding (int64 inner product).
-static inline int32_t dot_q14_round(int32_t x, int32_t a_q14, int32_t y,
-                                    int32_t b_q14) noexcept {
-    const int64_t p = static_cast<int64_t>(x) * static_cast<int64_t>(a_q14) +
-                      static_cast<int64_t>(y) * static_cast<int64_t>(b_q14);
-    const int64_t sign_mask = p >> 63;
-    const int64_t bias =
-        ((static_cast<int64_t>(1) << 13) ^ sign_mask) - sign_mask;
-    return static_cast<int32_t>((p + bias) >> 14);
-}
-
-// --- Q14 per-chip path (레거시 Apply/Advance 정수 수식) ---
-static inline int32_t apply_int_root_q14(int64_t c2) noexcept {
-    if (c2 <= 0) {
-        return 0;
-    }
-    int32_t lo = 0;
-    constexpr int32_t kQ14 = 16384;
-    int32_t hi = kQ14;
-    while (lo < hi) {
-        const int32_t mid = (lo + hi + 1) >> 1;
-        if (static_cast<int64_t>(mid) * mid <= c2) {
-            lo = mid;
-        } else {
-            hi = mid - 1;
-        }
-    }
-    return lo;
-}
-
-static inline void apply_renorm_q14_accum(int32_t& ca, int32_t& sa) noexcept {
-    const int64_t fc = static_cast<int64_t>(ca);
-    const int64_t fs = static_cast<int64_t>(sa);
-    const int64_t mag2 = fc * fc + fs * fs;
-    if (mag2 <= 0) {
-        return;
-    }
-    int64_t lo = 0;
-    int64_t hi = 3037000499LL;
-    while (lo < hi) {
-        const int64_t mid = (lo + hi + 1) >> 1;
-        if (mid != 0 && mid <= mag2 / mid) {
-            lo = mid;
-        } else {
-            hi = mid - 1;
-        }
-    }
-    const int64_t sm = lo;
-    if (sm == 0) {
-        return;
-    }
-    constexpr int64_t k14 = 16384;
-    ca = static_cast<int32_t>((fc * k14 + (sm >> 1)) / sm);
-    sa = static_cast<int32_t>((fs * k14 + (sm >> 1)) / sm);
-}
 
 static inline uint32_t apply_phase_inc_q32_from_hz(int32_t cfo_hz) noexcept {
     const int64_t phase_inc_s64 =
@@ -451,292 +373,6 @@ static void Derotate_impl(const int16_t* rI, const int16_t* rQ, int16_t* oI,
     }
 }
 
-static void Walsh63_Dot_impl(const int16_t* rI, const int16_t* rQ, int32_t& dI,
-                             int32_t& dQ) noexcept {
-    int32_t aI = 0;
-    int32_t aQ = 0;
-    for (int k = 0; k < kChipsPerSym; ++k) {
-        const int32_t w = static_cast<int32_t>(kWalsh63Row63[k]);
-        aI += static_cast<int32_t>(rI[k]) * w;
-        aQ += static_cast<int32_t>(rQ[k]) * w;
-    }
-    dI = aI;
-    dQ = aQ;
-}
-
-static int64_t Energy_Multiframe_impl(const int16_t* rI,
-                                      const int16_t* rQ) noexcept {
-    int32_t d0I = 0;
-    int32_t d0Q = 0;
-    int32_t d1I = 0;
-    int32_t d1Q = 0;
-    Walsh63_Dot_impl(&rI[0], &rQ[0], d0I, d0Q);
-    Walsh63_Dot_impl(&rI[kChipsPerSym], &rQ[kChipsPerSym], d1I, d1Q);
-    const int64_t e0 =
-        static_cast<int64_t>(d0I) * d0I + static_cast<int64_t>(d0Q) * d0Q;
-    const int64_t e1 =
-        static_cast<int64_t>(d1I) * d1I + static_cast<int64_t>(d1Q) * d1Q;
-    return e0 + e1;
-}
-
-#if defined(HTS_BYPASS_WALSH_DISPREAD)
-/// Lab bypass: 64+64 칩 에너지 합(Walsh 디스프레드 없음).
-static int64_t Energy_Multiframe_Raw_impl(const int16_t* rI,
-                                          const int16_t* rQ) noexcept {
-    int64_t e0 = 0;
-    int64_t e1 = 0;
-    for (int k = 0; k < kChipsPerSym; ++k) {
-        const int64_t di = static_cast<int64_t>(rI[k]);
-        const int64_t dq = static_cast<int64_t>(rQ[k]);
-        e0 += di * di + dq * dq;
-    }
-    for (int k = 0; k < kChipsPerSym; ++k) {
-        const int64_t di = static_cast<int64_t>(rI[kChipsPerSym + k]);
-        const int64_t dq = static_cast<int64_t>(rQ[kChipsPerSym + k]);
-        e1 += di * di + dq * dq;
-    }
-    return e0 + e1;
-}
-#endif
-
-static inline int64_t V5a_energy_mf(const int16_t* rI,
-                                    const int16_t* rQ) noexcept {
-#if defined(HTS_BYPASS_WALSH_DISPREAD)
-    return Energy_Multiframe_Raw_impl(rI, rQ);
-#else
-    return Energy_Multiframe_impl(rI, rQ);
-#endif
-}
-
-static inline int32_t q15_mul_hz_round(int32_t offset_q15,
-                                       int32_t step_hz) noexcept {
-    const int64_t prod =
-        static_cast<int64_t>(offset_q15) * static_cast<int64_t>(step_hz);
-    const int64_t adj = (prod >= 0) ? (1LL << 14) : -(1LL << 14);
-    return static_cast<int32_t>((prod + adj) >> 15);
-}
-
-static inline int32_t parabolic_offset_q15_impl(int64_t em1_s64, int64_t e0_s64,
-                                                int64_t ep1_s64) noexcept {
-    int64_t max_abs = em1_s64;
-    if (max_abs < 0) {
-        max_abs = -max_abs;
-    }
-    int64_t t = e0_s64;
-    if (t < 0) {
-        t = -t;
-    }
-    if (t > max_abs) {
-        max_abs = t;
-    }
-    t = ep1_s64;
-    if (t < 0) {
-        t = -t;
-    }
-    if (t > max_abs) {
-        max_abs = t;
-    }
-
-    int sh = 0;
-    while (max_abs > 0x3FFFFFFFLL) {
-        max_abs >>= 1;
-        ++sh;
-    }
-    const int32_t em1 = static_cast<int32_t>(em1_s64 >> sh);
-    const int32_t e0 = static_cast<int32_t>(e0_s64 >> sh);
-    const int32_t ep1 = static_cast<int32_t>(ep1_s64 >> sh);
-
-    const int32_t denom_signed = em1 - (e0 << 1) + ep1;
-    const int32_t abs_denom_mask = static_cast<int32_t>(denom_signed >> 31);
-    const int32_t abs_denom =
-        static_cast<int32_t>((denom_signed ^ abs_denom_mask) - abs_denom_mask);
-
-    const int64_t safe_diff = static_cast<int64_t>(abs_denom) - 1LL;
-    const int32_t valid_mask = static_cast<int32_t>(~(safe_diff >> 63));
-
-    const int32_t numer = em1 - ep1;
-    const int32_t offset_q15_raw = static_cast<int32_t>(
-        (static_cast<int64_t>(numer) << 14) /
-        static_cast<int64_t>(abs_denom + (1 - (valid_mask & 1))));
-    const int32_t offset_q15_signed =
-        static_cast<int32_t>((offset_q15_raw ^ abs_denom_mask) - abs_denom_mask);
-    int32_t offset_q15 = static_cast<int32_t>(offset_q15_signed & valid_mask);
-
-    if (offset_q15 > 32768) {
-        offset_q15 = 32768;
-    }
-    if (offset_q15 < -32768) {
-        offset_q15 = -32768;
-    }
-    return offset_q15;
-}
-
-// --- Integer atan2·Q12 (레거시 동일 LUT): ARM L&R + Holo autocorr ---
-static inline int32_t isc_atan_frac_q12(int32_t y, int32_t x) noexcept {
-    if (x <= 0 || y < 0 || y > x) {
-        return 0;
-    }
-    if (y == 0) {
-        return 0;
-    }
-    static constexpr int16_t kLut[17] = {
-        0,    256,  511,  763,  1018, 1266, 1508, 1741,
-        1965, 2178, 2380, 2571, 2749, 2915, 3068, 3208, 3217};
-    const int64_t ratio_q14 =
-        (static_cast<int64_t>(y) << 14) / static_cast<int64_t>(x);
-    const int64_t scaled = ratio_q14 * 16;
-    int32_t idx = static_cast<int32_t>(scaled >> 14);
-    if (idx >= 16) {
-        return static_cast<int32_t>(kLut[16]);
-    }
-    const int32_t base = static_cast<int32_t>(kLut[idx]);
-    const int32_t next = static_cast<int32_t>(kLut[idx + 1]);
-    const int32_t frac = static_cast<int32_t>(scaled & ((1 << 14) - 1));
-    return base + static_cast<int32_t>(
-               (static_cast<int64_t>(next - base) * frac) >> 14);
-}
-
-// --- atan primary branch [0, π/4): PTE on legacy kLut (BPTE idx clamp, linear 동일 idx) ---
-static inline int32_t isc_atan_frac_pte_q12(int32_t v, int32_t u) noexcept {
-    static constexpr int16_t kLut[17] = {
-        0,    256,  511,  763,  1018, 1266, 1508, 1741,
-        1965, 2178, 2380, 2571, 2749, 2915, 3068, 3208, 3217};
-    const int64_t ratio_q14 =
-        (static_cast<int64_t>(v) << 14) / static_cast<int64_t>(u);
-    const int64_t scaled = ratio_q14 * 16;
-    int32_t idx = static_cast<int32_t>(scaled >> 14);
-    const int32_t t_hi = (16 - idx) >> 31;
-    idx = (idx & ~t_hi) | (16 & t_hi);
-    const int32_t dz = idx ^ 16;
-    const int32_t is_lut16 = ~((dz | -dz) >> 31);
-    const int32_t t_lo = (idx - 1) >> 31;
-    const int32_t lo_i = (idx - 1) & ~t_lo;
-    const int32_t sum = idx + 1;
-    const int32_t ov2 = (16 - sum) >> 31;
-    const int32_t hi_i = (sum & ~ov2) | (16 & ov2);
-    const int32_t y_lo = static_cast<int32_t>(kLut[lo_i]);
-    const int32_t y_md = static_cast<int32_t>(kLut[idx]);
-    const int32_t y_hi = static_cast<int32_t>(kLut[hi_i]);
-    const int32_t frac = static_cast<int32_t>(scaled & ((1 << 14) - 1));
-    const int32_t a2 = y_hi - y_lo;
-    const int32_t b2 = y_hi - (y_md << 1) + y_lo;
-    const int64_t t1 = (static_cast<int64_t>(a2) * static_cast<int64_t>(frac)) >> 14;
-    const int64_t x_sq =
-        (static_cast<int64_t>(frac) * static_cast<int64_t>(frac)) >> 14;
-    const int64_t t2 = (static_cast<int64_t>(b2) * x_sq) >> 14;
-    const int32_t pte =
-        y_md + static_cast<int32_t>(t1 + t2);
-    return (pte & ~is_lut16) |
-           (static_cast<int32_t>(kLut[16]) & is_lut16);
-}
-
-// --- Full-plane atan2 Q12: BPTE masks only (no if/else/?:) ---
-static inline int32_t isc_atan2_q12_dpte(int32_t y, int32_t x) noexcept {
-    const int32_t nz = static_cast<int32_t>(
-        ((static_cast<int64_t>(x) | static_cast<int64_t>(y)) |
-         (-(static_cast<int64_t>(x) | static_cast<int64_t>(y)))) >>
-        63);
-    const int32_t x_mask = x >> 31;
-    const int32_t y_mask = y >> 31;
-    const int32_t ax = (x ^ x_mask) - x_mask;
-    const int32_t ay = (y ^ y_mask) - y_mask;
-    const int32_t swap_gt = (ax - ay) >> 31;
-    const int32_t u = (ax & ~swap_gt) | (ay & swap_gt);
-    const int32_t v = (ay & ~swap_gt) | (ax & swap_gt);
-    const int32_t uz_m = (u | -u) >> 31;
-    const int32_t u_safe = u + 1 + uz_m;
-    const int32_t sgn_y = y >> 31;
-    const int32_t ret_u0 = (6434 ^ sgn_y) - sgn_y;
-    const int32_t ang_pte = isc_atan_frac_pte_q12(v, u_safe);
-    const int32_t ang_core = (ang_pte & uz_m) | (ret_u0 & ~uz_m);
-    const int32_t ang_sw = (ang_core & ~swap_gt) | ((6434 - ang_core) & swap_gt);
-    const int32_t ang_x = (ang_sw & ~x_mask) | ((12868 - ang_sw) & x_mask);
-    const int32_t ang_y = (ang_x & ~y_mask) | ((-ang_x) & y_mask);
-    return ang_y & nz;
-}
-
-static inline int32_t atan2_dpte_q15(int64_t y, int64_t x) noexcept {
-    while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
-           (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
-        y >>= 1;
-        x >>= 1;
-    }
-    const int32_t phase_q12 =
-        isc_atan2_q12_dpte(static_cast<int32_t>(y), static_cast<int32_t>(x));
-    return static_cast<int32_t>((static_cast<int64_t>(phase_q12) * 32768LL) /
-                                12868LL);
-}
-
-static inline int32_t isc_atan2_q12(int32_t y, int32_t x) noexcept {
-    if (x == 0 && y == 0) {
-        return 0;
-    }
-    const int32_t ax = (x < 0) ? -x : x;
-    const int32_t ay = (y < 0) ? -y : y;
-    const bool swap = ay > ax;
-    const int32_t u = swap ? ay : ax;
-    const int32_t v = swap ? ax : ay;
-    if (u == 0) {
-        return (y >= 0) ? 6434 : -6434;
-    }
-    int32_t ang = isc_atan_frac_q12(v, u);
-    if (swap) {
-        ang = 6434 - ang;
-    }
-    if (x < 0) {
-        ang = 12868 - ang;
-    }
-    if (y < 0) {
-        ang = -ang;
-    }
-    return ang;
-}
-
-// L&R: atan2 → phase_q15 (arg(Z) × 32768 / π)
-#if defined(HTS_PLATFORM_ARM)
-
-static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
-    while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
-           (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
-        y >>= 1;
-        x >>= 1;
-    }
-    const int32_t phase_q12 =
-        isc_atan2_q12(static_cast<int32_t>(y), static_cast<int32_t>(x));
-    return static_cast<int32_t>((static_cast<int64_t>(phase_q12) * 32768LL) /
-                                12868LL);
-}
-
-#else
-
-static inline int32_t Atan2_To_Q15(int64_t y, int64_t x) noexcept {
-    const double yd = static_cast<double>(y);
-    const double xd = static_cast<double>(x);
-    const double phase_rad = std::atan2(yd, xd);
-    constexpr double kInvPi = 0.31830988618379067154;
-    const double phase_q15_d = phase_rad * 32768.0 * kInvPi;
-    if (phase_q15_d > 32767.0) {
-        return 32767;
-    }
-    if (phase_q15_d < -32768.0) {
-        return -32768;
-    }
-    return static_cast<int32_t>(std::llround(phase_q15_d));
-}
-
-#endif
-
-/// 레거시 autocorr CFO: block atan2·Q12 후 /lag.
-static int32_t Autocorr_Block_Atan2_Q12(int32_t ac_I, int32_t ac_Q) noexcept {
-    int64_t y = static_cast<int64_t>(ac_Q);
-    int64_t x = static_cast<int64_t>(ac_I);
-    while ((y > 0x7FFFFFFFLL) || (y < -0x80000000LL) ||
-           (x > 0x7FFFFFFFLL) || (x < -0x80000000LL)) {
-        y >>= 1;
-        x >>= 1;
-    }
-    return isc_atan2_q12(static_cast<int32_t>(y), static_cast<int32_t>(x));
-}
 
 #if defined(HTS_USE_CLASSIC_LR)
 /// 인접 세그먼트(M-1) 미적분 L&R: Σ_k Z_k·Z_{k-1}^* → atan2 → Hz.
@@ -1734,15 +1370,14 @@ void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
 #else
     const int32_t ci = static_cast<int32_t>(chip_I);
     const int32_t cq = static_cast<int32_t>(chip_Q);
-#ifdef HTS_V5A_APPLY_SIGN_FIX
-    // [BUG FIX] Align with Derotate (e^{-j theta}, CFO removal).
+    // [P0-FIX-006: TASK-026] CFO 제거 derotate (e^{-j theta}); LEGACY e^{+j theta} 제거.
     const int32_t ri = (ci * apply_cos_acc_q14_ - cq * apply_sin_acc_q14_) >> 14;
     const int32_t rq = (cq * apply_cos_acc_q14_ + ci * apply_sin_acc_q14_) >> 14;
     {
         // [TASK-001 DIAG] 빌드 매크로 활성 1회 출력 (측정 후 원복 예정)
         static int s_apply_branch_print = 0;
         if (s_apply_branch_print == 0) {
-            std::printf("[V5A-APPLY-BRANCH] FIX (e^{-jtheta}) active\n");
+            std::printf("[V5A-APPLY-BRANCH] P0-FIX-006 e^{-jtheta} (always)\n");
             std::fflush(stdout);
             s_apply_branch_print = 1;
         }
@@ -1765,38 +1400,6 @@ void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
             std::fflush(stdout);
         }
     }
-#else
-    // [LEGACY] e^{+j theta} (doubles CFO effect vs correct derotation).
-    const int32_t ri = (ci * apply_cos_acc_q14_ + cq * apply_sin_acc_q14_) >> 14;
-    const int32_t rq = (cq * apply_cos_acc_q14_ - ci * apply_sin_acc_q14_) >> 14;
-    {
-        // [TASK-001 DIAG] 빌드 매크로 활성 1회 출력 (측정 후 원복 예정)
-        static int s_apply_branch_print = 0;
-        if (s_apply_branch_print == 0) {
-            std::printf("[V5A-APPLY-BRANCH] LEGACY (e^{+jtheta}) active\n");
-            std::fflush(stdout);
-            s_apply_branch_print = 1;
-        }
-    }
-    {
-        // [TASK-004 DIAG] Apply 출력 ri/rq — nonzero sin_per 시점만 첫 N회 출력
-        static uint32_t s_apply_out_count = 0u;
-        if (apply_sin_per_q14_ != 0 && s_apply_out_count < 20u) {
-            ++s_apply_out_count;
-            std::printf("[V5A-APPLY-OUT] hit#%u ci=%d cq=%d ri=%d rq=%d "
-                        "cos_acc=%d sin_acc=%d cos_per=%d sin_per=%d cfo_hz=%d\n",
-                        static_cast<unsigned>(s_apply_out_count),
-                        static_cast<int>(ci), static_cast<int>(cq),
-                        static_cast<int>(ri), static_cast<int>(rq),
-                        static_cast<int>(apply_cos_acc_q14_),
-                        static_cast<int>(apply_sin_acc_q14_),
-                        static_cast<int>(apply_cos_per_q14_),
-                        static_cast<int>(apply_sin_per_q14_),
-                        static_cast<int>(apply_cfo_hz_));
-            std::fflush(stdout);
-        }
-    }
-#endif
 #if defined(HTS_V5A_DIAG)
     v5a_diag_emit_apply(apply_chip_counter_, apply_cos_acc_q14_,
                         apply_sin_acc_q14_, apply_cos_per_q14_, apply_sin_per_q14_,

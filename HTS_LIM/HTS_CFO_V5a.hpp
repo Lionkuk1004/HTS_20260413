@@ -49,7 +49,11 @@ inline constexpr int kCfoCoarseBanks = (2 * kCfoRangeHz / kCfoCoarseStep) + 1;
 
 inline constexpr int kChipsPerSym = 64;
 inline constexpr int kPreambleChips = 128;
-inline constexpr int kChipRateHz = 1000000;
+#if defined(HTS_TARGET_AMI)
+inline constexpr int32_t kChipRateHz = 200000;
+#else
+inline constexpr int32_t kChipRateHz = 1000000;
+#endif
 
 inline constexpr int kLR_SegSize = 16;
 inline constexpr int kLR_NumSeg = 8;
@@ -104,7 +108,7 @@ void V5a_Pte_Diag_Print_Summary() noexcept;
 void V5a_Diag_Label(const char* scenario, int param_hz) noexcept;
 /// `Estimate_From_Autocorr` 직전 ac_I/Q·mag2·임계값 게이트 덤프(시나리오당 최대 8회).
 void V5a_Diag_Ac_Call_Pre(int32_t ac_I, int32_t ac_Q, int lag_chips) noexcept;
-/// `V5a_Diag_Label` 직후 컨텍스트 (Dispatcher Step C-1 등 타 TU). 정의는 `HTS_CFO_V5a.cpp`.
+/// `V5a_Diag_Label` 직후 컨텍스트 (Dispatcher Step C-1 등 타 TU). 정의는 `HTS_CFO_V5a_Implementation.cpp`.
 extern const char* g_v5a_lab_scenario;
 extern int32_t g_v5a_lab_param_hz;
 #endif

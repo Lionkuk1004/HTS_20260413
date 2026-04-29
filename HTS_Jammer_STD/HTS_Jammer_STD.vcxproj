@@ -171,7 +171,10 @@
     <ClCompile Include="..\HTS_LIM\HTS_V400_Dispatcher_Decode.cpp" Condition="'$(ExcludeV400DispatcherFromStaticLib)'!='true'" />
     <ClCompile Include="HTS_Walsh_Row_Converter.cpp" />
     <ClCompile Include="HTS_Walsh_Row_Permuter.cpp" />
-    <ClCompile Include="..\HTS_LIM\HTS_CFO_V5a.cpp" />
+    <ClCompile Include="..\HTS_LIM\HTS_CFO_V5a_AMI.cpp">
+      <ExcludedFromBuild>true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\HTS_LIM\HTS_CFO_V5a_PSLTE.cpp" />
     <ClCompile Include="..\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />

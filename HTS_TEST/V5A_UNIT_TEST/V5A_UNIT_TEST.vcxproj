@@ -97,7 +97,12 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="V5A_Unit_Test.cpp" />
-    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a.cpp" />
+    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a_AMI.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'!='Release_AMI'">true</ExcludedFromBuild>
+    </ClCompile>
+    <ClCompile Include="..\..\HTS_LIM\HTS_CFO_V5a_PSLTE.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)'=='Release_AMI'">true</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="..\..\HTS_LIM\HTS_Preamble_Holographic.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Rx_CFO_SinCos_Table.cpp" />
   </ItemGroup>
