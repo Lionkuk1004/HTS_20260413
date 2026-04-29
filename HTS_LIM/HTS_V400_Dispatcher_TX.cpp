@@ -370,8 +370,11 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
     SecureMemory::secureWipe(static_cast<void *>(syms16_pl), sizeof(syms16_pl));
 
     // TPE: DATA split path gated by u3 — non-DATA ⇒ 0 Walsh iterations
+    // [TASK-012] Lab: iq_mode_lab_locked_ 일 때 IR 게이트 우회
+    // (!ir_mode_ || iq_mode_lab_locked_) — 양산(lock false)은 기존과 동일.
     const uint32_t split_u =
-        static_cast<uint32_t>(static_cast<uint32_t>(!ir_mode_) &
+        static_cast<uint32_t>(static_cast<uint32_t>(!ir_mode_ ||
+                                                     iq_mode_lab_locked_) &
                               iq_ind_u & u3 & (1u - tensor_data_u));
     const int npairs =
         ((nsym64_live + 1) / 2) * inc * static_cast<int>(u3) *
@@ -380,6 +383,21 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
                      static_cast<int>(1u - tensor_data_u);
     const int n_spl = npairs * static_cast<int>(split_u & 1u);
     const int n_sim = nwal * static_cast<int>((split_u ^ 1u) & 1u);
+    {
+        static int s_split_print = 0;
+        if (s_split_print < 5) {
+            ++s_split_print;
+            std::printf(
+                "[TASK012-SPLIT] u3=%u tensor_data_u=%u ir_mode=%d "
+                "iq_ind_u=%u split_u=%u nsym64_live=%d\n",
+                static_cast<unsigned>(u3),
+                static_cast<unsigned>(tensor_data_u),
+                static_cast<int>(ir_mode_),
+                static_cast<unsigned>(iq_ind_u),
+                static_cast<unsigned>(split_u), nsym64_live);
+            std::fflush(stdout);
+        }
+    }
     for (int p = 0; p < n_spl; ++p) {
         const int s = p * 2;
         const uint8_t sI = syms64[static_cast<std::size_t>(s)];
