@@ -1607,6 +1607,46 @@ void CFO_V5a::ApplyDerotate(const int16_t* in_I, const int16_t* in_Q,
 }
 
 void CFO_V5a::Set_Apply_Cfo(int32_t cfo_hz) noexcept {
+    {
+        // [TASK-002 DIAG] Set_Apply_Cfo 입력값 분포 통계
+        static uint32_t s_set_call_count = 0u;
+        static uint32_t s_set_zero_count = 0u;
+        static int32_t s_set_min_hz = 2147483647;
+        static int32_t s_set_max_hz = -2147483647 - 1;
+        static int64_t s_set_abs_sum = 0;
+        ++s_set_call_count;
+        if (cfo_hz == 0) {
+            ++s_set_zero_count;
+        }
+        if (cfo_hz < s_set_min_hz) {
+            s_set_min_hz = cfo_hz;
+        }
+        if (cfo_hz > s_set_max_hz) {
+            s_set_max_hz = cfo_hz;
+        }
+        const int32_t abs_hz = (cfo_hz < 0) ? -cfo_hz : cfo_hz;
+        s_set_abs_sum += static_cast<int64_t>(abs_hz);
+        if (s_set_call_count <= 30u) {
+            std::printf("[V5A-SET-INPUT] call#%u cfo_hz=%d\n",
+                        static_cast<unsigned>(s_set_call_count),
+                        static_cast<int>(cfo_hz));
+            std::fflush(stdout);
+        }
+        if (s_set_call_count == 1u || s_set_call_count == 100u ||
+            s_set_call_count == 1000u || s_set_call_count == 10000u ||
+            (s_set_call_count > 0u && (s_set_call_count % 50000u) == 0u)) {
+            const uint32_t den = (s_set_call_count > 0u) ? s_set_call_count : 1u;
+            const int64_t avg_abs = s_set_abs_sum / static_cast<int64_t>(den);
+            std::printf("[V5A-SET-STAT] calls=%u zeros=%u nonzero=%u min=%d max=%d avg_abs=%lld\n",
+                        static_cast<unsigned>(s_set_call_count),
+                        static_cast<unsigned>(s_set_zero_count),
+                        static_cast<unsigned>(s_set_call_count - s_set_zero_count),
+                        static_cast<int>(s_set_min_hz),
+                        static_cast<int>(s_set_max_hz),
+                        static_cast<long long>(avg_abs));
+            std::fflush(stdout);
+        }
+    }
     apply_cfo_hz_ = cfo_hz;
     if (cfo_hz == 0) {
         apply_sin_per_q14_ = 0;
@@ -1673,6 +1713,21 @@ void CFO_V5a::Advance_Phase_Only(int chips) noexcept {
 }
 
 void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
+    {
+        // [TASK-002 DIAG] Apply_Per_Chip 호출 통계
+        static uint64_t s_apply_call_count = 0u;
+        ++s_apply_call_count;
+        if (s_apply_call_count == 1u || s_apply_call_count == 100u ||
+            s_apply_call_count == 1000u || s_apply_call_count == 10000u ||
+            s_apply_call_count == 100000u || s_apply_call_count == 1000000u) {
+            std::printf("[V5A-APPLY-COUNT] call#%llu cfo_hz=%d sin_per_q14=%d cos_per_q14=%d\n",
+                        static_cast<unsigned long long>(s_apply_call_count),
+                        static_cast<int>(apply_cfo_hz_),
+                        static_cast<int>(apply_sin_per_q14_),
+                        static_cast<int>(apply_cos_per_q14_));
+            std::fflush(stdout);
+        }
+    }
 #if defined(HTS_BYPASS_APPLY)
     (void)chip_I;
     (void)chip_Q;
