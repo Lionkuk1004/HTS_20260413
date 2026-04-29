@@ -568,22 +568,92 @@ int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
 
     tx_seq_ += static_cast<uint32_t>(go & 1u);
     {
-        // [TASK-009 DIAG] Build_Packet 종료 시 oI/oQ 첫 8 chip
-        static uint32_t s_tx_exit_count = 0u;
-        if (s_tx_exit_count < 5u && pos >= 8) {
-            ++s_tx_exit_count;
+        // [TASK-010 DIAG] DATA 구간 oI/oQ 비교 — PRE / HDR / DATA 샘플
+        // Layout (chips): [0,pre_reps_*64) PRE_SYM0; [pre_reps_*64,pre_chips)
+        //   PRE_SYM1; [pre_chips,pre_chips+64) hdr walsh MSB; [pre_chips+64,
+        //   pre_chips+128) hdr walsh LSB; [pre_chips+128,pos) DATA
+        static uint32_t s_tx_exit10_count = 0u;
+        if (s_tx_exit10_count < 5u && pos >= 8) {
+            ++s_tx_exit10_count;
+            const int n_chips = pos;
+            const int off_pre = 0;
+            const int off_hdr = pre_chips + 32;
+            const int off_data1 = pre_chips + 128;
+            const int data_span = n_chips - off_data1;
+            const int off_data2 =
+                (data_span > 8) ? (off_data1 + data_span / 2) : off_data1;
             std::printf(
-                "[TASK009-TX-EXIT] hit#%u n=%d "
-                "I:%d,%d,%d,%d,%d,%d,%d,%d Q:%d,%d,%d,%d,%d,%d,%d,%d\n",
-                static_cast<unsigned>(s_tx_exit_count), pos,
-                static_cast<int>(oI[0]), static_cast<int>(oI[1]),
-                static_cast<int>(oI[2]), static_cast<int>(oI[3]),
-                static_cast<int>(oI[4]), static_cast<int>(oI[5]),
-                static_cast<int>(oI[6]), static_cast<int>(oI[7]),
-                static_cast<int>(oQ[0]), static_cast<int>(oQ[1]),
-                static_cast<int>(oQ[2]), static_cast<int>(oQ[3]),
-                static_cast<int>(oQ[4]), static_cast<int>(oQ[5]),
-                static_cast<int>(oQ[6]), static_cast<int>(oQ[7]));
+                "[TASK010-TX-EXIT] hit#%u n=%d pre_reps=%d pre_chips=%d\n",
+                static_cast<unsigned>(s_tx_exit10_count), n_chips,
+                static_cast<int>(pre_reps_), pre_chips);
+            if (off_pre + 3 < n_chips) {
+                std::printf(
+                    "  PRE   off=%d  I:%d,%d,%d,%d  Q:%d,%d,%d,%d  "
+                    "same:%d,%d,%d,%d\n",
+                    off_pre, static_cast<int>(oI[off_pre + 0]),
+                    static_cast<int>(oI[off_pre + 1]),
+                    static_cast<int>(oI[off_pre + 2]),
+                    static_cast<int>(oI[off_pre + 3]),
+                    static_cast<int>(oQ[off_pre + 0]),
+                    static_cast<int>(oQ[off_pre + 1]),
+                    static_cast<int>(oQ[off_pre + 2]),
+                    static_cast<int>(oQ[off_pre + 3]),
+                    static_cast<int>(oI[off_pre + 0] == oQ[off_pre + 0]),
+                    static_cast<int>(oI[off_pre + 1] == oQ[off_pre + 1]),
+                    static_cast<int>(oI[off_pre + 2] == oQ[off_pre + 2]),
+                    static_cast<int>(oI[off_pre + 3] == oQ[off_pre + 3]));
+            }
+            if (off_hdr + 3 < n_chips) {
+                std::printf(
+                    "  HDR   off=%d  I:%d,%d,%d,%d  Q:%d,%d,%d,%d  "
+                    "same:%d,%d,%d,%d\n",
+                    off_hdr, static_cast<int>(oI[off_hdr + 0]),
+                    static_cast<int>(oI[off_hdr + 1]),
+                    static_cast<int>(oI[off_hdr + 2]),
+                    static_cast<int>(oI[off_hdr + 3]),
+                    static_cast<int>(oQ[off_hdr + 0]),
+                    static_cast<int>(oQ[off_hdr + 1]),
+                    static_cast<int>(oQ[off_hdr + 2]),
+                    static_cast<int>(oQ[off_hdr + 3]),
+                    static_cast<int>(oI[off_hdr + 0] == oQ[off_hdr + 0]),
+                    static_cast<int>(oI[off_hdr + 1] == oQ[off_hdr + 1]),
+                    static_cast<int>(oI[off_hdr + 2] == oQ[off_hdr + 2]),
+                    static_cast<int>(oI[off_hdr + 3] == oQ[off_hdr + 3]));
+            }
+            if (off_data1 + 3 < n_chips) {
+                std::printf(
+                    "  DATA1 off=%d  I:%d,%d,%d,%d  Q:%d,%d,%d,%d  "
+                    "same:%d,%d,%d,%d\n",
+                    off_data1, static_cast<int>(oI[off_data1 + 0]),
+                    static_cast<int>(oI[off_data1 + 1]),
+                    static_cast<int>(oI[off_data1 + 2]),
+                    static_cast<int>(oI[off_data1 + 3]),
+                    static_cast<int>(oQ[off_data1 + 0]),
+                    static_cast<int>(oQ[off_data1 + 1]),
+                    static_cast<int>(oQ[off_data1 + 2]),
+                    static_cast<int>(oQ[off_data1 + 3]),
+                    static_cast<int>(oI[off_data1 + 0] == oQ[off_data1 + 0]),
+                    static_cast<int>(oI[off_data1 + 1] == oQ[off_data1 + 1]),
+                    static_cast<int>(oI[off_data1 + 2] == oQ[off_data1 + 2]),
+                    static_cast<int>(oI[off_data1 + 3] == oQ[off_data1 + 3]));
+            }
+            if (off_data2 + 3 < n_chips) {
+                std::printf(
+                    "  DATA2 off=%d  I:%d,%d,%d,%d  Q:%d,%d,%d,%d  "
+                    "same:%d,%d,%d,%d\n",
+                    off_data2, static_cast<int>(oI[off_data2 + 0]),
+                    static_cast<int>(oI[off_data2 + 1]),
+                    static_cast<int>(oI[off_data2 + 2]),
+                    static_cast<int>(oI[off_data2 + 3]),
+                    static_cast<int>(oQ[off_data2 + 0]),
+                    static_cast<int>(oQ[off_data2 + 1]),
+                    static_cast<int>(oQ[off_data2 + 2]),
+                    static_cast<int>(oQ[off_data2 + 3]),
+                    static_cast<int>(oI[off_data2 + 0] == oQ[off_data2 + 0]),
+                    static_cast<int>(oI[off_data2 + 1] == oQ[off_data2 + 1]),
+                    static_cast<int>(oI[off_data2 + 2] == oQ[off_data2 + 2]),
+                    static_cast<int>(oI[off_data2 + 3] == oQ[off_data2 + 3]));
+            }
             std::fflush(stdout);
         }
     }
