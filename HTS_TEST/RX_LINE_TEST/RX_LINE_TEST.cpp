@@ -16,12 +16,13 @@ int main(int argc, char** argv) {
     std::printf("=== HTS RX_LINE_TEST Phase 1 (CFO sweep) ===\n");
     std::printf("base_seed=0x%08X\n", static_cast<unsigned>(base_seed));
 
-    std::printf("\n--- AMI 200 kcps ---\n");
+#if defined(HTS_TARGET_AMI)
+    std::printf("\n--- AMI 200 kcps (Sync TU=AMI) ---\n");
     hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepAmi, base_seed);
-
-    std::printf("\n--- PSLTE 1 Mcps ---\n");
-    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepPslte,
-                               base_seed);
+#else
+    std::printf("\n--- PSLTE 1 Mcps (Sync TU=PSLTE) ---\n");
+    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepPslte, base_seed);
+#endif
 
     return 0;
 }
@@ -32,7 +33,11 @@ int main(int argc, char** argv) {
 #include "../../HTS_LIM/HTS_Holo_LPI.cpp"
 #include "../../HTS_LIM/HTS_Walsh_Row_Permuter.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Core.cpp"
+#if defined(HTS_TARGET_AMI)
+#include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_AMI.cpp"
+#else
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Sync_PSLTE.cpp"
+#endif
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Payload.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_TX.cpp"
 #include "../../HTS_LIM/HTS_V400_Dispatcher_Decode.cpp"
