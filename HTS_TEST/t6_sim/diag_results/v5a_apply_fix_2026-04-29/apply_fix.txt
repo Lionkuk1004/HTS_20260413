@@ -1,4 +1,13 @@
-﻿[V5A-PER-SCN-INPUT] tag=S1-CLEAN seq=0 chips=128
+╔═══════════════════════════════════════════════════╗
+║  HTS T6-SIM V3: 무결 채널 시뮬레이션              ║
+║  사전 보정 금지 | memcmp 강제 | 음수 SNR 필수     ║
+║  FAIL = 엔진 실제 한계 (꼼수 제로)               ║
+╚═══════════════════════════════════════════════════╝
+
+  ┌───────────────────────────────────────────────┐
+  │ S1  완벽한 무결성 (클린 채널)         │
+  └───────────────────────────────────────────────┘
+[V5A-PER-SCN-INPUT] tag=S1-CLEAN seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S1-CLEAN n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S1-CLEAN n=1 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S1-CLEAN n=2 I=0 Q=0
@@ -56,7 +65,8 @@
 [V5A-PER-SCN-PASS] tag=S1-CLEAN seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
 [V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=0 cfo=-25500 e=0
-[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEA[Decode64_IR entry] nsym=172 nc=64 bps=4
+N seq=0 pass=1 b=1 cfo=-22500 e=0
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=2 cfo=-19500 e=0
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=3 cfo=-16500 e=0
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=4 cfo=-13500 e=0
@@ -129,7 +139,8 @@
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=4 cfo=-12300 e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=5 cfo=-12000 e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=6 cfo=-11700 e=0
-[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN[Decode64_IR entry] nsym=172 nc=64 bps=4
+-FB] tag=S1-CLEAN seq=1 pass=0 f=7 cfo=-11400 e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=8 cfo=-11100 e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=9 cfo=-10800 e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=10 cfo=-10500 e=0
@@ -200,7 +211,8 @@
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=5 cfo=3000 e=0
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=6 cfo=6000 e=0
 [V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=7 cfo=9000 e=0
-[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pas[Decode64_IR entry] nsym=172 nc=64 bps=4
+s=0 b=8 cfo=12000 e=0
 [V5A-PER-SCN-FINE] tag=S1-CLEAN seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=0 cfo=-13500 e=0
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=1 cfo=-13200 e=0
@@ -238,6 +250,11 @@
 [V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S1-CLEAN seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S1-CLEAN seq=2 cfo_hz=-27000 peak_e=0
+    Clean channel                100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S2  위상 전수 조사 (블라인드 획득)  │
+  └───────────────────────────────────────────────┘
 [V5A-PER-SCN-INPUT] tag=S2-000DEG-PASS seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=1 I=0 Q=0
@@ -478,6 +495,8 @@
 [V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S2-000DEG-PASS seq=2 cfo_hz=-27000 peak_e=0
+    Phase   0 deg                100/100 100.0% [####################] PASS
+    Phase  45 deg                100/100 100.0% [####################] PASS
 [V5A-PER-SCN-INPUT] tag=S2-090DEG-FAIL05 seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=1 I=0 Q=0
@@ -718,6 +737,8 @@
 [V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S2-090DEG-FAIL05 seq=2 cfo_hz=-27000 peak_e=0
+    Phase  90 deg                100/100 100.0% [####################] PASS
+    Phase 135 deg                100/100 100.0% [####################] PASS
 [V5A-PER-SCN-INPUT] tag=S2-180DEG-BUG9 seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=1 I=0 Q=0
@@ -958,6 +979,9 @@
 [V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S2-180DEG-BUG9 seq=2 cfo_hz=-27000 peak_e=0
+    Phase 180 deg                100/100 100.0% [####################] PASS
+    Phase 225 deg                100/100 100.0% [####################] PASS
+    Phase 270 deg                100/100 100.0% [####################] PASS
 [V5A-PER-SCN-INPUT] tag=S2-315DEG-PASS seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=1 I=0 Q=0
@@ -1198,6 +1222,35 @@
 [V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S2-315DEG-PASS seq=2 cfo_hz=-27000 peak_e=0
+    Phase 315 deg                100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S3  심해 SNR 워터폴 (-30 ~ +10 dB)         │
+  └───────────────────────────────────────────────┘
+    SNR    -30 dB                  0/100   0.0% [....................] FAIL
+    SNR    -25 dB                  0/100   0.0% [....................] FAIL
+    SNR    -20 dB                  0/100   0.0% [....................] FAIL
+    SNR    -15 dB                  0/100   0.0% [....................] FAIL
+    SNR    -10 dB                 24/100  24.0% [####................] PART
+    SNR     -5 dB                 93/100  93.0% [##################..] PART
+    SNR     +0 dB                100/100 100.0% [####################] PASS
+    SNR     +5 dB                100/100 100.0% [####################] PASS
+    SNR    +10 dB                100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S4  비동기 타이밍 오프셋               │
+  └───────────────────────────────────────────────┘
+    Offset +0 chips              100/100 100.0% [####################] PASS
+    Offset +1 chips              100/100 100.0% [####################] PASS
+    Offset +5 chips              100/100 100.0% [####################] PASS
+    Offset +17 chips             100/100 100.0% [####################] PASS
+    Offset +31 chips             100/100 100.0% [####################] PASS
+    Offset +63 chips             100/100 100.0% [####################] PASS
+    Offset +127 chips            100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S5  극한 CFO 추종 (블라인드)            │
+  └───────────────────────────────────────────────┘
 [V5A-PER-SCN-INPUT] tag=S5-0HZ-PASS seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=1 I=0 Q=0
@@ -1438,6 +1491,10 @@
 [V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S5-0HZ-PASS seq=2 cfo_hz=-27000 peak_e=0
+    CFO     +0 Hz                100/100 100.0% [####################] PASS
+    CFO    +50 Hz                100/100 100.0% [####################] PASS
+    CFO   +100 Hz                100/100 100.0% [####################] PASS
+    CFO   +200 Hz                100/100 100.0% [####################] PASS
 [V5A-PER-SCN-INPUT] tag=S5-500HZ-FAIL seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=1 I=0 Q=0
@@ -1678,6 +1735,8 @@
 [V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S5-500HZ-FAIL seq=2 cfo_hz=-27000 peak_e=0
+    CFO   +500 Hz                100/100 100.0% [####################] PASS
+    CFO  +1000 Hz                100/100 100.0% [####################] PASS
 [V5A-PER-SCN-INPUT] tag=S5-2000HZ-FAIL seq=0 chips=128
 [V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=0 I=0 Q=0
 [V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=1 I=0 Q=0
@@ -1918,3 +1977,212 @@
 [V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=10 cfo=-24000 e=0
 [V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
 [V5A-PER-SCN-EST] tag=S5-2000HZ-FAIL seq=2 cfo_hz=-27000 peak_e=0
+    CFO  +2000 Hz                100/100 100.0% [####################] PASS
+    CFO  +2500 Hz                100/100 100.0% [####################] PASS
+    CFO  +3000 Hz                100/100 100.0% [####################] PASS
+    CFO  +3500 Hz                100/100 100.0% [####################] PASS
+    CFO  +4000 Hz                100/100 100.0% [####################] PASS
+    CFO  +4500 Hz                100/100 100.0% [####################] PASS
+    CFO  +5000 Hz                100/100 100.0% [####################] PASS
+    CFO  +7500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +10000 Hz                100/100 100.0% [####################] PASS
+    CFO +12500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +15000 Hz                  0/100   0.0% [....................] FAIL
+    CFO +17500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +20000 Hz                100/100 100.0% [####################] PASS
+    CFO +25000 Hz                  0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S5F CFO sweep (seed/payload 고정)             │
+  └───────────────────────────────────────────────┘
+    CFO     +0 Hz                100/100 100.0% [####################] PASS
+    CFO    +50 Hz                100/100 100.0% [####################] PASS
+    CFO   +100 Hz                100/100 100.0% [####################] PASS
+    CFO   +200 Hz                100/100 100.0% [####################] PASS
+    CFO   +500 Hz                100/100 100.0% [####################] PASS
+    CFO  +1000 Hz                100/100 100.0% [####################] PASS
+    CFO  +2000 Hz                100/100 100.0% [####################] PASS
+    CFO  +2500 Hz                100/100 100.0% [####################] PASS
+    CFO  +3000 Hz                100/100 100.0% [####################] PASS
+    CFO  +3500 Hz                100/100 100.0% [####################] PASS
+    CFO  +4000 Hz                100/100 100.0% [####################] PASS
+    CFO  +4500 Hz                100/100 100.0% [####################] PASS
+    CFO  +5000 Hz                100/100 100.0% [####################] PASS
+    CFO  +7500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +10000 Hz                100/100 100.0% [####################] PASS
+    CFO +12500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +15000 Hz                  0/100   0.0% [....................] FAIL
+    CFO +17500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +20000 Hz                100/100 100.0% [####################] PASS
+    CFO +25000 Hz                  0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S6  다중 경로 (3-tap ISI)                   │
+  └───────────────────────────────────────────────┘
+    D=1/3 A=0.3/0.1              100/100 100.0% [####################] PASS
+    D=3/8 A=0.5/0.2              100/100 100.0% [####################] PASS
+    D=5/15 A=0.4/0.15            100/100 100.0% [####################] PASS
+    D=10/32 A=0.3/0.1            100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S7  바라지 재밍 (JSR +10 ~ +30 dB)         │
+  └───────────────────────────────────────────────┘
+    JSR    +0 dB                 100/100 100.0% [####################] PASS
+    JSR    +5 dB                  94/100  94.0% [##################..] PART
+    JSR   +10 dB                  28/100  28.0% [#####...............] PART
+    JSR   +15 dB                   0/100   0.0% [....................] FAIL
+    JSR   +20 dB                   0/100   0.0% [....................] FAIL
+    JSR   +25 dB                   0/100   0.0% [....................] FAIL
+    JSR   +30 dB                   0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S8  CW 톤 재밍                               │
+  └───────────────────────────────────────────────┘
+    JSR+10 P=8                   100/100 100.0% [####################] PASS
+    JSR+15 P=8                   100/100 100.0% [####################] PASS
+    JSR+20 P=8                   100/100 100.0% [####################] PASS
+    JSR+15 P=12                    0/100   0.0% [....................] FAIL
+    JSR+20 P=16                    0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S9  복합 스트레스 (135° + -15dB + CFO1500 + MP) │
+  └───────────────────────────────────────────────┘
+    Composite stress               0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S10 내구도 10000회 + LPI 정합             │
+  └───────────────────────────────────────────────┘
+    Endurance 10000 (20.1s)      10000/10000 100.0% [####################] PASS
+    LPI OFF                      100/100 100.0% [####################] PASS
+    LPI ON                       100/100 100.0% [####################] PASS
+
+╔═══════════════════════════════════════════════════════════════╗
+║  종합 보고서 (Pass + CRC+payload BER)                         ║
+╠═════════╤══════════════════╤═══════╤═══════╤════════╤═══════╣
+║ 시나리오│ 조건             │ Pass  │ CRC+  │  BER   │ 판정  ║
+╠═════════╪══════════════════╪═══════╪═══════╪════════╪═══════╣
+║ S1      │ B0/OK100/CRC+0/BE0 │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 0deg             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 45deg            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 90deg            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 135deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 180deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 225deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 270deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 315deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S3      │ -30dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -25dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -20dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -15dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -10dB            │    24 │     0 │ 0.7600 │ PART  ║
+║ S3      │ -5dB             │    93 │     0 │ 0.0700 │ PART  ║
+║ S3      │ 0dB              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S3      │ 5dB              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S3      │ 10dB             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +0               │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +1               │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +5               │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +17              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +31              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +63              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +127             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 0Hz              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 50Hz             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 100Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 200Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 500Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 1000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 2000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 2500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 3000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 3500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 4000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 4500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 5000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 7500Hz           │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 10000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 12500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 15000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 17500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 20000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 25000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 0Hz              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 50Hz             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 100Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 200Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 500Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 1000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 2000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 2500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 3000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 3500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 4000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 4500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 5000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 7500Hz           │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 10000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 12500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 15000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 17500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 20000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 25000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S6      │ D=1/3 A=0.3/0.1  │   100 │     0 │ 0.0000 │ PASS  ║
+║ S6      │ D=3/8 A=0.5/0.2  │   100 │     0 │ 0.0000 │ PASS  ║
+║ S6      │ D=5/15 A=0.4/0.15 │   100 │     0 │ 0.0000 │ PASS  ║
+║ S6      │ D=10/32 A=0.3/0.1 │   100 │     0 │ 0.0000 │ PASS  ║
+║ S7      │ 0dB              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S7      │ 5dB              │    94 │     0 │ 0.0600 │ PART  ║
+║ S7      │ 10dB             │    28 │     0 │ 0.7200 │ PART  ║
+║ S7      │ 15dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S7      │ 20dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S7      │ 25dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S7      │ 30dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S8      │ JSR+10 P=8       │   100 │     0 │ 0.0000 │ PASS  ║
+║ S8      │ JSR+15 P=8       │   100 │     0 │ 0.0000 │ PASS  ║
+║ S8      │ JSR+20 P=8       │   100 │     0 │ 0.0000 │ PASS  ║
+║ S8      │ JSR+15 P=12      │     0 │  
+=== WRC DIAG ===
+  method         = 0
+  call_count_16  = 0
+  call_count_64  = 5638868
+  total_delta    = 0
+================
+   0 │ 1.0000 │ FAIL  ║
+║ S8      │ JSR+20 P=16      │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S9      │ Full             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S10a    │ Endurance        │ 10000 │     0 │ 0.0000 │ PASS  ║
+║ S10b    │ LPI-OFF          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S10c    │ LPI-ON           │   100 │     0 │ 0.0000 │ PASS  ║
+╠═════════╧══════════════════╧═══════╧═══════╧════════╧═══════╣
+║  정량 합계:  16139 /  18400 ( 87.7%) — 전체 BER: 0.12288        ║
+║  범주 PASS: 60 / 85                                           ║
+║  총 bit errors: 144704 / 1177600                                   ║
+║  총 소요:   35.5s                                              ║
+╚═══════════════════════════════════════════════════════════════╝
+
+  [엔진 한계 — 개선 필요 항목]
+    S3       -30dB              0/100  CRC+  0  BER=1.0000
+    S3       -25dB              0/100  CRC+  0  BER=1.0000
+    S3       -20dB              0/100  CRC+  0  BER=1.0000
+    S3       -15dB              0/100  CRC+  0  BER=1.0000
+    S3       -10dB             24/100  CRC+  0  BER=0.7600
+    S3       -5dB              93/100  CRC+  0  BER=0.0700
+    S5       7500Hz             0/100  CRC+  0  BER=1.0000
+    S5       12500Hz            0/100  CRC+  0  BER=1.0000
+    S5       15000Hz            0/100  CRC+  0  BER=1.0000
+    S5       17500Hz            0/100  CRC+  0  BER=1.0000
+    S5       25000Hz            0/100  CRC+  0  BER=1.0000
+    S5F      7500Hz             0/100  CRC+  0  BER=1.0000
+    S5F      12500Hz            0/100  CRC+  0  BER=1.0000
+    S5F      15000Hz            0/100  CRC+  0  BER=1.0000
+    S5F      17500Hz            0/100  CRC+  0  BER=1.0000
+    S5F      25000Hz            0/100  CRC+  0  BER=1.0000
+    S7       5dB               94/100  CRC+  0  BER=0.0600
+    S7       10dB              28/100  CRC+  0  BER=0.7200
+    S7       15dB               0/100  CRC+  0  BER=1.0000
+    S7       20dB               0/100  CRC+  0  BER=1.0000
+    S7       25dB               0/100  CRC+  0  BER=1.0000
+    S7       30dB               0/100  CRC+  0  BER=1.0000
+    S8       JSR+15 P=12        0/100  CRC+  0  BER=1.0000
+    S8       JSR+20 P=16        0/100  CRC+  0  BER=1.0000
+    S9       Full               0/100  CRC+  0  BER=1.0000

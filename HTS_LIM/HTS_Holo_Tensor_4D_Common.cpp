@@ -40,11 +40,9 @@ namespace ProtectedEngine {
         static constexpr KWalshInit g_walsh_k{};
     } // namespace
 
-    const int8_t k_walsh64[64][64] = g_walsh_k.t;
-
     int8_t Holo4D_Walsh_Code(uint32_t row, uint32_t col) noexcept
     {
-        return k_walsh64[row & 63u][col & 63u];
+        return g_walsh_k.t[row & 63u][col & 63u];
     }
 
     void Holo4D_Generate_Partitioned_Params(

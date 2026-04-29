@@ -7,9 +7,7 @@
 
 namespace ProtectedEngine {
 
-    /// @brief 64×64 Walsh-Hadamard LUT (ROM, Common TU 1 copy)
-    extern const int8_t k_walsh64[64][64];
-
+    /// @brief 64×64 Walsh-Hadamard LUT — `Holo4D_Walsh_Code` 로만 접근 (Common TU 단일 constexpr ROM).
     int8_t Holo4D_Walsh_Code(uint32_t row, uint32_t col) noexcept;
 
     /// @brief 열/행(Fisher–Yates) + 분할 Walsh 행 선택(출력: row_workspace[0..L*K-1], col_perm[0..N-1]).

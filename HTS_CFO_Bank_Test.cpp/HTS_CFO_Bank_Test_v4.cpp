@@ -3,8 +3,13 @@
 // ★ 양산 HTS_CFO_V5a (Estimate / Set_Apply_Cfo / Advance_Phase_Only /
 //   Apply_Per_Chip) — Lab 전용; HTS_LIM/CFO_V5a.cpp 본문 미수정.
 // ★ HTS_PIPELINE_DIAG: Stage1~6 printf (매크로 가드).
-// ★ HTS_BATCH_1..5: 50 Hz step 정밀 sweep 분할 (cl /DHTS_BATCH_n).
-//    경계 Hz(1000,2000,…)는 인접 배치에 중복 포함 → 통합 시 한 줄만 사용.
+// ★ HTS_BATCH_1..10: 0..10000 Hz @50 Hz (배치별 21점; 경계 중복).
+// ★ HTS_BATCH_11..13: 10000..25000 Hz @100 Hz (51점/배치).
+// ★ HTS_BATCH_BUG_FOCUS: 알려진 S5 실패 Hz ±500 @50 Hz (105점).
+// ★ HTS_BATCH_RANDOM: 50/100 Hz 정규 grid 회피 비정규 CFO (~106점, Lab).
+// ★ HTS_BATCH_UNIFIED: 정규 grid 전 구간 단일 배열 (0..25000, Lab).
+// ★ HTS_BATCH_PTE_AB / HTS_BATCH_LR_AB: 기존 유지.
+// ★ Lab 속도: cl /DHTS_CFO_SWEEP_TRIALS=10 … → 스윕 trial 10 (기본 100, 미정의 시 100).
 // ============================================================================
 #include <bit>
 #include <cmath>
@@ -35,7 +40,7 @@ constexpr int kPreambleChips = 128;
 constexpr int kPayloadChips = 64;
 constexpr int kTotalChips = kPreambleChips + kPayloadChips;  // 192
 
-// Sweep (30 dB 단일 SNR, dec/100 표)
+// Sweep (30 dB 단일 SNR, sync/dec/Ntrials 표; Ntrials=kNumTrialsSweep)
 #if defined(HTS_BATCH_1)
 constexpr int kCfoSweepList[] = {
     0,    50,   100,  150,  200,  250,  300,  350,  400,  450,  500,
@@ -56,6 +61,124 @@ constexpr int kCfoSweepList[] = {
 constexpr int kCfoSweepList[] = {
     4000, 4050, 4100, 4150, 4200, 4250, 4300, 4350, 4400, 4450, 4500,
     4550, 4600, 4650, 4700, 4750, 4800, 4850, 4900, 4950, 5000};
+#elif defined(HTS_BATCH_6)
+// 5000~6000 Hz @50 Hz (21 pts)
+constexpr int kCfoSweepList[] = {
+    5000, 5050, 5100, 5150, 5200, 5250, 5300, 5350, 5400, 5450, 5500,
+    5550, 5600, 5650, 5700, 5750, 5800, 5850, 5900, 5950, 6000};
+#elif defined(HTS_BATCH_7)
+// 6000~7000 Hz @50 Hz (21 pts)
+constexpr int kCfoSweepList[] = {
+    6000, 6050, 6100, 6150, 6200, 6250, 6300, 6350, 6400, 6450, 6500,
+    6550, 6600, 6650, 6700, 6750, 6800, 6850, 6900, 6950, 7000};
+#elif defined(HTS_BATCH_8)
+// 7000~8000 Hz @50 Hz (21 pts; 7500 Hz S5 주변 포함)
+constexpr int kCfoSweepList[] = {
+    7000, 7050, 7100, 7150, 7200, 7250, 7300, 7350, 7400, 7450, 7500,
+    7550, 7600, 7650, 7700, 7750, 7800, 7850, 7900, 7950, 8000};
+#elif defined(HTS_BATCH_9)
+// 8000~9000 Hz @50 Hz (21 pts)
+constexpr int kCfoSweepList[] = {
+    8000, 8050, 8100, 8150, 8200, 8250, 8300, 8350, 8400, 8450, 8500,
+    8550, 8600, 8650, 8700, 8750, 8800, 8850, 8900, 8950, 9000};
+#elif defined(HTS_BATCH_10)
+// 9000~10000 Hz @50 Hz (21 pts)
+constexpr int kCfoSweepList[] = {
+    9000, 9050, 9100, 9150, 9200, 9250, 9300, 9350, 9400, 9450, 9500,
+    9550, 9600, 9650, 9700, 9750, 9800, 9850, 9900, 9950, 10000};
+#elif defined(HTS_BATCH_11)
+// 10000~15000 Hz @100 Hz (51 pts)
+constexpr int kCfoSweepList[] = {
+    10000, 10100, 10200, 10300, 10400, 10500, 10600, 10700, 10800, 10900,
+    11000, 11100, 11200, 11300, 11400, 11500, 11600, 11700, 11800, 11900,
+    12000, 12100, 12200, 12300, 12400, 12500, 12600, 12700, 12800, 12900,
+    13000, 13100, 13200, 13300, 13400, 13500, 13600, 13700, 13800, 13900,
+    14000, 14100, 14200, 14300, 14400, 14500, 14600, 14700, 14800, 14900,
+    15000};
+#elif defined(HTS_BATCH_12)
+// 15000~20000 Hz @100 Hz (51 pts)
+constexpr int kCfoSweepList[] = {
+    15000, 15100, 15200, 15300, 15400, 15500, 15600, 15700, 15800, 15900,
+    16000, 16100, 16200, 16300, 16400, 16500, 16600, 16700, 16800, 16900,
+    17000, 17100, 17200, 17300, 17400, 17500, 17600, 17700, 17800, 17900,
+    18000, 18100, 18200, 18300, 18400, 18500, 18600, 18700, 18800, 18900,
+    19000, 19100, 19200, 19300, 19400, 19500, 19600, 19700, 19800, 19900,
+    20000};
+#elif defined(HTS_BATCH_13)
+// 20000~25000 Hz @100 Hz (51 pts)
+constexpr int kCfoSweepList[] = {
+    20000, 20100, 20200, 20300, 20400, 20500, 20600, 20700, 20800, 20900,
+    21000, 21100, 21200, 21300, 21400, 21500, 21600, 21700, 21800, 21900,
+    22000, 22100, 22200, 22300, 22400, 22500, 22600, 22700, 22800, 22900,
+    23000, 23100, 23200, 23300, 23400, 23500, 23600, 23700, 23800, 23900,
+    24000, 24100, 24200, 24300, 24400, 24500, 24600, 24700, 24800, 24900,
+    25000};
+#elif defined(HTS_BATCH_BUG_FOCUS)
+// 7500 / 12500 / 15000 / 17500 / 25000 Hz 주변 ±500 @50 Hz (105 pts)
+constexpr int kCfoSweepList[] = {
+    7000,  7050,  7100,  7150,  7200,  7250,  7300,  7350,  7400,  7450,  7500,
+    7550,  7600,  7650,  7700,  7750,  7800,  7850,  7900,  7950,  8000,
+    12000, 12050, 12100, 12150, 12200, 12250, 12300, 12350, 12400, 12450,
+    12500, 12550, 12600, 12650, 12700, 12750, 12800, 12850, 12900, 12950,
+    13000, 14500, 14550, 14600, 14650, 14700, 14750, 14800, 14850, 14900,
+    14950, 15000, 15050, 15100, 15150, 15200, 15250, 15300, 15350, 15400,
+    15450, 15500, 17000, 17050, 17100, 17150, 17200, 17250, 17300, 17350,
+    17400, 17450, 17500, 17550, 17600, 17650, 17700, 17750, 17800, 17850,
+    17900, 17950, 18000, 24500, 24550, 24600, 24650, 24700, 24750, 24800,
+    24850, 24900, 24950, 25000, 25050, 25100, 25150, 25200, 25250, 25300,
+    25350, 25400, 25450, 25500};
+#elif defined(HTS_BATCH_RANDOM)
+// 1000~25000 Hz 비정규 offset (50/100 Hz grid 회피, Lab)
+constexpr int kCfoSweepList[] = {
+    1012,  1112,  1237,  1373,  1513,  1717,  1893,  2061,  2237,  2413,
+    2553,  2717,  2893,  3061,  3237,  3413,  3573,  3717,  3893,  4061,
+    4237,  4413,  4573,  4717,  4893,  5037,  5173,  5313,  5453,  5593,
+    5733,  5873,  6013,  6153,  6293,  6433,  6573,  6713,  6853,  6993,
+    7137,  7277,  7417,  7557,  7697,  7837,  7977,  8117,  8257,  8397,
+    8537,  8677,  8817,  8957,  9097,  9237,  9377,  9517,  9657,  9797,
+    9937,  10037, 10373, 10713, 11053, 11393, 11733, 12073, 12413, 12753,
+    13093, 13433, 13773, 14113, 14453, 14793, 15133, 15473, 15813, 16153,
+    16493, 16833, 17173, 17513, 17853, 18193, 18533, 18873, 19213, 19553,
+    19893, 20233, 20573, 20913, 21253, 21593, 21933, 22273, 22613, 22953,
+    23293, 23633, 23973, 24313, 24653, 24993};
+#elif defined(HTS_BATCH_UNIFIED)
+// 0~10000 @50 Hz + 10100~25000 @100 Hz (단일 배열, Lab)
+constexpr int kCfoSweepList[] = {
+    0,     50,    100,   150,   200,   250,   300,   350,   400,   450,   500,
+    550,   600,   650,   700,   750,   800,   850,   900,   950,   1000,
+    1050,  1100,  1150,  1200,  1250,  1300,  1350,  1400,  1450,  1500,
+    1550,  1600,  1650,  1700,  1750,  1800,  1850,  1900,  1950,  2000,
+    2050,  2100,  2150,  2200,  2250,  2300,  2350,  2400,  2450,  2500,
+    2550,  2600,  2650,  2700,  2750,  2800,  2850,  2900,  2950,  3000,
+    3050,  3100,  3150,  3200,  3250,  3300,  3350,  3400,  3450,  3500,
+    3550,  3600,  3650,  3700,  3750,  3800,  3850,  3900,  3950,  4000,
+    4050,  4100,  4150,  4200,  4250,  4300,  4350,  4400,  4450,  4500,
+    4550,  4600,  4650,  4700,  4750,  4800,  4850,  4900,  4950,  5000,
+    5050,  5100,  5150,  5200,  5250,  5300,  5350,  5400,  5450,  5500,
+    5550,  5600,  5650,  5700,  5750,  5800,  5850,  5900,  5950,  6000,
+    6050,  6100,  6150,  6200,  6250,  6300,  6350,  6400,  6450,  6500,
+    6550,  6600,  6650,  6700,  6750,  6800,  6850,  6900,  6950,  7000,
+    7050,  7100,  7150,  7200,  7250,  7300,  7350,  7400,  7450,  7500,
+    7550,  7600,  7650,  7700,  7750,  7800,  7850,  7900,  7950,  8000,
+    8050,  8100,  8150,  8200,  8250,  8300,  8350,  8400,  8450,  8500,
+    8550,  8600,  8650,  8700,  8750,  8800,  8850,  8900,  8950,  9000,
+    9050,  9100,  9150,  9200,  9250,  9300,  9350,  9400,  9450,  9500,
+    9550,  9600,  9650,  9700,  9750,  9800,  9850,  9900,  9950,  10000,
+    10100, 10200, 10300, 10400, 10500, 10600, 10700, 10800, 10900, 11000,
+    11100, 11200, 11300, 11400, 11500, 11600, 11700, 11800, 11900, 12000,
+    12100, 12200, 12300, 12400, 12500, 12600, 12700, 12800, 12900, 13000,
+    13100, 13200, 13300, 13400, 13500, 13600, 13700, 13800, 13900, 14000,
+    14100, 14200, 14300, 14400, 14500, 14600, 14700, 14800, 14900, 15000,
+    15100, 15200, 15300, 15400, 15500, 15600, 15700, 15800, 15900, 16000,
+    16100, 16200, 16300, 16400, 16500, 16600, 16700, 16800, 16900, 17000,
+    17100, 17200, 17300, 17400, 17500, 17600, 17700, 17800, 17900, 18000,
+    18100, 18200, 18300, 18400, 18500, 18600, 18700, 18800, 18900, 19000,
+    19100, 19200, 19300, 19400, 19500, 19600, 19700, 19800, 19900, 20000,
+    20100, 20200, 20300, 20400, 20500, 20600, 20700, 20800, 20900, 21000,
+    21100, 21200, 21300, 21400, 21500, 21600, 21700, 21800, 21900, 22000,
+    22100, 22200, 22300, 22400, 22500, 22600, 22700, 22800, 22900, 23000,
+    23100, 23200, 23300, 23400, 23500, 23600, 23700, 23800, 23900, 24000,
+    24100, 24200, 24300, 24400, 24500, 24600, 24700, 24800, 24900, 25000};
 #elif defined(HTS_BATCH_PTE_AB)
 // Cliff 주변 PTE ON/OFF A/B (9점, trial 100 / SNR 30 dB)
 constexpr int kCfoSweepList[] = {600,  750,  900,  2200, 2300, 2400,
@@ -73,7 +196,11 @@ constexpr int kCfoSweepList[] = {
 #endif
 constexpr int kCfoSweepCount =
     static_cast<int>(sizeof(kCfoSweepList) / sizeof(kCfoSweepList[0]));
+#if defined(HTS_CFO_SWEEP_TRIALS)
+constexpr int kNumTrialsSweep = HTS_CFO_SWEEP_TRIALS;
+#else
 constexpr int kNumTrialsSweep = 100;
+#endif
 
 #if defined(HTS_PIPELINE_DIAG)
 constexpr int kPipelineCfo[] = {0, 200, 300, 500, 1000};
@@ -474,6 +601,39 @@ static void test_holo_tensor_cfo_sweep_v4() {
 #elif defined(HTS_BATCH_5)
     std::printf("  Sweep batch: 5  (4000..5000 Hz @50Hz, %d pts)\n",
                 ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_6)
+    std::printf("  Sweep batch: 6  (5000..6000 Hz @50Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_7)
+    std::printf("  Sweep batch: 7  (6000..7000 Hz @50Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_8)
+    std::printf("  Sweep batch: 8  (7000..8000 Hz @50Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_9)
+    std::printf("  Sweep batch: 9  (8000..9000 Hz @50Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_10)
+    std::printf("  Sweep batch: 10 (9000..10000 Hz @50Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_11)
+    std::printf("  Sweep batch: 11 (10000..15000 Hz @100Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_12)
+    std::printf("  Sweep batch: 12 (15000..20000 Hz @100Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_13)
+    std::printf("  Sweep batch: 13 (20000..25000 Hz @100Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_BUG_FOCUS)
+    std::printf("  Sweep batch: BUG_FOCUS (±500 Hz @50Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_RANDOM)
+    std::printf("  Sweep batch: RANDOM (irregular Hz, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
+#elif defined(HTS_BATCH_UNIFIED)
+    std::printf("  Sweep batch: UNIFIED (0..25000 regular grid, %d pts)\n",
+                ExperimentConfig::kCfoSweepCount);
 #elif defined(HTS_BATCH_PTE_AB)
     std::printf("  Sweep batch: PTE_AB (9 cliff-near CFO pts)\n");
 #elif defined(HTS_BATCH_LR_AB)
@@ -515,11 +675,15 @@ static void test_holo_tensor_cfo_sweep_v4() {
 #endif
 
     constexpr int kSnrSweep = 30;
-    std::printf("%-10s  %s\n", "cfo Hz", "sync/dec/100  BER@30dB");
+    constexpr int kNt = ExperimentConfig::kNumTrialsSweep;
+    std::printf("%-10s  sync/dec/%d  BER@30dB\n", "cfo Hz", kNt);
     std::printf(
         "------------------------------------------------------------\n");
     for (int c = 0; c < ExperimentConfig::kCfoSweepCount; ++c) {
         const int cfo_hz = ExperimentConfig::kCfoSweepList[c];
+        std::printf("  [progress] %d/%d  cfo=%d Hz ...\n", c + 1,
+                    ExperimentConfig::kCfoSweepCount, cfo_hz);
+        std::fflush(stdout);
         const TestResult r = run_one_cfo_v4(tx_tensor, rx_tensor, cfo_hz,
                                             kSnrSweep,
                                             ExperimentConfig::kNumTrialsSweep);
@@ -527,12 +691,14 @@ static void test_holo_tensor_cfo_sweep_v4() {
             (r.total_bits > 0)
                 ? static_cast<double>(r.total_bit_err) / r.total_bits
                 : 0.0;
-        std::printf("  %-8d  %3d/%3d/100  %6.4f\n", cfo_hz, r.sync_pass,
-                    r.decode_pass, ber);
+        std::printf("  %-8d  %3d/%3d/%3d  %6.4f\n", cfo_hz, r.sync_pass,
+                    r.decode_pass, kNt, ber);
     }
     std::printf(
         "------------------------------------------------------------\n");
-    std::printf("sync/dec = HOLO sync pass / decode perfect trials (of 100)\n");
+    std::printf(
+        "sync/dec = HOLO sync pass / decode perfect trials (of %d)\n",
+        kNt);
 
     rx_tensor.Shutdown();
     tx_tensor.Shutdown();

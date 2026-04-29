@@ -15,6 +15,7 @@
   <Project Path="HTS_TEST/HTS_검증_AMI_Barrage30_Spec.vcxproj" Id="d5e6f708-d0e1-2345-f012-456789012345" />
   <Project Path="HTS_TEST/HTS_검증_KCMVP.vcxproj" Id="a1b2c3d4-e5f6-7890-abcd-ef1234567890" />
   <Project Path="HTS_검증_PLUTO_SDR/HTS_검증_PLUTO_SDR.vcxproj" Id="0f9fc64a-2461-4131-b71f-aa94298173b4" />
+  <Project Path="Noise Detector 4D test/Noise Detector 4D test.vcxproj" Id="37b1883e-d252-4544-8021-e16287617cb6" />
   <Project Path="Payload Test/Payload Test.vcxproj" Id="cf645485-640c-4594-aa1a-b9369302740e" />
   <Project Path="POLAR_TEST/POLAR_TEST.vcxproj" Id="576c6afa-da0b-469d-b7e7-872bb96decf4" />
 </Solution>

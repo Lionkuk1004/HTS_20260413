@@ -1,5 +1,5 @@
 @echo off
-REM Batch 1: CFO 0..1000 Hz @50 Hz (21 points). Same TU as cursor_lab_v5a_production.cmd + /DHTS_BATCH_1
+REM Batch 1: CFO 0..1000 Hz @50 Hz (21 points). Same TU as cursor_lab_v5a_production.cmd + /DHTS_CFO_SWEEP_TRIALS=10
 setlocal
 call "C:\Program Files\Microsoft Visual Studio\18\Community\VC\Auxiliary\Build\vcvars64.bat" || exit /b 1
 cd /d "%~dp0"

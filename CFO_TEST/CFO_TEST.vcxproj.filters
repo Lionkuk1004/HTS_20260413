@@ -15,7 +15,7 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="CFO_TEST.cpp">
+    <ClCompile Include="..\HTS_CFO_TEST\HTS_CFO_Sweep_50Hz.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>

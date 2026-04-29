@@ -1,0 +1,36 @@
+1194:    // Non-coherent 전용: est_I_/est_Q_/est_count_ 기반 coherent 분기 없음
+1195:    // (est_* 는 derot_shift 등 다른 경로 전용). CFO 시 projection 왜곡 방지.
+1868:    dc_est_I_ = 0;
+1869:    dc_est_Q_ = 0;
+1899:    est_I_ = 0;
+1900:    est_Q_ = 0;
+1902:    derot_shift_ = 17;
+1941:void HTS_V400_Dispatcher::update_derot_shift_from_est_() noexcept {
+1942:    const int32_t mI = est_I_ >> 31;
+1943:    const int32_t mQ = est_Q_ >> 31;
+1944:    const int32_t abs_eI = (est_I_ + mI) ^ mI;
+1945:    const int32_t abs_eQ = (est_Q_ + mQ) ^ mQ;
+1950:        derot_shift_ = 17;
+1964:    derot_shift_ = sh;
+2014:    est_I_ = 0;
+2015:    est_Q_ = 0;
+2017:    derot_shift_ = 17;
+2197:                    "derot_shift=%d\n",
+2201:                    static_cast<int>(est_I_), static_cast<int>(est_Q_),
+2202:                    static_cast<int>(derot_shift_));
+4458:            est_I_ = seed_dot_I;
+4459:            est_Q_ = seed_dot_Q;
+4463:            update_derot_shift_from_est_();
+4508:                        seed_dot_I, seed_dot_Q, est_I_, est_Q_,
+4608:    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+4610:    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+4612:    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+4613:    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+4621:            static_cast<int>(chip_I), static_cast<int>(dc_est_I_),
+4622:            static_cast<int>(dc_est_Q_));
+4994:            est_I_ += dot63_I;
+4995:            est_Q_ += dot63_Q;
+4999:            update_derot_shift_from_est_();
+5009:                    est_I_, est_Q_, est_count_, p1_carry_pending_);
+5035:            update_derot_shift_from_est_();
+5042:                        est_I_, est_Q_, est_count_);

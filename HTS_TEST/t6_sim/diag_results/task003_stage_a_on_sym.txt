@@ -1,0 +1,16 @@
+2129:void HTS_V400_Dispatcher::on_sym_() noexcept {
+2148:            // [TASK-003 DIAG] on_sym_ 진입: Feed/Apply 이후 심볼 버퍼 첫 칩
+2149:            static uint32_t s_task003_on_sym_in = 0u;
+2150:            ++s_task003_on_sym_in;
+2151:            if (s_task003_on_sym_in <= 10u) {
+2154:                    static_cast<unsigned>(s_task003_on_sym_in),
+2191:            // [TASK-003 DIAG] permuter 이후 + est/derot 스냅샷 (on_sym_ 내 별도 derot 없음)
+2192:            static uint32_t s_task003_on_sym_derot = 0u;
+2193:            ++s_task003_on_sym_derot;
+2194:            if (s_task003_on_sym_derot <= 10u) {
+2198:                    static_cast<unsigned>(s_task003_on_sym_derot),
+2782:            /* IR 칩: on_sym_ 라운드마다 덮어쓰기 — memset 불필요 */
+2951:            /* IR 칩: on_sym_ 라운드마다 덮어쓰기 — memset 불필요 */
+4462:            //   이후 on_sym_ 심볼당 정규화 derotation 사용
+5414:            on_sym_();
+5452:        on_sym_();
