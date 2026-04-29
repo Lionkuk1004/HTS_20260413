@@ -11,3 +11,7 @@
 | phase1_AMI_prod | 2026-04-29 | — | S_CFO_SWEEP_AMI | TASK-016c 양산 변동 ON (016b 대비 지표 변화) |
 | phase1_PSLTE_iso | 2026-04-29 | — | S_DEBUG_ISO_PSLTE | TASK-016c debug-iso |
 | phase1_PSLTE_prod | 2026-04-29 | — | S_CFO_SWEEP_PSLTE | TASK-016c production |
+| phase1_AMI_iso_v3 | 2026-04-29 | — | S_DEBUG_ISO_AMI | TASK-017 coarse step 1500 Hz |
+| phase1_AMI_prod_v3 | 2026-04-29 | — | S_CFO_SWEEP_AMI | TASK-017 |
+| phase1_PSLTE_iso_v3 | 2026-04-29 | — | S_DEBUG_ISO_PSLTE | TASK-017 |
+| phase1_PSLTE_prod_v3 | 2026-04-29 | — | S_CFO_SWEEP_PSLTE | TASK-017 |
