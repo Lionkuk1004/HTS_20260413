@@ -1,0 +1,11 @@
+SHA256? x64\Release_PSLTE\V5A_UNIT_TEST.exe ??:
+a5955f5c8d4663b0f987fb15339f5c6b4ad57d5d26e9846867f79f4acc2bfd2c
+CertUtil: -hashfile ??? ????? ???????.
+
+
+FullName      : D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\V5A_UNIT_TEST\x64\Release_PSLTE\V5A_UNIT_TEST.exe
+LastWriteTime : 2026-04-29 오후 11:03:10
+Length        : 23040
+
+
+

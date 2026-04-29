@@ -1,0 +1,7 @@
+﻿[TASK-024 Stage C]
+
+PSLTE 1 Mcps + Walsh PRE_SYM0/1: |error| <= 4 Hz for full -15k..+15k sweep (typ. cb_idx=8). 자동 판정 24A (V5a 정상, TASK-023 +15509 바이어스 제거).
+
+AMI 200 kcps: 회전은 fs=200k, V5a 내부는 kChipRateHz=1e6 고정이라 물리 스케일 불일치 → 구간별 큰 오차/OPPOSITE 혼재. V5a 본문 결론에 AMI 행은 부적합.
+
+다음: RX 캡처 버퍼 재현 또는 AMI 전용 chip-rate 스케일 실험(별도 TASK, V5a 수정 없이 하네스만).

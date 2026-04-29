@@ -1,0 +1,37 @@
+﻿
+HTS_LIM\HTS_Preamble_Holographic.h:2:// HTS_Preamble_Holographic.h
+HTS_LIM\HTS_Preamble_Holographic.h:4:// L2+L3+L5 Holographic Sync 유틸 (Python Phase 7 + Step D DIAG 기반)
+HTS_LIM\HTS_Preamble_Holographic.h:9:// ROM: k_chu_table + verify_chu_table_max_err_ppm() — 단위 테스트/레거시 호환용
+HTS_LIM\HTS_Preamble_Holographic.h:10://       (sync 경로의 holographic_dot_segmented 는 Chu 미사용)
+HTS_LIM\HTS_Preamble_Holographic.h:17:#ifndef HTS_PREAMBLE_HOLOGRAPHIC_H
+HTS_LIM\HTS_Preamble_Holographic.h:18:#define HTS_PREAMBLE_HOLOGRAPHIC_H
+HTS_LIM\HTS_Preamble_Holographic.h:23:namespace Holographic {
+HTS_LIM\HTS_Preamble_Holographic.h:43:int64_t holographic_dot_segmented(const int16_t* chip_I,
+HTS_LIM\HTS_Preamble_Holographic.h:61:int32_t peak_to_median_ratio_x10(const int64_t* energies, int n) noexcept;
+HTS_LIM\HTS_Preamble_Holographic.h:67:/// @brief src 를 per-chip phase 로 derotate → dst (Q14 sin LUT, 누적 회전)
+HTS_LIM\HTS_Preamble_Holographic.h:69:void derotate_buffer_q8(const int16_t* src_I,
+HTS_LIM\HTS_Preamble_Holographic.h:73:                         int n_chip,
+HTS_LIM\HTS_Preamble_Holographic.h:84:int32_t verify_chu_table_max_err_ppm() noexcept;
+HTS_LIM\HTS_Preamble_Holographic.h:86:}  // namespace Holographic
+HTS_LIM\HTS_Preamble_Holographic.h:89:#endif  // HTS_PREAMBLE_HOLOGRAPHIC_H
+HTS_LIM\HTS_Preamble_Holographic.cpp:2:// HTS_Preamble_Holographic.cpp
+HTS_LIM\HTS_Preamble_Holographic.cpp:4:#include "HTS_Preamble_Holographic.h"
+HTS_LIM\HTS_Preamble_Holographic.cpp:7:namespace Holographic {
+HTS_LIM\HTS_Preamble_Holographic.cpp:93:int64_t holographic_dot_segmented(const int16_t* chip_I,
+HTS_LIM\HTS_Preamble_Holographic.cpp:98:    for (int seg = 0; seg < 8; ++seg) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:102:        for (int k = 0; k < 8; ++k) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:103:            const int i = (seg << 3) + k;
+HTS_LIM\HTS_Preamble_Holographic.cpp:124:int32_t peak_to_median_ratio_x10(const int64_t* energies, int n) noexcept {
+HTS_LIM\HTS_Preamble_Holographic.cpp:130:    for (int i = 0; i < 64; ++i) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:135:    for (int i = 0; i < 64; ++i) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:141:    for (int k = 0; k <= 32; ++k) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:142:        int min_idx = k;
+HTS_LIM\HTS_Preamble_Holographic.cpp:144:        for (int i = k + 1; i < 64; ++i) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:220:void derotate_buffer_q8(const int16_t* src_I,
+HTS_LIM\HTS_Preamble_Holographic.cpp:224:                         int n_chip,
+HTS_LIM\HTS_Preamble_Holographic.cpp:239:    for (int k = 0; k < n_chip; ++k) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:282:int32_t verify_chu_table_max_err_ppm() noexcept {
+HTS_LIM\HTS_Preamble_Holographic.cpp:287:    for (int n = 0; n < 64; ++n) {
+HTS_LIM\HTS_Preamble_Holographic.cpp:302:}  // namespace Holographic
+
+
