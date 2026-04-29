@@ -1747,6 +1747,24 @@ void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
             s_apply_branch_print = 1;
         }
     }
+    {
+        // [TASK-004 DIAG] Apply 출력 ri/rq — nonzero sin_per 시점만 첫 N회 출력
+        static uint32_t s_apply_out_count = 0u;
+        if (apply_sin_per_q14_ != 0 && s_apply_out_count < 20u) {
+            ++s_apply_out_count;
+            std::printf("[V5A-APPLY-OUT] hit#%u ci=%d cq=%d ri=%d rq=%d "
+                        "cos_acc=%d sin_acc=%d cos_per=%d sin_per=%d cfo_hz=%d\n",
+                        static_cast<unsigned>(s_apply_out_count),
+                        static_cast<int>(ci), static_cast<int>(cq),
+                        static_cast<int>(ri), static_cast<int>(rq),
+                        static_cast<int>(apply_cos_acc_q14_),
+                        static_cast<int>(apply_sin_acc_q14_),
+                        static_cast<int>(apply_cos_per_q14_),
+                        static_cast<int>(apply_sin_per_q14_),
+                        static_cast<int>(apply_cfo_hz_));
+            std::fflush(stdout);
+        }
+    }
 #else
     // [LEGACY] e^{+j theta} (doubles CFO effect vs correct derotation).
     const int32_t ri = (ci * apply_cos_acc_q14_ + cq * apply_sin_acc_q14_) >> 14;
@@ -1758,6 +1776,24 @@ void CFO_V5a::Apply_Per_Chip(int16_t& chip_I, int16_t& chip_Q) noexcept {
             std::printf("[V5A-APPLY-BRANCH] LEGACY (e^{+jtheta}) active\n");
             std::fflush(stdout);
             s_apply_branch_print = 1;
+        }
+    }
+    {
+        // [TASK-004 DIAG] Apply 출력 ri/rq — nonzero sin_per 시점만 첫 N회 출력
+        static uint32_t s_apply_out_count = 0u;
+        if (apply_sin_per_q14_ != 0 && s_apply_out_count < 20u) {
+            ++s_apply_out_count;
+            std::printf("[V5A-APPLY-OUT] hit#%u ci=%d cq=%d ri=%d rq=%d "
+                        "cos_acc=%d sin_acc=%d cos_per=%d sin_per=%d cfo_hz=%d\n",
+                        static_cast<unsigned>(s_apply_out_count),
+                        static_cast<int>(ci), static_cast<int>(cq),
+                        static_cast<int>(ri), static_cast<int>(rq),
+                        static_cast<int>(apply_cos_acc_q14_),
+                        static_cast<int>(apply_sin_acc_q14_),
+                        static_cast<int>(apply_cos_per_q14_),
+                        static_cast<int>(apply_sin_per_q14_),
+                        static_cast<int>(apply_cfo_hz_));
+            std::fflush(stdout);
         }
     }
 #endif
