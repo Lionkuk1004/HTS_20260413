@@ -8,20 +8,37 @@
 
 int main(int argc, char** argv) {
     uint32_t base_seed = 0xC0FFEEu;
+    bool     debug_iso = false;
     for (int i = 1; i < argc; ++i) {
         if (std::strcmp(argv[i], "--seed") == 0 && i + 1 < argc) {
             base_seed = static_cast<uint32_t>(std::strtoul(argv[++i], nullptr, 0));
+        } else if (std::strcmp(argv[i], "--debug-iso") == 0) {
+            debug_iso = true;
         }
     }
     std::printf("=== HTS RX_LINE_TEST Phase 1 (CFO sweep) ===\n");
-    std::printf("base_seed=0x%08X\n", static_cast<unsigned>(base_seed));
+    std::printf("base_seed=0x%08X mode=%s\n", static_cast<unsigned>(base_seed),
+                debug_iso ? "debug-isolated (CFO+SNR matrix)"
+                          : "production (random)");
 
 #if defined(HTS_TARGET_AMI)
-    std::printf("\n--- AMI 200 kcps (Sync TU=AMI) ---\n");
-    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepAmi, base_seed);
+    if (debug_iso) {
+        std::printf("\n--- AMI 200 kcps debug-iso ---\n");
+        hts::rx_test::run_scenario(hts::rx_test::kScenarioDebugIsoAmi, base_seed);
+    } else {
+        std::printf("\n--- AMI 200 kcps (Sync TU=AMI) ---\n");
+        hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepAmi, base_seed);
+    }
 #else
-    std::printf("\n--- PSLTE 1 Mcps (Sync TU=PSLTE) ---\n");
-    hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepPslte, base_seed);
+    if (debug_iso) {
+        std::printf("\n--- PSLTE 1 Mcps debug-iso ---\n");
+        hts::rx_test::run_scenario(hts::rx_test::kScenarioDebugIsoPslte,
+                                   base_seed);
+    } else {
+        std::printf("\n--- PSLTE 1 Mcps (Sync TU=PSLTE) ---\n");
+        hts::rx_test::run_scenario(hts::rx_test::kScenarioCfoSweepPslte,
+                                   base_seed);
+    }
 #endif
 
     return 0;
