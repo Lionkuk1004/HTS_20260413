@@ -64,6 +64,8 @@
     <ClInclude Include="HTS_RX_Metrics.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="HTS_RX_Channel.cpp" />
+    <ClCompile Include="HTS_RX_Scenarios.cpp" />
     <ClCompile Include="RX_LINE_TEST.cpp" />
     <ClCompile Include="..\t6_sim\HTS_Session_Derive_Stub.cpp" />
     <ClCompile Include="..\..\HTS_LIM\HTS_Walsh_Row_Converter.cpp" />
