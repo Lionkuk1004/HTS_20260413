@@ -1,0 +1,78 @@
+        out_I[i] = (b >= 0)
+                       ? amp
+                       : static_cast<int16_t>(-static_cast<int32_t>(amp));
+    }
+}
+#endif
+
+int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
+                                      int ilen, int16_t amp, int16_t *oI,
+                                      int16_t *oQ, int max_c) noexcept {
+    if (phase_ == RxPhase::RF_SETTLING) {
+        return 0;
+    }
+    if (info == nullptr || oI == nullptr || oQ == nullptr)
+        return 0;
+    if (ilen < 0 || max_c <= 0)
+        return 0;
+    {
+        // [TASK-009 DIAG] Build_Packet 진입 시 iq_mode_ 실제값
+        static uint32_t s_tx_enter_count = 0u;
+        if (s_tx_enter_count < 10u) {
+            ++s_tx_enter_count;
+            std::printf(
+                "[TASK009-TX-ENTER] hit#%u iq_mode=%d (0=SAME, 1=INDEP) "
+                "iq_lab_locked=%d ir_mode=%d\n",
+                static_cast<unsigned>(s_tx_enter_count),
+                static_cast<int>(static_cast<uint8_t>(iq_mode_)),
+                static_cast<int>(iq_mode_lab_locked_),
+                static_cast<int>(ir_mode_));
+            std::fflush(stdout);
+        }
+    }
+    // [Walsh_Row_Permuter] payload 스크램블 키 — TX tx_seq_·첫 라운드(ir_rv_=0 아래)
+    if (!walsh_permuter_.Is_Initialized()) {
+        (void)walsh_permuter_.Initialize(tx_seq_, 0u);
+    } else {
+        (void)walsh_permuter_.Update_Key(tx_seq_, 0u);
+    }
+    // TPC는 외부에서 명시적으로 사용할 때만 적용
+    // 기본: caller의 amp 파라미터 사용 (기존 호환)
+    tx_amp_ = amp;
+    /* 신규 PDU 송신: 인코드 RV는 0부터 (try_decode_ 첫 라운드 rv=0 과 정합) */
+    ir_rv_ = 0;
+    /* BUG-FIX-PRE5: 프리앰블 반복 폐기, amp 부스트로 교체.
+       프리앰블+헤더를 boost 배 진폭으로 전송.
+       RX: 동기·헤더는 Walsh 인덱스 0..63 — walsh_dec_full_(…, cap=false)로
+       전빈 탐색. 페이로드만 2^BPS 제한(cap=true)으로 FEC 심볼 집합과 정합. */
+    const int16_t pre_amp =
+        static_cast<int16_t>(static_cast<int32_t>(amp) * pre_boost_);
+    // [BUG-FIX-PRE2] 프리앰블 반복 전송 — pre_reps_ × PRE_SYM0 + 1 × PRE_SYM1
+    const int pre_chips = (pre_reps_ + 1) * 64;
+    const uint32_t il = seed_ ^ (tx_seq_ * 0xA5A5A5A5u);
+    static constexpr uint8_t k_tx_mb[4] = {0u, 1u, 2u, 3u};
+    static constexpr int k_tx_psyms[4] = {FEC_HARQ::NSYM1, FEC_HARQ::NSYM16,
+                                          FEC_HARQ::NSYM16, 0};
+    const uint32_t mi = static_cast<uint32_t>(mode);
+    if (mi > 3u) {
+        return 0;
+    }
+    const uint32_t u0 = static_cast<uint32_t>(mi == 0u);
+    const uint32_t u1 = static_cast<uint32_t>(mi == 1u);
+    const uint32_t u2 = static_cast<uint32_t>(mi == 2u);
+    const uint32_t u3 = static_cast<uint32_t>(mi == 3u);
+    const uint32_t u16 = u1 | u2;
+    const uint8_t mb = k_tx_mb[mi];
+    const int nsym64_live = cur_nsym64_();
+#if defined(HTS_USE_HOLO_TENSOR_4D)
+    const uint32_t tensor_data_u =
+        static_cast<uint32_t>(mode == PayloadMode::DATA);
+    const int tensor_k = static_cast<int>(k_holo_profiles[1].block_bits);
+    const int tensor_n = static_cast<int>(k_holo_profiles[1].chip_count);
+    const int tensor_block_bytes = tensor_k / 8;
+    const int tensor_blocks =
+        (ilen + ((tensor_block_bytes > 0) ? (tensor_block_bytes - 1) : 0)) /
+        ((tensor_block_bytes > 0) ? tensor_block_bytes : 1);
+    const int tensor_psyms = tensor_k;
+#else
+    const uint32_t tensor_data_u = 0u;

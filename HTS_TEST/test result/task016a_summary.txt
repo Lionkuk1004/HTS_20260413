@@ -1,0 +1,3 @@
+﻿TASK-016a summary seed=0xC0FFEE (full: results/task016a_full.txt)
+AMI + PSLTE CFO tables: lines ~361643 and ~726756 in task016a_full.txt
+elapsed_sec ~204

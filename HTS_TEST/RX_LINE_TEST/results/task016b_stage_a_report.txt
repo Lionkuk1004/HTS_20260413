@@ -1,0 +1,20 @@
+﻿[TASK-016b Stage A] RX_LINE_TEST build structure
+
+1. vcxproj ClCompile production TUs: Walsh, Preamble, CFO_V5a, Holo 4D Common/TX/RX, Rx_CFO_SinCos_Table, Dispatcher_PaCD. No Sync_*.cpp as separate compile units.
+
+2. Sync_AMI.cpp in ClCompile list: No (included via RX_LINE_TEST.cpp)
+
+3. Sync_PSLTE.cpp in ClCompile list: No (included via RX_LINE_TEST.cpp)
+
+4. HTS_TARGET_AMI in PreprocessorDefinitions (legacy Release): not defined
+
+5. Configurations after Stage B: Release, Release_AMI, Release_PSLTE
+
+6. RX_LINE_TEST.cpp includes production dispatcher TUs: Yes
+
+7. Build log lines naming Sync_*.cpp: None (Sync is inside RX_LINE_TEST translation unit)
+
+8. Conclusion for TASK-016a: only Sync_PSLTE.cpp was included; AMI CFO sweep used PSLTE sync algorithm.
+
+AMI build log: CL line contains /D HTS_TARGET_AMI
+PSLTE build log: no HTS_TARGET_AMI

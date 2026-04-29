@@ -1,0 +1,281 @@
+﻿            }
+            // 프리앰블 AGC: P0 피크에서 수신 진폭 측정
+            {
+                int32_t mag_sum = 0;
+                for (int j = 0; j < 64; ++j) {
+                    const int32_t ai = p0_buf128_I_[best_off + j];
+                    const int32_t aq = p0_buf128_Q_[best_off + j];
+                    const int32_t si = ai >> 31;
+                    mag_sum += (ai ^ si) - si;
+                    const int32_t sq = aq >> 31;
+                    mag_sum += (aq ^ sq) - sq;
+                }
+                const int32_t peak_avg = mag_sum >> 6;
+#if defined(HTS_DIAG_AGC_TRACE)
+                const int32_t prev_shift = pre_agc_.Get_Shift();
+#endif
+                pre_agc_.Set_From_Peak(peak_avg);
+#if defined(HTS_DIAG_AGC_TRACE)
+                AGC_DIAG_PRINTF(
+                    "[AGC-DIAG-2] pre_agc Set_From_Peak: peak_avg=%d "
+                    "old_shift=%d new_shift=%d target_amp=%d\n",
+                    static_cast<int>(peak_avg), static_cast<int>(prev_shift),
+                    static_cast<int>(pre_agc_.Get_Shift()),
+                    static_cast<int>(HTS_Preamble_AGC::kTargetAmp));
+#endif
+            }
+#if defined(HTS_DIAG_PRINTF)
+            std::printf("[P0-SEED] dot=(%d,%d) est=(%d,%d) n=%d\n",
+                        seed_dot_I, seed_dot_Q, est_I_, est_Q_,
+                        est_count_);
+#endif
+#if defined(HTS_PHASE0_WALSH_BANK) && defined(HTS_DIAG_PRINTF)
+            std::printf("[P0-WBANK] commit_off=%d dominant_row=%u seed=(%d,%d)\n",
+                        best_off, static_cast<unsigned>(dominant_row_),
+                        seed_dot_I, seed_dot_Q);
+#endif
+        }
+#if defined(HTS_DIAG_PRINTF)
+        std::printf("[P0-ALIGNED] off=%d carry=%d\n",
+                    best_off, 64 - best_off);
+#endif
+        psal_off_ = best_off;
+        psal_e63_ = best_e63;
+        psal_commit_align_();
+    } else {
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+        {
+            static int s_shift_count = 0;
+            ++s_shift_count;
+            if (s_shift_count <= 3) {
+                std::printf(
+                    "[DIAG-SHIFT] count=%d before_shift buf[128..143]_I:",
+                    s_shift_count);
+                for (int i = 0; i < 16; ++i) {
+                    std::printf(" %d",
+                                static_cast<int>(p0_buf128_I_[128 + i]));
+                }
+                std::printf("\n");
+            }
+        }
+#endif
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+    }
+}
+void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+#if defined(HTS_DIAG_IR_ROUND) || defined(HTS_DIAG_AGC_TRACE)
+    if (cur_mode_ == PayloadMode::DATA) {
+        if ((ir_round_diag::g_ir_feed_sample_ctr++ & 63u) == 0u) {
+            ir_round_diag::feed_sample_(static_cast<int>(harq_round_), rx_I,
+                                        rx_Q);
+        }
+    }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    static uint32_t s_agc_feed_chip_ctr = 0u;
+    if ((s_agc_feed_chip_ctr++ & 63u) == 0u) {
+        const int32_t ri = static_cast<int32_t>(rx_I);
+        const int32_t rq = static_cast<int32_t>(rx_Q);
+        const int32_t mag_sq = ri * ri + rq * rq;
+        AGC_DIAG_PRINTF(
+            "[AGC-DIAG-1] Feed_Chip raw: I=%d Q=%d mag_sq=%d ctr=%u\n",
+            static_cast<int>(rx_I), static_cast<int>(rx_Q),
+            static_cast<int>(mag_sq),
+            static_cast<unsigned>(s_agc_feed_chip_ctr));
+    }
+#endif
+#if defined(HTS_AMP_DIAG)
+    AmpDiag::record_chip(rx_I, rx_Q);
+#endif
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    static int s_lab_feed_chip_idx = 0;
+    ++s_lab_feed_chip_idx;
+    if (s_lab_feed_chip_idx <= 300) {
+        std::printf("[HARNESS] chip#%d rx_I=%d rx_Q=%d\n",
+                    s_lab_feed_chip_idx, static_cast<int>(rx_I),
+                    static_cast<int>(rx_Q));
+    }
+#endif
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+    {
+        static int s_feed_call_count = 0;
+        static int s_last_logged_count = -1;
+        ++s_feed_call_count;
+        if (s_feed_call_count < 500 &&
+            (s_feed_call_count - s_last_logged_count) >= 50) {
+            s_last_logged_count = s_feed_call_count;
+            std::printf(
+                "[DIAG-FEED] call#%d phase=%d pre_phase=%d p0_count=%d "
+                "carry_pend=%d buf_idx=%d rx_I=%d rx_Q=%d\n",
+                s_feed_call_count,
+                static_cast<int>(phase_),
+                pre_phase_,
+                p0_chip_count_,
+                p1_carry_pending_,
+                buf_idx_,
+                static_cast<int>(rx_I), static_cast<int>(rx_Q));
+        }
+    }
+#endif
+    int16_t chip_I = rx_I;
+    int16_t chip_Q = rx_Q;
+    // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
+    // dc_est = dc_est - (dc_est >> 7) + (chip >> 7)
+    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+                (static_cast<int32_t>(chip_I) >> 7);
+    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+                (static_cast<int32_t>(chip_Q) >> 7);
+    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK) && \
+    !defined(HTS_TARGET_AMI)
+    if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
+        (s_lab_feed_chip_idx % 16) == 0) {
+        std::printf(
+            "[DC-AGC] chip#%d rx_I=%d after_DC=%d dc_est_I=%d dc_est_Q=%d\n",
+            s_lab_feed_chip_idx, static_cast<int>(rx_I),
+            static_cast<int>(chip_I), static_cast<int>(dc_est_I_),
+            static_cast<int>(dc_est_Q_));
+    }
+#endif
+    // 프리앰블 AGC (P0 추정·버퍼는 이 경로와 동일 도메인)
+#if defined(HTS_DIAG_AGC_TRACE) || defined(HTS_DIAG_FWHT_INTERNAL)
+    const int32_t agc_in_i = static_cast<int32_t>(chip_I);
+    const int32_t agc_in_q = static_cast<int32_t>(chip_Q);
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    static uint32_t s_agc_apply_ctr = 0u;
+#endif
+    pre_agc_.Apply(chip_I, chip_Q);
+    // Option 2: AGC 이후 RX 역회전 (P0 walsh_dot·버퍼와 동일 도메인)
+    if (cfo_v5a_.IsApplyDriveActive()) {
+        cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
+    }
+#if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
+    if (cur_mode_ == PayloadMode::DATA && phase_ == RxPhase::READ_PAYLOAD) {
+        static thread_local uint32_t s_fwht_agc_ep = 0u;
+        static thread_local int s_fwht_agc_pair = 0;
+        const uint32_t ep_agc =
+            fwht_diag::g_fwht_diag_epoch.load(std::memory_order_relaxed);
+        if (ep_agc != s_fwht_agc_ep) {
+            s_fwht_agc_ep = ep_agc;
+            s_fwht_agc_pair = 0;
+        }
+        if (s_fwht_agc_pair < 20) {
+            FWHT_DIAG_PRINTF(
+                "[FWHT-DIAG-4] AGC: gain_shift=%d in_I=%d in_Q=%d out_I=%d "
+                "out_Q=%d\n",
+                static_cast<int>(pre_agc_.Get_Shift()),
+                static_cast<int>(agc_in_i), static_cast<int>(agc_in_q),
+                static_cast<int>(chip_I), static_cast<int>(chip_Q));
+            ++s_fwht_agc_pair;
+        }
+    }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    if ((++s_agc_apply_ctr & 255u) == 0u) {
+        AGC_DIAG_PRINTF(
+            "[AGC-DIAG-3] AGC Apply: gain_shift=%d chip_dc_in=(%d,%d) "
+            "chip_out=(%d,%d)\n",
+            static_cast<int>(pre_agc_.Get_Shift()), static_cast<int>(agc_in_i),
+            static_cast<int>(agc_in_q), static_cast<int>(chip_I),
+            static_cast<int>(chip_Q));
+    }
+#endif
+    apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
+    if (phase_ == RxPhase::RF_SETTLING) {
+        (void)chip_I;
+        (void)chip_Q;
+        const uint32_t nz =
+            static_cast<uint32_t>(rf_settle_chips_remaining_ > 0);
+        rf_settle_chips_remaining_ -= static_cast<int>(nz);
+        if (rf_settle_chips_remaining_ == 0) {
+            (void)set_phase_(RxPhase::WAIT_SYNC);
+        }
+        return;
+    }
+    if (phase_ == RxPhase::WAIT_SYNC) {
+        if (pre_phase_ == 0) {
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+            if (mf_enabled_ && !mf_synced_) {
+                if (mf_feed_chip_(chip_I, chip_Q)) {
+                    mf_synced_ = true;
+                }
+            }
+#endif
+            p0_buf128_I_[p0_chip_count_] = chip_I;
+            p0_buf128_Q_[p0_chip_count_] = chip_Q;
+            ++p0_chip_count_;
+            if (p0_chip_count_ < 192)
+                return;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+            {
+                static int s_fullbuf_count = 0;
+                ++s_fullbuf_count;
+                if (s_fullbuf_count <= 5) {
+                    std::printf(
+                        "[DIAG-FULLBUF] #%d (192 chip reached, about to scan)\n",
+                        s_fullbuf_count);
+                    for (int b = 0; b < 3; ++b) {
+                        int nz = 0;
+                        int mag_max = 0;
+                        for (int i = 0; i < 64; ++i) {
+                            const int mag =
+                                (p0_buf128_I_[b * 64 + i] > 0)
+                                    ? static_cast<int>(p0_buf128_I_[b * 64 + i])
+                                    : -static_cast<int>(
+                                          p0_buf128_I_[b * 64 + i]);
+                            if (mag > 100) {
+                                ++nz;
+                            }
+                            if (mag > mag_max) {
+                                mag_max = mag;
+                            }
+                        }
+                        std::printf("  blk%d: nonzero=%d/64 mag_max=%d\n", b,
+                                    nz, mag_max);
+                    }
+                }
+            }
+#endif
+            phase0_scan_();
+            return;
+        }
+        // ── Phase 1: carry + Walsh-63/0 dual dot ──
+        if (p1_tail_collect_rem_ > 0) {
+            p0_carry_I_[p1_tail_idx_] = chip_I;
+            p0_carry_Q_[p1_tail_idx_] = chip_Q;
+            ++p1_tail_idx_;
+            if (p1_tail_idx_ < p1_tail_collect_rem_)
+                return;
+            p0_carry_count_ = p1_tail_collect_rem_;
+            p1_carry_pending_ = 1;
+            p1_tail_collect_rem_ = 0;
+            p1_tail_idx_ = 0;
+            return;
+        }
+        bool carry_only_full = false;
+        bool p1_rx_in_buf = false;
+        if (buf_idx_ == 0 && p1_carry_pending_) {
+            const int cc = p0_carry_count_;
+            for (int j = 0; j < cc; ++j) {
+                buf_I_[j] = p0_carry_I_[j];
+                buf_Q_[j] = p0_carry_Q_[j];
+            }
+            buf_idx_ = cc;
+            p1_carry_prefix_ = cc;
+            p1_carry_pending_ = 0;
+            if (buf_idx_ == 64) carry_only_full = true;
+        }
+        if (!carry_only_full) {
+            buf_I_[buf_idx_] = chip_I;
+            buf_Q_[buf_idx_] = chip_Q;
+            ++buf_idx_;
+            p1_rx_in_buf = true;
+            if (buf_idx_ < 64) return;
+        }

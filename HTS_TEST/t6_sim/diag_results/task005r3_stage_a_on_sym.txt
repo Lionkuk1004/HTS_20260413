@@ -1,0 +1,5 @@
+﻿2956:                    set_phase_(RxPhase::READ_PAYLOAD);
+2966:                    //  READ_PAYLOAD 진입 시 첫 라운드만 Init
+2982:                            // DATA READ_PAYLOAD: CCM union 전체 한 회 wipe
+3027:    } else if (phase_ == RxPhase::READ_PAYLOAD) {
+3046:            on_sym_();

@@ -1,0 +1,11 @@
+﻿HTS_FEC_HARQ.cpp:112:        const int32_t energy = ai + aq;
+HTS_FEC_HARQ.cpp:223:    return ai + aq;
+HTS_FEC_HARQ.cpp:524:/// FWHT row 대비: |fI+fQ| max 기준 threshold=max>>SHIFT 미만 bin 제로화 (MUL 없음).
+HTS_FEC_HARQ.cpp:534:        const int32_t corr = fi + fq;
+HTS_FEC_HARQ.cpp:546:        const int32_t corr = fi + fq;
+HTS_FEC_HARQ.cpp:1717:                    const int32_t energy = ai + aq;
+HTS_FEC_HARQ.cpp:1776:                const int64_t e = fi * fi + fq * fq;
+HTS_FEC_HARQ.cpp:1868:    //  구(舊) s_chip_acc += (Ii + Qi) 는 chip 도메인 I+Q 합산.
+HTS_FEC_HARQ.cpp:1869:    //   채널 회전 θ 에서 Ii+Qi = 2·amp·cosθ
+HTS_FEC_HARQ.cpp:1929:                const int64_t e = fi * fi + fq * fq;
+HTS_TPC_Controller.h:189:        sum += ai + aq;

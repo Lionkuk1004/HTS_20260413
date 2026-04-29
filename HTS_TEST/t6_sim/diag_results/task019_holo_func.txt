@@ -1,0 +1,46 @@
+﻿BB1_Core_Engine.cpp:649:                const uint32_t holo_dec = Holo_Tensor_Engine::Decode_Hologram(
+HTS_Holo_Dispatcher.cpp:309:    uint32_t HTS_Holo_Dispatcher::Decode_Holo_Block(const int16_t* rx_I, const int16_t* rx_Q,
+HTS_Holo_Dispatcher.cpp:377:            if (holo_rx_.Decode_Block(rx_soft, N, valid_mask, recovered_bits, K) != HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
+HTS_Holo_Dispatcher.h:26:///    Holo_Dispatcher::Build_Holo_Packet / Decode_Holo_Block
+HTS_Holo_Dispatcher.h:27:///        └─▶ HTS_Holo_Tensor_4D_TX::Encode_Block / HTS_Holo_Tensor_4D_RX::Decode_Block
+HTS_Holo_Dispatcher.h:41:///   Feed_Chip → walsh_dec → FEC_HARQ      Feed_Holo_Chips → HoloTensor decode → output
+HTS_Holo_Tensor_4D_RX.cpp:8:#if defined(HTS_CFO_V5A_S5H_STEPD_RX) || defined(HTS_HOLO_RX_DECODE_AUDIT)
+HTS_Holo_Tensor_4D_RX.cpp:107:#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+HTS_Holo_Tensor_4D_RX.cpp:187:#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+HTS_Holo_Tensor_4D_RX.cpp:249:#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+HTS_Holo_Tensor_4D_RX.cpp:266:#if defined(HTS_HOLO_RX_DECODE_AUDIT)
+HTS_Holo_Tensor_4D_RX.cpp:356:    uint32_t detail_holo4d_decode_two_candidates(
+HTS_Holo_Tensor_4D_RX.cpp:635:    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block(
+HTS_Holo_Tensor_4D_RX.cpp:657:    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_Two_Candidates(
+HTS_Holo_Tensor_4D_RX.cpp:676:        const uint32_t ok = detail_holo4d_decode_two_candidates(
+HTS_Holo_Tensor_4D_RX.cpp:684:    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_Two_Candidates_With_Metric(
+HTS_Holo_Tensor_4D_RX.cpp:705:        const uint32_t ok = detail_holo4d_decode_two_candidates(
+HTS_Holo_Tensor_4D_RX.cpp:713:    uint32_t HTS_Holo_Tensor_4D_RX::Decode_Block_With_Phase(
+HTS_Holo_Tensor_4D_RX.cpp:732:        const uint32_t ok = detail_holo4d_decode_two_candidates(
+HTS_Holo_Tensor_4D_RX.cpp:792:    uint32_t HTS_Holo_Tensor_4D_RX::Get_Decode_Count() const noexcept
+HTS_Holo_Tensor_4D_RX.h:85:        friend uint32_t detail_holo4d_decode_two_candidates(
+HTS_Holo_Tensor_Engine.cpp:608:    uint32_t Holo_Tensor_Engine::Decode_Hologram(
+HTS_V400_Dispatcher.hpp:10://  [4D Holo tensor] 4D Encode/Decode 는 `HTS_Holo_Dispatcher`(shim) 경로이며,
+HTS_V400_Dispatcher.hpp:699:        bool holo_tensor_decode_failed_{ false };
+HTS_V400_Dispatcher_Core.cpp:162:    holo_tensor_decode_failed_ = false;
+HTS_V400_Dispatcher_Payload.cpp:83:static uint32_t holo_tensor_decode_4d_diversity_slots_(
+HTS_V400_Dispatcher_Payload.cpp:101:    const uint32_t ok_I = holo_rx.Decode_Block_Two_Candidates_With_Metric(
+HTS_V400_Dispatcher_Payload.cpp:105:    const uint32_t ok_Q = holo_rx.Decode_Block_Two_Candidates_With_Metric(
+HTS_V400_Dispatcher_Payload.cpp:145:/// B' 헬퍼(`holo_tensor_decode_4d_diversity_slots_`)는 보존; 호출만 A2' 로 전환.
+HTS_V400_Dispatcher_Payload.cpp:146:static uint32_t holo_tensor_decode_4d_a2_prime_(
+HTS_V400_Dispatcher_Payload.cpp:160:    const uint32_t ok_I = holo_rx.Decode_Block(
+HTS_V400_Dispatcher_Payload.cpp:163:    const uint32_t ok_Q = holo_rx.Decode_Block(
+HTS_V400_Dispatcher_Payload.cpp:355:                holo_tensor_decode_failed_ = true;
+HTS_V400_Dispatcher_Payload.cpp:469:                    dec_ok = holo_rx_.Decode_Block(
+HTS_V400_Dispatcher_Payload.cpp:475:                    dec_ok = holo_tensor_decode_4d_a2_prime_(
+HTS_V400_Dispatcher_Payload.cpp:524:                    dec_ok = holo_rx_.Decode_Block(
+HTS_V400_Dispatcher_Payload.cpp:576:                const uint32_t dec_ok = holo_tensor_decode_4d_a2_prime_(
+HTS_V400_Dispatcher_Payload.cpp:610:                const uint32_t dec_ok = holo_rx_.Decode_Block(
+HTS_V400_Dispatcher_Payload.cpp:679:                    holo_tensor_decode_failed_ = true;
+HTS_V400_Dispatcher_Payload.cpp:715:                            holo_tensor_decode_failed_ = true;
+HTS_V400_Dispatcher_Payload.cpp:747:                                    holo_tensor_decode_failed_ ? 1 : 0);
+HTS_V400_Dispatcher_Payload.cpp:753:                            holo_tensor_decode_failed_ = true;
+HTS_V400_Dispatcher_Payload.cpp:782:                                holo_tensor_decode_failed_ ? 1 : 0);
+HTS_V400_Dispatcher_Payload.cpp:788:                        holo_tensor_decode_failed_ = true;
+HTS_V400_Dispatcher_Payload.cpp:1251:                    holo_tensor_decode_failed_ ? 1 : 0);
+HTS_V400_Dispatcher_Payload.cpp:1271:                (holo_tensor_decode_failed_ == false) &

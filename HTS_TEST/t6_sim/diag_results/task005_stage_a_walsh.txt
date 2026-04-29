@@ -1,0 +1,9 @@
+﻿32:#if defined(HTS_WALSH_ROW_DIAG)
+33:#include "HTS_Walsh_Row_Diag.hpp"
+2134:        // [Walsh_Row_Permuter] TX: enc = raw ^ mask 후 walsh_enc(enc).
+2960:    // [Walsh_Row_Permuter] payload 스크램블 키 — TX tx_seq_·첫 라운드(ir_rv_=0 아래)
+3180:    // [Walsh_Row_Permuter] 재전송 — 직전 PDU tx_seq_prev + 현재 IR RV
+4030:#if defined(HTS_WALSH_ROW_DIAG) && !defined(HTS_PHASE0_WALSH_BANK) && \
+5243:                    // [Walsh_Row_Permuter] 헤더 완료 후 payload 직전 — TX Build_Packet
+5319:        // [Walsh_Row_Permuter] HARQ 재전송 슬롯 — Build_Retx 의 (tx_seq_prev, ir_rv_)
+5378:    // [Walsh_Row_Permuter] 동기/헤더 우회 시험 경로 — 일반 RX 와 동일 키

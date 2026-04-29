@@ -1,0 +1,5 @@
+﻿D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:2:// HTS_V400_Dispatcher_TX.cpp — Build_Packet / Build_Retx
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:131:int HTS_V400_Dispatcher::Build_Packet(PayloadMode mode, const uint8_t *info,
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:548:    /* Build_Packet가 tx_seq_++ 한 뒤이므로 Retx il은 직전 송신
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.cpp:246:    pkt.n = tx.Build_Packet(PayloadMode::DATA, pkt.info, 8, kAmp,
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.cpp:1615:            int n = tx_d.Build_Packet(PayloadMode::DATA, info, 8, kAmp,

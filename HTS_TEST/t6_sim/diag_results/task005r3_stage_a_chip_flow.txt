@@ -1,0 +1,16 @@
+﻿2067:    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+2069:    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+2071:    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+2072:    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+2079:            static_cast<int>(chip_I), static_cast<int>(dc_est_I_),
+2080:            static_cast<int>(dc_est_Q_));
+2165:    pre_agc_.Apply(chip_I, chip_Q);
+2166:    apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
+2252:            buf_I_[buf_idx_] = chip_I;
+2253:            buf_Q_[buf_idx_] = chip_Q;
+2663:    buf_I_[buf_idx_] = chip_I;
+2664:    buf_Q_[buf_idx_] = chip_Q;
+2675:                        static_cast<int>(buf_I_[buf_idx_]),
+2676:                        static_cast<int>(buf_Q_[buf_idx_]));
+2680:    buf_idx_++;
+3046:            on_sym_();

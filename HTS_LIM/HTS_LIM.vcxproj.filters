@@ -405,9 +405,6 @@
     <ClCompile Include="HTS_CFO_V5a_PSLTE.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
-    <ClCompile Include="HTS_CFO_V5a_Implementation.cpp">
-      <Filter>소스 파일</Filter>
-    </ClCompile>
     <ClCompile Include="HTS_Rx_CFO_SinCos_Table.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
@@ -430,6 +427,9 @@
       <Filter>소스 파일</Filter>
     </ClCompile>
     <ClCompile Include="HTS_V400_Dispatcher_Sync_AMI.cpp">
+      <Filter>소스 파일</Filter>
+    </ClCompile>
+    <ClCompile Include="HTS_CFO_V5a_Implementation.cpp">
       <Filter>소스 파일</Filter>
     </ClCompile>
   </ItemGroup>
@@ -972,6 +972,9 @@
       <Filter>헤더 파일</Filter>
     </ClInclude>
     <ClInclude Include="HTS_V400_Dispatcher_PNMasked.hpp">
+      <Filter>헤더 파일</Filter>
+    </ClInclude>
+    <ClInclude Include="HTS_CFO_V5a_T6_Scenario.hpp">
       <Filter>헤더 파일</Filter>
     </ClInclude>
   </ItemGroup>

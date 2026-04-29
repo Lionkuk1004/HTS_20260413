@@ -1,0 +1,15 @@
+﻿
+#endif  // HTS_WALSH_V5_PREAMBLE
+inline void walsh_enc(uint8_t sym, int n, int16_t amp, int16_t *oI,
+                      int16_t *oQ) noexcept {
+    const int32_t ampi = static_cast<int32_t>(amp);
+    for (int j = 0; j < n; ++j) {
+        const uint32_t p =
+            popc32(static_cast<uint32_t>(sym) & static_cast<uint32_t>(j)) & 1u;
+        const int16_t ch =
+            static_cast<int16_t>(ampi * (1 - 2 * static_cast<int32_t>(p)));
+        oI[j] = ch;
+        oQ[j] = ch;
+    }
+}
+// ── [적응형 I/Q] I/Q 독립 모드 (평시 2배 처리량) ──

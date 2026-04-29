@@ -1,0 +1,7 @@
+[TASK-022 Stage A] Kernel 4함수 호출은 커밋 a3c83ad 기준 다음 위치였음(이후 B-1에서 제거됨).
+- Holo4D_Walsh_Code: HTS_Holo_Tensor_4D_RX.cpp (Decode 루프, detail_holo4d_decode_two_candidates 루프); HTS_Holo_Tensor_4D_TX.cpp Encode 루프.
+- Holo4D_Generate_Partitioned_Params: RX Decode, detail_holo4d...; TX Encode.
+- Holo4D_Generate_Phase_Mask: 동일 3곳.
+- Holo4D_Cfi_Transition: RX Initialize/Decode_Block/Two_Candidates/With_Phase; TX Initialize/Encode_Block.
+
+처리: 전부 stub — Walsh 0, phase mask 0, perm 항등, CFI는 상태 직접 전이(항상 성공 경로).

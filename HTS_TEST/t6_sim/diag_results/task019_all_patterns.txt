@@ -1,0 +1,56 @@
+﻿HTS_V400_Dispatcher_Sync_AMI.cpp:2433:                // 기존: v = I[j] + Q[j] projection 후 부호 변조 누적.
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:2754:                // 기존: v = I[j] + Q[j] projection 후 부호 변조 누적.
+
+
+=== P2 ===
+
+HTS_FEC_HARQ.cpp:112:        const int32_t energy = ai + aq;
+HTS_FEC_HARQ.cpp:223:    return ai + aq;
+HTS_FEC_HARQ.cpp:524:/// FWHT row 대비: |fI+fQ| max 기준 threshold=max>>SHIFT 미만 bin 제로화 (MUL 없음).
+HTS_FEC_HARQ.cpp:534:        const int32_t corr = fi + fq;
+HTS_FEC_HARQ.cpp:546:        const int32_t corr = fi + fq;
+HTS_FEC_HARQ.cpp:1717:                    const int32_t energy = ai + aq;
+HTS_FEC_HARQ.cpp:1776:                const int64_t e = fi * fi + fq * fq;
+HTS_FEC_HARQ.cpp:1868:    //  구(舊) s_chip_acc += (Ii + Qi) 는 chip 도메인 I+Q 합산.
+HTS_FEC_HARQ.cpp:1869:    //   채널 회전 θ 에서 Ii+Qi = 2·amp·cosθ
+HTS_FEC_HARQ.cpp:1929:                const int64_t e = fi * fi + fq * fq;
+HTS_TPC_Controller.h:189:        sum += ai + aq;
+
+
+=== P3 ===
+
+HTS_FEC_HARQ.cpp:1868:    //  구(舊) s_chip_acc += (Ii + Qi) 는 chip 도메인 I+Q 합산.
+HTS_Preamble_Holographic.cpp:118:        total_energy += (eI + eQ);
+HTS_V400_Dispatcher_Sync_AMI.cpp:610:                row_e[r] += (e_I + e_Q);
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:734:                row_e[r] += (e_I + e_Q);
+
+
+=== P4 ===
+
+
+=== P5 ===
+
+HTS_V400_Dispatcher_Payload.cpp:459:                        int32_t rot_i = (I * cos_ref + Q * sin_ref) >> 15;
+HTS_V400_Dispatcher_Payload.cpp:460:                        int32_t rot_q = (Q * cos_ref - I * sin_ref) >> 15;
+
+
+=== P6 (reference energy) ===
+
+HTS64_Native_ECCM_Core.cpp:441:                    static_cast<uint64_t>(si64 * si64 + sq64 * sq64);
+HTS_CFO_V5a.cpp:491:        e0 += di * di + dq * dq;
+HTS_CFO_V5a.cpp:496:        e1 += di * di + dq * dq;
+HTS_CW_Detect_Diag.cpp:126:        const std::int64_t er = vfi * vfi + vfq * vfq;
+HTS_CW_Detect_Diag.cpp:478:        const std::int64_t er = vfi * vfi + vfq * vfq;
+HTS_CW_Excision.cpp:49:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_Excision.cpp:137:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_Excision.cpp:164:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_LLR_Weight.cpp:42:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_LLR_Weight.cpp:69:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_FEC_HARQ.cpp:618:        const int64_t e = vfi * vfi + vfq * vfq;
+HTS_FEC_HARQ.cpp:1776:                const int64_t e = fi * fi + fq * fq;
+HTS_FEC_HARQ.cpp:1929:                const int64_t e = fi * fi + fq * fq;
+HTS_V400_Dispatcher_Internal.hpp:297:    return zi64 * zi64 + zq64 * zq64;
+HTS_V400_Dispatcher_Internal.hpp:324:    return zi64 * zi64 + zq64 * zq64;
+HTS_V400_Dispatcher_Sync_AMI.cpp:112:        const int64_t mag2 = acI * acI + acQ * acQ;
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:186:        const int64_t mag2 = acI * acI + acQ * acQ;
+

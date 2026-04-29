@@ -1,0 +1,9 @@
+﻿[TASK014-DEC-ENTER] count=1 pay_recv=172 pay_total=172 mode=1 ir=1
+[TASK014-DEC-ENTER] count=100 pay_recv=172 pay_total=172 mode=1 ir=1
+[TASK014-DEC-ENTER] count=200 pay_recv=80 pay_total=80 mode=0 ir=1
+[TASK014-DEC-ENTER] count=300 pay_recv=172 pay_total=172 mode=2 ir=1
+[TASK014-DEC-ENTER] count=400 pay_recv=172 pay_total=172 mode=1 ir=1
+[TASK014-DEC-ENTER] count=500 pay_recv=172 pay_total=172 mode=1 ir=1
+[TASK014-DEC-ENTER] count=600 pay_recv=172 pay_total=172 mode=2 ir=1
+[TASK014-DEC-ENTER] count=700 pay_recv=80 pay_total=80 mode=0 ir=1
+[TASK014-DEC-ENTER] count=800 pay_recv=172 pay_total=172 mode=1 ir=1

@@ -1,0 +1,7 @@
+﻿D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:809:try_decode_();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:1116:try_decode_();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:1118:void HTS_V400_Dispatcher::try_decode_() noexcept {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:1128:/* WorkBuf: try_decode_ 진입 시 memset 초기화 완료 (BUG-FIX-IR5). */
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:1470:// try_decode_: Decode64_IR 직후 ir_rv_ 가 +1 되므로
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp:2987://  try_decode_ 내부에서 Init → Feed 이후라 데이터 파괴
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Sync_PSLTE.cpp:3094:// [TASK-013] on_sym_() 반환 직후 (try_decode_ 는 on_sym_ 내부)

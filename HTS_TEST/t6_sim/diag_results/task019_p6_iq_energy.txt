@@ -1,0 +1,17 @@
+﻿HTS64_Native_ECCM_Core.cpp:441:                    static_cast<uint64_t>(si64 * si64 + sq64 * sq64);
+HTS_CFO_V5a.cpp:491:        e0 += di * di + dq * dq;
+HTS_CFO_V5a.cpp:496:        e1 += di * di + dq * dq;
+HTS_CW_Detect_Diag.cpp:126:        const std::int64_t er = vfi * vfi + vfq * vfq;
+HTS_CW_Detect_Diag.cpp:478:        const std::int64_t er = vfi * vfi + vfq * vfq;
+HTS_CW_Excision.cpp:49:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_Excision.cpp:137:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_Excision.cpp:164:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_LLR_Weight.cpp:42:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_CW_LLR_Weight.cpp:69:        const std::int64_t e = vfi * vfi + vfq * vfq;
+HTS_FEC_HARQ.cpp:618:        const int64_t e = vfi * vfi + vfq * vfq;
+HTS_FEC_HARQ.cpp:1776:                const int64_t e = fi * fi + fq * fq;
+HTS_FEC_HARQ.cpp:1929:                const int64_t e = fi * fi + fq * fq;
+HTS_V400_Dispatcher_Internal.hpp:297:    return zi64 * zi64 + zq64 * zq64;
+HTS_V400_Dispatcher_Internal.hpp:324:    return zi64 * zi64 + zq64 * zq64;
+HTS_V400_Dispatcher_Sync_AMI.cpp:112:        const int64_t mag2 = acI * acI + acQ * acQ;
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:186:        const int64_t mag2 = acI * acI + acQ * acQ;

@@ -182,6 +182,7 @@
     <ClCompile Include="aria050117.c" />
     <ClCompile Include="hmac.c" />
     <ClCompile Include="HTS_Amp_Diag.cpp" />
+    <ClCompile Include="HTS_CFO_V5a_Implementation.cpp" />
     <ClCompile Include="HTS_CoAP_Engine.cpp" />
     <ClCompile Include="HTS_CFO_V5a_AMI.cpp">
       <ExcludedFromBuild>true</ExcludedFromBuild>
@@ -349,6 +350,7 @@
     <ClInclude Include="cpu_info.h" />
     <ClInclude Include="HTS_Amp_Diag.hpp" />
     <ClInclude Include="HTS_Arm_Irq_Mask_Guard.h" />
+    <ClInclude Include="HTS_CFO_V5a_T6_Scenario.hpp" />
     <ClInclude Include="HTS_Channel_Physics.h" />
     <ClInclude Include="HTS_CoAP_Engine.h" />
     <ClInclude Include="HTS_Preamble_Holographic.h" />

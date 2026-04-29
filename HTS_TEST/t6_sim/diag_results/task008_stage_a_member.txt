@@ -1,0 +1,32 @@
+        int cur_bps64_{ FEC_HARQ::BPS64_MAX };  ///< 현재 64칩 BPS (3~6)
+        /// @brief 현재 BPS에 대응하는 심볼 수 반환
+        int cur_nsym64_() const noexcept {
+            return FEC_HARQ::nsym_for_bps(cur_bps64_);
+        }
+
+        // ── 적응형 I/Q 모드 ──────────────────────────────────────
+        //  평시: IQ_INDEPENDENT → BPS×2 처리량 (NF < NF_IQ_SPLIT_TH)
+        //  재밍: IQ_SAME → +3dB 다이버시티 (NF ≥ NF_IQ_SAME_TH)
+        //  히스테리시스: SPLIT_TH < SAME_TH (떨림 방지)
+        IQ_Mode iq_mode_{ IQ_Mode::IQ_SAME };  ///< 현재 I/Q 모드 (기본: 안전)
+        static constexpr uint32_t NF_IQ_SPLIT_TH = 10u;   ///< dB 이하 → I/Q 독립
+        static constexpr uint32_t NF_IQ_SAME_TH = 20u;   ///< dB 이상 → I=Q 동일
+        static constexpr int IQ_BPS_PEACETIME = 5;         ///< 평시 최적 BPS
+
+        // ── 히스테리시스 안정화 ──────────────────────────────────
+        //  올리기: 연속 UPGRADE_GUARD 패킷 이상 NF<SPLIT_TH 유지
+        //  내리기: NF>SAME_TH 즉시 (안전 우선, 지연 0)
+        uint32_t iq_upgrade_count_{ 0u };  ///< 올리기 조건 연속 충족 카운터
+        static constexpr uint32_t IQ_UPGRADE_GUARD = 8u;   ///< 올리기 지연 (8패킷)
+
+        // ── 헤더 IQ 비트 ──────────────────────────────────────
+        //  [mode 2bit][IQ 1bit][payload_len 9bit] = 12bit
+        //  프리앰블+헤더: 항상 I=Q 고정 (블라인드 딜레마 해결)
+        static constexpr uint16_t HDR_IQ_BIT = (1u << 9u);  ///< bit9 = IQ 모드
+
+        // ── 원본 심볼 누적 (TPC 피드백 + IR chip 저장용) ──
+        //
+        //  1바이트 = [I 상위 4비트][Q 상위 4비트] (on_sym_ 에서 orig_I_/Q_ 상위 4b)
+        //
+        union {
+            struct {

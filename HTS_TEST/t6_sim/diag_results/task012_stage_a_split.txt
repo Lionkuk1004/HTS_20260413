@@ -1,0 +1,28 @@
+﻿187:    const uint32_t u3 = static_cast<uint32_t>(mi == 3u);
+190:    const int nsym64_live = cur_nsym64_();
+192:    const uint32_t tensor_data_u =
+202:    const uint32_t tensor_data_u = 0u;
+208:    const int psyms = k_tx_psyms[mi] + static_cast<int>(u3) * nsym64_live +
+209:                      static_cast<int>(tensor_data_u) *
+210:                          (tensor_psyms - nsym64_live);
+294:                  (nsym64_live * 64 * static_cast<int>(u3)) +
+295:                  static_cast<int>(tensor_data_u) *
+296:                      (tensor_blocks * tensor_n - nsym64_live * 64);
+375:    const uint32_t split_u =
+378:                              iq_ind_u & u3 & (1u - tensor_data_u));
+380:        ((nsym64_live + 1) / 2) * inc * static_cast<int>(u3) *
+381:        static_cast<int>(1u - tensor_data_u);
+382:    const int nwal = nsym64_live * inc * static_cast<int>(u3) *
+383:                     static_cast<int>(1u - tensor_data_u);
+384:    const int n_spl = npairs * static_cast<int>(split_u & 1u);
+385:    const int n_sim = nwal * static_cast<int>((split_u ^ 1u) & 1u);
+391:                "[TASK012-SPLIT] u3=%u tensor_data_u=%u ir_mode=%d "
+392:                "iq_ind_u=%u split_u=%u nsym64_live=%d\n",
+394:                static_cast<unsigned>(tensor_data_u),
+397:                static_cast<unsigned>(split_u), nsym64_live);
+405:        const uint32_t nsymu = static_cast<uint32_t>(nsym64_live);
+426:    if ((tensor_data_u & static_cast<uint32_t>(go & 1u)) != 0u) {
+713:    const uint32_t u3 = static_cast<uint32_t>(mi == 3u);
+805:    const uint32_t split_u =
+809:    const int n_spl = npairs * static_cast<int>(split_u & 1u);
+811:        nsym * static_cast<int>(u3) * static_cast<int>((split_u ^ 1u) & 1u);

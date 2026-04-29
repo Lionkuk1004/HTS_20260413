@@ -1,0 +1,2297 @@
+﻿╔═══════════════════════════════════════════════════╗
+║  HTS T6-SIM V3: 무결 채널 시뮬레이션              ║
+║  사전 보정 금지 | memcmp 강제 | 음수 SNR 필수     ║
+║  FAIL = 엔진 실제 한계 (꼼수 제로)               ║
+╚═══════════════════════════════════════════════════╝
+
+  ┌───────────────────────────────────────────────┐
+  │ S1  완벽한 무결성 (클린 채널)         │
+  └───────────────────────────────────────────────┘
+[V5A-SET-INPUT] call#1 cfo_hz=0
+[V5A-SET-STAT] calls=1 zeros=1 nonzero=0 min=0 max=0 avg_abs=0
+[V5A-SET-INPUT] call#2 cfo_hz=0
+[V5A-SET-INPUT] call#3 cfo_hz=0
+[V5A-SET-INPUT] call#4 cfo_hz=0
+[V5A-SET-INPUT] call#5 cfo_hz=0
+[V5A-PER-SCN-INPUT] tag=S1-CLEAN seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S1-CLEAN seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S1-CLEAN seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S1-CLEAN seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S1-CLEAN seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S1-CLEAN seq=0 cfo_hz=-27000 peak_e=0
+[V5A-SET-INPUT] call#6 cfo_hz=0
+[ON-SYM-IN] sym#1 nc=64 buf0_I=859 buf0_Q=859 sym_idx=0
+[ON-SYM-DEROT] sym#1 buf0_I=859 buf0_Q=859 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#1 nc=64 ir=1 wI0=-14 wQ0=-14 pk=63756 sh=0 sym_idx=0
+[ON-SYM-IN] sym#2 nc=64 buf0_I=897 buf0_Q=897 sym_idx=1
+[ON-SYM-DEROT] sym#2 buf0_I=897 buf0_Q=897 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#2 nc=64 ir=1 wI0=-480 wQ0=-480 pk=63760 sh=0 sym_idx=1
+[ON-SYM-IN] sym#3 nc=64 buf0_I=929 buf0_Q=929 sym_idx=2
+[ON-SYM-DEROT] sym#3 buf0_I=929 buf0_Q=929 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#3 nc=64 ir=1 wI0=0 wQ0=0 pk=63760 sh=0 sym_idx=2
+[ON-SYM-IN] sym#4 nc=64 buf0_I=961 buf0_Q=961 sym_idx=3
+[ON-SYM-DEROT] sym#4 buf0_I=961 buf0_Q=961 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#4 nc=64 ir=1 wI0=-15 wQ0=-15 pk=63757 sh=0 sym_idx=3
+[ON-SYM-IN] sym#5 nc=64 buf0_I=990 buf0_Q=990 sym_idx=4
+[ON-SYM-DEROT] sym#5 buf0_I=990 buf0_Q=990 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#5 nc=64 ir=1 wI0=-12 wQ0=-12 pk=63744 sh=0 sym_idx=4
+[ON-SYM-IN] sym#6 nc=64 buf0_I=993 buf0_Q=993 sym_idx=5
+[ON-SYM-DEROT] sym#6 buf0_I=993 buf0_Q=993 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#6 nc=64 ir=1 wI0=-84 wQ0=-84 pk=63728 sh=0 sym_idx=5
+[ON-SYM-IN] sym#7 nc=64 buf0_I=991 buf0_Q=991 sym_idx=6
+[ON-SYM-DEROT] sym#7 buf0_I=991 buf0_Q=991 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#7 nc=64 ir=1 wI0=-10 wQ0=-10 pk=63744 sh=0 sym_idx=6
+[ON-SYM-IN] sym#8 nc=64 buf0_I=993 buf0_Q=993 sym_idx=7
+[ON-SYM-DEROT] sym#8 buf0_I=993 buf0_Q=993 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#8 nc=64 ir=1 wI0=0 wQ0=0 pk=63744 sh=0 sym_idx=7
+[ON-SYM-IN] sym#9 nc=64 buf0_I=993 buf0_Q=993 sym_idx=8
+[ON-SYM-DEROT] sym#9 buf0_I=993 buf0_Q=993 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#9 nc=64 ir=1 wI0=-84 wQ0=-84 pk=63728 sh=0 sym_idx=8
+[ON-SYM-IN] sym#10 nc=64 buf0_I=991 buf0_Q=991 sym_idx=9
+[ON-SYM-DEROT] sym#10 buf0_I=991 buf0_Q=991 est_I=254976 est_Q=254976 derot_shift=18
+[ON-SYM-WALSH] sym#10 nc=64 ir=1 wI0=4 wQ0=4 pk=63728 sh=0 sym_idx=9
+HTS_TEST.exe : [Decode64_IR entry] nsym=172 nc=64 bps=4
+At C:\Users\임영준\AppData\Local\Temp\ps-script-838e7122-27ea-4eb3-af5c-baabc4ebbed2.ps1:82 char:1
++ & ".\x64\Release\HTS_TEST.exe" *>&1 | Out-File -FilePath "$diag\task0 ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ([Decode64_IR entry] nsym=172 nc=64 bps=4:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+[V5A-SET-INPUT] call#7 cfo_hz=0
+[V5A-SET-INPUT] call#8 cfo_hz=0
+[V5A-SET-INPUT] call#9 cfo_hz=0
+[V5A-SET-INPUT] call#10 cfo_hz=0
+[V5A-SET-INPUT] call#11 cfo_hz=0
+[V5A-SET-INPUT] call#12 cfo_hz=0
+[V5A-SET-INPUT] call#13 cfo_hz=0
+[V5A-PER-SCN-INPUT] tag=S1-CLEAN seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=64 I=0 Q=0
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S1-CLEAN seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S1-CLEAN seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S1-CLEAN seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S1-CLEAN seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S1-CLEAN seq=1 cfo_hz=-27000 peak_e=0
+[V5A-SET-INPUT] call#14 cfo_hz=0
+[V5A-SET-INPUT] call#15 cfo_hz=0
+[V5A-SET-INPUT] call#16 cfo_hz=0
+[V5A-SET-INPUT] call#17 cfo_hz=0
+[V5A-SET-INPUT] call#18 cfo_hz=0
+[V5A-SET-INPUT] call#19 cfo_hz=0
+[V5A-SET-INPUT] call#20 cfo_hz=0
+[V5A-SET-INPUT] call#21 cfo_hz=0
+[V5A-PER-SCN-INPUT] tag=S1-CLEAN seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S1-CLEAN n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S1-CLEAN n=79 I=0 Q=0
+[Decode64_IR entry] nsym=172 nc=64 bps=4
+[V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S1-CLEAN seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S1-CLEAN seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S1-CLEAN seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S1-CLEAN seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S1-CLEAN seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S1-CLEAN seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S1-CLEAN seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S1-CLEAN seq=2 cfo_hz=-27000 peak_e=0
+[V5A-SET-INPUT] call#22 cfo_hz=0
+[V5A-SET-INPUT] call#23 cfo_hz=0
+[V5A-SET-INPUT] call#24 cfo_hz=0
+[V5A-SET-INPUT] call#25 cfo_hz=0
+[V5A-SET-INPUT] call#26 cfo_hz=0
+[V5A-SET-INPUT] call#27 cfo_hz=0
+[V5A-SET-INPUT] call#28 cfo_hz=0
+[V5A-SET-INPUT] call#29 cfo_hz=0
+[V5A-SET-INPUT] call#30 cfo_hz=0
+[V5A-SET-STAT] calls=100 zeros=100 nonzero=0 min=0 max=0 avg_abs=0
+    Clean channel                100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S2  위상 전수 조사 (블라인드 획득)  │
+  └───────────────────────────────────────────────┘
+[V5A-PER-SCN-INPUT] tag=S2-000DEG-PASS seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-000DEG-PASS seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-000DEG-PASS seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-000DEG-PASS seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-000DEG-PASS seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-000DEG-PASS seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-000DEG-PASS seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-000DEG-PASS seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-000DEG-PASS seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-000DEG-PASS seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-000DEG-PASS seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-000DEG-PASS seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-000DEG-PASS seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-000DEG-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-000DEG-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-000DEG-PASS seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-000DEG-PASS seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-000DEG-PASS seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-000DEG-PASS seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-000DEG-PASS seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-000DEG-PASS seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-000DEG-PASS seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-000DEG-PASS seq=2 cfo_hz=-27000 peak_e=0
+[V5A-SET-STAT] calls=1000 zeros=1000 nonzero=0 min=0 max=0 avg_abs=0
+    Phase   0 deg                100/100 100.0% [####################] PASS
+    Phase  45 deg                100/100 100.0% [####################] PASS
+[V5A-PER-SCN-INPUT] tag=S2-090DEG-FAIL05 seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-090DEG-FAIL05 seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-090DEG-FAIL05 seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-090DEG-FAIL05 seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-090DEG-FAIL05 seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-090DEG-FAIL05 seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-090DEG-FAIL05 seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-090DEG-FAIL05 seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-090DEG-FAIL05 seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-090DEG-FAIL05 seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-090DEG-FAIL05 seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-090DEG-FAIL05 seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-090DEG-FAIL05 seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-090DEG-FAIL05 n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-090DEG-FAIL05 n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-090DEG-FAIL05 seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-090DEG-FAIL05 seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-090DEG-FAIL05 seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-090DEG-FAIL05 seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-090DEG-FAIL05 seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-090DEG-FAIL05 seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-090DEG-FAIL05 seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-090DEG-FAIL05 seq=2 cfo_hz=-27000 peak_e=0
+    Phase  90 deg                100/100 100.0% [####################] PASS
+    Phase 135 deg                100/100 100.0% [####################] PASS
+[V5A-PER-SCN-INPUT] tag=S2-180DEG-BUG9 seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-180DEG-BUG9 seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-180DEG-BUG9 seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-180DEG-BUG9 seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-180DEG-BUG9 seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-180DEG-BUG9 seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-180DEG-BUG9 seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-180DEG-BUG9 seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-180DEG-BUG9 seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-180DEG-BUG9 seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-180DEG-BUG9 seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-180DEG-BUG9 seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-180DEG-BUG9 seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-180DEG-BUG9 n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-180DEG-BUG9 n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-180DEG-BUG9 seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-180DEG-BUG9 seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-180DEG-BUG9 seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-180DEG-BUG9 seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-180DEG-BUG9 seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-180DEG-BUG9 seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-180DEG-BUG9 seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-180DEG-BUG9 seq=2 cfo_hz=-27000 peak_e=0
+    Phase 180 deg                100/100 100.0% [####################] PASS
+    Phase 225 deg                100/100 100.0% [####################] PASS
+    Phase 270 deg                100/100 100.0% [####################] PASS
+[V5A-PER-SCN-INPUT] tag=S2-315DEG-PASS seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-315DEG-PASS seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-315DEG-PASS seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-315DEG-PASS seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-315DEG-PASS seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-315DEG-PASS seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-315DEG-PASS seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-315DEG-PASS seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-315DEG-PASS seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-315DEG-PASS seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-315DEG-PASS seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-315DEG-PASS seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S2-315DEG-PASS seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S2-315DEG-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S2-315DEG-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S2-315DEG-PASS seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S2-315DEG-PASS seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S2-315DEG-PASS seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S2-315DEG-PASS seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S2-315DEG-PASS seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S2-315DEG-PASS seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S2-315DEG-PASS seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S2-315DEG-PASS seq=2 cfo_hz=-27000 peak_e=0
+    Phase 315 deg                100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S3  심해 SNR 워터폴 (-30 ~ +10 dB)         │
+  └───────────────────────────────────────────────┘
+[V5A-APPLY-COUNT] call#1 cfo_hz=-5961 sin_per_q14=612 cos_per_q14=16372
+[V5A-APPLY-BRANCH] LEGACY (e^{+jtheta}) active
+[V5A-APPLY-OUT] hit#1 ci=-9351 cq=7964 ri=306 rq=12279 cos_acc=10309 sin_acc=12735 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#2 ci=666 cq=-30814 ri=-24258 rq=-19012 cos_acc=9825 sin_acc=13110 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#3 ci=9426 cq=-3596 ri=2410 rq=-9796 cos_acc=9328 sin_acc=13467 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#4 ci=11196 cq=32616 ri=33507 rq=8120 cos_acc=8818 sin_acc=13805 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#5 ci=-32407 cq=727 ri=-15781 rq=28304 cos_acc=8295 sin_acc=14124 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#6 ci=-30068 cq=-18065 ri=-30146 rq=17911 cos_acc=7761 sin_acc=14423 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#7 ci=-32431 cq=-31178 ri=-42261 rq=15369 cos_acc=7216 sin_acc=14702 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#8 ci=3562 cq=-31446 ri=-27265 rq=-16037 cos_acc=6661 sin_acc=14960 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#9 ci=-32205 cq=-652 ri=-12590 rq=29629 cos_acc=6097 sin_acc=15197 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#10 ci=-31954 cq=-28478 ri=-37564 rq=20458 cos_acc=5524 sin_acc=15413 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#11 ci=-32217 cq=15157 ri=4717 rq=35264 cos_acc=4944 sin_acc=15608 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#12 ci=13250 cq=-31092 ri=-26425 rq=-21031 cos_acc=4357 sin_acc=15781 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#13 ci=-32069 cq=29521 ri=21339 rq=37966 cos_acc=3764 sin_acc=15932 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#14 ci=-31819 cq=-31081 ri=-36615 rq=25183 cos_acc=3166 sin_acc=16060 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#15 ci=-31571 cq=-12222 ri=-16999 rq=29239 cos_acc=2563 sin_acc=16166 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#16 ci=-4617 cq=24717 ri=23961 rq=7531 cos_acc=1957 sin_acc=16249 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#17 ci=26857 cq=-30484 ri=-28137 rq=-29244 cos_acc=1348 sin_acc=16310 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#18 ci=-16894 cq=30238 ri=29411 rq=18217 cos_acc=737 sin_acc=16348 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#19 ci=-31366 cq=-22657 ri=-22868 rq=31152 cos_acc=125 sin_acc=16363 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-OUT] hit#20 ci=21805 cq=-17564 ri=-18182 rq=-21245 cos_acc=-487 sin_acc=16355 cos_per=16372 sin_per=612 cfo_hz=-5961
+[V5A-APPLY-COUNT] call#100 cfo_hz=-5961 sin_per_q14=612 cos_per_q14=16372
+[V5A-APPLY-COUNT] call#1000 cfo_hz=-5961 sin_per_q14=612 cos_per_q14=16372
+[V5A-APPLY-COUNT] call#10000 cfo_hz=-5961 sin_per_q14=612 cos_per_q14=16372
+[ON-SYM-WALSH] sym#1 nc=16 ir=1 wI0=130777 wQ0=-62192 pk=210155 sh=0 sym_idx=0
+[ON-SYM-WALSH] sym#2 nc=16 ir=1 wI0=-45646 wQ0=96312 pk=192398 sh=0 sym_idx=1
+[ON-SYM-WALSH] sym#3 nc=16 ir=1 wI0=106775 wQ0=42521 pk=217063 sh=0 sym_idx=2
+[ON-SYM-WALSH] sym#4 nc=16 ir=1 wI0=144072 wQ0=191334 pk=191334 sh=0 sym_idx=3
+[ON-SYM-WALSH] sym#5 nc=16 ir=1 wI0=-187670 wQ0=161566 pk=187670 sh=0 sym_idx=4
+[ON-SYM-WALSH] sym#6 nc=16 ir=1 wI0=76466 wQ0=13573 pk=251205 sh=0 sym_idx=5
+[ON-SYM-WALSH] sym#7 nc=16 ir=1 wI0=74694 wQ0=-37778 pk=263878 sh=1 sym_idx=6
+[ON-SYM-WALSH] sym#8 nc=16 ir=1 wI0=-26615 wQ0=4322 pk=260885 sh=0 sym_idx=7
+[ON-SYM-WALSH] sym#9 nc=16 ir=1 wI0=-73181 wQ0=15494 pk=315158 sh=1 sym_idx=8
+[ON-SYM-WALSH] sym#10 nc=16 ir=1 wI0=-60699 wQ0=-31720 pk=179429 sh=0 sym_idx=9
+[V5A-APPLY-COUNT] call#100000 cfo_hz=15029 sin_per_q14=-1545 cos_per_q14=16310
+    SNR    -30 dB                  0/100   0.0% [....................] FAIL
+[V5A-APPLY-COUNT] call#1000000 cfo_hz=-2128 sin_per_q14=218 cos_per_q14=16382
+    SNR    -25 dB                  0/100   0.0% [....................] FAIL
+    SNR    -20 dB                  0/100   0.0% [....................] FAIL
+[V5A-SET-STAT] calls=10000 zeros=9764 nonzero=236 min=-38163 max=36389 avg_abs=272
+    SNR    -15 dB                  0/100   0.0% [....................] FAIL
+    SNR    -10 dB                 24/100  24.0% [####................] PART
+    SNR     -5 dB                 93/100  93.0% [##################..] PART
+    SNR     +0 dB                100/100 100.0% [####################] PASS
+    SNR     +5 dB                100/100 100.0% [####################] PASS
+    SNR    +10 dB                100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S4  비동기 타이밍 오프셋               │
+  └───────────────────────────────────────────────┘
+    Offset +0 chips              100/100 100.0% [####################] PASS
+    Offset +1 chips              100/100 100.0% [####################] PASS
+    Offset +5 chips              100/100 100.0% [####################] PASS
+    Offset +17 chips             100/100 100.0% [####################] PASS
+    Offset +31 chips             100/100 100.0% [####################] PASS
+    Offset +63 chips             100/100 100.0% [####################] PASS
+    Offset +127 chips            100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S5  극한 CFO 추종 (블라인드)            │
+  └───────────────────────────────────────────────┘
+[V5A-PER-SCN-INPUT] tag=S5-0HZ-PASS seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-0HZ-PASS seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-0HZ-PASS seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-0HZ-PASS seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-0HZ-PASS seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-0HZ-PASS seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S5-0HZ-PASS seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-0HZ-PASS seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-0HZ-PASS seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-0HZ-PASS seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-0HZ-PASS seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-0HZ-PASS seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S5-0HZ-PASS seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-0HZ-PASS n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-0HZ-PASS n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-0HZ-PASS seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-0HZ-PASS seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-0HZ-PASS seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-0HZ-PASS seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-0HZ-PASS seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-0HZ-PASS seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-0HZ-PASS seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-0HZ-PASS seq=2 cfo_hz=-27000 peak_e=0
+    CFO     +0 Hz                100/100 100.0% [####################] PASS
+    CFO    +50 Hz                100/100 100.0% [####################] PASS
+    CFO   +100 Hz                100/100 100.0% [####################] PASS
+    CFO   +200 Hz                100/100 100.0% [####################] PASS
+[V5A-PER-SCN-INPUT] tag=S5-500HZ-FAIL seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-500HZ-FAIL seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-500HZ-FAIL seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-500HZ-FAIL seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-500HZ-FAIL seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-500HZ-FAIL seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S5-500HZ-FAIL seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-500HZ-FAIL seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-500HZ-FAIL seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-500HZ-FAIL seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-500HZ-FAIL seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-500HZ-FAIL seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S5-500HZ-FAIL seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-500HZ-FAIL n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-500HZ-FAIL n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-500HZ-FAIL seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-500HZ-FAIL seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-500HZ-FAIL seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-500HZ-FAIL seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-500HZ-FAIL seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-500HZ-FAIL seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-500HZ-FAIL seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-500HZ-FAIL seq=2 cfo_hz=-27000 peak_e=0
+    CFO   +500 Hz                100/100 100.0% [####################] PASS
+    CFO  +1000 Hz                100/100 100.0% [####################] PASS
+[V5A-PER-SCN-INPUT] tag=S5-2000HZ-FAIL seq=0 chips=128
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-2000HZ-FAIL seq=0 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-2000HZ-FAIL seq=0 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=0 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-2000HZ-FAIL seq=0 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=0 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-2000HZ-FAIL seq=0 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=0 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=0 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-2000HZ-FAIL seq=0 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S5-2000HZ-FAIL seq=1 chips=128
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-2000HZ-FAIL seq=1 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-2000HZ-FAIL seq=1 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=1 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-2000HZ-FAIL seq=1 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=1 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-2000HZ-FAIL seq=1 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=1 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=1 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-2000HZ-FAIL seq=1 cfo_hz=-27000 peak_e=0
+[V5A-PER-SCN-INPUT] tag=S5-2000HZ-FAIL seq=2 chips=128
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=0 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=1 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=2 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=3 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=4 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=5 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=6 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=7 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=8 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=9 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=10 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=11 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=12 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=13 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=14 I=0 Q=0
+[V5A-PER-SCN-IN] tag=S5-2000HZ-FAIL n=15 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=64 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=65 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=66 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=67 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=68 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=69 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=70 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=71 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=72 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=73 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=74 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=75 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=76 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=77 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=78 I=0 Q=0
+[V5A-PER-SCN-IN-MID] tag=S5-2000HZ-FAIL n=79 I=0 Q=0
+[V5A-PER-SCN-COARSE] tag=S5-2000HZ-FAIL seq=2 pass=0 cstart=-12000 cb_idx=0 cb_cfo=-12000 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=0 cfo=-12000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=1 cfo=-9000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=2 cfo=-6000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=3 cfo=-3000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=4 cfo=0 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=5 cfo=3000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=6 cfo=6000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=7 cfo=9000 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=0 b=8 cfo=12000 e=0
+[V5A-PER-SCN-FINE] tag=S5-2000HZ-FAIL seq=2 pass=0 fstart=-13500 fb_idx=0 best_cfo=-13500 best_e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=0 cfo=-13500 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=1 cfo=-13200 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=2 cfo=-12900 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=3 cfo=-12600 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=4 cfo=-12300 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=5 cfo=-12000 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=6 cfo=-11700 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=7 cfo=-11400 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=8 cfo=-11100 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=9 cfo=-10800 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=0 f=10 cfo=-10500 e=0
+[V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=2 pass=0 cb_idx=0 cb_cfo=-12000 cb_ref=-12000 fb_idx=0 best_cfo=-13500 fine_ref=-13500 lr=0 cfo_est=-13500
+[V5A-PER-SCN-COARSE] tag=S5-2000HZ-FAIL seq=2 pass=1 cstart=-25500 cb_idx=0 cb_cfo=-25500 cb_e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=0 cfo=-25500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=1 cfo=-22500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=2 cfo=-19500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=3 cfo=-16500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=4 cfo=-13500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=5 cfo=-10500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=6 cfo=-7500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=7 cfo=-4500 e=0
+[V5A-PER-SCN-CB] tag=S5-2000HZ-FAIL seq=2 pass=1 b=8 cfo=-1500 e=0
+[V5A-PER-SCN-FINE] tag=S5-2000HZ-FAIL seq=2 pass=1 fstart=-27000 fb_idx=0 best_cfo=-27000 best_e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=0 cfo=-27000 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=1 cfo=-26700 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=2 cfo=-26400 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=3 cfo=-26100 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=4 cfo=-25800 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=5 cfo=-25500 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=6 cfo=-25200 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=7 cfo=-24900 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=8 cfo=-24600 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=9 cfo=-24300 e=0
+[V5A-PER-SCN-FB] tag=S5-2000HZ-FAIL seq=2 pass=1 f=10 cfo=-24000 e=0
+[V5A-PER-SCN-PASS] tag=S5-2000HZ-FAIL seq=2 pass=1 cb_idx=0 cb_cfo=-25500 cb_ref=-25500 fb_idx=0 best_cfo=-27000 fine_ref=-27000 lr=0 cfo_est=-27000
+[V5A-PER-SCN-EST] tag=S5-2000HZ-FAIL seq=2 cfo_hz=-27000 peak_e=0
+    CFO  +2000 Hz                100/100 100.0% [####################] PASS
+    CFO  +2500 Hz                100/100 100.0% [####################] PASS
+    CFO  +3000 Hz                100/100 100.0% [####################] PASS
+    CFO  +3500 Hz                100/100 100.0% [####################] PASS
+    CFO  +4000 Hz                100/100 100.0% [####################] PASS
+    CFO  +4500 Hz                100/100 100.0% [####################] PASS
+    CFO  +5000 Hz                100/100 100.0% [####################] PASS
+    CFO  +7500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +10000 Hz                100/100 100.0% [####################] PASS
+    CFO +12500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +15000 Hz                  0/100   0.0% [....................] FAIL
+    CFO +17500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +20000 Hz                100/100 100.0% [####################] PASS
+    CFO +25000 Hz                  0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S5F CFO sweep (seed/payload 고정)             │
+  └───────────────────────────────────────────────┘
+    CFO     +0 Hz                100/100 100.0% [####################] PASS
+    CFO    +50 Hz                100/100 100.0% [####################] PASS
+    CFO   +100 Hz                100/100 100.0% [####################] PASS
+    CFO   +200 Hz                100/100 100.0% [####################] PASS
+    CFO   +500 Hz                100/100 100.0% [####################] PASS
+    CFO  +1000 Hz                100/100 100.0% [####################] PASS
+    CFO  +2000 Hz                100/100 100.0% [####################] PASS
+    CFO  +2500 Hz                100/100 100.0% [####################] PASS
+    CFO  +3000 Hz                100/100 100.0% [####################] PASS
+    CFO  +3500 Hz                100/100 100.0% [####################] PASS
+    CFO  +4000 Hz                100/100 100.0% [####################] PASS
+    CFO  +4500 Hz                100/100 100.0% [####################] PASS
+    CFO  +5000 Hz                100/100 100.0% [####################] PASS
+    CFO  +7500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +10000 Hz                100/100 100.0% [####################] PASS
+    CFO +12500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +15000 Hz                  0/100   0.0% [....................] FAIL
+    CFO +17500 Hz                  0/100   0.0% [....................] FAIL
+    CFO +20000 Hz                100/100 100.0% [####################] PASS
+    CFO +25000 Hz                  0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S6  다중 경로 (3-tap ISI)                   │
+  └───────────────────────────────────────────────┘
+    D=1/3 A=0.3/0.1              100/100 100.0% [####################] PASS
+    D=3/8 A=0.5/0.2              100/100 100.0% [####################] PASS
+    D=5/15 A=0.4/0.15            100/100 100.0% [####################] PASS
+[V5A-SET-STAT] calls=50000 zeros=48114 nonzero=1886 min=-38163 max=36389 avg_abs=347
+    D=10/32 A=0.3/0.1            100/100 100.0% [####################] PASS
+
+  ┌───────────────────────────────────────────────┐
+  │ S7  바라지 재밍 (JSR +10 ~ +30 dB)         │
+  └───────────────────────────────────────────────┘
+    JSR    +0 dB                 100/100 100.0% [####################] PASS
+    JSR    +5 dB                  94/100  94.0% [##################..] PART
+    JSR   +10 dB                  28/100  28.0% [#####...............] PART
+    JSR   +15 dB                   0/100   0.0% [....................] FAIL
+    JSR   +20 dB                   0/100   0.0% [....................] FAIL
+    JSR   +25 dB                   0/100   0.0% [....................] FAIL
+    JSR   +30 dB                   0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S8  CW 톤 재밍                               │
+  └───────────────────────────────────────────────┘
+    JSR+10 P=8                   100/100 100.0% [####################] PASS
+    JSR+15 P=8                   100/100 100.0% [####################] PASS
+    JSR+20 P=8                   100/100 100.0% [####################] PASS
+    JSR+15 P=12                    0/100   0.0% [....................] FAIL
+    JSR+20 P=16                    0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S9  복합 스트레스 (135° + -15dB + CFO1500 + MP) │
+  └───────────────────────────────────────────────┘
+    Composite stress               0/100   0.0% [....................] FAIL
+
+  ┌───────────────────────────────────────────────┐
+  │ S10 내구도 10000회 + LPI 정합             │
+  └───────────────────────────────────────────────┘
+[V5A-SET-STAT] calls=100000 zeros=97763 nonzero=2237 min=-44954 max=41786 avg_abs=209
+    Endurance 10000 (11.7s)      10000/10000 100.0% [####################] PASS
+    LPI OFF                      100/100 100.0% [####################] PASS
+    LPI ON                       100/100 100.0% [####################] PASS
+
+╔═══════════════════════════════════════════════════════════════╗
+║  종합 보고서 (Pass + CRC+payload BER)                         ║
+╠═════════╤══════════════════╤═══════╤═══════╤════════╤═══════╣
+║ 시나리오│ 조건             │ Pass  │ CRC+  │  BER   │ 판정  ║
+╠═════════╪══════════════════╪═══════╪═══════╪════════╪═══════╣
+║ S1      │ B0/OK100/CRC+0/BE0 │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 0deg             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 45deg            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 90deg            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 135deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 180deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 225deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 270deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S2      │ 315deg           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S3      │ -30dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -25dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -20dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -15dB            │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S3      │ -10dB            │    24 │     0 │ 0.7600 │ PART  ║
+║ S3      │ -5dB             │    93 │     0 │ 0.0700 │ PART  ║
+║ S3      │ 0dB              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S3      │ 5dB              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S3      │ 10dB             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +0               │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +1               │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +5               │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +17              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +31              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +63              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S4      │ +127             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 0Hz              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 50Hz             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 100Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 200Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 500Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 1000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 2000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 2500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 3000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 3500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 4000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 4500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 5000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 7500Hz           │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 10000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 12500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 15000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 17500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5      │ 20000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5      │ 25000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 0Hz              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 50Hz             │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 100Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 200Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 500Hz            │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 1000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 2000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 2500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 3000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 3500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 4000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 4500Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 5000Hz           │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 7500Hz           │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 10000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 12500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 15000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 17500Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S5F     │ 20000Hz          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S5F     │ 25000Hz          │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S6      │ D=1/3 A=0.3/0.1  │   100 │     0 │ 0.0000 │ PASS  ║
+║ S6      │ D=3/8 A=0.5/0.2  │   100 │     0 │ 0.0000 │ PASS  ║
+║ S6      │ D=5/15 A=0.4/0.15 │   100 │     0 │ 0.0000 │ PASS  ║
+║ S6      │ D=10/32 A=0.3/0.1 │   100 │     0 │ 0.0000 │ PASS  ║
+║ S7      │ 0dB              │   100 │     0 │ 0.0000 │ PASS  ║
+║ S7      │ 5dB              │    94 │     0 │ 0.0600 │ PART  ║
+║ S7      │ 10dB             │    28 │     0 │ 0.7200 │ PART  ║
+║ S7      │ 15dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S7      │ 20dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S7      │ 25dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S7      │ 30dB             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S8      │ JSR+10 P=8       │   100 │     0 │ 0.0000 │ PASS  ║
+║ S8      │ JSR+15 P=8       │   100 │     0 │ 0.0000 │ PASS  ║
+║ S8      │ JSR+20 P=8       │   100 │     0 │ 0.0000 │ PASS  ║
+║ S8      │ JSR+15 P=12      │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S8      │ JSR+20 P=16      │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S9      │ Full             │     0 │     0 │ 1.0000 │ FAIL  ║
+║ S10a    │ Endurance        │ 10000 │     0 │ 0.0000 │ PASS  ║
+║ S10b    │ LPI-OFF          │   100 │     0 │ 0.0000 │ PASS  ║
+║ S10c    │ LPI-ON           │   100 │     0 │ 0.0000 │ PASS  ║
+╠═════════╧══════════════════╧═══════╧═══════╧════════╧═══════╣
+║  정량 합계:  16139 /  18400 ( 87.7%) — 전체 BER: 0.12288        ║
+║  범주 PASS: 60 / 85                                           ║
+║  총 bit errors: 144704 / 1177600                                   ║
+║  총 소요:   26.0s                                              ║
+
+=== WRC DIAG ===
+  method         = 0
+  call_count_16  = 0
+  call_count_64  = 5641444
+  total_delta    = 0
+================
+╚═══════════════════════════════════════════════════════════════╝
+
+  [엔진 한계 — 개선 필요 항목]
+    S3       -30dB              0/100  CRC+  0  BER=1.0000
+    S3       -25dB              0/100  CRC+  0  BER=1.0000
+    S3       -20dB              0/100  CRC+  0  BER=1.0000
+    S3       -15dB              0/100  CRC+  0  BER=1.0000
+    S3       -10dB             24/100  CRC+  0  BER=0.7600
+    S3       -5dB              93/100  CRC+  0  BER=0.0700
+    S5       7500Hz             0/100  CRC+  0  BER=1.0000
+    S5       12500Hz            0/100  CRC+  0  BER=1.0000
+    S5       15000Hz            0/100  CRC+  0  BER=1.0000
+    S5       17500Hz            0/100  CRC+  0  BER=1.0000
+    S5       25000Hz            0/100  CRC+  0  BER=1.0000
+    S5F      7500Hz             0/100  CRC+  0  BER=1.0000
+    S5F      12500Hz            0/100  CRC+  0  BER=1.0000
+    S5F      15000Hz            0/100  CRC+  0  BER=1.0000
+    S5F      17500Hz            0/100  CRC+  0  BER=1.0000
+    S5F      25000Hz            0/100  CRC+  0  BER=1.0000
+    S7       5dB               94/100  CRC+  0  BER=0.0600
+    S7       10dB              28/100  CRC+  0  BER=0.7200
+    S7       15dB               0/100  CRC+  0  BER=1.0000
+    S7       20dB               0/100  CRC+  0  BER=1.0000
+    S7       25dB               0/100  CRC+  0  BER=1.0000
+    S7       30dB               0/100  CRC+  0  BER=1.0000
+    S8       JSR+15 P=12        0/100  CRC+  0  BER=1.0000
+    S8       JSR+20 P=16        0/100  CRC+  0  BER=1.0000
+    S9       Full               0/100  CRC+  0  BER=1.0000

@@ -1,0 +1,28 @@
+56:    const std::uintptr_t p = reinterpret_cast<std::uintptr_t>(&oI[pos]);
+63:    const std::uintptr_t p = reinterpret_cast<std::uintptr_t>(&oQ[pos]);
+307:    int pos = 0;
+316:            int16_t* const di = bp_dst_i(oI, pos + j, okm);
+317:            int16_t* const dq = bp_dst_q(oQ, pos + j, okm);
+332:        pos += 64 * inc;
+336:    pos += 64 * inc;
+339:    pos += 64 * inc;
+342:    pos += 64 * inc;
+356:        pos += inc;
+366:        pos += 16 * inc;
+397:        pos += 64 * inc;
+404:        pos += 64 * inc;
+512:                oI[pos] = static_cast<int16_t>(v_I);
+513:                oQ[pos] = static_cast<int16_t>(v_Q);
+518:                                static_cast<int>(oI[pos]),
+519:                                static_cast<int>(oQ[pos]));
+527:                oI[pos] = static_cast<int16_t>(v);
+528:                oQ[pos] = static_cast<int16_t>(v);
+532:                                static_cast<int>(oI[pos]),
+533:                                static_cast<int>(oQ[pos]));
+676:    int pos = 0;
+782:        walsh_enc(enc_sym4, 16, amp, &oI[pos], &oQ[pos]);
+783:        pos += 16;
+823:        walsh_enc_split(enc_sI, enc_sQ, 64, amp, &oI[pos], &oQ[pos]);
+824:        pos += 64;
+845:        walsh_enc(enc_sym6, 64, amp, &oI[pos], &oQ[pos]);
+846:        pos += 64;

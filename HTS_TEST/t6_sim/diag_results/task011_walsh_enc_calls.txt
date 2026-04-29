@@ -1,0 +1,9 @@
+﻿325:walsh_enc(static_cast<uint8_t>(pre_sym0_row), 64, pre_amp,
+328:walsh_enc(PRE_SYM0, 64, pre_amp, bp_dst_i(oI, pos, okm),
+334:walsh_enc(PRE_SYM1, 64, pre_amp, bp_dst_i(oI, pos, okm),
+337:walsh_enc(static_cast<uint8_t>((hdr >> 6u) & 0x3Fu), 64, pre_amp,
+340:walsh_enc(static_cast<uint8_t>(hdr & 0x3Fu), 64, pre_amp,
+364:walsh_enc(enc_sym4, 16, amp, bp_dst_i(oI, pos, okm),
+402:walsh_enc(enc_sym6, 64, amp, bp_dst_i(oI, pos, okm),
+782:walsh_enc(enc_sym4, 16, amp, &oI[pos], &oQ[pos]);
+845:walsh_enc(enc_sym6, 64, amp, &oI[pos], &oQ[pos]);

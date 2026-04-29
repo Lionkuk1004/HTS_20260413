@@ -1,0 +1,7 @@
+﻿2184:(void)set_phase_(RxPhase::WAIT_SYNC);
+2618:set_phase_(RxPhase::READ_HEADER);
+2725:set_phase_(RxPhase::WAIT_SYNC);
+2897:set_phase_(RxPhase::WAIT_SYNC);
+2938:set_phase_(RxPhase::WAIT_SYNC);
+2966:set_phase_(RxPhase::READ_PAYLOAD);
+3042:phase_ = RxPhase::WAIT_SYNC;

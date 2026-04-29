@@ -1,0 +1,2 @@
+﻿HTS_V400_Dispatcher_Sync_AMI.cpp:2433:                // 기존: v = I[j] + Q[j] projection 후 부호 변조 누적.
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:2754:                // 기존: v = I[j] + Q[j] projection 후 부호 변조 누적.

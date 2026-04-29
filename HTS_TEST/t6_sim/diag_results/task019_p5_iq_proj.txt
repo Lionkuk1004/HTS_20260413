@@ -1,0 +1,2 @@
+﻿HTS_V400_Dispatcher_Payload.cpp:459:                        int32_t rot_i = (I * cos_ref + Q * sin_ref) >> 15;
+HTS_V400_Dispatcher_Payload.cpp:460:                        int32_t rot_q = (Q * cos_ref - I * sin_ref) >> 15;

@@ -1,0 +1,30 @@
+﻿190:static bool holo_tensor_packet_crc16_ok_8(const uint8_t* p) noexcept {
+191:const uint16_t calc = FEC_HARQ::CRC16(p, 6);
+315:pay_recv_++;
+350:if (sym_idx_ >= pay_total_) {
+801:if (diag_this_pkt && (pay_recv_ >= pay_total_) && !force_diag) {
+808:if (pay_recv_ >= pay_total_) {
+981:pay_recv_++; // 칩슬롯 기준 카운트
+1000:// Derotation 제거: FEC_HARQ::Decode64_IR이 위상 불변
+1115:if (pay_recv_ >= pay_total_)
+1134:"[TASK014-DEC-ENTER] count=%llu pay_recv=%d pay_total=%d "
+1137:pay_recv_, pay_total_,
+1234:pay_recv_ = 0;
+1275:const bool crc_a = holo_tensor_packet_crc16_ok_8(holo_tensor_rx_bytes_);
+1276:const bool crc_b = holo_tensor_packet_crc16_ok_8(holo_tensor_rx_bytes_alt_);
+1310:FEC_HARQ::CRC16(holo_tensor_rx_bytes_, 6);
+1315:FEC_HARQ::CRC16(holo_tensor_rx_bytes_alt_, 6);
+1360:"[IR-DIAG] pre-Decode64_IR feed=%d harq_round_=%d "
+1366:"[IR-DIAG] Decode64_IR args: bps=%d nsym_ir=%d "
+1373:// [TASK-014] Decode64_IR 직전
+1388:static_cast<uint32_t>(FEC_HARQ::Decode64_IR(
+1393:// [TASK-014] Decode64_IR 결과 (success_mask)
+1407:// [TASK-014] CRC16(6) vs rx CRC 바이트 (읽기 전용)
+1413:FEC_HARQ::CRC16(pkt.data, 6);
+1498:pay_recv_ = 0;
+1555:// try_decode_: Decode64_IR 직후 ir_rv_ 가 +1 되므로
+1643:pay_total_ = (64 + k_bits - 1) / k_bits;
+1645:pay_total_ = FEC_HARQ::nsym_for_bps(cur_bps64_);
+1648:pay_total_ = FEC_HARQ::nsym_for_bps(cur_bps64_);
+1652:pay_total_ = FEC_HARQ::NSYM16;
+1657:pay_recv_ = 0;

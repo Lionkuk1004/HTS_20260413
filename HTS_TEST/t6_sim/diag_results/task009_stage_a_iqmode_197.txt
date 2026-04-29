@@ -1,0 +1,28 @@
+#endif
+    // TPE: header psyms — LUT + DATA runtime nsym64
+    const int psyms = k_tx_psyms[mi] + static_cast<int>(u3) * nsym64_live +
+                      static_cast<int>(tensor_data_u) *
+                          (tensor_psyms - nsym64_live);
+    const uint32_t ir_hdr_iq_same_u = static_cast<uint32_t>(ir_mode_);
+    const uint32_t iq_ind_u =
+        static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+    const uint16_t iq_bit =
+        static_cast<uint16_t>((iq_ind_u & (1u - ir_hdr_iq_same_u)) *
+                              static_cast<uint32_t>(HDR_IQ_BIT));
+    uint16_t hdr = (static_cast<uint16_t>(mb & 0x03u) << 10u) | iq_bit |
+                   (static_cast<uint16_t>(psyms) & 0x01FFu);
+    {
+        // [TASK-009 DIAG] iq_mode_ 분기 197 통과 확인 (hdr IQ 비트 경로)
+        static uint32_t s_branch197_count = 0u;
+        if (s_branch197_count < 5u) {
+            ++s_branch197_count;
+            const char* branch_taken = "UNKNOWN";
+            if (ir_mode_ != 0) {
+                branch_taken = "IR_HDR_IQ_BIT_ZERO";
+            } else if (iq_ind_u != 0u) {
+                branch_taken = "HDR_INDEP_BIT";
+            } else {
+                branch_taken = "HDR_SAME_BIT";
+            }
+            std::printf(
+                "[TASK009-TX-BR197] hit#%u iq_mode=%d branch_taken=%s "

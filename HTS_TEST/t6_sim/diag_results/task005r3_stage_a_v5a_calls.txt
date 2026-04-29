@@ -1,0 +1,24 @@
+﻿273:        cfo_v5a_.Estimate_From_Autocorr(d1I, d1Q, 32);
+277:        cfo_v5a_.Set_Apply_Cfo(0);
+286:            cfo_v5a_.Advance_Phase_Only(192);
+288:            cfo_v5a_.Set_Apply_Cfo(0);
+472:            cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
+480:            cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
+499:        cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+510:        cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+1602:                        cfo_v5a_.Estimate(pre_I, pre_Q);
+1606:                    cfo_v5a_.Set_Apply_Cfo(0);
+1611:                        cfo_v5a_.Set_Apply_Cfo(cfo_res.cfo_hz);
+1612:                        cfo_v5a_.Advance_Phase_Only(192);
+1614:                        cfo_v5a_.Set_Apply_Cfo(0);
+1618:                    cfo_v5a_.Set_Apply_Cfo(0);
+2089:    if (cfo_v5a_.IsApplyDriveActive()) {
+2090:        cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
+2138:                static_cast<int>(chip_Q), cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+2157:                cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+2267:            const int ap = cfo_v5a_.IsApplyDriveActive() ? 1 : 0;
+2444:                    dot0_I, dot0_Q, cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
+2538:            cfo_v5a_.Set_Apply_Cfo(0);
+2544:                cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
+2621:                cfo_v5a_.IsApplyDriveActive() ? 1 : 0);
+2646:        cfo_v5a_.Set_Apply_Cfo(0);

@@ -1,0 +1,2 @@
+72:    int16_t* const out_I, const int16_t amp, const uint32_t seed[4],
+125:        out_I[i] = (b >= 0)

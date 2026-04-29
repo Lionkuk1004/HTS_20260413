@@ -1,0 +1,105 @@
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:107:enum class IQ_Mode : uint8_t {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:108:IQ_SAME = 0u,        ///< I=Q 동일 심볼 (재밍 방어, +3dB 다이버시티)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:109:IQ_INDEPENDENT = 1u  ///< I/Q 독립 심볼 (평시, 2배 처리량)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:227:[[nodiscard]] IQ_Mode Get_IQ_Mode() const noexcept;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:234:/// @brief 재밍 시험 하네스: I/Q 모드 IQ_SAME 고정.
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:235:void Set_Lab_IQ_Mode_Jam_Harness() noexcept;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:265:/// @brief IR DATA·64칩·IQ_SAME SIC — CRC 실패 후 재인코딩 예상 칩을 다음 라운드에서 감산
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:444:// ── IR-HARQ (DATA·64칩·IQ_SAME 전용) ─────────────────────────────
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:497://  평시: IQ_INDEPENDENT → BPS×2 처리량 (NF < NF_IQ_SPLIT_TH)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:498://  재밍: IQ_SAME → +3dB 다이버시티 (NF ≥ NF_IQ_SAME_TH)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:500:IQ_Mode iq_mode_{ IQ_Mode::IQ_SAME };  ///< 현재 I/Q 모드 (기본: 안전)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher.hpp:502:static constexpr uint32_t NF_IQ_SAME_TH = 20u;   ///< dB 이상 → I=Q 동일
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:105:"notch_path=n/a iq_mode=%d ir_mode=%d lpi_on=%d "
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:107:static_cast<int>(iq_mode_),
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:333:IQ_Mode HTS_V400_Dispatcher::Get_IQ_Mode() const noexcept { return iq_mode_; }
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:400:void HTS_V400_Dispatcher::Set_Lab_IQ_Mode_Jam_Harness() noexcept {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:401:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:414:const IQ_Mode prev_iq = iq_mode_;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:428:if (nf >= NF_IQ_SAME_TH) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:429:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:436:if (prev_iq != IQ_Mode::IQ_SAME) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:445:iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:451:if (prev_iq != IQ_Mode::IQ_INDEPENDENT) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Core.cpp:460:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:255:iq_mode_ = static_cast<IQ_Mode>(
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:256:static_cast<uint32_t>(IQ_Mode::IQ_INDEPENDENT) * rx_iq_split +
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:257:static_cast<uint32_t>(IQ_Mode::IQ_SAME) * (1u - rx_iq_split));
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:309:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_Payload.cpp:952:if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:195:const uint32_t ir_hdr_iq_same_u = static_cast<uint32_t>(ir_mode_);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:197:static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:199:static_cast<uint16_t>((iq_ind_u & (1u - ir_hdr_iq_same_u)) *
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_V400_Dispatcher_TX.cpp:569:static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_Jammer_STD\HTS_Phase3_Alpha_Harness.cpp:86:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\HTS_Jammer_STD\HTS_Phase4B2_Sample_Harness.cpp:103:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:755:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:864:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:956:tx_disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:1333:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:1614:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:1707:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:2016:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:2031:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:2116:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:2303:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_Pluto_Test.cpp:2338:disp.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:794:IQ_Mode HTS_V400_Dispatcher::Get_IQ_Mode() const noexcept { return iq_mode_; }
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:895:void HTS_V400_Dispatcher::Set_Lab_IQ_Mode_Jam_Harness() noexcept {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:896:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:909:const IQ_Mode prev_iq = iq_mode_;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:923:if (nf >= NF_IQ_SAME_TH) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:924:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:931:if (prev_iq != IQ_Mode::IQ_SAME) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:940:iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:946:if (prev_iq != IQ_Mode::IQ_INDEPENDENT) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:955:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1173:iq_mode_ = static_cast<IQ_Mode>(
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1174:static_cast<uint32_t>(IQ_Mode::IQ_INDEPENDENT) * rx_iq_split +
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1175:static_cast<uint32_t>(IQ_Mode::IQ_SAME) * (1u - rx_iq_split));
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1203:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1263:if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1371:if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_ && nc == 64) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1758:const uint32_t ir_hdr_iq_same_u = static_cast<uint32_t>(ir_mode_);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1760:static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1762:static_cast<uint16_t>((iq_ind_u & (1u - ir_hdr_iq_same_u)) *
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\PLUTO_SDR\HTS_V400_Dispatcher.cpp:1945:static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_mc\HTS_T6_MC_Harness.cpp:82:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_BER_PER_Measure.cpp:39:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_Block_Message_Test.cpp:59:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_Harq_Matrix_Test.cpp:55:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_T6_SIM_Test.cpp:224:d.Set_Lab_IQ_Mode_Jam_Harness();
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1502:"notch_path=n/a iq_mode=%d ir_mode=%d lpi_on=%d "
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1504:static_cast<int>(iq_mode_),
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1627:IQ_Mode HTS_V400_Dispatcher::Get_IQ_Mode() const noexcept { return iq_mode_; }
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1792:void HTS_V400_Dispatcher::Set_Lab_IQ_Mode_Jam_Harness() noexcept {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1793:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1806:const IQ_Mode prev_iq = iq_mode_;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1820:if (nf >= NF_IQ_SAME_TH) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1821:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1828:if (prev_iq != IQ_Mode::IQ_SAME) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1837:iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1843:if (prev_iq != IQ_Mode::IQ_INDEPENDENT) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:1852:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:2094:iq_mode_ = static_cast<IQ_Mode>(
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:2095:static_cast<uint32_t>(IQ_Mode::IQ_INDEPENDENT) * rx_iq_split +
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:2096:static_cast<uint32_t>(IQ_Mode::IQ_SAME) * (1u - rx_iq_split));
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:2124:iq_mode_ = IQ_Mode::IQ_SAME;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:2289:if (iq_mode_ == IQ_Mode::IQ_INDEPENDENT && !ir_mode_) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:3101:const uint32_t ir_hdr_iq_same_u = static_cast<uint32_t>(ir_mode_);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:3103:static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:3105:static_cast<uint16_t>((iq_ind_u & (1u - ir_hdr_iq_same_u)) *
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.cpp:3302:static_cast<uint32_t>(iq_mode_ == IQ_Mode::IQ_INDEPENDENT);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:103:enum class IQ_Mode : uint8_t {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:104:IQ_SAME = 0u,        ///< I=Q 동일 심볼 (재밍 방어, +3dB 다이버시티)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:105:IQ_INDEPENDENT = 1u  ///< I/Q 독립 심볼 (평시, 2배 처리량)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:216:[[nodiscard]] IQ_Mode Get_IQ_Mode() const noexcept;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:223:/// @brief 재밍 시험 하네스: I/Q 모드 IQ_SAME 고정.
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:224:void Set_Lab_IQ_Mode_Jam_Harness() noexcept;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:247:/// @brief IR DATA·64칩·IQ_SAME SIC — CRC 실패 후 재인코딩 예상 칩을 다음 라운드에서 감산
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:408:// ── IR-HARQ (DATA·64칩·IQ_SAME 전용) ─────────────────────────────
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:457://  평시: IQ_INDEPENDENT → BPS×2 처리량 (NF < NF_IQ_SPLIT_TH)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:458://  재밍: IQ_SAME → +3dB 다이버시티 (NF ≥ NF_IQ_SAME_TH)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:460:IQ_Mode iq_mode_{ IQ_Mode::IQ_SAME };  ///< 현재 I/Q 모드 (기본: 안전)
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\HTS_V400_Dispatcher_Local.hpp:462:static constexpr uint32_t NF_IQ_SAME_TH = 20u;   ///< dB 이상 → I=Q 동일
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_waterfall\HTS_T6_Waterfall_Harness.cpp:137:d.Set_Lab_IQ_Mode_Jam_Harness();

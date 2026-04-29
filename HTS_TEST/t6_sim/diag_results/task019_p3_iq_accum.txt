@@ -1,0 +1,4 @@
+﻿HTS_FEC_HARQ.cpp:1868:    //  구(舊) s_chip_acc += (Ii + Qi) 는 chip 도메인 I+Q 합산.
+HTS_Preamble_Holographic.cpp:118:        total_energy += (eI + eQ);
+HTS_V400_Dispatcher_Sync_AMI.cpp:610:                row_e[r] += (e_I + e_Q);
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:734:                row_e[r] += (e_I + e_Q);

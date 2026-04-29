@@ -1,0 +1,24 @@
+﻿55:std::uintptr_t okm) noexcept {
+58:(p & okm) |
+59:(reinterpret_cast<std::uintptr_t>(g_bp_sink_i) & ~okm));
+62:std::uintptr_t okm) noexcept {
+65:(p & okm) |
+66:(reinterpret_cast<std::uintptr_t>(g_bp_sink_q) & ~okm));
+303:const std::uintptr_t okm = static_cast<std::uintptr_t>(
+316:int16_t* const di = bp_dst_i(oI, pos + j, okm);
+317:int16_t* const dq = bp_dst_q(oQ, pos + j, okm);
+326:bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
+328:walsh_enc(PRE_SYM0, 64, pre_amp, bp_dst_i(oI, pos, okm),
+329:bp_dst_q(oQ, pos, okm));
+334:walsh_enc(PRE_SYM1, 64, pre_amp, bp_dst_i(oI, pos, okm),
+335:bp_dst_q(oQ, pos, okm));
+338:bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
+341:bp_dst_i(oI, pos, okm), bp_dst_q(oQ, pos, okm));
+352:int16_t *const di = bp_dst_i(oI, pos, okm);
+353:int16_t *const dq = bp_dst_q(oQ, pos, okm);
+364:walsh_enc(enc_sym4, 16, amp, bp_dst_i(oI, pos, okm),
+365:bp_dst_q(oQ, pos, okm));
+395:walsh_enc_split(enc_sI, enc_sQ, 64, amp, bp_dst_i(oI, pos, okm),
+396:bp_dst_q(oQ, pos, okm));
+402:walsh_enc(enc_sym6, 64, amp, bp_dst_i(oI, pos, okm),
+403:bp_dst_q(oQ, pos, okm));

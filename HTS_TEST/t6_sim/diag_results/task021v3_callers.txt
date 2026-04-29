@@ -1,0 +1,36 @@
+﻿HTS_Holo_Tensor_4D_RX.cpp:132:            Holo4D_Generate_Partitioned_Params(
+HTS_Holo_Tensor_4D_RX.cpp:136:            const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
+HTS_Holo_Tensor_4D_RX.cpp:222:                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i0));
+HTS_Holo_Tensor_4D_RX.cpp:224:                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i1));
+HTS_Holo_Tensor_4D_RX.cpp:226:                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i2));
+HTS_Holo_Tensor_4D_RX.cpp:228:                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i3));
+HTS_Holo_Tensor_4D_RX.cpp:240:                        const int8_t w = Holo4D_Walsh_Code(
+HTS_Holo_Tensor_4D_RX.cpp:320:            const int32_t dphi_q16 = Holo4D_Atan2_Q16(Q_clamped, I_clamped);
+HTS_Holo_Tensor_4D_RX.cpp:384:        Holo4D_Generate_Partitioned_Params(
+HTS_Holo_Tensor_4D_RX.cpp:388:        const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
+HTS_Holo_Tensor_4D_RX.cpp:449:                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i0));
+HTS_Holo_Tensor_4D_RX.cpp:451:                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i1));
+HTS_Holo_Tensor_4D_RX.cpp:453:                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i2));
+HTS_Holo_Tensor_4D_RX.cpp:455:                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i3));
+HTS_Holo_Tensor_4D_RX.cpp:467:                    const int8_t w = Holo4D_Walsh_Code(
+HTS_Holo_Tensor_4D_RX.cpp:569:        if (Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY) !=
+HTS_Holo_Tensor_4D_RX.cpp:647:        if (Holo4D_Cfi_Transition(
+HTS_Holo_Tensor_4D_RX.cpp:653:        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+HTS_Holo_Tensor_4D_RX.cpp:673:        if (Holo4D_Cfi_Transition(
+HTS_Holo_Tensor_4D_RX.cpp:680:        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+HTS_Holo_Tensor_4D_RX.cpp:702:        if (Holo4D_Cfi_Transition(
+HTS_Holo_Tensor_4D_RX.cpp:709:        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+HTS_Holo_Tensor_4D_RX.cpp:727:        if (Holo4D_Cfi_Transition(
+HTS_Holo_Tensor_4D_RX.cpp:736:            Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+HTS_Holo_Tensor_4D_RX.cpp:762:        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+HTS_Holo_Tensor_4D_TX.cpp:107:            Holo4D_Generate_Partitioned_Params(
+HTS_Holo_Tensor_4D_TX.cpp:111:            const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
+HTS_Holo_Tensor_4D_TX.cpp:181:                            static_cast<int32_t>(Holo4D_Walsh_Code(rk0, col_i));
+HTS_Holo_Tensor_4D_TX.cpp:183:                            static_cast<int32_t>(Holo4D_Walsh_Code(rk1, col_i));
+HTS_Holo_Tensor_4D_TX.cpp:185:                            static_cast<int32_t>(Holo4D_Walsh_Code(rk2, col_i));
+HTS_Holo_Tensor_4D_TX.cpp:187:                            static_cast<int32_t>(Holo4D_Walsh_Code(rk3, col_i));
+HTS_Holo_Tensor_4D_TX.cpp:191:                        const int8_t w = Holo4D_Walsh_Code(
+HTS_Holo_Tensor_4D_TX.cpp:297:        if (Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY) !=
+HTS_Holo_Tensor_4D_TX.cpp:374:        if (Holo4D_Cfi_Transition(
+HTS_Holo_Tensor_4D_TX.cpp:379:        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+HTS_V400_Dispatcher_Core.cpp:206:        holo_rx_phase_ref_q16_ = Holo4D_Atan2_Q16(

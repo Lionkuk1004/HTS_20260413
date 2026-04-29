@@ -1,0 +1,31 @@
+﻿1489:      holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
+1530:    holo_lpi_rx_chip_idx_ = 0u;
+1557:    holo_lpi_rx_chip_idx_ = 0u;
+1565:    holo_lpi_rx_chip_idx_ = 0u;
+1590:        holo_lpi_scalars_[static_cast<std::size_t>(holo_lpi_rx_chip_idx_) &
+1592:    ++holo_lpi_rx_chip_idx_;
+1876:    p0_chip_count_ = 0;
+1922:    holo_lpi_rx_chip_idx_ = 0u;
+1992:    p0_chip_count_ = 0;
+2116:void HTS_V400_Dispatcher::on_sym_() noexcept {
+3375:    p0_chip_count_ = 0;
+4437:        p0_chip_count_ = 64;
+4467:    static int s_lab_feed_chip_idx = 0;
+4468:    ++s_lab_feed_chip_idx;
+4469:    if (s_lab_feed_chip_idx <= 300) {
+4471:                    s_lab_feed_chip_idx, static_cast<int>(rx_I),
+4489:                p0_chip_count_,
+4508:    if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
+4509:        (s_lab_feed_chip_idx % 16) == 0) {
+4512:            s_lab_feed_chip_idx, static_cast<int>(rx_I),
+4580:            p0_buf128_I_[p0_chip_count_] = chip_I;
+4581:            p0_buf128_Q_[p0_chip_count_] = chip_Q;
+4582:            ++p0_chip_count_;
+4583:            if (p0_chip_count_ < 192)
+4868:            p0_chip_count_ = 0; p0_carry_count_ = 0;
+4874:                p0_chip_count_ = 1;
+4961:        p0_chip_count_ = 0; p0_carry_count_ = 0;
+4967:            p0_chip_count_ = 1;
+5304:            on_sym_();
+5317:        holo_lpi_rx_chip_idx_ = 0u;
+5342:        on_sym_();

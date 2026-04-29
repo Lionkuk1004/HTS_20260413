@@ -1,0 +1,62 @@
+        return;
+    }
+    const RxPhase prev_phase = phase_;
+    const int prev_bps = cur_bps64_;
+    const IQ_Mode prev_iq = iq_mode_;
+    uint32_t need_reset = 0u;
+    const uint8_t bps = p_metrics_->current_bps.load(std::memory_order_acquire);
+    if (bps >= static_cast<uint8_t>(FEC_HARQ::BPS64_MIN) &&
+        bps <= static_cast<uint8_t>(FEC_HARQ::BPS64_MAX)) {
+        const int new_bps = FEC_HARQ::bps_clamp_runtime(static_cast<int>(bps));
+        if (new_bps != prev_bps) {
+            cur_bps64_ = new_bps;
+            need_reset |=
+                static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
+        }
+    }
+    // ── 적응형 I/Q 모드 전환 (히스테리시스) ──────────────
+    const uint32_t nf = p_metrics_->ajc_nf.load(std::memory_order_acquire);
+    if (nf >= NF_IQ_SAME_TH) {
+        iq_mode_ = IQ_Mode::IQ_SAME;
+        iq_upgrade_count_ = 0u;
+        if (cur_bps64_ > FEC_HARQ::BPS64_MIN_OPERABLE) {
+            cur_bps64_ = FEC_HARQ::BPS64_MIN_OPERABLE;
+            need_reset |=
+                static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
+        }
+        if (prev_iq != IQ_Mode::IQ_SAME) {
+            need_reset |=
+                static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
+        }
+    } else if (nf < NF_IQ_SPLIT_TH) {
+        if (iq_upgrade_count_ < IQ_UPGRADE_GUARD) {
+            iq_upgrade_count_++;
+        }
+        if (iq_upgrade_count_ >= IQ_UPGRADE_GUARD) {
+            iq_mode_ = IQ_Mode::IQ_INDEPENDENT;
+            if (cur_bps64_ < IQ_BPS_PEACETIME) {
+                cur_bps64_ = IQ_BPS_PEACETIME;
+                need_reset |=
+                    static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
+            }
+            if (prev_iq != IQ_Mode::IQ_INDEPENDENT) {
+                need_reset |=
+                    static_cast<uint32_t>(prev_phase != RxPhase::WAIT_SYNC);
+            }
+        }
+    } else {
+        iq_upgrade_count_ = 0u;
+    }
+    if (ir_mode_) {
+        iq_mode_ = IQ_Mode::IQ_SAME;
+        iq_upgrade_count_ = 0u;
+    }
+    if (need_reset != 0u) {
+        full_reset_();
+    }
+}
+void HTS_V400_Dispatcher::full_reset_() noexcept {
+    // WAIT_SYNC 전이는 모든 상태에서 무조건 합법
+    phase_ = RxPhase::WAIT_SYNC;
+    rf_settle_chips_remaining_ = 0;
+    cur_mode_ = PayloadMode::UNKNOWN;

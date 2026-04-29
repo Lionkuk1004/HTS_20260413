@@ -1,0 +1,31 @@
+﻿                                (orig_Q_[c] >> 12) & 0x0Fu);
+                            orig_acc_.acc64.iq4[sym_idx_][c] =
+                                static_cast<uint8_t>((hiI << 4u) | hiQ);
+                        }
+                        sym_idx_++;
+                    }
+                } else {
+                    full_reset_();
+                    return;
+                }
+            }
+        }
+        // [REMOVED Step3] AJC walsh 피드백 블록 (Update_AJC × N) — 구조적 NOP
+    }
+    buf_idx_ = 0;
+    if (pay_recv_ >= pay_total_)
+        try_decode_();
+}
+void HTS_V400_Dispatcher::try_decode_() noexcept {
+    // [BUG-FIX-IR5] wb_ 초기화: Encode 잔류 데이터가 Decode 경로를 오염시키는
+    // 것을 방지. 16칩(NSYM16=172)은 wb_ 사용 영역이 작아 영향 없으나,
+    // 64칩(NSYM64=172, BPS=4)은 전체 TOTAL_CODED(688) 슬롯을 사용하므로 필수.
+    std::memset(&wb_, 0, sizeof(wb_));
+    const uint8_t walsh_shift_payload = current_walsh_shift_();
+    DecodedPacket pkt = {};
+    pkt.mode = cur_mode_;
+    pkt.success_mask = DecodedPacket::DECODE_MASK_FAIL;
+    uint32_t il = seed_ ^ (rx_seq_ * 0xA5A5A5A5u);
+    {
+        // [TASK-014] try_decode_ 진입 (모드 공통)
+        static uint64_t s_t14_enter = 0u;

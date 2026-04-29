@@ -1,0 +1,9 @@
+﻿270:    for (int i = 0; i < pre_guard; ++i) rx.Feed_Chip(0, 0);
+271:    for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
+272:    for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
+357:    for (int i = 0; i < pre_guard; ++i) rx.Feed_Chip(0, 0);
+358:    for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
+359:    for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
+412:    for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
+413:    for (int i = 0; i < n; ++i)      rx.Feed_Chip(rxI[i], rxQ[i]);
+414:    for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);

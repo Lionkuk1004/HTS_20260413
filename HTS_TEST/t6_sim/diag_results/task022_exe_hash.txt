@@ -1,0 +1,11 @@
+SHA256? x64\Release\HTS_TEST.exe ??:
+e55478d803e57762c421f525132f09c0b9c7131b874df4dd676bad67586c59c7
+CertUtil: -hashfile ??? ????? ???????.
+
+
+FullName      : D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\t6_sim\x64\Release\HTS_TEST.exe
+LastWriteTime : 2026-04-29 오후 10:28:12
+Length        : 132608
+
+
+

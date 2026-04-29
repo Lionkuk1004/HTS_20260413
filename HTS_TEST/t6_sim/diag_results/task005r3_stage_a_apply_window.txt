@@ -1,0 +1,211 @@
+﻿                    static_cast<long long>(threshold_12));
+                ++s_d1_h2_dump_n;
+            }
+        }
+#endif
+#if defined(HTS_CFO_V5A_S5H_TRIAL_DIAG)
+        if (best_off_p2 + hts::rx_cfo::kPreambleChips <= p0_chip_count_) {
+            const int16_t* const pre_I = &p0_buf128_I_[best_off_p2];
+            const int16_t* const pre_Q = &p0_buf128_Q_[best_off_p2];
+#if defined(HTS_V5A_STEP_C1_DIAG) && defined(HTS_V5A_DIAG)
+            hts_v5a_step_c1_diag_dump_if_(pre_I, pre_Q, p0_buf128_I_,
+                                          p0_buf128_Q_, p0_chip_count_);
+#endif
+            // E-6: S5H trial DIAG only — local CFO_V5a (no cfo_v5a_ mutation).
+            hts::rx_cfo::CFO_V5a v5a_trial;
+            v5a_trial.Init();
+            const hts::rx_cfo::CFO_Result cfo_res =
+                v5a_trial.Estimate(pre_I, pre_Q);
+            hts_v5a_s5h_trial_diag_print_(cfo_res);
+        }
+#endif
+#if defined(HTS_CFO_V5A_S5H_APPLY_DIAG)
+        hts_v5a_s5h_apply_diag_arm_after_p0_commit_();
+#endif
+#if defined(HTS_HOLO_RX_PHASE_REF)
+        capture_holo_phase_ref_pre_sym1_(best_off_p2);
+#endif
+        psal_commit_align_();
+    } else {
+        std::memcpy(p0_buf128_I_, p0_buf128_I_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        std::memcpy(p0_buf128_Q_, p0_buf128_Q_ + 128,
+                    static_cast<size_t>(64) * sizeof(int16_t));
+        p0_chip_count_ = 64;
+    }
+}
+
+#endif  // HTS_USE_HOLOGRAPHIC_SYNC
+
+void HTS_V400_Dispatcher::Feed_Chip(int16_t rx_I, int16_t rx_Q) noexcept {
+#if defined(HTS_AMP_DIAG)
+    AmpDiag::record_chip(rx_I, rx_Q);
+#endif
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
+    static int s_lab_feed_chip_idx = 0;
+    ++s_lab_feed_chip_idx;
+    if (s_lab_feed_chip_idx <= 300) {
+        std::printf("[HARNESS] chip#%d rx_I=%d rx_Q=%d\n",
+                    s_lab_feed_chip_idx, static_cast<int>(rx_I),
+                    static_cast<int>(rx_Q));
+    }
+#endif
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+    {
+        static int s_feed_call_count = 0;
+        static int s_last_logged_count = -1;
+        ++s_feed_call_count;
+        if (s_feed_call_count < 500 &&
+            (s_feed_call_count - s_last_logged_count) >= 50) {
+            s_last_logged_count = s_feed_call_count;
+            std::printf(
+                "[DIAG-FEED] call#%d phase=%d pre_phase=%d p0_count=%d "
+                "carry_pend=%d buf_idx=%d rx_I=%d rx_Q=%d\n",
+                s_feed_call_count,
+                static_cast<int>(phase_),
+                pre_phase_,
+                p0_chip_count_,
+                p1_carry_pending_,
+                buf_idx_,
+                static_cast<int>(rx_I), static_cast<int>(rx_Q));
+        }
+    }
+#endif
+    int16_t chip_I = rx_I;
+    int16_t chip_Q = rx_Q;
+    // DC 제거 IIR: α=1/128 (shift 기반, 곱셈 0)
+    // dc_est = dc_est - (dc_est >> 7) + (chip >> 7)
+    dc_est_I_ = dc_est_I_ - (dc_est_I_ >> 7) +
+                (static_cast<int32_t>(chip_I) >> 7);
+    dc_est_Q_ = dc_est_Q_ - (dc_est_Q_ >> 7) +
+                (static_cast<int32_t>(chip_Q) >> 7);
+    chip_I = static_cast<int16_t>(static_cast<int32_t>(chip_I) - dc_est_I_);
+    chip_Q = static_cast<int16_t>(static_cast<int32_t>(chip_Q) - dc_est_Q_);
+#if defined(HTS_DIAG_PRINTF) && !defined(HTS_PHASE0_WALSH_BANK)
+    if (s_lab_feed_chip_idx >= 250 && s_lab_feed_chip_idx <= 450 &&
+        (s_lab_feed_chip_idx % 16) == 0) {
+        std::printf(
+            "[DC-AGC] chip#%d rx_I=%d after_DC=%d dc_est_I=%d dc_est_Q=%d\n",
+            s_lab_feed_chip_idx, static_cast<int>(rx_I),
+            static_cast<int>(chip_I), static_cast<int>(dc_est_I_),
+            static_cast<int>(dc_est_Q_));
+    }
+#endif
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF)
+    const int16_t before_cfo_I = chip_I;
+    const int16_t before_cfo_Q = chip_Q;
+#endif
+    // CFO 역회전: V5a per-chip apply (Holo P0 + Walsh P0)
+    // 순서: DC → CFO → AGC
+    if (cfo_v5a_.IsApplyDriveActive()) {
+        cfo_v5a_.Apply_Per_Chip(chip_I, chip_Q);
+    }
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
+    defined(HTS_DIAG_CFO_EST)
+    {
+        static int s_p1_apply_chip_log = 0;
+        if (pre_phase_ == 0) {
+            s_p1_apply_chip_log = 0;
+        }
+        if (pre_phase_ == 1 && phase_ == RxPhase::WAIT_SYNC &&
+            s_p1_apply_chip_log < 10) {
+            const int64_t r0 =
+                static_cast<int64_t>(before_cfo_I) * chip_I +
+                static_cast<int64_t>(before_cfo_Q) * chip_Q;
+            const int64_t n0 = static_cast<int64_t>(before_cfo_I) * before_cfo_I +
+                               static_cast<int64_t>(before_cfo_Q) * before_cfo_Q;
+            const int64_t n1 = static_cast<int64_t>(chip_I) * chip_I +
+                               static_cast<int64_t>(chip_Q) * chip_Q;
+            int32_t cos_q14_dot = 16384;
+            const int64_t m0 = hts_cfo_int_root_u64(n0);
+            const int64_t m1 = hts_cfo_int_root_u64(n1);
+            if (m0 > 0 && m1 > 0) {
+                const int64_t den = m0 * m1;
+                cos_q14_dot = static_cast<int32_t>(
+                    (r0 * 16384LL + (den >> 1)) / den);
+                if (cos_q14_dot > 16384) {
+                    cos_q14_dot = 16384;
+                }
+                if (cos_q14_dot < -16384) {
+                    cos_q14_dot = -16384;
+                }
+            }
+            std::printf(
+                "[APPLY-P1] chip=%d raw=(%d,%d) apply=(%d,%d) v5a_on=%d "
+                "cos14_dot=%d sin14=%d cos14=%d\n",
+                s_p1_apply_chip_log, static_cast<int>(before_cfo_I),
+                static_cast<int>(before_cfo_Q), static_cast<int>(chip_I),
+                static_cast<int>(chip_Q), cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+                static_cast<int>(cos_q14_dot),
+                static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+                static_cast<int>(cfo_v5a_.Get_Apply_Cos_Per_Chip_Q14()));
+            ++s_p1_apply_chip_log;
+        }
+    }
+#endif
+#if defined(HTS_HOLO_PREAMBLE) && defined(HTS_DIAG_PRINTF) && \
+    !defined(HTS_DIAG_CFO_EST)
+    {
+        static int s_apply_diag_n = 0;
+        if (s_apply_diag_n < 10) {
+            std::printf(
+                "[DIAG-APPLY] n=%d before=(%d,%d) after=(%d,%d) "
+                "v5a_ap=%d sin14=%d cos14=%d\n",
+                s_apply_diag_n, static_cast<int>(before_cfo_I),
+                static_cast<int>(before_cfo_Q), static_cast<int>(chip_I),
+                static_cast<int>(chip_Q),
+                cfo_v5a_.IsApplyDriveActive() ? 1 : 0,
+                static_cast<int>(cfo_v5a_.Get_Apply_Sin_Per_Chip_Q14()),
+                static_cast<int>(cfo_v5a_.Get_Apply_Cos_Per_Chip_Q14()));
+            ++s_apply_diag_n;
+        }
+    }
+#endif
+    // 프리앰블 AGC
+    pre_agc_.Apply(chip_I, chip_Q);
+    apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
+    if (phase_ == RxPhase::RF_SETTLING) {
+        (void)chip_I;
+        (void)chip_Q;
+        const uint32_t nz =
+            static_cast<uint32_t>(rf_settle_chips_remaining_ > 0);
+        rf_settle_chips_remaining_ -= static_cast<int>(nz);
+        if (rf_settle_chips_remaining_ == 0) {
+            (void)set_phase_(RxPhase::WAIT_SYNC);
+        }
+        return;
+    }
+    if (phase_ == RxPhase::WAIT_SYNC) {
+        if (pre_phase_ == 0) {
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+            if (mf_enabled_ && !mf_synced_) {
+                if (mf_feed_chip_(chip_I, chip_Q)) {
+                    mf_synced_ = true;
+                }
+            }
+#endif
+            p0_buf128_I_[p0_chip_count_] = chip_I;
+            p0_buf128_Q_[p0_chip_count_] = chip_Q;
+            ++p0_chip_count_;
+            if (p0_chip_count_ < 192)
+                return;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+            {
+                static int s_fullbuf_count = 0;
+                ++s_fullbuf_count;
+                if (s_fullbuf_count <= 5) {
+                    std::printf(
+                        "[DIAG-FULLBUF] #%d (192 chip reached, about to scan)\n",
+                        s_fullbuf_count);
+                    for (int b = 0; b < 3; ++b) {
+                        int nz = 0;
+                        int mag_max = 0;
+                        for (int i = 0; i < 64; ++i) {
+                            const int mag =
+                                (p0_buf128_I_[b * 64 + i] > 0)
+                                    ? static_cast<int>(p0_buf128_I_[b * 64 + i])
+                                    : -static_cast<int>(
+                                          p0_buf128_I_[b * 64 + i]);
+                            if (mag > 100) {
+                                ++nz;
+                            }

@@ -1,0 +1,58 @@
+﻿8://  try_decode_: Q채널 HARQ는 harq_Q_[0] (행 포인터)로 Decode_Core_Split에 전달
+9://               (&harq_Q_[0][0] 금지 — 2차원 배열 타입과 혼동 시 HardFault)
+320://  Chase: harq_Q[NSYM64][C64] int32 — 기존 g_harq_Q_ccm 와 동일 레이아웃
+1479:      harq_Q_(g_harq_ccm_union.chase.harq_Q),
+1489:      holo_lpi_rx_slot_(0u), holo_lpi_rx_chip_idx_(0u),
+1530:    holo_lpi_rx_chip_idx_ = 0u;
+1557:    holo_lpi_rx_chip_idx_ = 0u;
+1565:    holo_lpi_rx_chip_idx_ = 0u;
+1573:void HTS_V400_Dispatcher::apply_holo_lpi_inverse_rx_chip_(
+1590:        holo_lpi_scalars_[static_cast<std::size_t>(holo_lpi_rx_chip_idx_) &
+1592:    ++holo_lpi_rx_chip_idx_;
+1922:    holo_lpi_rx_chip_idx_ = 0u;
+2120:            v1_rx_[v1_idx_++] = buf_I_[0];
+2145:                buf_I_[c] = static_cast<int16_t>(
+2146:                    static_cast<int32_t>(buf_I_[c]) * sgn);
+2147:                buf_Q_[c] = static_cast<int16_t>(
+2148:                    static_cast<int32_t>(buf_Q_[c]) * sgn);
+2158:                buf_I_[c] = static_cast<int16_t>(
+2159:                    static_cast<int32_t>(buf_I_[c]) * sgn);
+2160:                buf_Q_[c] = static_cast<int16_t>(
+2161:                    static_cast<int32_t>(buf_Q_[c]) * sgn);
+2181:                        wI16[c] = static_cast<int32_t>(buf_I_[c]);
+2182:                        wQ16[c] = static_cast<int32_t>(buf_Q_[c]);
+2195:                            static_cast<int32_t>(buf_I_[c]) >> sh16);
+2197:                            static_cast<int32_t>(buf_Q_[c]) >> sh16);
+2227:                        rx_.m64_I.aI[si_I][c] +=
+2228:                            static_cast<int32_t>(buf_I_[c]);
+2232:                        rx_.m64_I.aI[si_Q][c] +=
+2233:                            static_cast<int32_t>(buf_Q_[c]);
+2269:                                    rr, static_cast<int32_t>(buf_I_[c]),
+2270:                                    static_cast<int32_t>(buf_Q_[c]));
+2306:                                    static_cast<int32_t>(buf_I_[c]);
+2308:                                    static_cast<int32_t>(buf_Q_[c]);
+2434:                            rx_.m64_I.aI[sym_idx_][c] +=
+2435:                                static_cast<int32_t>(buf_I_[c]);
+2438:                            harq_Q_[sym_idx_][c] +=
+2439:                                static_cast<int32_t>(buf_Q_[c]);
+2781:                if (!rx_.m64_I.ok)
+2782:                    rx_.m64_I.k++;
+2791:                                &rx_.m64_I.aI[0][0], harq_Q_[0], nsym,
+2796:                            "harq_Q accum", &harq_Q_[0][0],
+2832:                    rx_.m64_I.ok = true;
+4559:    apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
+4636:                buf_I_[j] = p0_carry_I_[j];
+4637:                buf_Q_[j] = p0_carry_Q_[j];
+4645:            buf_I_[buf_idx_] = chip_I;
+4646:            buf_Q_[buf_idx_] = chip_Q;
+4935:                buf_I_[0] = chip_I; buf_Q_[0] = chip_Q; buf_idx_ = 1;
+4973:    buf_I_[buf_idx_] = chip_I;
+4974:    buf_Q_[buf_idx_] = chip_Q;
+5278:                                    static_cast<void *>(rx_.m64_I.aI),
+5279:                                    sizeof(rx_.m64_I.aI));
+5280:                                rx_.m64_I.k = 0;
+5281:                                rx_.m64_I.ok = false;
+5317:        holo_lpi_rx_chip_idx_ = 0u;
+5330:    apply_holo_lpi_inverse_rx_chip_(ti, tq, retx_slot);
+5331:    buf_I_[buf_idx_] = ti;
+5332:    buf_Q_[buf_idx_] = tq;

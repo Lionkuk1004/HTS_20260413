@@ -1,0 +1,18 @@
+﻿6://   1. Feed_Chip 전 channel_phase_correct 등 사전 보상 일절 금지
+226:    // MF + PTE + PN-masked 측정 빌드: 기준 시퀀스는 `mf_generate_reference_` 의 LUT 경로.
+246:    pkt.n = tx.Build_Packet(PayloadMode::DATA, pkt.info, 8, kAmp,
+270:    for (int i = 0; i < pre_guard; ++i) rx.Feed_Chip(0, 0);
+271:    for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
+272:    for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
+357:    for (int i = 0; i < pre_guard; ++i) rx.Feed_Chip(0, 0);
+358:    for (int i = 0; i < n; ++i)         rx.Feed_Chip(rxI[i], rxQ[i]);
+359:    for (int i = 0; i < kGuard; ++i)    rx.Feed_Chip(0, 0);
+412:    for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
+413:    for (int i = 0; i < n; ++i)      rx.Feed_Chip(rxI[i], rxQ[i]);
+414:    for (int i = 0; i < kGuard; ++i) rx.Feed_Chip(0, 0);
+462:/// AWGN (음수 SNR 포함)
+463:static void ch_awgn(int16_t* I, int16_t* Q, int n,
+759:            ch_awgn(rI, rQ, tx.n, snr, rng);
+1452://  S9: 복합 스트레스 (타이밍 + 위상 + AWGN + CFO 동시)
+1497:        ch_awgn(rI, rQ, tx.n, -15.0, rng);
+1615:            int n = tx_d.Build_Packet(PayloadMode::DATA, info, 8, kAmp,

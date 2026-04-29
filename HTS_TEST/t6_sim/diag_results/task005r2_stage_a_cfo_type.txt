@@ -1,0 +1,1 @@
+﻿459:        hts::rx_cfo::CFO_V5a cfo_v5a_{};  ///< Rx CFO V5a (Phase 1-5: 비활성 기본)

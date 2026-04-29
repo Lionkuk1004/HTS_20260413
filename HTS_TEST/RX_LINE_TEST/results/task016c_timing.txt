@@ -1,0 +1,5 @@
+ami_iso_sec=28.77
+ami_prod_sec=108.92
+pslte_iso_sec=24.61
+pslte_prod_sec=93.81
+total_sec=256.12

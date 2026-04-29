@@ -1,0 +1,12 @@
+﻿---
+description: T6 and diag test artifacts go under HTS_TEST/test result
+alwaysApply: true
+---
+
+# Test result output directory
+
+- Save all test and measurement artifacts (T6 full logs, msbuild logs, counter extracts, long findstr outputs, UTF-8 copies of run logs) under:
+  - `D:\HTS_ARM11_Firmware\HTS_LIM\HTS_TEST\test result`
+- Relative from HTS_LIM repo root: `HTS_TEST/test result` (folder name contains a space; quote paths in shell).
+- You may still write under `HTS_TEST/t6_sim/diag_results/` during a run, but always copy the deliverable outputs the user will open into `HTS_TEST/test result` before finishing the task.
+- Apply in every future session for this workspace.

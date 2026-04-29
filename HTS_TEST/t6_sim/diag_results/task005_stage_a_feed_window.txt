@@ -1,0 +1,211 @@
+﻿                "[FWHT-DIAG-4] AGC: gain_shift=%d in_I=%d in_Q=%d out_I=%d "
+                "out_Q=%d\n",
+                static_cast<int>(pre_agc_.Get_Shift()),
+                static_cast<int>(agc_in_i), static_cast<int>(agc_in_q),
+                static_cast<int>(chip_I), static_cast<int>(chip_Q));
+            ++s_fwht_agc_pair;
+        }
+    }
+#endif
+#if defined(HTS_DIAG_AGC_TRACE)
+    if ((++s_agc_apply_ctr & 255u) == 0u) {
+        AGC_DIAG_PRINTF(
+            "[AGC-DIAG-3] AGC Apply: gain_shift=%d chip_dc_in=(%d,%d) "
+            "chip_out=(%d,%d)\n",
+            static_cast<int>(pre_agc_.Get_Shift()), static_cast<int>(agc_in_i),
+            static_cast<int>(agc_in_q), static_cast<int>(chip_I),
+            static_cast<int>(chip_Q));
+    }
+#endif
+    apply_holo_lpi_inverse_rx_chip_(chip_I, chip_Q, rx_seq_);
+    if (phase_ == RxPhase::RF_SETTLING) {
+        (void)chip_I;
+        (void)chip_Q;
+        const uint32_t nz =
+            static_cast<uint32_t>(rf_settle_chips_remaining_ > 0);
+        rf_settle_chips_remaining_ -= static_cast<int>(nz);
+        if (rf_settle_chips_remaining_ == 0) {
+            (void)set_phase_(RxPhase::WAIT_SYNC);
+        }
+        return;
+    }
+    if (phase_ == RxPhase::WAIT_SYNC) {
+        if (pre_phase_ == 0) {
+#if defined(HTS_SYNC_USE_MATCHED_FILTER)
+            if (mf_enabled_ && !mf_synced_) {
+                if (mf_feed_chip_(chip_I, chip_Q)) {
+                    mf_synced_ = true;
+                }
+            }
+#endif
+            p0_buf128_I_[p0_chip_count_] = chip_I;
+            p0_buf128_Q_[p0_chip_count_] = chip_Q;
+            ++p0_chip_count_;
+            if (p0_chip_count_ < 192)
+                return;
+#if defined(HTS_DIAG_PRINTF) && defined(HTS_PHASE0_WALSH_BANK)
+            {
+                static int s_fullbuf_count = 0;
+                ++s_fullbuf_count;
+                if (s_fullbuf_count <= 5) {
+                    std::printf(
+                        "[DIAG-FULLBUF] #%d (192 chip reached, about to scan)\n",
+                        s_fullbuf_count);
+                    for (int b = 0; b < 3; ++b) {
+                        int nz = 0;
+                        int mag_max = 0;
+                        for (int i = 0; i < 64; ++i) {
+                            const int mag =
+                                (p0_buf128_I_[b * 64 + i] > 0)
+                                    ? static_cast<int>(p0_buf128_I_[b * 64 + i])
+                                    : -static_cast<int>(
+                                          p0_buf128_I_[b * 64 + i]);
+                            if (mag > 100) {
+                                ++nz;
+                            }
+                            if (mag > mag_max) {
+                                mag_max = mag;
+                            }
+                        }
+                        std::printf("  blk%d: nonzero=%d/64 mag_max=%d\n", b,
+                                    nz, mag_max);
+                    }
+                }
+            }
+#endif
+            phase0_scan_();
+            return;
+        }
+        // ── Phase 1: carry + Walsh-63/0 dual dot ──
+        if (p1_tail_collect_rem_ > 0) {
+            p0_carry_I_[p1_tail_idx_] = chip_I;
+            p0_carry_Q_[p1_tail_idx_] = chip_Q;
+            ++p1_tail_idx_;
+            if (p1_tail_idx_ < p1_tail_collect_rem_)
+                return;
+            p0_carry_count_ = p1_tail_collect_rem_;
+            p1_carry_pending_ = 1;
+            p1_tail_collect_rem_ = 0;
+            p1_tail_idx_ = 0;
+            return;
+        }
+        bool carry_only_full = false;
+        bool p1_rx_in_buf = false;
+        if (buf_idx_ == 0 && p1_carry_pending_) {
+            const int cc = p0_carry_count_;
+            for (int j = 0; j < cc; ++j) {
+                buf_I_[j] = p0_carry_I_[j];
+                buf_Q_[j] = p0_carry_Q_[j];
+            }
+            buf_idx_ = cc;
+            p1_carry_prefix_ = cc;
+            p1_carry_pending_ = 0;
+            if (buf_idx_ == 64) carry_only_full = true;
+        }
+        if (!carry_only_full) {
+            buf_I_[buf_idx_] = chip_I;
+            buf_Q_[buf_idx_] = chip_Q;
+            ++buf_idx_;
+            p1_rx_in_buf = true;
+            if (buf_idx_ < 64) return;
+        }
+        buf_idx_ = 0;
+        std::memcpy(orig_I_, buf_I_, 64 * sizeof(int16_t));
+        std::memcpy(orig_Q_, buf_Q_, 64 * sizeof(int16_t));
+        // [REMOVED Step1] I/Q 클립 경로 제거 — Gaussian noise 에 무효 확정.
+        // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(orig_I_, orig_Q_, 64) — NOP
+#if defined(HTS_PHASE0_WALSH_BANK)
+        // ── Walsh Bank Phase 1: FWHT + dominant_row 매칭 ──
+        int32_t dot63_I = 0, dot63_Q = 0;
+        int32_t dot0_I  = 0, dot0_Q  = 0;
+        alignas(4) int32_t T_I[64];
+        alignas(4) int32_t T_Q[64];
+        for (int j = 0; j < 64; ++j) {
+            T_I[j] = static_cast<int32_t>(orig_I_[j]);
+            T_Q[j] = static_cast<int32_t>(orig_Q_[j]);
+        }
+        fwht_64_complex_inplace_(T_I, T_Q);
+        {
+            const int dr = static_cast<int>(dominant_row_);
+            dot63_I = T_I[dr];
+            dot63_Q = T_Q[dr];
+        }
+        {
+            const uint8_t sym1_row_u = static_cast<uint8_t>(
+                static_cast<unsigned>(dominant_row_) ^
+                static_cast<unsigned>(k_W63_FWHT_ROW));
+            const int sym1_row = static_cast<int>(sym1_row_u);
+            dot0_I = T_I[sym1_row];
+            dot0_Q = T_Q[sym1_row];
+#if defined(HTS_DIAG_PRINTF)
+            static bool s_p1_map_logged = false;
+            if (!s_p1_map_logged) {
+                std::printf("[DIAG-P1-MAP] dominant_row=%u k_W63_ROW=%u sym1_row=%u\n",
+                            static_cast<unsigned>(dominant_row_),
+                            static_cast<unsigned>(k_W63_FWHT_ROW),
+                            static_cast<unsigned>(sym1_row_u));
+                s_p1_map_logged = true;
+            }
+#endif
+        }
+        const int64_t e63_64 = static_cast<int64_t>(dot63_I) * dot63_I
+                             + static_cast<int64_t>(dot63_Q) * dot63_Q;
+        const int64_t e0_64  = static_cast<int64_t>(dot0_I) * dot0_I
+                             + static_cast<int64_t>(dot0_Q) * dot0_Q;
+#elif defined(HTS_TARGET_AMI)
+        // ── AMI: 32-chip × 2 non-coherent ──
+        int32_t dot63a_I = 0, dot63a_Q = 0;
+        int32_t dot63b_I = 0, dot63b_Q = 0;
+        int32_t dot0a_I  = 0, dot0a_Q  = 0;
+        int32_t dot0b_I  = 0, dot0b_Q  = 0;
+        for (int j = 0; j < 32; ++j) {
+            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
+            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
+            dot0a_I += cI;
+            dot0a_Q += cQ;
+            if (k_w63[static_cast<std::size_t>(j)] > 0) {
+                dot63a_I += cI;
+                dot63a_Q += cQ;
+            } else {
+                dot63a_I -= cI;
+                dot63a_Q -= cQ;
+            }
+        }
+        for (int j = 32; j < 64; ++j) {
+            const int32_t cI = static_cast<int32_t>(orig_I_[j]);
+            const int32_t cQ = static_cast<int32_t>(orig_Q_[j]);
+            dot0b_I += cI;
+            dot0b_Q += cQ;
+            if (k_w63[static_cast<std::size_t>(j)] > 0) {
+                dot63b_I += cI;
+                dot63b_Q += cQ;
+            } else {
+                dot63b_I -= cI;
+                dot63b_Q -= cQ;
+            }
+        }
+        const int64_t e63_64 =
+            static_cast<int64_t>(dot63a_I) * dot63a_I
+          + static_cast<int64_t>(dot63a_Q) * dot63a_Q
+          + static_cast<int64_t>(dot63b_I) * dot63b_I
+          + static_cast<int64_t>(dot63b_Q) * dot63b_Q;
+        const int64_t e0_64 =
+            static_cast<int64_t>(dot0a_I) * dot0a_I
+          + static_cast<int64_t>(dot0a_Q) * dot0a_Q
+          + static_cast<int64_t>(dot0b_I) * dot0b_I
+          + static_cast<int64_t>(dot0b_Q) * dot0b_Q;
+        // est 누적용 단일 dot (두 half 합, CFO phase cancel 영향 있음)
+        const int32_t dot63_I = dot63a_I + dot63b_I;
+        const int32_t dot63_Q = dot63a_Q + dot63b_Q;
+#else
+        // ── Stage 2 (PS-LTE): Walsh-domain 매칭 (FWHT + dominant_row) ──
+        int32_t dot63_I = 0, dot63_Q = 0;
+        int32_t dot0_I  = 0, dot0_Q  = 0;
+        alignas(4) int32_t T_I[64];
+        alignas(4) int32_t T_Q[64];
+        for (int j = 0; j < 64; ++j) {
+            T_I[j] = static_cast<int32_t>(orig_I_[j]);
+            T_Q[j] = static_cast<int32_t>(orig_Q_[j]);
+        }
+        fwht_64_complex_inplace_(T_I, T_Q);
+        {

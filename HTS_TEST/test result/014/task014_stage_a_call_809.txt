@@ -1,0 +1,31 @@
+﻿#if defined(HTS_PHASE_H_DIAG)
+                if (diag_this_pkt && (pay_recv_ >= pay_total_) && !force_diag) {
+                    ++s_tensor_rx_pkt_diag;
+                }
+#endif
+            }
+            ++sym_idx_;
+            buf_idx_ = 0;
+            if (pay_recv_ >= pay_total_) {
+                try_decode_();
+            }
+            return;
+        }
+#endif
+        /* IR-HARQ: RV마다 송신 파형이 다르므로 칩 도메인 += 금지.
+           결합은 FEC Decode*_IR 의 ir_state_(LLR)에서만 수행; 수신 칩은 매 심볼
+           덮어쓰기. */
+        std::memcpy(orig_I_, buf_I_, nc * sizeof(int16_t));
+        std::memcpy(orig_Q_, buf_Q_, nc * sizeof(int16_t));
+        {
+            // [TASK-003 DIAG] on_sym_ 클래식 경로: memcpy 직후 buf0
+            static uint32_t s_task003_on_sym_in = 0u;
+            ++s_task003_on_sym_in;
+            if (s_task003_on_sym_in <= 10u) {
+                std::printf(
+                    "[ON-SYM-IN] sym#%u nc=%d buf0_I=%d buf0_Q=%d sym_idx=%d\n",
+                    static_cast<unsigned>(s_task003_on_sym_in), nc,
+                    static_cast<int>(buf_I_[0]),
+                    static_cast<int>(buf_Q_[0]), sym_idx_);
+                std::fflush(stdout);
+            }

@@ -1,0 +1,3 @@
+﻿HTS_FEC_HARQ.cpp:1867:    // ── P0-FIX-004: Polar 경로 위상 독립화 ──
+HTS_V400_Dispatcher_Sync_AMI.cpp:2432:                // ── P0-FIX-002: 위상 독립 템플릿 매칭 ──
+HTS_V400_Dispatcher_Sync_PSLTE.cpp:2753:                // ── P0-FIX-002: 위상 독립 템플릿 매칭 ──
