@@ -395,6 +395,20 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                 }
 #endif  // HTS_USE_PACD
+                {
+                    // [TASK-003 DIAG] 홀로 DATA: PaCD/Apply 이후 buf 첫 칩
+                    static uint32_t s_task003_holo_in = 0u;
+                    ++s_task003_holo_in;
+                    if (s_task003_holo_in <= 10u) {
+                        std::printf(
+                            "[ON-SYM-IN] sym#%u nc=64 buf0_I=%d buf0_Q=%d "
+                            "sym_idx=%d (holo_tensor)\n",
+                            static_cast<unsigned>(s_task003_holo_in),
+                            static_cast<int>(buf_I_[0]),
+                            static_cast<int>(buf_Q_[0]), sym_idx_);
+                        std::fflush(stdout);
+                    }
+                }
 #if defined(HTS_PHASE_H_DIAG)
                 static uint32_t s_tensor_rx_pkt_diag = 0u;
                 const bool force_diag = (g_phase_h_diag_force != 0) &&
@@ -471,6 +485,22 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                                             static_cast<int32_t>(buf_Q_[c]);
                         rx_soft_inner[c] = static_cast<int16_t>(sum / 2);
                     }
+                    {
+                        // [TASK-003 DIAG] (I+Q)/2 직후 + est/derot (홀로 레거시 경로)
+                        static uint32_t s_task003_holo_derot = 0u;
+                        ++s_task003_holo_derot;
+                        if (s_task003_holo_derot <= 10u) {
+                            std::printf(
+                                "[ON-SYM-DEROT] sym#%u rx_soft0=%d est_I=%d est_Q=%d "
+                                "derot_shift=%d (holo_tensor)\n",
+                                static_cast<unsigned>(s_task003_holo_derot),
+                                static_cast<int>(rx_soft_inner[0]),
+                                static_cast<int>(est_I_),
+                                static_cast<int>(est_Q_),
+                                static_cast<int>(derot_shift_));
+                            std::fflush(stdout);
+                        }
+                    }
 #if defined(HTS_T6_BUF_DUMP_DIAG)
                     {
                         static uint32_t s_rxsoft_dump_count_inner = 0u;
@@ -495,6 +525,21 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         rx_soft_inner, holo_tensor_profile_.chip_count,
                         0xFFFFFFFFFFFFFFFFull, holo_tensor_rx_bits_,
                         holo_tensor_profile_.block_bits);
+                    {
+                        // [TASK-003 DIAG] Decode_Block 직후 비트0 (홀로 레거시 경로)
+                        static uint32_t s_task003_holo_walsh = 0u;
+                        ++s_task003_holo_walsh;
+                        if (s_task003_holo_walsh <= 10u) {
+                            std::printf(
+                                "[ON-SYM-WALSH] sym#%u dec_ok=%u walsh_bit0=%d "
+                                "sym_idx=%d (holo_tensor)\n",
+                                static_cast<unsigned>(s_task003_holo_walsh),
+                                static_cast<unsigned>(dec_ok),
+                                static_cast<int>(holo_tensor_rx_bits_[0]),
+                                sym_idx_);
+                            std::fflush(stdout);
+                        }
+                    }
                     if (dec_ok == HTS_Holo_Tensor_4D_RX::SECURE_TRUE) {
                         const uint16_t Kblk = holo_tensor_profile_.block_bits;
                         for (uint16_t k = 0u; k < Kblk; ++k) {
@@ -771,6 +816,19 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
            덮어쓰기. */
         std::memcpy(orig_I_, buf_I_, nc * sizeof(int16_t));
         std::memcpy(orig_Q_, buf_Q_, nc * sizeof(int16_t));
+        {
+            // [TASK-003 DIAG] on_sym_ 클래식 경로: memcpy 직후 buf0
+            static uint32_t s_task003_on_sym_in = 0u;
+            ++s_task003_on_sym_in;
+            if (s_task003_on_sym_in <= 10u) {
+                std::printf(
+                    "[ON-SYM-IN] sym#%u nc=%d buf0_I=%d buf0_Q=%d sym_idx=%d\n",
+                    static_cast<unsigned>(s_task003_on_sym_in), nc,
+                    static_cast<int>(buf_I_[0]),
+                    static_cast<int>(buf_Q_[0]), sym_idx_);
+                std::fflush(stdout);
+            }
+        }
         // [Walsh_Row_Permuter] TX: enc = raw ^ mask 후 walsh_enc(enc).
         //  RX: chip[j] *= (−1)^{popc(mask∧j)} — Walsh-Hadamard 행 XOR 성질로
         //  FEC(Feed*) 가 기대하는 raw 도메인 칩으로 복원 (mask=0 이면 항등).
@@ -801,6 +859,22 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     static_cast<int32_t>(buf_Q_[c]) * sgn);
             }
         }
+        {
+            // [TASK-003 DIAG] permuter 이후 + est/derot 스냅샷
+            static uint32_t s_task003_on_sym_derot = 0u;
+            ++s_task003_on_sym_derot;
+            if (s_task003_on_sym_derot <= 10u) {
+                std::printf(
+                    "[ON-SYM-DEROT] sym#%u buf0_I=%d buf0_Q=%d est_I=%d est_Q=%d "
+                    "derot_shift=%d\n",
+                    static_cast<unsigned>(s_task003_on_sym_derot),
+                    static_cast<int>(buf_I_[0]),
+                    static_cast<int>(buf_Q_[0]),
+                    static_cast<int>(est_I_), static_cast<int>(est_Q_),
+                    static_cast<int>(derot_shift_));
+                std::fflush(stdout);
+            }
+        }
         // [REMOVED Step2] cw_cancel_64_(buf_I_, buf_Q_) — NOP 확정
         // [REMOVED Step3] if (ajc_enabled_) ajc_.Process(...) — 학습 구조 불일치로 NOP
         // [REMOVED Step1] soft_clip_iq — Gaussian noise 에 무효 확정
@@ -819,6 +893,21 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     fwht_raw(wQ, nc);
                     const int32_t pk = fwht_post_peak_max_abs_(wI, wQ, nc);
                     const int sh = fwht_int16_store_downshift_(pk);
+                    {
+                        // [TASK-003 DIAG] FWHT 직후 (nc=16 IR)
+                        static uint32_t s_task003_walsh16 = 0u;
+                        if (s_task003_walsh16 < 10u) {
+                            ++s_task003_walsh16;
+                            std::printf(
+                                "[ON-SYM-WALSH] sym#%u nc=16 ir=1 wI0=%d wQ0=%d "
+                                "pk=%d sh=%d sym_idx=%d\n",
+                                static_cast<unsigned>(s_task003_walsh16),
+                                static_cast<int>(wI[0]), static_cast<int>(wQ[0]),
+                                static_cast<int>(pk), static_cast<int>(sh),
+                                sym_idx_);
+                            std::fflush(stdout);
+                        }
+                    }
 #if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
                     fwht_post_shift_hist_record(sh);
 #endif
@@ -830,6 +919,20 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                     }
                 } else {
                     FEC_HARQ::Feed16_1sym(rx_.m16, buf_I_, buf_Q_, sym_idx_);
+                    {
+                        // [TASK-003 DIAG] Feed16 직후 (nc=16 비-IR)
+                        static uint32_t s_task003_walsh16nr = 0u;
+                        if (s_task003_walsh16nr < 10u) {
+                            ++s_task003_walsh16nr;
+                            std::printf(
+                                "[ON-SYM-WALSH] sym#%u nc=16 ir=0 buf0_I=%d buf0_Q=%d "
+                                "sym_idx=%d\n",
+                                static_cast<unsigned>(s_task003_walsh16nr),
+                                static_cast<int>(buf_I_[0]),
+                                static_cast<int>(buf_Q_[0]), sym_idx_);
+                            std::fflush(stdout);
+                        }
+                    }
                 }
                 for (int c = 0; c < nc; ++c) {
                     const uint8_t hiI =
@@ -929,6 +1032,23 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                             const int32_t pk =
                                 fwht_post_peak_max_abs_(wI, wQ, nc);
                             const int sh = fwht_int16_store_downshift_(pk);
+                            {
+                                // [TASK-003 DIAG] FWHT 직후 (nc=64 IR)
+                                static uint32_t s_task003_walsh64ir = 0u;
+                                if (s_task003_walsh64ir < 10u) {
+                                    ++s_task003_walsh64ir;
+                                    std::printf(
+                                        "[ON-SYM-WALSH] sym#%u nc=64 ir=1 wI0=%d "
+                                        "wQ0=%d pk=%d sh=%d sym_idx=%d\n",
+                                        static_cast<unsigned>(
+                                            s_task003_walsh64ir),
+                                        static_cast<int>(wI[0]),
+                                        static_cast<int>(wQ[0]),
+                                        static_cast<int>(pk),
+                                        static_cast<int>(sh), sym_idx_);
+                                    std::fflush(stdout);
+                                }
+                            }
 #if defined(HTS_DIAG_FWHT_INTERNAL) || defined(HTS_DIAG_AGC_TRACE)
                             fwht_post_shift_hist_record(sh);
 #endif
@@ -957,6 +1077,21 @@ void HTS_V400_Dispatcher::on_sym_() noexcept {
                         for (int c = 0; c < nc; ++c) {
                             harq_Q_[sym_idx_][c] +=
                                 static_cast<int32_t>(buf_Q_[c]);
+                        }
+                        {
+                            // [TASK-003 DIAG] HARQ 누적 직후 (nc=64 비-IR)
+                            static uint32_t s_task003_walsh64nr = 0u;
+                            if (s_task003_walsh64nr < 10u) {
+                                ++s_task003_walsh64nr;
+                                std::printf(
+                                    "[ON-SYM-WALSH] sym#%u nc=64 ir=0 accI0=%d "
+                                    "buf0_I=%d sym_idx=%d\n",
+                                    static_cast<unsigned>(
+                                        s_task003_walsh64nr),
+                                    static_cast<int>(rx_.m64_I.aI[sym_idx_][0]),
+                                    static_cast<int>(buf_I_[0]), sym_idx_);
+                                std::fflush(stdout);
+                            }
                         }
                         for (int c = 0; c < nc; ++c) {
                             const uint8_t hiI = static_cast<uint8_t>(
