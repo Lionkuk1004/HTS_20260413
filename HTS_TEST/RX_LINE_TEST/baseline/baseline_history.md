@@ -7,3 +7,7 @@
 | phase1_pslte | 2026-04-29 | 74b4174 | S_CFO_SWEEP_PSLTE | TASK-016a fs_chip_hz 1M |
 | phase1_ami_v2 | 2026-04-29 | — | Release_AMI, Sync_AMI.cpp | TASK-016b baseline 번들과 동일 커밋; JSON은 phase1_ami 와 바이트 동일(fc) |
 | phase1_pslte_v2 | 2026-04-29 | — | Release_PSLTE, Sync_PSLTE.cpp | TASK-016b baseline 번들과 동일 커밋; JSON은 phase1_pslte 와 바이트 동일(fc) |
+| phase1_AMI_iso | 2026-04-29 | — | S_DEBUG_ISO_AMI | TASK-016c guard 256, CFO×SNR, random phase/offset OFF |
+| phase1_AMI_prod | 2026-04-29 | — | S_CFO_SWEEP_AMI | TASK-016c 양산 변동 ON (016b 대비 지표 변화) |
+| phase1_PSLTE_iso | 2026-04-29 | — | S_DEBUG_ISO_PSLTE | TASK-016c debug-iso |
+| phase1_PSLTE_prod | 2026-04-29 | — | S_CFO_SWEEP_PSLTE | TASK-016c production |
