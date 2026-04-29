@@ -1,6 +1,5 @@
 /// @file  HTS_Holo_Tensor_4D_TX.cpp
 #include "HTS_Holo_Tensor_4D_TX.h"
-#include "HTS_Holo_Tensor_4D_Kernel.h"
 #include "HTS_Arm_Irq_Mask_Guard.h"
 #include "HTS_Secure_Memory.h"
 #include <new>
@@ -56,6 +55,22 @@ namespace ProtectedEngine {
             (void)0;
 #endif
         }
+
+        /// [TASK-022] HTS_Holo_Tensor_4D_Kernel 제거: PRNG 기반 행/열 순열 비활성(항등).
+        static inline void holo4d_task022_identity_params(
+            uint16_t* row_workspace,
+            uint16_t* col_perm,
+            uint16_t K,
+            uint16_t N) noexcept
+        {
+            if (N == 0u || N > HOLO_CHIP_COUNT) { return; }
+            if (K == 0u || K > N) { return; }
+            if (row_workspace == nullptr || col_perm == nullptr) { return; }
+            for (uint16_t j = 0u; j < N; ++j) {
+                row_workspace[static_cast<size_t>(j)] = j;
+                col_perm[static_cast<size_t>(j)] = j;
+            }
+        }
     } // namespace
 
     struct HTS_Holo_Tensor_4D_TX::Impl {
@@ -104,12 +119,10 @@ namespace ProtectedEngine {
             const uint16_t N_eff = static_cast<uint16_t>(N32e * valid);
             const uint16_t K_eff = static_cast<uint16_t>(K32e * valid);
 
-            Holo4D_Generate_Partitioned_Params(
-                o.master_seed_, o.time_slot_,
-                scratch_rows, scratch_perm, K_eff, N_eff, L);
+            holo4d_task022_identity_params(
+                scratch_rows, scratch_perm, K_eff, N_eff);
 
-            const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
-                o.master_seed_, o.time_slot_);
+            const uint64_t mask_bits = 0ull; /* [TASK-022] phase mask off */
 
 #if defined(HTS_CFO_V5A_S5H_STEPD_TX)
             std::printf(
@@ -151,13 +164,13 @@ namespace ProtectedEngine {
                 const int32_t ms = 1 - (static_cast<int32_t>(
                     (mask_bits >> static_cast<uint64_t>(i)) & 1ull) << 1);
                 const uint16_t phys = scratch_perm[static_cast<size_t>(i)];
-                const uint32_t col_i = static_cast<uint32_t>(i);
                 int32_t sumL = 0;
                 for (uint8_t layer = 0u; layer < L; ++layer) {
                     const uint16_t row_offset = static_cast<uint16_t>(
                         static_cast<uint32_t>(layer) * K32e);
                     const uint16_t* row_sel =
                         &scratch_rows[static_cast<size_t>(row_offset)];
+                    (void)row_sel; /* [TASK-022] Walsh off, row index unused */
                     int32_t chip_acc = 0;
                     uint16_t k = 0u;
                     for (; k + 3u < K_eff; k += 4u) {
@@ -169,28 +182,10 @@ namespace ProtectedEngine {
                             static_cast<int32_t>(data[static_cast<size_t>(k + 2u)]);
                         const int32_t dk3 =
                             static_cast<int32_t>(data[static_cast<size_t>(k + 3u)]);
-                        const uint32_t rk0 =
-                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]);
-                        const uint32_t rk1 =
-                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k + 1u)]);
-                        const uint32_t rk2 =
-                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k + 2u)]);
-                        const uint32_t rk3 =
-                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k + 3u)]);
-                        const int32_t w0 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(rk0, col_i));
-                        const int32_t w1 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(rk1, col_i));
-                        const int32_t w2 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(rk2, col_i));
-                        const int32_t w3 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(rk3, col_i));
-                        chip_acc += dk0 * w0 + dk1 * w1 + dk2 * w2 + dk3 * w3;
+                        chip_acc += dk0 * 0 + dk1 * 0 + dk2 * 0 + dk3 * 0;
                     }
                     for (; k < K_eff; ++k) {
-                        const int8_t w = Holo4D_Walsh_Code(
-                            static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]),
-                            col_i);
+                        const int8_t w = 0; /* [TASK-022] Walsh off */
                         chip_acc += static_cast<int32_t>(data[static_cast<size_t>(k)]) *
                             static_cast<int32_t>(w);
                     }
@@ -294,10 +289,7 @@ namespace ProtectedEngine {
             im->accum[static_cast<size_t>(i)] = 0;
         }
         time_slot_ = 0u;
-        if (Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY) !=
-            SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::READY; /* [TASK-022] CFI stub */
         return SECURE_TRUE;
     }
 
@@ -371,12 +363,9 @@ namespace ProtectedEngine {
         if (!g.locked) { return SECURE_FALSE; }
         if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
         Impl* im = reinterpret_cast<Impl*>(impl_buf_);
-        if (Holo4D_Cfi_Transition(
-            im->state, im->cfi_violation_count, HoloState::ENCODING) != SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::ENCODING; /* [TASK-022] CFI stub */
         const uint32_t ok = im->Encode(*this, data_bits, K, output_chips, N);
-        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        im->state = HoloState::READY;
         if (ok == SECURE_TRUE) {
             ++im->encode_count;
 #if defined(HTS_CFO_V5A_S5H_ENCODE_DIAG)

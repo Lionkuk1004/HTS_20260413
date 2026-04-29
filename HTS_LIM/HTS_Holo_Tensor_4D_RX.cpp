@@ -1,6 +1,5 @@
 /// @file  HTS_Holo_Tensor_4D_RX.cpp
 #include "HTS_Holo_Tensor_4D_RX.h"
-#include "HTS_Holo_Tensor_4D_Kernel.h"
 #include "HTS_Atan2_Q16.h"
 #include "HTS_Arm_Irq_Mask_Guard.h"
 #include "HTS_Secure_Memory.h"
@@ -55,6 +54,22 @@ namespace ProtectedEngine {
 #else
             (void)0;
 #endif
+        }
+
+        /// [TASK-022] HTS_Holo_Tensor_4D_Kernel 제거: PRNG 기반 행/열 순열 비활성(항등).
+        static inline void holo4d_task022_identity_params(
+            uint16_t* row_workspace,
+            uint16_t* col_perm,
+            uint16_t K,
+            uint16_t N) noexcept
+        {
+            if (N == 0u || N > HOLO_CHIP_COUNT) { return; }
+            if (K == 0u || K > N) { return; }
+            if (row_workspace == nullptr || col_perm == nullptr) { return; }
+            for (uint16_t j = 0u; j < N; ++j) {
+                row_workspace[static_cast<size_t>(j)] = j;
+                col_perm[static_cast<size_t>(j)] = j;
+            }
         }
     } // namespace
 
@@ -129,12 +144,10 @@ namespace ProtectedEngine {
             }
 #endif
 
-            Holo4D_Generate_Partitioned_Params(
-                o.master_seed_, o.time_slot_,
-                scratch_rows, scratch_perm, K_eff, N_eff, L);
+            holo4d_task022_identity_params(
+                scratch_rows, scratch_perm, K_eff, N_eff);
 
-            const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
-                o.master_seed_, o.time_slot_);
+            const uint64_t mask_bits = 0ull; /* [TASK-022] phase mask off */
 
 #if defined(HTS_CFO_V5A_S5H_STEPD_RX)
             std::printf(
@@ -211,21 +224,14 @@ namespace ProtectedEngine {
                         &scratch_rows[static_cast<size_t>(row_offset)];
                     const uint32_t row_k =
                         static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]);
+                    (void)row_k; /* [TASK-022] Walsh stubbed */
                     int32_t acc = 0;
                     uint16_t ii = 0u;
                     for (; ii + 3u < N_eff; ii += 4u) {
-                        const uint32_t i0 = static_cast<uint32_t>(ii);
-                        const uint32_t i1 = static_cast<uint32_t>(ii + 1u);
-                        const uint32_t i2 = static_cast<uint32_t>(ii + 2u);
-                        const uint32_t i3 = static_cast<uint32_t>(ii + 3u);
-                        const int32_t w0 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i0));
-                        const int32_t w1 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i1));
-                        const int32_t w2 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i2));
-                        const int32_t w3 =
-                            static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i3));
+                        const int32_t w0 = 0; /* [TASK-022] Walsh off */
+                        const int32_t w1 = 0;
+                        const int32_t w2 = 0;
+                        const int32_t w3 = 0;
                         const int32_t r0 =
                             static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii)]);
                         const int32_t r1 =
@@ -237,8 +243,7 @@ namespace ProtectedEngine {
                         acc += r0 * w0 + r1 * w1 + r2 * w2 + r3 * w3;
                     }
                     for (; ii < N_eff; ++ii) {
-                        const int8_t w = Holo4D_Walsh_Code(
-                            row_k, static_cast<uint32_t>(ii));
+                        const int8_t w = 0; /* [TASK-022] Walsh off */
                         acc += static_cast<int32_t>(scratch_rx[static_cast<size_t>(ii)]) *
                             static_cast<int32_t>(w);
                     }
@@ -381,12 +386,10 @@ namespace ProtectedEngine {
         const uint16_t N_eff = static_cast<uint16_t>(N32d * valid);
         const uint16_t K_eff = static_cast<uint16_t>(K32d * valid);
 
-        Holo4D_Generate_Partitioned_Params(
-            o.master_seed_, o.time_slot_,
-            im->scratch_rows, im->scratch_perm, K_eff, N_eff, L);
+        holo4d_task022_identity_params(
+            im->scratch_rows, im->scratch_perm, K_eff, N_eff);
 
-        const uint64_t mask_bits = Holo4D_Generate_Phase_Mask(
-            o.master_seed_, o.time_slot_);
+        const uint64_t mask_bits = 0ull; /* [TASK-022] phase mask off */
 
 #if defined(HTS_CFO_V5A_S5H_STEPD_RX)
         std::printf(
@@ -438,21 +441,14 @@ namespace ProtectedEngine {
                     &im->scratch_rows[static_cast<size_t>(row_offset)];
                 const uint32_t row_k =
                     static_cast<uint32_t>(row_sel[static_cast<size_t>(k)]);
+                (void)row_k; /* [TASK-022] Walsh stubbed */
                 int32_t acc = 0;
                 uint16_t ii = 0u;
                 for (; ii + 3u < N_eff; ii += 4u) {
-                    const uint32_t i0 = static_cast<uint32_t>(ii);
-                    const uint32_t i1 = static_cast<uint32_t>(ii + 1u);
-                    const uint32_t i2 = static_cast<uint32_t>(ii + 2u);
-                    const uint32_t i3 = static_cast<uint32_t>(ii + 3u);
-                    const int32_t w0 =
-                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i0));
-                    const int32_t w1 =
-                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i1));
-                    const int32_t w2 =
-                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i2));
-                    const int32_t w3 =
-                        static_cast<int32_t>(Holo4D_Walsh_Code(row_k, i3));
+                    const int32_t w0 = 0; /* [TASK-022] Walsh off */
+                    const int32_t w1 = 0;
+                    const int32_t w2 = 0;
+                    const int32_t w3 = 0;
                     const int32_t r0 =
                         static_cast<int32_t>(im->scratch_rx[static_cast<size_t>(ii)]);
                     const int32_t r1 =
@@ -464,8 +460,7 @@ namespace ProtectedEngine {
                     acc += r0 * w0 + r1 * w1 + r2 * w2 + r3 * w3;
                 }
                 for (; ii < N_eff; ++ii) {
-                    const int8_t w = Holo4D_Walsh_Code(
-                        row_k, static_cast<uint32_t>(ii));
+                    const int8_t w = 0; /* [TASK-022] Walsh off */
                     acc += static_cast<int32_t>(
                         im->scratch_rx[static_cast<size_t>(ii)]) *
                         static_cast<int32_t>(w);
@@ -566,10 +561,7 @@ namespace ProtectedEngine {
             im->accum[static_cast<size_t>(i)] = 0;
         }
         time_slot_ = 0u;
-        if (Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY) !=
-            SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::READY; /* [TASK-022] CFI stub */
         return SECURE_TRUE;
     }
 
@@ -644,13 +636,10 @@ namespace ProtectedEngine {
         if (!g.locked) { return SECURE_FALSE; }
         if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
         Impl* im = reinterpret_cast<Impl*>(impl_buf_);
-        if (Holo4D_Cfi_Transition(
-            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::DECODING; /* [TASK-022] CFI stub */
         const uint32_t ok = im->Decode(
             *this, rx_chips, N, valid_mask, output_bits, K);
-        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        im->state = HoloState::READY;
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;
     }
@@ -670,14 +659,11 @@ namespace ProtectedEngine {
         if (!g.locked) { return SECURE_FALSE; }
         if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
         Impl* im = reinterpret_cast<Impl*>(impl_buf_);
-        if (Holo4D_Cfi_Transition(
-            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::DECODING; /* [TASK-022] CFI stub */
         const uint32_t ok = detail_holo4d_decode_two_candidates(
             *this, im, rx_I, rx_Q, N, valid_mask, output_bits_cand0, output_bits_cand1,
             K, nullptr);
-        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        im->state = HoloState::READY;
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;
     }
@@ -699,14 +685,11 @@ namespace ProtectedEngine {
         if (!g.locked) { return SECURE_FALSE; }
         if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
         Impl* im = reinterpret_cast<Impl*>(impl_buf_);
-        if (Holo4D_Cfi_Transition(
-            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::DECODING; /* [TASK-022] CFI stub */
         const uint32_t ok = detail_holo4d_decode_two_candidates(
             *this, im, rx_I, rx_Q, N, valid_mask, output_bits_cand0, output_bits_cand1,
             K, output_metric);
-        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        im->state = HoloState::READY;
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;
     }
@@ -724,16 +707,13 @@ namespace ProtectedEngine {
         if (!g.locked) { return SECURE_FALSE; }
         if (!initialized_.load(std::memory_order_acquire)) { return SECURE_FALSE; }
         Impl* im = reinterpret_cast<Impl*>(impl_buf_);
-        if (Holo4D_Cfi_Transition(
-            im->state, im->cfi_violation_count, HoloState::DECODING) != SECURE_TRUE) {
-            return SECURE_FALSE;
-        }
+        im->state = HoloState::DECODING; /* [TASK-022] CFI stub */
         int8_t b0[HOLO_MAX_BLOCK_BITS];
         int8_t b1[HOLO_MAX_BLOCK_BITS];
         const uint32_t ok = detail_holo4d_decode_two_candidates(
             *this, im, rx_I, rx_Q, N, valid_mask, b0, b1, K, nullptr);
         if (ok != SECURE_TRUE) {
-            Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+            im->state = HoloState::READY;
             return ok;
         }
         uint32_t mask_use_cand1 = 0u;
@@ -759,7 +739,7 @@ namespace ProtectedEngine {
         }
         SecureMemory::secureWipe(static_cast<void*>(b0), sizeof(b0));
         SecureMemory::secureWipe(static_cast<void*>(b1), sizeof(b1));
-        Holo4D_Cfi_Transition(im->state, im->cfi_violation_count, HoloState::READY);
+        im->state = HoloState::READY;
         if (ok == SECURE_TRUE) { ++im->decode_count; }
         return ok;
     }
