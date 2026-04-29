@@ -967,6 +967,27 @@ void CFO_V5a::Init() noexcept {
 #endif
     runtime_enabled_ = (HTS_CFO_V5A_ENABLE != 0);
     Set_Apply_Cfo(0);
+
+    // [TASK-017 Stage A] one-shot coarse grid (pass-0, cfo_estimate=0 동일)
+    {
+        static bool s_task017_dump_done = false;
+        if (!s_task017_dump_done) {
+            s_task017_dump_done           = true;
+            const int32_t coarse_center = 0;
+            const int32_t coarse_start  = coarse_center - kCfoRangeHz;
+            std::printf(
+                "[TASK017-COARSE-BANK] range_hz=%d step=%d banks=%d\n",
+                static_cast<int>(kCfoRangeHz),
+                static_cast<int>(kCfoCoarseStep),
+                static_cast<int>(kCfoCoarseBanks));
+            for (int i = 0; i < kCfoCoarseBanks; ++i) {
+                const int32_t hz = coarse_start + i * kCfoCoarseStep;
+                std::printf("[TASK017-BANK] idx=%d hz=%d\n", i,
+                            static_cast<int>(hz));
+            }
+            std::fflush(stdout);
+        }
+    }
 }
 
 bool CFO_V5a::IsApplyAllowed() const noexcept {

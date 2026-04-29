@@ -1,0 +1,42 @@
+﻿D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1155:        int64_t coarse_energies[kCfoCoarseBanks]{};
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1165:            const int mid_b = kCfoCoarseBanks / 2;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1167:            cb_cfo = coarse_start + mid_b * kCfoCoarseStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1169:            for (int b = 0; b < kCfoCoarseBanks; ++b) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1174:        for (int b = 0; b < kCfoCoarseBanks; ++b) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1175:            const int32_t cfo_total = coarse_start + b * kCfoCoarseStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1204:                for (int b = 0; b < kCfoCoarseBanks; ++b) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1205:                    const int32_t cfo_b = coarse_start + b * kCfoCoarseStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1224:            for (int b = 0; b < kCfoCoarseBanks; ++b) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1225:                const int32_t cfo_b = coarse_start + b * kCfoCoarseStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1249:                for (int b = 0; b < kCfoCoarseBanks; ++b) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1250:                    const int32_t cfo_b = coarse_start + b * kCfoCoarseStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1262:        if (cb_best_idx > 0 && cb_best_idx < (kCfoCoarseBanks - 1)) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1286:        if (cb_best_idx <= 0 || cb_best_idx >= (kCfoCoarseBanks - 1)) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1306:            cb_cfo + q15_mul_hz_round(coarse_offset_q15, kCfoCoarseStep);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1313:            cb_refined - (kCfoFineBanks / 2) * kCfoFineStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1317:        fine_best_idx = kCfoFineBanks / 2;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1320:        for (int f = 0; f < 32 && f < kCfoFineBanks; ++f) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1324:        for (int f = 0; f < kCfoFineBanks; ++f) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1325:            const int32_t cfo = fine_start + f * kCfoFineStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1355:                constexpr int kF = (kCfoFineBanks < 32) ? kCfoFineBanks : 32;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1357:                    const int32_t cfo_f = fine_start + f * kCfoFineStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1376:            constexpr int kF = (kCfoFineBanks < 32) ? kCfoFineBanks : 32;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1378:                const int32_t cfo_f = fine_start + f * kCfoFineStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1402:                constexpr int kF = (kCfoFineBanks < 32) ? kCfoFineBanks : 32;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1404:                    const int32_t cfo_f = fine_start + f * kCfoFineStep;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1416:        if (fine_best_idx > 0 && fine_best_idx < (kCfoFineBanks - 1)) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1439:        if (fine_best_idx <= 0 || fine_best_idx >= (kCfoFineBanks - 1)) {
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.cpp:1459:            best_cfo + q15_mul_hz_round(fine_offset_q15, kCfoFineStep);
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:23:#ifndef HTS_CFO_RANGE_HZ
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:24:#define HTS_CFO_RANGE_HZ 12000
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:27:#ifndef HTS_CFO_COARSE_STEP
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:28:#define HTS_CFO_COARSE_STEP 3000
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:43:inline constexpr int kCfoRangeHz = HTS_CFO_RANGE_HZ;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:44:inline constexpr int kCfoCoarseStep = HTS_CFO_COARSE_STEP;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:45:inline constexpr int kCfoFineStep = HTS_CFO_FINE_STEP;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:46:inline constexpr int kCfoFineBanks = HTS_CFO_FINE_BANKS;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:48:inline constexpr int kCfoCoarseBanks = (2 * kCfoRangeHz / kCfoCoarseStep) + 1;
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:58:static_assert(kCfoCoarseBanks >= 3, "Coarse bank count too small");
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:59:static_assert(kCfoCoarseBanks <= 64, "Coarse bank count too large");
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:60:static_assert(kCfoFineBanks >= 3, "Fine bank count too small");
+D:\HTS_ARM11_Firmware\HTS_LIM\HTS_LIM\HTS_CFO_V5a.hpp:61:static_assert(kCfoFineBanks <= 32, "Fine bank count too large");
